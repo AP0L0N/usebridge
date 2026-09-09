@@ -25,6 +25,45 @@ Bearer token auth on `/api/*`. CEO personal access token is created by `BridgeAp
 
 ```
 Authorization: Bearer <token>
+Accept: application/json
+Content-Type: application/json
+```
+
+Base URL (live): `https://bridge.tilenpoje.eu`
+
+Token lives in `.bridge-deploy-secrets` as `BRIDGE_API_TOKEN` (server: `/var/www/bridge/.bridge-deploy-secrets`) — never commit or paste into chat.
+
+### Example: POST status update
+
+```bash
+# token from secrets file — do not echo it into logs/chat
+TOKEN=$(sed -n 's/^BRIDGE_API_TOKEN=//p' .bridge-deploy-secrets)
+
+curl -sS -X POST "https://bridge.tilenpoje.eu/api/status-updates" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "proj-concierge-avant",
+    "agent_id": "agent-william",
+    "body": "Reviewed write path — status history looks good."
+  }'
+```
+
+Seed IDs: projects `proj-merkwell`, `proj-concierge-avant`; agents include `agent-william`, `agent-anatoly`, `agent-janice`, `agent-tommy`, `agent-shodan`.
+
+### Example: create CEO queue item
+
+```bash
+curl -sS -X POST "https://bridge.tilenpoje.eu/api/ceo-queue-items" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Concierge needsDecision still open — needs Tilen call.",
+    "suggested_action": "Approve or reject phase-2 scope freeze.",
+    "project_id": "proj-concierge-avant"
+  }'
 ```
 
 | Method | Path | Notes |
@@ -75,7 +114,7 @@ DB_PASSWORD=...
 
 ## Deploy note
 
-Live DocumentRoot will be `/var/www/bridge/public` (currently static `/var/www/bridge/dist`). Parent agent handles Apache/certbot — do not deploy from this conversion alone.
+Live DocumentRoot: `/var/www/bridge/public` on Xerxes (`https://bridge.tilenpoje.eu`).
 
 ## Tests / build
 
