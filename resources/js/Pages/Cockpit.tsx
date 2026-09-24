@@ -1,6 +1,7 @@
 import { FormEvent } from 'react';
 import { Link, useForm } from '@inertiajs/react';
 import { HealthPill } from '../Components/HealthPill';
+import { MarkdownBody } from '../Components/MarkdownBody';
 import { AppShell } from '../Layouts/AppShell';
 
 type Project = {
@@ -199,7 +200,7 @@ export default function Cockpit({
                       <div className="update-meta">
                         {u.agentName} · {u.createdAt ?? '—'}
                       </div>
-                      {u.body}
+                      <MarkdownBody content={u.body} />
                     </li>
                   ))}
                 </ul>
