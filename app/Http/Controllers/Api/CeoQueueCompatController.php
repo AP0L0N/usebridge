@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  * r0 /api/ceo-queue-items kept working for agents (they post here in practice).
  * In r1 a project queue item IS a Required input waiting on Tilen:
  *   POST            -> open input (text = suggested_action), id "in-q-{ceoId}"
- *   POST {id}/dismiss -> input marked done (done_by Tilen)
+ *   POST {id}/dismiss -> input marked done (resolved_by tilen)
  *   POST {id}/assign  -> input now waiting on that agent
  * Items without project_id have nowhere to show in r1 -> 422.
  */
@@ -38,7 +38,7 @@ class CeoQueueCompatController extends Controller
             'project_id' => $i->project_id,
             'reason' => $i->text,
             'suggested_action' => $i->text,
-            'status' => $i->done_at ? 'dismissed' : ($i->waiting_on === 'Tilen' ? 'open' : 'assigned'),
+            'status' => $i->resolved_at ? 'dismissed' : ($i->waiting_on === 'Tilen' ? 'open' : 'assigned'),
             'waiting_on' => $i->waiting_on,
             'surfaced_at' => $i->since->toDateString(),
         ];
@@ -77,8 +77,8 @@ class CeoQueueCompatController extends Controller
             'text' => mb_substr($data['suggested_action'] ?: $data['reason'], 0, 2000),
             'waiting_on' => ($data['status'] ?? 'open') === 'assigned' && $agent ? $agent : 'Tilen',
             'since' => isset($data['surfaced_at']) ? Carbon::parse($data['surfaced_at']) : $now,
-            'done_at' => ($data['status'] ?? null) === 'dismissed' ? $now : null,
-            'done_by' => ($data['status'] ?? null) === 'dismissed' ? 'Tilen' : null,
+            'resolved_at' => ($data['status'] ?? null) === 'dismissed' ? $now : null,
+            'resolved_by' => ($data['status'] ?? null) === 'dismissed' ? 'tilen' : null,
         ]);
 
         return response()->json(['data' => $this->present($input)], 201);
@@ -87,7 +87,7 @@ class CeoQueueCompatController extends Controller
     public function dismiss(string $id): JsonResponse
     {
         $i = $this->find($id);
-        $i->update(['done_at' => $i->done_at ?? Carbon::now(), 'done_by' => $i->done_by ?? 'Tilen']);
+        $i->update(['resolved_at' => $i->resolved_at ?? Carbon::now(), 'resolved_by' => $i->resolved_by ?? 'tilen']);
 
         return response()->json(['data' => $this->present($i->fresh())]);
     }
@@ -96,7 +96,7 @@ class CeoQueueCompatController extends Controller
     {
         $data = $request->validate(['agent_id' => ['required', 'string', 'exists:agents,id']]);
         $i = $this->find($id);
-        $i->update(['waiting_on' => Agent::query()->whereKey($data['agent_id'])->value('name') ?? $data['agent_id'], 'done_at' => null, 'done_by' => null]);
+        $i->update(['waiting_on' => Agent::query()->whereKey($data['agent_id'])->value('name') ?? $data['agent_id'], 'resolved_at' => null, 'resolved_by' => null]);
 
         return response()->json(['data' => $this->present($i->fresh())]);
     }

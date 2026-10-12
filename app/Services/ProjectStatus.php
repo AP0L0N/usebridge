@@ -48,7 +48,7 @@ class ProjectStatus
             return ['status' => 'archived', 'level' => null, 'ageDays' => null];
         }
         $oldest = $project->requiredInputs
-            ->filter(fn (RequiredInput $i) => $i->done_at === null)
+            ->filter(fn (RequiredInput $i) => $i->resolved_at === null)
             ->sortBy(fn (RequiredInput $i) => $i->since->getTimestamp())
             ->first();
         if (! $oldest) {
@@ -96,15 +96,28 @@ class ProjectStatus
             'reopened' => self::isReopened($project, $now),
             'latestLine' => self::firstLine($latest?->body),
             'lastUpdatedAt' => $lastAt?->toIso8601String(),
-            'openInputs' => $project->requiredInputs->whereNull('done_at')->count(),
+            'openInputs' => $project->requiredInputs->whereNull('resolved_at')->count(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),
         ];
     }
 
+    /** 'tilen' -> 'Tilen'; 'token:x' -> 'x'; agent names unchanged. */
+    public static function resolverLabel(?string $by): ?string
+    {
+        if ($by === null) {
+            return null;
+        }
+        if ($by === 'tilen') {
+            return 'Tilen';
+        }
+
+        return str_starts_with($by, 'token:') ? substr($by, 6) : $by;
+    }
+
     public static function inputView(RequiredInput $i, ?CarbonInterface $now = null): array
     {
-        $open = $i->done_at === null;
+        $open = $i->resolved_at === null;
         $days = $open ? self::ageDays($i->since, $now) : null;
 
         return [
@@ -112,8 +125,12 @@ class ProjectStatus
             'text' => $i->text,
             'waitingOn' => $i->waiting_on,
             'since' => $i->since->toIso8601String(),
-            'doneAt' => $i->done_at?->toIso8601String(),
-            'doneBy' => $i->done_by,
+            'resolvedAt' => $i->resolved_at?->toIso8601String(),
+            'resolvedBy' => $i->resolved_by,
+            'resolvedByLabel' => self::resolverLabel($i->resolved_by),
+            // API (snake_case) aliases
+            'resolved_at' => $i->resolved_at?->toIso8601String(),
+            'resolved_by' => $i->resolved_by,
             'open' => $open,
             'ageDays' => $days,
             'level' => $open ? self::level($days) : null,

@@ -30,6 +30,10 @@ export const S = {
   'status.smooth': 'Smooth sailing',
   'status.waiting': 'Waiting input',
   'status.waiting.age': '{n}d',
+  // r2 additions, pending Marie's review (aria-label/title + error line).
+  'inputs.markDone': 'Mark done',
+  'inputs.reopen': 'Reopen',
+  'inputs.saveError': 'Couldn’t save that. Try again.',
   // Not in STRINGS.md: Tilen's own additions (r1 approval).
   'proj.archive': 'Archive',
   'proj.unarchive': 'Unarchive',

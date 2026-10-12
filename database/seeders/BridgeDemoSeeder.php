@@ -41,7 +41,7 @@ class BridgeDemoSeeder extends Seeder
                 return StatusUpdate::create(['id' => $id, 'project_id' => $proj, 'agent_id' => $agent, 'body' => $body, 'created_at' => $at]);
             };
             $in = function (string $id, string $proj, string $text, string $who, Carbon $since, ?Carbon $done = null, ?string $by = null) {
-                return RequiredInput::create(['id' => $id, 'project_id' => $proj, 'text' => $text, 'waiting_on' => $who, 'since' => $since, 'done_at' => $done, 'done_by' => $by]);
+                return RequiredInput::create(['id' => $id, 'project_id' => $proj, 'text' => $text, 'waiting_on' => $who, 'since' => $since, 'resolved_at' => $done, 'resolved_by' => $by]);
             };
 
             $p('proj-adria', 'AdriaEdition', 'adriaedition');

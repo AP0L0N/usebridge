@@ -21,7 +21,7 @@ class StatusUpdateIngest
 {
     /**
      * @param  array<int, array{text:string, waiting_on:string, since?:string|null}>  $inputs
-     * @param  array<int, string|array{id:string, done_by?:string|null}>  $resolved
+     * @param  array<int, string|array{id:string, resolved_by?:string|null, done_by?:string|null}>  $resolved
      * @return array{update: StatusUpdate, inputs: array<int, RequiredInput>, resolved: array<int, RequiredInput>, unarchived: bool}
      */
     public function handle(Project $project, string $agentId, string $body, ?string $id = null, array $inputs = [], array $resolved = []): array
@@ -64,10 +64,10 @@ class StatusUpdateIngest
             foreach ($resolved as $r) {
                 $rid = is_array($r) ? $r['id'] : $r;
                 $input = RequiredInput::query()->where('project_id', $project->id)->whereKey($rid)->first();
-                if ($input && $input->done_at === null) {
+                if ($input && $input->resolved_at === null) {
                     $input->update([
-                        'done_at' => $now,
-                        'done_by' => (is_array($r) ? ($r['done_by'] ?? null) : null) ?? $agentName,
+                        'resolved_at' => $now,
+                        'resolved_by' => (is_array($r) ? ($r['resolved_by'] ?? $r['done_by'] ?? null) : null) ?? $agentName,
                     ]);
                     $done[] = $input;
                 }
@@ -88,7 +88,8 @@ class StatusUpdateIngest
             'resolved_inputs' => ['sometimes', 'array', 'max:50'],
             'resolved_inputs.*' => ['required'],
             'resolved_inputs.*.id' => ['sometimes', 'string', 'max:64'],
-            'resolved_inputs.*.done_by' => ['nullable', 'string', 'max:120'],
+            'resolved_inputs.*.resolved_by' => ['nullable', 'string', 'max:120'],
+            'resolved_inputs.*.done_by' => ['nullable', 'string', 'max:120'], // r1 name, still accepted
         ];
     }
 }

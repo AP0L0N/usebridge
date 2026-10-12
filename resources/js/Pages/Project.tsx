@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { StatusBadge } from '../Components/StatusBadge';
 import { MarkdownBody } from '../Components/MarkdownBody';
@@ -16,8 +16,47 @@ type Props = {
   now: string;
 };
 
+const DAY = 86400000;
+const levelOf = (d: number) => (d >= 3 ? 3 : d === 2 ? 2 : 1) as 1 | 2 | 3;
+
 export default function Project({ project, statusUpdates, openInputs, doneInputs, now }: Props) {
   const [busy, setBusy] = useState(false);
+  // Optimistic overrides: input id -> resolved?
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [saveError, setSaveError] = useState(false);
+
+  const { open, done, status } = useMemo(() => {
+    const nowMs = Date.parse(now);
+    const all = [...openInputs, ...doneInputs].map((i): InputView => {
+      const want = pending[i.id];
+      if (want === undefined || want === !i.open) return i;
+      if (want) return { ...i, open: false, resolvedAt: now, resolvedBy: 'tilen', resolvedByLabel: 'Tilen', level: null, ageDays: null };
+      const d = Math.max(0, Math.floor((nowMs - Date.parse(i.since)) / DAY));
+      return { ...i, open: true, resolvedAt: null, resolvedBy: null, resolvedByLabel: null, ageDays: d, level: levelOf(d) };
+    });
+    const o = all.filter((i) => i.open).sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
+    const dn = all.filter((i) => !i.open).sort((a, b) => Date.parse(b.resolvedAt ?? '') - Date.parse(a.resolvedAt ?? ''));
+    const st = project.archived
+      ? { status: 'archived' as const, level: null, ageDays: null }
+      : o.length ? { status: 'waiting' as const, level: o[0].level, ageDays: o[0].ageDays } : { status: 'smooth' as const, level: null, ageDays: null };
+    return { open: o, done: dn, status: st };
+  }, [openInputs, doneInputs, pending, now, project.archived]);
+
+  const toggle = (i: InputView, resolved: boolean) => {
+    setSaveError(false);
+    setPending((p) => ({ ...p, [i.id]: resolved }));
+    let ok = false;
+    router.post(`/projects/${project.slug}/inputs/${encodeURIComponent(i.id)}/resolve`, { resolved }, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => { ok = true; },
+      onFinish: () => {
+        // Server props are authoritative now; on failure this reverts the tick.
+        setPending((p) => { const n = { ...p }; delete n[i.id]; return n; });
+        if (!ok) setSaveError(true);
+      },
+    });
+  };
   const toggleArchive = () => {
     setBusy(true);
     router.post(`/projects/${project.slug}/${project.archived ? 'unarchive' : 'archive'}`, {}, {
@@ -34,7 +73,7 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
         <Link className="back" href="/"><span>{t('proj.back')}</span></Link>
         <div className="phead">
           <h1>{project.name}</h1>
-          <StatusBadge status={project.status} level={project.level} ageDays={project.ageDays} />
+          <StatusBadge status={status.status} level={status.level} ageDays={status.ageDays} />
           {project.reopened && (
             <span className="reopen" title={t('dash.reopened.tooltip')}><IconReopen /><span>{t('dash.reopened')}</span></span>
           )}
@@ -59,13 +98,15 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
           </section>
           <aside className="inputs" aria-labelledby="h-inputs">
             <h2 id="h-inputs">{t('proj.inputs.heading')}</h2>
-            <p className="sub"><b>{openInputs.length}</b> <span>{t('proj.inputs.openCount')}</span> · {doneInputs.length} <span>{t('proj.inputs.doneCount')}</span></p>
+            <p className="sub"><b>{open.length}</b> <span>{t('proj.inputs.openCount')}</span> · {done.length} <span>{t('proj.inputs.doneCount')}</span></p>
+            {saveError && <p className="inerr" role="alert">{t('inputs.saveError')}</p>}
             <ul>
-              {openInputs.length === 0 ? (
+              {open.length === 0 ? (
                 <li className="allclear"><IconAllClear /><div><b>{t('inputs.none.title')}</b><p>{t('inputs.none.body')}</p></div></li>
-              ) : openInputs.map((i) => (
+              ) : open.map((i) => (
                 <li className={`inp open l${i.level}`} key={i.id}>
-                  <span className="chk" aria-hidden="true" />
+                  <input type="checkbox" className="chk" checked={false} onChange={() => toggle(i, true)}
+                    aria-label={`${t('inputs.markDone')}: ${i.text}`} title={t('inputs.markDone')} />
                   <div>
                     <p className="it">{i.text}</p>
                     <p className="meta">
@@ -76,14 +117,15 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
                 </li>
               ))}
             </ul>
-            {doneInputs.length > 0 && (
+            {done.length > 0 && (
               <ul className="donel">
-                {doneInputs.map((i) => (
+                {done.map((i) => (
                   <li className="inp done" key={i.id}>
-                    <span className="chk on" aria-hidden="true">✓</span>
+                    <input type="checkbox" className="chk on" checked onChange={() => toggle(i, false)}
+                      aria-label={`${t('inputs.reopen')}: ${i.text}`} title={t('inputs.reopen')} />
                     <div>
                       <p className="it"><s>{i.text}</s></p>
-                      <p className="meta"><span>{t('inputs.doneBy')}</span> {i.doneBy ?? i.waitingOn} · {shortDay(i.doneAt, now)}</p>
+                      <p className="meta"><span>{t('inputs.doneBy')}</span> {i.resolvedByLabel ?? i.waitingOn} · {shortDay(i.resolvedAt, now)}</p>
                     </div>
                   </li>
                 ))}

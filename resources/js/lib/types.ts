@@ -20,8 +20,9 @@ export interface InputView {
   text: string;
   waitingOn: string;
   since: string;
-  doneAt: string | null;
-  doneBy: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolvedByLabel: string | null;
   open: boolean;
   ageDays: number | null;
   level: 1 | 2 | 3 | null;

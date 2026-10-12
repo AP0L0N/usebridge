@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\RequiredInput;
+use App\Services\InputResolution;
 use App\Services\ProjectStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,14 +13,34 @@ use Illuminate\Support\Str;
 
 class RequiredInputController extends Controller
 {
+    /**
+     * Filters: project_id, state=open|done, resolved_by=<value>, since=<ISO> (resolved_at >= since).
+     * r1 filter open=1|0 still accepted.
+     */
     public function index(Request $request): JsonResponse
     {
+        $data = $request->validate([
+            'project_id' => ['nullable', 'string'],
+            'state' => ['nullable', 'in:open,done'],
+            'resolved_by' => ['nullable', 'string', 'max:120'],
+            'since' => ['nullable', 'date'],
+            'open' => ['nullable', 'boolean'],
+        ]);
         $q = RequiredInput::query()->orderBy('since');
-        if ($request->filled('project_id')) {
-            $q->where('project_id', $request->string('project_id'));
+        if (! empty($data['project_id'])) {
+            $q->where('project_id', $data['project_id']);
         }
-        if ($request->filled('open')) {
-            $request->boolean('open') ? $q->whereNull('done_at') : $q->whereNotNull('done_at');
+        $state = $data['state'] ?? (isset($data['open']) ? ($request->boolean('open') ? 'open' : 'done') : null);
+        if ($state === 'open') {
+            $q->whereNull('resolved_at');
+        } elseif ($state === 'done') {
+            $q->whereNotNull('resolved_at');
+        }
+        if (! empty($data['resolved_by'])) {
+            $q->where('resolved_by', $data['resolved_by']);
+        }
+        if (! empty($data['since'])) {
+            $q->where('resolved_at', '>=', Carbon::parse($data['since']));
         }
 
         return response()->json(['data' => $q->get()->map(fn ($i) => ['project_id' => $i->project_id, ...ProjectStatus::inputView($i)])]);
@@ -43,19 +64,25 @@ class RequiredInputController extends Controller
         return response()->json(['data' => ProjectStatus::inputView($input)], 201);
     }
 
-    /** PATCH {done: true, done_by?} marks provided; {done: false} reopens; text/waiting_on editable. */
+    /**
+     * PATCH {done|resolved: bool, resolved_by?|done_by?}. Resolver defaults to "token:<token name>".
+     * Reopen clears resolved_by and resolved_at. text/waiting_on editable.
+     */
     public function update(Request $request, string $id): JsonResponse
     {
         $input = RequiredInput::query()->findOrFail($id);
         $data = $request->validate([
             'done' => ['sometimes', 'boolean'],
+            'resolved' => ['sometimes', 'boolean'],
+            'resolved_by' => ['nullable', 'string', 'max:120'],
             'done_by' => ['nullable', 'string', 'max:120'],
             'text' => ['sometimes', 'string', 'max:500'],
             'waiting_on' => ['sometimes', 'string', 'max:120'],
         ]);
-        if (array_key_exists('done', $data)) {
-            $input->done_at = $data['done'] ? ($input->done_at ?? Carbon::now()) : null;
-            $input->done_by = $data['done'] ? ($data['done_by'] ?? $input->done_by ?? $input->waiting_on) : null;
+        $flag = $data['resolved'] ?? $data['done'] ?? null;
+        if ($flag !== null) {
+            $by = $data['resolved_by'] ?? $data['done_by'] ?? 'token:'.($request->user()?->currentAccessToken()?->name ?? 'api');
+            $flag ? InputResolution::resolve($input, $by) : InputResolution::reopen($input);
         }
         $input->fill(array_intersect_key($data, array_flip(['text', 'waiting_on'])))->save();
 

@@ -11,13 +11,13 @@ class RequiredInput extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'project_id', 'status_update_id', 'text', 'waiting_on', 'since', 'done_at', 'done_by'];
+    protected $fillable = ['id', 'project_id', 'status_update_id', 'text', 'waiting_on', 'since', 'resolved_at', 'resolved_by'];
 
     protected function casts(): array
     {
         return [
             'since' => 'datetime',
-            'done_at' => 'datetime',
+            'resolved_at' => 'datetime',
         ];
     }
 
@@ -28,6 +28,6 @@ class RequiredInput extends Model
 
     public function isOpen(): bool
     {
-        return $this->done_at === null;
+        return $this->resolved_at === null;
     }
 }

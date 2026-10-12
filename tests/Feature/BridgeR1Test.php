@@ -61,8 +61,8 @@ class BridgeR1Test extends TestCase
 
         $this->post_update(['resolved_inputs' => [$id]])->assertCreated()->assertJsonPath('resolved_inputs.0.id', $id);
         $in = RequiredInput::find($id);
-        $this->assertNotNull($in->done_at);
-        $this->assertSame('Anatoly Korenchkin', $in->done_by);
+        $this->assertNotNull($in->resolved_at);
+        $this->assertSame('Anatoly Korenchkin', $in->resolved_by);
         $this->assertSame('smooth', ProjectStatus::derive(Project::with('requiredInputs')->find('proj-merkwell'))['status']);
 
         $this->patchJson("/api/inputs/{$id}", ['done' => false])->assertOk()->assertJsonPath('data.open', true);
@@ -74,7 +74,7 @@ class BridgeR1Test extends TestCase
         $p = Project::find('proj-merkwell');
         $mk = fn ($id, $hoursAgo, $done = null) => RequiredInput::create([
             'id' => $id, 'project_id' => $p->id, 'text' => $id, 'waiting_on' => 'X',
-            'since' => now()->subHours($hoursAgo), 'done_at' => $done,
+            'since' => now()->subHours($hoursAgo), 'resolved_at' => $done,
         ]);
         $level = fn () => ProjectStatus::derive($p->fresh()->load('requiredInputs'));
 
@@ -88,7 +88,7 @@ class BridgeR1Test extends TestCase
         $this->assertSame(2, $level()['level']);
         $mk('e', 75);
         $this->assertSame(['status' => 'waiting', 'level' => 3, 'ageDays' => 3], $level());   // 3d red
-        RequiredInput::query()->whereIn('id', ['a', 'b', 'c', 'e'])->update(['done_at' => now()]);
+        RequiredInput::query()->whereIn('id', ['a', 'b', 'c', 'e'])->update(['resolved_at' => now()]);
         $this->assertSame('smooth', $level()['status']);
     }
 

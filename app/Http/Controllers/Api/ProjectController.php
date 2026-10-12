@@ -100,18 +100,18 @@ class ProjectController extends Controller
         if (! $present) {
             return;
         }
-        $existing = RequiredInput::query()->whereIn('id', ['in-nd-'.$project->id, 'in-r0-nd-'.$project->id])->whereNull('done_at')->first();
+        $existing = RequiredInput::query()->whereIn('id', ['in-nd-'.$project->id, 'in-r0-nd-'.$project->id])->whereNull('resolved_at')->first();
         if (filled($value)) {
             if ($existing) {
                 $existing->update(['text' => (string) $value]);
             } else {
                 RequiredInput::query()->updateOrCreate(['id' => 'in-nd-'.$project->id], [
                     'project_id' => $project->id, 'text' => (string) $value, 'waiting_on' => 'Tilen',
-                    'since' => Carbon::now(), 'done_at' => null, 'done_by' => null,
+                    'since' => Carbon::now(), 'resolved_at' => null, 'resolved_by' => null,
                 ]);
             }
         } elseif ($existing) {
-            $existing->update(['done_at' => Carbon::now(), 'done_by' => 'Tilen']);
+            $existing->update(['resolved_at' => Carbon::now(), 'resolved_by' => 'tilen']);
         }
     }
 
