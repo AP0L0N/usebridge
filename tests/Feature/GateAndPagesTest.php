@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\CeoQueueItem;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -49,48 +48,21 @@ class GateAndPagesTest extends TestCase
     }
 
     #[Test]
-    public function cockpit_ops_agents_queue_render_when_unlocked(): void
+    public function project_view_renders_and_old_screens_redirect(): void
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
 
-        $this->get(route('projects.show', 'merkwell'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Cockpit'));
-
-        $this->get(route('ops'))
+        $this->get(route('projects.show', 'concierge-avant'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Ops')
-                ->where('leadOrbitConnected', false)
-                ->has('items', 0));
+                ->component('Project')
+                ->where('project.status', 'waiting')
+                ->has('openInputs', 1)
+                ->has('statusUpdates', 1));
 
-        $this->get(route('agents'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Agents')->has('rows', 5));
-
-        $this->get(route('queue'))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Queue')->has('items', 4));
-    }
-
-    #[Test]
-    public function queue_dismiss_and_assign_persist(): void
-    {
-        $this->withSession(['bridge_gate_unlocked' => true]);
-
-        $open = CeoQueueItem::query()->where('status', 'open')->firstOrFail();
-
-        $this->post(route('queue.assign', $open->id), [
-            'agent_id' => 'agent-anatoly',
-        ])->assertRedirect();
-
-        $open->refresh();
-        $this->assertSame('assigned', $open->status);
-        $this->assertSame('agent-anatoly', $open->assigned_agent_id);
-
-        $this->post(route('queue.dismiss', $open->id))->assertRedirect();
-        $open->refresh();
-        $this->assertSame('dismissed', $open->status);
+        foreach (['/ops', '/agents', '/queue'] as $old) {
+            $this->get($old)->assertRedirect('/');
+        }
     }
 
     #[Test]

@@ -12,15 +12,13 @@ class Project extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = [
-        'id', 'name', 'slug', 'owner_agent_id', 'goal', 'phase',
-        'phase_done_looks_like', 'next_deadline', 'needs_decision',
-    ];
+    protected $fillable = ['id', 'name', 'slug', 'owner_agent_id', 'archived_at', 'reopened_at'];
 
     protected function casts(): array
     {
         return [
-            'next_deadline' => 'date:Y-m-d',
+            'archived_at' => 'datetime',
+            'reopened_at' => 'datetime',
         ];
     }
 
@@ -29,23 +27,13 @@ class Project extends Model
         return $this->belongsTo(Agent::class, 'owner_agent_id');
     }
 
-    public function milestones(): HasMany
-    {
-        return $this->hasMany(Milestone::class);
-    }
-
-    public function workItems(): HasMany
-    {
-        return $this->hasMany(WorkItem::class);
-    }
-
-    public function risks(): HasMany
-    {
-        return $this->hasMany(Risk::class);
-    }
-
     public function statusUpdates(): HasMany
     {
         return $this->hasMany(StatusUpdate::class);
+    }
+
+    public function requiredInputs(): HasMany
+    {
+        return $this->hasMany(RequiredInput::class);
     }
 }

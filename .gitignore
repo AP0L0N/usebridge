@@ -30,3 +30,4 @@ Thumbs.db
 .bridge-deploy-secrets
 /database/*.sqlite
 /database/*.sqlite-journal
+/build-r1/

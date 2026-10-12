@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Project;
 use App\Models\StatusUpdate;
+use App\Services\StatusUpdateIngest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class StatusUpdateController extends Controller
 {
@@ -20,18 +21,35 @@ class StatusUpdateController extends Controller
         return response()->json(['data' => $q->get()]);
     }
 
-    public function store(Request $request): JsonResponse
+    /**
+     * r0 contract unchanged: {project_id, agent_id, body, id?} -> 201 {data: StatusUpdate}.
+     * r1 optional extras: inputs[], resolved_inputs[]; response adds `inputs`, `resolved_inputs`, `unarchived`.
+     */
+    public function store(Request $request, StatusUpdateIngest $ingest): JsonResponse
     {
         $data = $request->validate([
-            'id' => ['nullable', 'string', 'max:64'],
+            'id' => ['nullable', 'string', 'max:64', 'unique:status_updates,id'],
             'project_id' => ['required', 'string', 'exists:projects,id'],
             'agent_id' => ['required', 'string', 'exists:agents,id'],
             'body' => ['required', 'string', 'max:5000'],
+            ...StatusUpdateIngest::extraRules(),
         ]);
-        $data['id'] = $data['id'] ?? 'su-'.Str::lower(Str::ulid());
-        $data['created_at'] = now('Europe/Ljubljana');
 
-        return response()->json(['data' => StatusUpdate::create($data)], 201);
+        $result = $ingest->handle(
+            Project::query()->findOrFail($data['project_id']),
+            $data['agent_id'],
+            $data['body'],
+            $data['id'] ?? null,
+            $data['inputs'] ?? [],
+            $data['resolved_inputs'] ?? [],
+        );
+
+        return response()->json([
+            'data' => $result['update'],
+            'inputs' => $result['inputs'],
+            'resolved_inputs' => $result['resolved'],
+            'unarchived' => $result['unarchived'],
+        ], 201);
     }
 
     public function destroy(string $id): JsonResponse

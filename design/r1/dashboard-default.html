@@ -1,0 +1,95 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bridge — dashboard-default.html</title><style>@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/AtkinsonHyperlegible-Regular.ttf);font-weight:400}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/AtkinsonHyperlegible-Bold.ttf);font-weight:700}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/AtkinsonHyperlegible-Italic.ttf);font-style:italic}
+:root{--paper:#F4F2EC;--card:#FFFFFF;--ink:#17191F;--ink2:#4A4F5A;--ink3:#6B6F78;--line:#E2DED4;--accent:#1F3A5F;
+--ok:#1E6B47;--ok-bg:#E1F2E8;--w1:#F7D94C;--w1-ink:#3A2E00;--w2:#F28C28;--w2-ink:#2B1400;--w3:#B42318;--w3-ink:#FFFFFF;--arch:#5B606B;--arch-bg:#ECEAE4;--r:14px}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:0 40px}
+.top{background:var(--ink);color:#fff}.topin{display:flex;align-items:center;gap:14px;height:60px}
+.brand{color:#fff;text-decoration:none;font-weight:700;font-size:20px;display:flex;align-items:center;gap:10px;letter-spacing:.01em}
+.mark{width:22px;height:22px;border-radius:6px;background:linear-gradient(90deg,var(--w1) 0 33%,var(--w2) 0 66%,#3FB37F 0)}
+.sample{font-size:13px;border:1px dashed #8a8f99;color:#d8dbe0;padding:2px 10px;border-radius:99px}.who{margin-left:auto;color:#d8dbe0;font-size:15px}
+h1{font-size:40px;line-height:1.1;margin:0;letter-spacing:-.01em}
+.dhead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;padding:44px 0 24px;flex-wrap:wrap}
+.summary{margin:8px 0 0;color:var(--ink2)}
+.tools{display:flex;gap:16px;align-items:center}
+.search{display:flex;align-items:center;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:12px;padding:0 14px;height:48px;width:360px}
+.search svg{width:20px;height:20px;color:var(--ink3);flex:none}.search input{border:0;outline:0;font:inherit;flex:1;min-width:0;background:none;color:var(--ink)}
+.search:has(input[value]){border-color:var(--accent)}.clr{border:0;background:var(--arch-bg);border-radius:99px;width:26px;height:26px;font-size:18px;line-height:1;color:var(--ink2)}
+.toggle{display:flex;gap:10px;align-items:center;font-size:16px;white-space:nowrap}
+.sw{width:44px;height:26px;border-radius:99px;background:#CFCBC0;position:relative}.sw span{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #0003}
+.toggle.on .sw{background:var(--accent)}.toggle.on .sw span{left:21px}
+.plist{display:flex;flex-direction:column;gap:10px}
+.prow{display:grid;grid-template-columns:6px 1fr 220px 170px;gap:0 24px;align-items:center;background:var(--card);border-radius:var(--r);text-decoration:none;color:inherit;padding:20px 24px 20px 0;box-shadow:0 1px 0 var(--line);overflow:hidden}
+.spine{align-self:stretch;margin:-20px 0;border-radius:var(--r) 0 0 var(--r)}
+.s-ok .spine{background:#3FB37F}.s-w1 .spine{background:var(--w1)}.s-w2 .spine{background:var(--w2)}.s-w3 .spine{background:var(--w3)}.s-arch .spine{background:#C9C5BA}
+.s-arch{background:#FAF9F6}.s-arch .pname{color:var(--ink2)}
+.pname{font-weight:700;font-size:20px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.pline{margin:4px 0 0;color:var(--ink2)}.pupd{color:var(--ink3);font-size:15px;text-align:right}.pupd .lbl{display:block;font-size:13px}
+.pupd time{color:var(--ink);font-weight:700}
+mark{background:#FFF0A8;color:inherit;border-radius:3px;padding:0 2px}
+.reopen{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:var(--accent);background:#E7EDF5;border-radius:99px;padding:2px 10px}.reopen svg{width:13px;height:13px}
+.badge{display:inline-flex;align-items:center;gap:7px;font-size:15px;font-weight:700;border-radius:99px;padding:5px 12px 5px 9px;white-space:nowrap}
+.badge svg{width:16px;height:16px;flex:none}
+.b-ok{background:var(--ok-bg);color:var(--ok)}.b-arch{background:var(--arch-bg);color:var(--arch)}
+.b-w1{background:var(--w1);color:var(--w1-ink)}.b-w2{background:var(--w2);color:var(--w2-ink)}.b-w3{background:var(--w3);color:var(--w3-ink)}
+.pips{display:inline-flex;gap:3px}.pips i{width:6px;height:6px;border-radius:50%;border:1.5px solid currentColor}.pips i.on{background:currentColor}
+.sect{display:flex;align-items:center;gap:10px;font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin:36px 0 12px}
+.cnt{background:var(--arch-bg);border-radius:99px;padding:0 9px;letter-spacing:0}
+.empty{background:var(--card);border-radius:var(--r);border:2px dashed var(--line);text-align:center;padding:72px 24px;margin-bottom:60px}
+.empty h2{margin:14px 0 6px;font-size:24px}.empty p{color:var(--ink2);margin:0 auto 20px;max-width:440px}
+.eico{width:56px;height:56px;margin:0 auto;border-radius:50%;background:var(--arch-bg);display:grid;place-items:center;color:var(--ink3)}.eico svg{width:26px;height:26px}
+.btn{font:inherit;font-weight:700;background:var(--ink);color:#fff;border:0;border-radius:10px;padding:10px 20px}
+main{padding-bottom:60px}
+.back{display:inline-block;margin-top:28px;color:var(--accent);font-weight:700;text-decoration:none}
+.phead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:10px 0 28px}
+.pgrid{display:grid;grid-template-columns:1fr 400px;gap:28px;align-items:start}
+h2{font-size:22px;margin:0}.sub{margin:2px 0 16px;color:var(--ink3);font-size:15px}
+.feed{background:var(--card);border-radius:var(--r);padding:28px}
+.upd{position:relative;padding:0 0 26px 26px;border-left:2px solid var(--line);margin-left:6px}.upd:last-child{border-color:transparent;padding-bottom:0}
+.upd .dot{position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--card)}
+.upd header{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}.upd time{color:var(--ink3);font-size:15px}
+.md{color:var(--ink)}.md p{margin:6px 0}.md ul,.md ol{margin:6px 0;padding-left:22px}.md li{margin:2px 0}.md a{color:var(--accent);font-weight:700}
+.inputs{position:sticky;top:20px;background:var(--card);border-radius:var(--r);padding:28px;border-top:6px solid var(--ink)}
+.inputs ul{list-style:none;margin:0;padding:0}
+.inp{display:flex;gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.inp .it{margin:0;font-weight:700}.inp .meta{margin:4px 0 0;font-size:15px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.inp .meta .badge{font-size:13px;padding:3px 9px 3px 7px}.inp .meta .badge svg{width:14px;height:14px}
+.chk{flex:none;width:22px;height:22px;border:2px solid var(--ink3);border-radius:6px;margin-top:2px;display:grid;place-items:center;font-size:14px}
+.chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.donel{margin-top:6px!important}.done .it{font-weight:400;color:var(--ink3)}.done .meta{color:var(--ink3)}
+.allclear{display:flex;gap:12px;align-items:flex-start;background:var(--ok-bg);color:var(--ok);border-radius:10px;padding:16px;margin-bottom:8px}.allclear svg{width:24px;height:24px;flex:none}.allclear p{margin:2px 0 0;color:var(--ink2)}
+@media (max-width:720px){
+ body{font-size:16px}.wrap{padding:0 16px}.sample{display:none}
+ h1{font-size:30px}.dhead{padding:24px 0 16px}.tools{flex-direction:column;align-items:stretch;width:100%}.search{width:100%}
+ .prow{grid-template-columns:6px 1fr;gap:10px 14px;padding:16px 16px 16px 0}
+ .spine{grid-row:span 3}.pbadge,.pupd{grid-column:2}.pupd{text-align:left}.pupd .lbl{display:inline}
+ .pname{font-size:18px}
+ .pgrid{grid-template-columns:1fr}.inputs{position:static;order:-1;padding:20px}.feed{padding:20px}
+}
+</style></head><body><header class="top"><div class="wrap topin">
+<a class="brand" href="#"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+<span class="sample"><span>Sample data</span></span>
+<span class="who">Tilen</span></div></header><main class="wrap">
+<div class="dhead"><div><h1>Portfolio</h1><p class="summary"><b>3</b> waiting input · <b>3</b> smooth sailing</p></div>
+<div class="tools"><label class="search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input placeholder="Search projects and updates" ></label>
+<label class="toggle "><span class="sw"><span></span></span><span>Show archived</span></label></div></div>
+<div class="plist"><a class="prow s-w3" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>AdriaEdition</span></div><p class="pline">Round 6 mocks delivered — waiting on Denis for region photos and the Osrednjeslovenska count.</p></div>
+<div class="pbadge"><span class="badge b-w3" title="Waiting input, 4 days"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h8M4 14.2h8M5 2v2.6L8 8l3-3.4V2M5 14v-2.6L8 8l3 3.4V14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Waiting input</span><span class="pips" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span><span>4d</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>4 days ago</time></div></a><a class="prow s-w2" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>Chipolo × SECRID</span></div><p class="pline">Hotfix passed QA on preview — waiting on Watts to publish to live.</p></div>
+<div class="pbadge"><span class="badge b-w2" title="Waiting input, 2 days"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h8M4 14.2h8M5 2v2.6L8 8l3-3.4V2M5 14v-2.6L8 8l3 3.4V14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Waiting input</span><span class="pips" aria-hidden="true"><i class="on"></i><i class="on"></i><i class=""></i></span><span>2d</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>2 days ago</time></div></a><a class="prow s-w1" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>ChatPulse</span></div><p class="pline">Onboarding copy draft ready — waiting on Marie for the final pass.</p></div>
+<div class="pbadge"><span class="badge b-w1" title="Waiting input, 1 day"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h8M4 14.2h8M5 2v2.6L8 8l3-3.4V2M5 14v-2.6L8 8l3 3.4V14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Waiting input</span><span class="pips" aria-hidden="true"><i class="on"></i><i class=""></i><i class=""></i></span><span>1d</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>Yesterday</time></div></a><a class="prow s-ok" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>Concierge Avant</span><span class="reopen" title="Reopened by a new update"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 11-1.5-3.6M13 2.5v3h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Reopened</span></span></div><p class="pline">Weekly digest shipped; nothing blocking.</p></div>
+<div class="pbadge"><span class="badge b-ok"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 8.3l2.2 2.2 4.2-4.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Smooth sailing</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>Today, 09:12</time></div></a><a class="prow s-ok" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>Merkwell</span></div><p class="pline">Inbox triage running smoothly; next review on Friday.</p></div>
+<div class="pbadge"><span class="badge b-ok"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 8.3l2.2 2.2 4.2-4.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Smooth sailing</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>Today, 07:40</time></div></a><a class="prow s-ok" href="project-adriaedition.html"><span class="spine"></span>
+<div class="pmain"><div class="pname"><span>Bridge</span></div><p class="pline">Redesign r1 in progress — two screens only.</p></div>
+<div class="pbadge"><span class="badge b-ok"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.8 8.3l2.2 2.2 4.2-4.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Smooth sailing</span></span></div>
+<div class="pupd"><span class="lbl"><span>Updated</span></span> <time>Today, 18:05</time></div></a></div></main></body></html>

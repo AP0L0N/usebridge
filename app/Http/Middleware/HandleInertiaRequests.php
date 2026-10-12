@@ -23,21 +23,6 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
-            'projectsNav' => function () use ($request) {
-                if (! $request->session()->get('bridge_gate_unlocked')) {
-                    return [];
-                }
-
-                return \App\Models\Project::query()
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'slug'])
-                    ->map(fn ($p) => [
-                        'id' => $p->id,
-                        'name' => $p->name,
-                        'slug' => $p->slug,
-                    ])
-                    ->all();
-            },
         ];
     }
 }

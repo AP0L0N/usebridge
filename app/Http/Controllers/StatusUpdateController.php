@@ -3,29 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
-use App\Models\StatusUpdate;
+use App\Services\StatusUpdateIngest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
+/** Web (gate-session) write path; kept for compatibility, same rules as the API. */
 class StatusUpdateController extends Controller
 {
-    public function store(Request $request, string $slug): RedirectResponse
+    public function store(Request $request, string $slug, StatusUpdateIngest $ingest): RedirectResponse
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
 
         $data = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body' => ['required', 'string', 'max:5000'],
             'agent_id' => ['required', 'string', 'exists:agents,id'],
+            ...StatusUpdateIngest::extraRules(),
         ]);
 
-        StatusUpdate::create([
-            'id' => 'su-'.Str::lower(Str::ulid()),
-            'project_id' => $project->id,
-            'agent_id' => $data['agent_id'],
-            'body' => $data['body'],
-            'created_at' => now('Europe/Ljubljana'),
-        ]);
+        $ingest->handle($project, $data['agent_id'], $data['body'], null, $data['inputs'] ?? [], $data['resolved_inputs'] ?? []);
 
         return back()->with('success', 'Status update added.');
     }

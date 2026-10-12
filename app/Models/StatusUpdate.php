@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StatusUpdate extends Model
 {
@@ -26,5 +27,10 @@ class StatusUpdate extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class, 'agent_id');
+    }
+
+    public function requiredInputs(): HasMany
+    {
+        return $this->hasMany(RequiredInput::class);
     }
 }

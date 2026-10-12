@@ -1,0 +1,51 @@
+const TZ = 'Europe/Ljubljana';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function parts(d: Date) {
+  const p = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d);
+  const g = (t: string) => p.find((x) => x.type === t)?.value ?? '';
+  return { y: g('year'), m: +g('month'), mon: MONTHS[+g('month') - 1], d: g('day'), wd: g('weekday'), hh: g('hour'), mm: g('minute') };
+}
+
+/** Calendar-day difference in Europe/Ljubljana. */
+function dayDiff(a: Date, now: Date): number {
+  const k = (x: Date) => {
+    const p = parts(x);
+    return Date.UTC(+p.y, p.m - 1, +p.d);
+  };
+  return Math.round((k(now) - k(a)) / 86400000);
+}
+
+/** Portfolio "Updated": Today, 09:12 · Yesterday · N days ago (≤6) · 12 Sep 2026. */
+export function lastUpdated(iso: string | null, nowIso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso), now = new Date(nowIso), diff = dayDiff(d, now), p = parts(d);
+  if (diff <= 0) return `Today, ${p.hh}:${p.mm}`;
+  if (diff === 1) return 'Yesterday';
+  if (diff <= 6) return `${diff} days ago`;
+  return `${p.d} ${p.mon} ${p.y}`;
+}
+
+/** Timeline: Today, 18:40 · Yesterday, 10:00 · Thu 8 Oct, 11:20 (year added when not current). */
+export function updateTime(iso: string | null, nowIso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date(nowIso), diff = dayDiff(d, now), p = parts(d);
+  const time = `${p.hh}:${p.mm}`;
+  if (diff <= 0) return `Today, ${time}`;
+  if (diff === 1) return `Yesterday, ${time}`;
+  const y = parts(now).y === p.y ? '' : ` ${p.y}`;
+  return `${p.wd} ${p.d} ${p.mon}${y}, ${time}`;
+}
+
+/** Inputs: Today · Yesterday · Thu 8 Oct. */
+export function shortDay(iso: string | null, nowIso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date(nowIso), diff = dayDiff(d, now), p = parts(d);
+  if (diff <= 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  const y = parts(now).y === p.y ? '' : ` ${p.y}`;
+  return `${p.wd} ${p.d} ${p.mon}${y}`;
+}

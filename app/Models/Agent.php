@@ -17,9 +17,4 @@ class Agent extends Model
     {
         return $this->hasMany(Project::class, 'owner_agent_id');
     }
-
-    public function workItems(): HasMany
-    {
-        return $this->hasMany(WorkItem::class, 'owner_agent_id');
-    }
 }

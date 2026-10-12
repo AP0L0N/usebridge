@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import { TopBar } from '../Components/TopBar';
 
 export default function Gate() {
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -19,22 +20,12 @@ export default function Gate() {
   }
 
   return (
-    <div className="shell">
-      <div className="chrome">
-        <div className="brand-bar">
-          <div className="brand">
-            <span className="brand-mark" aria-hidden="true" /> BRIDGE
-          </div>
-          <span className="env-chip">internal</span>
-        </div>
-      </div>
-      <main className="gate-main">
-        <form className="gate-card" onSubmit={onSubmit}>
+    <>
+      <TopBar />
+      <main className="gate">
+        <form onSubmit={onSubmit}>
           <h1>Workspace gate</h1>
-          <p>
-            Shared LANTIS internal password. No per-agent ACL in v1. No public
-            signup.
-          </p>
+          <p>Shared LANTIS internal password.</p>
           <label htmlFor="gate-password">Password</label>
           <input
             id="gate-password"
@@ -49,15 +40,11 @@ export default function Gate() {
             autoFocus
           />
           {(localError || errors.password) && (
-            <p className="gate-error" role="alert">
-              Wrong password.
-            </p>
+            <p className="err" role="alert">Wrong password.</p>
           )}
-          <button className="btn btn-cyan" type="submit" disabled={processing}>
-            Enter Bridge
-          </button>
+          <button className="btn" type="submit" disabled={processing}>Enter Bridge</button>
         </form>
       </main>
-    </div>
+    </>
   );
 }
