@@ -89,3 +89,5 @@ a:focus-visible,button:focus-visible,.prow:focus-visible,.toggle:focus-within .s
 .gate input{font:inherit;height:48px;border:2px solid var(--line);border-radius:12px;padding:0 14px}
 .gate .err{color:var(--w3);font-weight:700}
 @media (max-width:720px){.phead .pact{margin-left:0}}
+.md,.it,.pline{overflow-wrap:anywhere}.feed,.inputs{min-width:0}.pgrid>*{min-width:0}
+.pline{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

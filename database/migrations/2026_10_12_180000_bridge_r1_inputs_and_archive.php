@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\Schema;
  * Bridge r1: two screens, three statuses.
  *
  * - Adds projects.archived_at / projects.reopened_at and the required_inputs table.
- * - Maps old data: projects.needs_decision and open/assigned project CEO-queue items (suggested_action)
+ * - Maps old data (unless config bridge.r1_carry_over / BRIDGE_R1_CARRY_OVER=false): projects.needs_decision and open/assigned project CEO-queue items (suggested_action)
  *   become open Required inputs.
  * - Nothing is deleted. Dropped project columns are copied to
  *   legacy_r0_project_fields, and milestones / work_items / risks /
  *   ops_digest_items / ceo_queue_items are renamed to legacy_r0_*.
- * - down() restores the r0 schema and values. Inputs, archive state and
+ * - down() restores the r0 schema (columns, order, NOT NULL) and values. Inputs, archive state and
  *   reopened markers created after the migration are lost on rollback
  *   (take a DB dump first).
  */
@@ -67,7 +67,8 @@ return new class extends Migration
         });
 
         $now = now();
-        foreach ($projects as $p) {
+        $carryOver = $this->carryOver();
+        foreach ($carryOver ? $projects : [] as $p) {
             if (filled($p->needs_decision)) {
                 DB::table('required_inputs')->insert([
                     'id' => 'in-r0-nd-'.$p->id,
@@ -81,7 +82,7 @@ return new class extends Migration
             }
         }
 
-        if (Schema::hasTable('ceo_queue_items')) {
+        if ($carryOver && Schema::hasTable('ceo_queue_items')) {
             $agents = DB::table('agents')->pluck('name', 'id');
             $items = DB::table('ceo_queue_items')
                 ->whereNotNull('project_id')
@@ -113,6 +114,17 @@ return new class extends Migration
         }
     }
 
+    /** config('bridge.r1_carry_over'); falls back to the env var if config is cached without the key. */
+    private function carryOver(): bool
+    {
+        $v = config('bridge.r1_carry_over');
+        if ($v === null) {
+            $v = env('BRIDGE_R1_CARRY_OVER', true);
+        }
+
+        return filter_var($v, FILTER_VALIDATE_BOOL);
+    }
+
     public function down(): void
     {
         foreach (self::LEGACY_TABLES as $t) {
@@ -122,11 +134,11 @@ return new class extends Migration
         }
 
         Schema::table('projects', function (Blueprint $table) {
-            $table->text('goal')->nullable();
-            $table->string('phase')->nullable();
-            $table->text('phase_done_looks_like')->nullable();
-            $table->date('next_deadline')->nullable();
-            $table->text('needs_decision')->nullable();
+            $table->text('goal')->nullable()->after('owner_agent_id');
+            $table->string('phase')->nullable()->after('goal');
+            $table->text('phase_done_looks_like')->nullable()->after('phase');
+            $table->date('next_deadline')->nullable()->after('phase_done_looks_like');
+            $table->text('needs_decision')->nullable()->after('next_deadline');
         });
 
         foreach (DB::table('legacy_r0_project_fields')->get() as $row) {
@@ -139,6 +151,13 @@ return new class extends Migration
             ]);
         }
         DB::table('projects')->whereNull('goal')->update(['goal' => '', 'phase' => '', 'phase_done_looks_like' => '']);
+
+        // Restore r0 NOT NULL on the required columns.
+        Schema::table('projects', function (Blueprint $table) {
+            $table->text('goal')->nullable(false)->change();
+            $table->string('phase')->nullable(false)->change();
+            $table->text('phase_done_looks_like')->nullable(false)->change();
+        });
 
         Schema::dropIfExists('required_inputs');
 

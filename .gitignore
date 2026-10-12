@@ -31,3 +31,4 @@ Thumbs.db
 /database/*.sqlite
 /database/*.sqlite-journal
 /build-r1/
+/server-snapshot/

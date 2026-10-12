@@ -26,7 +26,7 @@ export function lastUpdated(iso: string | null, nowIso: string): string {
   if (diff <= 0) return `Today, ${p.hh}:${p.mm}`;
   if (diff === 1) return 'Yesterday';
   if (diff <= 6) return `${diff} days ago`;
-  return `${p.d} ${p.mon} ${p.y}`;
+  return `${+p.d} ${p.mon} ${p.y}`;
 }
 
 /** Timeline: Today, 18:40 · Yesterday, 10:00 · Thu 8 Oct, 11:20 (year added when not current). */
@@ -37,7 +37,7 @@ export function updateTime(iso: string | null, nowIso: string): string {
   if (diff <= 0) return `Today, ${time}`;
   if (diff === 1) return `Yesterday, ${time}`;
   const y = parts(now).y === p.y ? '' : ` ${p.y}`;
-  return `${p.wd} ${p.d} ${p.mon}${y}, ${time}`;
+  return `${p.wd} ${+p.d} ${p.mon}${y}, ${time}`;
 }
 
 /** Inputs: Today · Yesterday · Thu 8 Oct. */
@@ -47,5 +47,5 @@ export function shortDay(iso: string | null, nowIso: string): string {
   if (diff <= 0) return 'Today';
   if (diff === 1) return 'Yesterday';
   const y = parts(now).y === p.y ? '' : ` ${p.y}`;
-  return `${p.wd} ${p.d} ${p.mon}${y}`;
+  return `${p.wd} ${+p.d} ${p.mon}${y}`;
 }

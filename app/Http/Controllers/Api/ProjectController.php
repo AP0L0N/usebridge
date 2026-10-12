@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\RequiredInput;
 use App\Services\ProjectStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,9 +43,11 @@ class ProjectController extends Controller
             'owner_agent_id' => ['required', 'string', 'exists:agents,id'],
             ...array_fill_keys(self::LEGACY_FIELDS, ['nullable']),
         ]);
+        $needsDecision = $data['needs_decision'] ?? null;
         $data = array_diff_key($data, array_flip(self::LEGACY_FIELDS));
         $data['id'] = $data['id'] ?? 'proj-'.Str::lower((string) Str::ulid());
         $project = Project::create($data);
+        $this->syncNeedsDecision($project, $needsDecision, true);
 
         return response()->json(['data' => $this->present($project->load(['statusUpdates', 'requiredInputs']))], 201);
     }
@@ -66,6 +69,7 @@ class ProjectController extends Controller
             }
         }
         $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'owner_agent_id'])))->save();
+        $this->syncNeedsDecision($project, $data['needs_decision'] ?? null, $request->has('needs_decision'));
 
         return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs']))]);
     }
@@ -85,6 +89,30 @@ class ProjectController extends Controller
         Project::query()->findOrFail($id)->delete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * r0 compat: needs_decision text -> one open input waiting on Tilen ("in-nd-{project}");
+     * setting it to null/empty marks that input done.
+     */
+    private function syncNeedsDecision(Project $project, mixed $value, bool $present): void
+    {
+        if (! $present) {
+            return;
+        }
+        $existing = RequiredInput::query()->whereIn('id', ['in-nd-'.$project->id, 'in-r0-nd-'.$project->id])->whereNull('done_at')->first();
+        if (filled($value)) {
+            if ($existing) {
+                $existing->update(['text' => (string) $value]);
+            } else {
+                RequiredInput::query()->updateOrCreate(['id' => 'in-nd-'.$project->id], [
+                    'project_id' => $project->id, 'text' => (string) $value, 'waiting_on' => 'Tilen',
+                    'since' => Carbon::now(), 'done_at' => null, 'done_by' => null,
+                ]);
+            }
+        } elseif ($existing) {
+            $existing->update(['done_at' => Carbon::now(), 'done_by' => 'Tilen']);
+        }
     }
 
     private function present(Project $p): array

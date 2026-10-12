@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AgentController;
+use App\Http\Controllers\Api\CeoQueueCompatController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RemovedEndpointController;
 use App\Http\Controllers\Api\RequiredInputController;
@@ -19,9 +20,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');
     Route::patch('agents/{id}', [AgentController::class, 'update'])->name('api.agents.update');
 
+    // r0 CEO queue, kept for agents: items become Required inputs (see CeoQueueCompatController).
+    Route::get('ceo-queue-items', [CeoQueueCompatController::class, 'index'])->name('api.ceo-queue.index');
+    Route::post('ceo-queue-items', [CeoQueueCompatController::class, 'store'])->name('api.ceo-queue.store');
+    Route::post('ceo-queue-items/{id}/dismiss', [CeoQueueCompatController::class, 'dismiss'])->name('api.ceo-queue.dismiss');
+    Route::post('ceo-queue-items/{id}/assign', [CeoQueueCompatController::class, 'assign'])->name('api.ceo-queue.assign');
+
     // Removed in r1: answer 410 Gone instead of 404 so old callers get a clear message.
     Route::any('{removed}/{rest?}', RemovedEndpointController::class)
-        ->where('removed', 'milestones|work-items|risks|ceo-queue-items|ops-digest')
+        ->where('removed', 'milestones|work-items|risks|ops-digest')
         ->where('rest', '.*')
         ->name('api.removed');
 });

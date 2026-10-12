@@ -7,5 +7,16 @@ return [
     */
     'gate_password' => env('BRIDGE_GATE_PASSWORD', 'lantis-internal'),
 
+    /*
+    | Bridge r1 migration: carry r0 items over as open Required inputs?
+    | true  (default) = projects.needs_decision + open/assigned project CEO-queue items
+    |                   become open inputs.
+    | false ("start clean") = no inputs are created; the r0 data is still kept
+    |                   in legacy_r0_* tables either way.
+    | Only read once, by migration 2026_10_12_180000. Set BRIDGE_R1_CARRY_OVER=false
+    | in .env (or inline on the migrate command) and clear the config cache first.
+    */
+    'r1_carry_over' => filter_var(env('BRIDGE_R1_CARRY_OVER', true), FILTER_VALIDATE_BOOL),
+
     'org_timezone' => 'Europe/Ljubljana',
 ];
