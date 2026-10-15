@@ -50,6 +50,7 @@ class GateAndPagesTest extends TestCase
     #[Test]
     public function project_view_renders_and_old_screens_redirect(): void
     {
+        \Illuminate\Support\Carbon::setTestNow('2026-09-10 12:00:00'); // seeded update falls inside the 7-day timeline
         $this->withSession(['bridge_gate_unlocked' => true]);
 
         $this->get(route('projects.show', 'concierge-avant'))
@@ -63,6 +64,7 @@ class GateAndPagesTest extends TestCase
         foreach (['/ops', '/agents', '/queue'] as $old) {
             $this->get($old)->assertRedirect('/');
         }
+        \Illuminate\Support\Carbon::setTestNow();
     }
 
     #[Test]

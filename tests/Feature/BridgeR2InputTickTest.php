@@ -26,7 +26,7 @@ class BridgeR2InputTickTest extends TestCase
         parent::setUp();
         Carbon::setTestNow('2026-10-12 21:00:00');
         $this->seed(BridgeSeeder::class);
-        foreach ([['in-a', 80], ['in-b', 50], ['in-c', 5]] as [$id, $h]) {
+        foreach ([['in-a', 176], ['in-b', 80], ['in-c', 5]] as [$id, $h]) {
             RequiredInput::create(['id' => $id, 'project_id' => 'proj-merkwell', 'text' => $id, 'waiting_on' => 'Denis', 'since' => now()->subHours($h)]);
         }
     }
@@ -46,13 +46,13 @@ class BridgeR2InputTickTest extends TestCase
     public function tick_and_untick_from_the_ui_recalculate_status(): void
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
-        $this->assertSame(3, $this->derived()['level']);                       // oldest 80h = 3d red
+        $this->assertSame(3, $this->derived()['level']);                       // oldest 176h = 7d red
 
         $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertStatus(303);
         $a = RequiredInput::find('in-a');
         $this->assertSame('tilen', $a->resolved_by);
         $this->assertTrue($a->resolved_at->equalTo(now()));
-        $this->assertSame(['status' => 'waiting', 'level' => 2, 'ageDays' => 2], $this->derived());
+        $this->assertSame(['status' => 'waiting', 'level' => 2, 'ageDays' => 3], $this->derived());
 
         $this->post(sprintf($this->url, 'in-b'), ['resolved' => true]);
         $this->post(sprintf($this->url, 'in-c'), ['resolved' => true]);

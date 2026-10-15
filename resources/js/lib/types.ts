@@ -34,3 +34,23 @@ export interface UpdateView {
   agentName: string;
   createdAt: string | null;
 }
+
+export type NextStepKind = 'in_progress' | 'blocker';
+
+export interface NextStepView {
+  id: string;
+  kind: NextStepKind;
+  text: string;
+  owner: string | null;
+  agent_id: string | null;
+  position: number;
+  done: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TimelineWindow {
+  days: number;
+  step: number;
+  hasMore: boolean;
+}

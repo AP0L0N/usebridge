@@ -36,4 +36,9 @@ class Project extends Model
     {
         return $this->hasMany(RequiredInput::class);
     }
+
+    public function nextSteps(): HasMany
+    {
+        return $this->hasMany(NextStep::class);
+    }
 }

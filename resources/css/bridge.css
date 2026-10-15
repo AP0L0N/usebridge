@@ -4,7 +4,7 @@
 :root{--paper:#F4F2EC;--card:#FFFFFF;--ink:#17191F;--ink2:#4A4F5A;--ink3:#6B6F78;--line:#E2DED4;--accent:#1F3A5F;
 --ok:#1E6B47;--ok-bg:#E1F2E8;--w1:#F7D94C;--w1-ink:#3A2E00;--w2:#F28C28;--w2-ink:#2B1400;--w3:#B42318;--w3-ink:#FFFFFF;--arch:#5B606B;--arch-bg:#ECEAE4;--r:14px}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif}
-.wrap{max-width:1180px;margin:0 auto;padding:0 40px}
+.wrap{max-width:none;margin:0 auto;padding:0 40px}
 .top{background:var(--ink);color:#fff}.topin{display:flex;align-items:center;gap:14px;height:60px}
 .brand{color:#fff;text-decoration:none;font-weight:700;font-size:20px;display:flex;align-items:center;gap:10px;letter-spacing:.01em}
 .mark{width:22px;height:22px;border-radius:6px;background:linear-gradient(90deg,var(--w1) 0 33%,var(--w2) 0 66%,#3FB37F 0)}
@@ -98,3 +98,13 @@ input.chk.on{background:var(--ok);border-color:var(--ok)}
 input.chk.on::before{content:"✓";color:#fff;font-size:14px;line-height:1;position:absolute;left:50%;top:50%;transform:translate(-50%,-52%)}
 input.chk:hover{border-color:var(--ink)}input.chk:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .inerr{margin:0 0 8px;color:var(--w3);font-weight:700;font-size:15px}
+/* r3: full width, next steps, timeline paging */
+.pgrid{grid-template-columns:1fr minmax(360px,30%)}
+.nsteps{background:var(--card);border-radius:var(--r);padding:24px 28px;margin-bottom:28px}
+.nsgrid{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:14px}
+.nscol h3{font-size:15px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.nscol ul{list-style:none;margin:0;padding:0}.nscol li{display:flex;justify-content:space-between;gap:12px;padding:10px 0 10px 14px;border-top:1px solid var(--line);position:relative;overflow-wrap:anywhere}
+.nscol li::before{content:"";position:absolute;left:0;top:17px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.ns-bl li::before{background:var(--w3)}.nso{color:var(--ink3);font-size:15px;white-space:nowrap}.nsnone{color:var(--ink3);margin:0}
+.more{margin-top:16px}
+@media (max-width:720px){.nsgrid{grid-template-columns:1fr;gap:16px}.nsteps{padding:20px}.pgrid{grid-template-columns:1fr}}

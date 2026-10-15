@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\CeoQueueCompatController;
+use App\Http\Controllers\Api\NextStepController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\RemovedEndpointController;
 use App\Http\Controllers\Api\RequiredInputController;
@@ -15,6 +16,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('status-updates', [StatusUpdateController::class, 'index'])->name('api.status-updates.index');
     Route::post('status-updates', [StatusUpdateController::class, 'store'])->name('api.status-updates.store');
     Route::delete('status-updates/{id}', [StatusUpdateController::class, 'destroy'])->name('api.status-updates.destroy');
+    Route::get('next-steps', [NextStepController::class, 'index'])->name('api.next-steps.index');
+    Route::post('next-steps', [NextStepController::class, 'store'])->name('api.next-steps.store');
+    Route::patch('next-steps/{id}', [NextStepController::class, 'update'])->name('api.next-steps.update');
+    Route::delete('next-steps/{id}', [NextStepController::class, 'destroy'])->name('api.next-steps.destroy');
     Route::apiResource('inputs', RequiredInputController::class)->except(['show'])->names('api.inputs');
     Route::get('agents', [AgentController::class, 'index'])->name('api.agents.index');
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');

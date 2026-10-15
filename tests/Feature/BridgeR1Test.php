@@ -83,12 +83,16 @@ class BridgeR1Test extends TestCase
         $mk('b', 30);
         $this->assertSame(['status' => 'waiting', 'level' => 1, 'ageDays' => 1], $level());   // 1d yellow
         $mk('c', 50);
-        $this->assertSame(['status' => 'waiting', 'level' => 2, 'ageDays' => 2], $level());   // 2d orange
+        $this->assertSame(['status' => 'waiting', 'level' => 1, 'ageDays' => 2], $level());   // 2d still yellow (r3)
         $mk('d', 24 * 9, now());                                                              // done: ignored
-        $this->assertSame(2, $level()['level']);
+        $this->assertSame(1, $level()['level']);
         $mk('e', 75);
-        $this->assertSame(['status' => 'waiting', 'level' => 3, 'ageDays' => 3], $level());   // 3d red
-        RequiredInput::query()->whereIn('id', ['a', 'b', 'c', 'e'])->update(['resolved_at' => now()]);
+        $this->assertSame(['status' => 'waiting', 'level' => 2, 'ageDays' => 3], $level());   // 3d orange
+        $mk('f', 24 * 6 + 20);
+        $this->assertSame(['status' => 'waiting', 'level' => 2, 'ageDays' => 6], $level());   // 6d orange
+        $mk('g', 24 * 7 + 1);
+        $this->assertSame(['status' => 'waiting', 'level' => 3, 'ageDays' => 7], $level());   // >6d red
+        RequiredInput::query()->whereIn('id', ['a', 'b', 'c', 'e', 'f', 'g'])->update(['resolved_at' => now()]);
         $this->assertSame('smooth', $level()['status']);
     }
 

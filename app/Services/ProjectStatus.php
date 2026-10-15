@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
  * Bridge r1 status rules (SPEC.md §5, approved by Tilen):
  * - archived_at set            -> archived
  * - any open input             -> waiting; level from the OLDEST open input's age
- *                                 (<1 day and 1 day = L1 yellow, 2 = L2 orange, 3+ = L3 red)
+ *                                 (r3: <3 days = L1 yellow, 3-6 days = L2 orange, >6 days = L3 red)
  * - otherwise                  -> smooth
  * - "Reopened" chip: reopened_at within the last 7 days (it is also cleared by the next update).
  */
@@ -29,7 +29,7 @@ class ProjectStatus
 
     public static function level(int $days): int
     {
-        return $days >= 3 ? 3 : ($days === 2 ? 2 : 1);
+        return $days > 6 ? 3 : ($days >= 3 ? 2 : 1);
     }
 
     public static function isReopened(Project $project, ?CarbonInterface $now = null): bool

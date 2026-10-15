@@ -6,21 +6,50 @@ import { MarkdownBody } from '../Components/MarkdownBody';
 import { IconAllClear, IconArch, IconReopen } from '../Components/Icons';
 import { shortDay, updateTime } from '../lib/dates';
 import { t } from '../lib/strings';
-import type { InputView, ProjectSummary, UpdateView } from '../lib/types';
+import type { InputView, NextStepView, ProjectSummary, TimelineWindow, UpdateView } from '../lib/types';
 
 type Props = {
   project: ProjectSummary;
   statusUpdates: UpdateView[];
   openInputs: InputView[];
   doneInputs: InputView[];
+  nextSteps: { inProgress: NextStepView[]; blockers: NextStepView[] };
+  timeline: TimelineWindow;
   now: string;
 };
 
 const DAY = 86400000;
-const levelOf = (d: number) => (d >= 3 ? 3 : d === 2 ? 2 : 1) as 1 | 2 | 3;
+// r3: <3 days L1 yellow, 3-6 days L2 orange, >6 days L3 red (mirrors ProjectStatus::level).
+const levelOf = (d: number) => (d > 6 ? 3 : d >= 3 ? 2 : 1) as 1 | 2 | 3;
 
-export default function Project({ project, statusUpdates, openInputs, doneInputs, now }: Props) {
+function StepList({ id, title, items, kind }: { id: string; title: string; items: NextStepView[]; kind: string }) {
+  return (
+    <div className={`nscol ns-${kind}`} aria-labelledby={id}>
+      <h3 id={id}>{title} <span className="cnt">{items.length}</span></h3>
+      {items.length === 0 ? <p className="nsnone">{t('proj.next.none')}</p> : (
+        <ul>
+          {items.map((s) => (
+            <li key={s.id}><span className="nst">{s.text}</span>{s.owner && <span className="nso">{s.owner}</span>}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export default function Project({ project, statusUpdates, openInputs, doneInputs, nextSteps, timeline, now }: Props) {
   const [busy, setBusy] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const showMore = () => {
+    setLoadingMore(true);
+    router.get(`/projects/${project.slug}`, { days: timeline.days + timeline.step }, {
+      only: ['statusUpdates', 'timeline'],
+      preserveScroll: true,
+      preserveState: true,
+      replace: true,
+      onFinish: () => setLoadingMore(false),
+    });
+  };
   // Optimistic overrides: input id -> resolved?
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState(false);
@@ -84,10 +113,18 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
             </button>
           </div>
         </div>
+        <section className="nsteps" aria-labelledby="h-next">
+          <h2 id="h-next">{t('proj.next.heading')}</h2>
+          <div className="nsgrid">
+            <StepList id="h-next-ip" title={t('proj.next.inProgress')} items={nextSteps.inProgress} kind="ip" />
+            <StepList id="h-next-bl" title={t('proj.next.blockers')} items={nextSteps.blockers} kind="bl" />
+          </div>
+        </section>
         <div className="pgrid">
           <section className="feed" aria-labelledby="h-updates">
             <h2 id="h-updates">{t('proj.updates.heading')}</h2>
-            <p className="sub">{t('proj.updates.order')}</p>
+            <p className="sub">{t('proj.updates.order')} · {t('proj.updates.window', { n: timeline.days })}</p>
+            {statusUpdates.length === 0 && <p className="empty-feed">{t('proj.updates.emptyWindow', { n: timeline.days })}</p>}
             {statusUpdates.map((u) => (
               <article className="upd" key={u.id}>
                 <div className="dot" />
@@ -95,6 +132,9 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
                 <MarkdownBody content={u.body} />
               </article>
             ))}
+            {timeline.hasMore && (
+              <button type="button" className="abtn more" onClick={showMore} disabled={loadingMore}>{t('proj.updates.more')}</button>
+            )}
           </section>
           <aside className="inputs" aria-labelledby="h-inputs">
             <h2 id="h-inputs">{t('proj.inputs.heading')}</h2>
