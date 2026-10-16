@@ -3,15 +3,18 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Bridge r1 status rules (SPEC.md §5, approved by Tilen):
  * - archived_at set            -> archived
- * - any open input             -> waiting; level from the OLDEST open input's age
+ * - any open input or question -> waiting; level from the OLDEST open item's age
+ *                                 (input: since, r4 question: created_at)
  *                                 (r3: <3 days = L1 yellow, 3-6 days = L2 orange, >6 days = L3 red)
  * - otherwise                  -> smooth
  * - "Reopened" chip: reopened_at within the last 7 days (it is also cleared by the next update).
@@ -19,6 +22,8 @@ use Illuminate\Support\Carbon;
 class ProjectStatus
 {
     public const REOPENED_DAYS = 7;
+
+    public const DONE_VISIBLE_DAYS = 2;
 
     public static function ageDays(CarbonInterface $since, ?CarbonInterface $now = null): int
     {
@@ -49,12 +54,14 @@ class ProjectStatus
         }
         $oldest = $project->requiredInputs
             ->filter(fn (RequiredInput $i) => $i->resolved_at === null)
-            ->sortBy(fn (RequiredInput $i) => $i->since->getTimestamp())
+            ->map(fn (RequiredInput $i) => $i->since)
+            ->concat($project->questions->filter(fn (Question $q) => $q->isOpen())->map(fn (Question $q) => $q->created_at))
+            ->sortBy(fn (CarbonInterface $since) => $since->getTimestamp())
             ->first();
         if (! $oldest) {
             return ['status' => 'smooth', 'level' => null, 'ageDays' => null];
         }
-        $days = self::ageDays($oldest->since, $now);
+        $days = self::ageDays($oldest, $now);
 
         return ['status' => 'waiting', 'level' => self::level($days), 'ageDays' => $days];
     }
@@ -97,9 +104,23 @@ class ProjectStatus
             'latestLine' => self::firstLine($latest?->body),
             'lastUpdatedAt' => $lastAt?->toIso8601String(),
             'openInputs' => $project->requiredInputs->whereNull('resolved_at')->count(),
+            'openQuestions' => $project->questions->where('state', 'open')->count(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),
         ];
+    }
+
+    /**
+     * r3: cleared items disappear 2 days after they were resolved/answered.
+     * Shared by Required inputs (resolved_at) and r4 questions (answered_at); newest first.
+     */
+    public static function recentlyDone(Collection $items, string $doneAttr, ?CarbonInterface $now = null): Collection
+    {
+        $doneCutoff = ($now ?? Carbon::now())->copy()->subDays(self::DONE_VISIBLE_DAYS)->getTimestamp();
+
+        return $items->whereNotNull($doneAttr)
+            ->filter(fn ($i) => $i->{$doneAttr}->getTimestamp() >= $doneCutoff)
+            ->sortByDesc(fn ($i) => $i->{$doneAttr}->getTimestamp())->values();
     }
 
     /** 'tilen' -> 'Tilen'; 'token:x' -> 'x'; agent names unchanged. */

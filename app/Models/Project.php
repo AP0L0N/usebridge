@@ -41,4 +41,9 @@ class Project extends Model
     {
         return $this->hasMany(NextStep::class);
     }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(Question::class);
+    }
 }

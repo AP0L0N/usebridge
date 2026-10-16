@@ -11,7 +11,7 @@ class PortfolioController extends Controller
 {
     public function __invoke(): Response
     {
-        $projects = Project::query()->with(['statusUpdates', 'requiredInputs'])->get()
+        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->get()
             ->map(fn ($p) => ProjectStatus::summary($p))
             ->values();
 

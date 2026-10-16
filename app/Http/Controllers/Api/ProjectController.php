@@ -18,7 +18,7 @@ class ProjectController extends Controller
 
     public function index(): JsonResponse
     {
-        $projects = Project::query()->with(['statusUpdates', 'requiredInputs'])->orderBy('name')->get()
+        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->orderBy('name')->get()
             ->map(fn ($p) => $this->present($p));
 
         return response()->json(['data' => $projects]);
@@ -26,7 +26,7 @@ class ProjectController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        $project = Project::query()->with(['statusUpdates', 'requiredInputs'])->findOrFail($id);
+        $project = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->findOrFail($id);
 
         return response()->json(['data' => [
             ...$this->present($project),
@@ -49,7 +49,7 @@ class ProjectController extends Controller
         $project = Project::create($data);
         $this->syncNeedsDecision($project, $needsDecision, true);
 
-        return response()->json(['data' => $this->present($project->load(['statusUpdates', 'requiredInputs']))], 201);
+        return response()->json(['data' => $this->present($project->load(['statusUpdates', 'requiredInputs', 'questions']))], 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -71,7 +71,7 @@ class ProjectController extends Controller
         $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'owner_agent_id'])))->save();
         $this->syncNeedsDecision($project, $data['needs_decision'] ?? null, $request->has('needs_decision'));
 
-        return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs']))]);
+        return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs', 'questions']))]);
     }
 
     public function archive(string $id): JsonResponse

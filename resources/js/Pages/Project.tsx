@@ -4,15 +4,18 @@ import { TopBar } from '../Components/TopBar';
 import { StatusBadge } from '../Components/StatusBadge';
 import { MarkdownBody } from '../Components/MarkdownBody';
 import { IconAllClear, IconArch, IconReopen } from '../Components/Icons';
+import { Questions, type Answer } from '../Components/Questions';
 import { shortDay, updateTime } from '../lib/dates';
 import { t } from '../lib/strings';
-import type { InputView, NextStepView, ProjectSummary, TimelineWindow, UpdateView } from '../lib/types';
+import type { InputView, NextStepView, ProjectSummary, QuestionView, TimelineWindow, UpdateView } from '../lib/types';
 
 type Props = {
   project: ProjectSummary;
   statusUpdates: UpdateView[];
   openInputs: InputView[];
   doneInputs: InputView[];
+  openQuestions: QuestionView[];
+  answeredQuestions: QuestionView[];
   nextSteps: { inProgress: NextStepView[]; blockers: NextStepView[] };
   timeline: TimelineWindow;
   now: string;
@@ -37,7 +40,7 @@ function StepList({ id, title, items, kind }: { id: string; title: string; items
   );
 }
 
-export default function Project({ project, statusUpdates, openInputs, doneInputs, nextSteps, timeline, now }: Props) {
+export default function Project({ project, statusUpdates, openInputs, doneInputs, openQuestions, answeredQuestions, nextSteps, timeline, now }: Props) {
   const [busy, setBusy] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const showMore = () => {
@@ -53,6 +56,13 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
   // Optimistic overrides: input id -> resolved?
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [saveError, setSaveError] = useState(false);
+  // r4 optimistic answers: question id -> answer in flight.
+  const [qPending, setQPending] = useState<Record<string, Answer>>({});
+
+  const questions = useMemo(() => [...openQuestions, ...answeredQuestions].map((q): QuestionView => {
+    const a = qPending[q.id];
+    return a ? { ...q, state: 'answered', answer_choice: a.choice, answer_text: a.text, answered_at: now } : q;
+  }), [openQuestions, answeredQuestions, qPending, now]);
 
   const { open, done, status } = useMemo(() => {
     const nowMs = Date.parse(now);
@@ -65,11 +75,30 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
     });
     const o = all.filter((i) => i.open).sort((a, b) => Date.parse(a.since) - Date.parse(b.since));
     const dn = all.filter((i) => !i.open).sort((a, b) => Date.parse(b.resolvedAt ?? '') - Date.parse(a.resolvedAt ?? ''));
+    // r4: open questions count toward Waiting input like open inputs (oldest open item sets the level).
+    const oldest = Math.min(...o.map((i) => Date.parse(i.since)),
+      ...questions.filter((q) => q.state === 'open' && q.created_at).map((q) => Date.parse(q.created_at as string)));
+    const age = Math.max(0, Math.floor((nowMs - oldest) / DAY));
     const st = project.archived
       ? { status: 'archived' as const, level: null, ageDays: null }
-      : o.length ? { status: 'waiting' as const, level: o[0].level, ageDays: o[0].ageDays } : { status: 'smooth' as const, level: null, ageDays: null };
+      : Number.isFinite(oldest) ? { status: 'waiting' as const, level: levelOf(age), ageDays: age } : { status: 'smooth' as const, level: null, ageDays: null };
     return { open: o, done: dn, status: st };
-  }, [openInputs, doneInputs, pending, now, project.archived]);
+  }, [openInputs, doneInputs, pending, questions, now, project.archived]);
+
+  const answer = (q: QuestionView, a: Answer) => new Promise<boolean>((resolve) => {
+    setQPending((p) => ({ ...p, [q.id]: a }));
+    let ok = false;
+    router.post(`/projects/${project.slug}/questions/${encodeURIComponent(q.id)}/answer`, { answer_choice: a.choice, answer_text: a.text }, {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: (page) => { ok = !(page.props.errors && Object.keys(page.props.errors).length); },
+      onFinish: () => {
+        // Same as toggle(): server props are authoritative now; on failure the answer reverts.
+        setQPending((p) => { const n = { ...p }; delete n[q.id]; return n; });
+        resolve(ok);
+      },
+    });
+  });
 
   const toggle = (i: InputView, resolved: boolean) => {
     setSaveError(false);
@@ -113,6 +142,7 @@ export default function Project({ project, statusUpdates, openInputs, doneInputs
             </button>
           </div>
         </div>
+        <Questions questions={questions} now={now} onSave={answer} />
         <section className="nsteps" aria-labelledby="h-next">
           <h2 id="h-next">{t('proj.next.heading')}</h2>
           <div className="nsgrid">

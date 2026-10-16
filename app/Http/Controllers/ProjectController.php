@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Services\InputResolution;
+use App\Services\QuestionAnswer;
 use Illuminate\Http\Request;
 use App\Services\ProjectStatus;
 use Illuminate\Http\RedirectResponse;
@@ -14,7 +16,7 @@ use Inertia\Response;
 
 class ProjectController extends Controller
 {
-    public const DONE_VISIBLE_DAYS = 2;
+    public const DONE_VISIBLE_DAYS = ProjectStatus::DONE_VISIBLE_DAYS;
 
     public const TIMELINE_STEP_DAYS = 7;
 
@@ -22,7 +24,7 @@ class ProjectController extends Controller
     {
         $project = Project::query()
             ->where('slug', $slug)
-            ->with(['requiredInputs', 'nextSteps' => fn ($q) => $q->whereNull('done_at')])
+            ->with(['requiredInputs', 'questions', 'nextSteps' => fn ($q) => $q->whereNull('done_at')])
             ->firstOrFail();
 
         // r3: timeline window in whole 7-day steps (?days=7|14|21...).
@@ -32,11 +34,12 @@ class ProjectController extends Controller
 
         $inputs = $project->requiredInputs;
         $open = $inputs->whereNull('resolved_at')->sortBy(fn ($i) => $i->since->getTimestamp())->values();
-        // r3: cleared inputs disappear 2 days after they were resolved.
-        $doneCutoff = now()->subDays(self::DONE_VISIBLE_DAYS)->getTimestamp();
-        $done = $inputs->whereNotNull('resolved_at')
-            ->filter(fn ($i) => $i->resolved_at->getTimestamp() >= $doneCutoff)
-            ->sortByDesc(fn ($i) => $i->resolved_at->getTimestamp())->values();
+        // r3: cleared inputs disappear 2 days after they were resolved (r4: same rule for answered questions).
+        $done = ProjectStatus::recentlyDone($inputs, 'resolved_at');
+
+        // r4: open questions oldest first; answered ones newest first, hidden after 2 days; closed never shown.
+        $openQuestions = $project->questions->where('state', 'open')->sortBy(fn ($q) => $q->created_at->getTimestamp())->values();
+        $answeredQuestions = ProjectStatus::recentlyDone($project->questions->where('state', 'answered'), 'answered_at');
 
         $updates = $project->statusUpdates()->with('agent')
             ->where('created_at', '>=', $cutoff)
@@ -61,6 +64,8 @@ class ProjectController extends Controller
             'timeline' => ['days' => $days, 'step' => self::TIMELINE_STEP_DAYS, 'hasMore' => $hasOlder],
             'openInputs' => $open->map(fn ($i) => ProjectStatus::inputView($i)),
             'doneInputs' => $done->map(fn ($i) => ProjectStatus::inputView($i)),
+            'openQuestions' => $openQuestions->map->toView(),
+            'answeredQuestions' => $answeredQuestions->map->toView(),
             'nextSteps' => [
                 'inProgress' => $steps->where('kind', 'in_progress')->values()->map->toView(),
                 'blockers' => $steps->where('kind', 'blocker')->values()->map->toView(),
@@ -76,6 +81,17 @@ class ProjectController extends Controller
         $project = Project::query()->where('slug', $slug)->firstOrFail();
         $input = RequiredInput::query()->where('project_id', $project->id)->findOrFail($id);
         $data['resolved'] ? InputResolution::resolve($input, InputResolution::TILEN) : InputResolution::reopen($input);
+
+        return back(303);
+    }
+
+    /** r4 gate-session answer (CSRF-protected web route); same rules as the API PATCH. */
+    public function answerQuestion(Request $request, string $slug, string $id): RedirectResponse
+    {
+        $data = $request->validate(QuestionAnswer::rules());
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        $question = Question::query()->where('project_id', $project->id)->where('state', '!=', 'closed')->findOrFail($id);
+        QuestionAnswer::answer($question, $data['answer_choice'] ?? null, $data['answer_text'] ?? null)->save();
 
         return back(303);
     }

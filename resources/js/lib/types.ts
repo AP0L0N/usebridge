@@ -12,6 +12,7 @@ export interface ProjectSummary {
   latestLine: string;
   lastUpdatedAt: string | null;
   openInputs: number;
+  openQuestions: number;
   searchText?: string;
 }
 
@@ -53,4 +54,23 @@ export interface TimelineWindow {
   days: number;
   step: number;
   hasMore: boolean;
+}
+
+export type QuestionType = 'yesno' | 'text';
+export type QuestionState = 'open' | 'answered' | 'closed';
+export type AnswerChoice = 'yes' | 'no' | 'skip' | 'other';
+
+export interface QuestionView {
+  id: string;
+  project_id: string;
+  text: string;
+  context: string | null;
+  type: QuestionType;
+  asked_by: string;
+  state: QuestionState;
+  answer_choice: AnswerChoice | null;
+  answer_text: string | null;
+  answered_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }

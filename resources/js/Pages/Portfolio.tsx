@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { StatusBadge, rowClass } from '../Components/StatusBadge';
 import { Highlight } from '../Components/Highlight';
+import { QuestionBadge } from '../Components/Questions';
 import { IconInbox, IconReopen, IconSearch } from '../Components/Icons';
 import { lastUpdated } from '../lib/dates';
 import { t } from '../lib/strings';
@@ -26,6 +27,7 @@ function Row({ p, q, now }: { p: ProjectSummary; q: string; now: string }) {
       <div className="pmain">
         <div className="pname">
           <span><Highlight text={p.name} q={q} /></span>
+          <QuestionBadge n={p.openQuestions} />
           {p.reopened && (
             <span className="reopen" title={t('dash.reopened.tooltip')}><IconReopen /><span>{t('dash.reopened')}</span></span>
           )}

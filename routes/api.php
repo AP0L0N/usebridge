@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\CeoQueueCompatController;
 use App\Http\Controllers\Api\NextStepController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\RemovedEndpointController;
 use App\Http\Controllers\Api\RequiredInputController;
 use App\Http\Controllers\Api\StatusUpdateController;
@@ -20,6 +21,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('next-steps', [NextStepController::class, 'store'])->name('api.next-steps.store');
     Route::patch('next-steps/{id}', [NextStepController::class, 'update'])->name('api.next-steps.update');
     Route::delete('next-steps/{id}', [NextStepController::class, 'destroy'])->name('api.next-steps.destroy');
+    // r4 Questions for Tilen. GET ?project_id=&state=open|answered|closed|all (default all).
+    Route::get('questions', [QuestionController::class, 'index'])->name('api.questions.index');
+    Route::post('questions', [QuestionController::class, 'store'])->name('api.questions.store');
+    Route::post('projects/{project}/questions', [QuestionController::class, 'storeForProject'])->name('api.projects.questions.store');
+    Route::patch('questions/{id}', [QuestionController::class, 'update'])->name('api.questions.update');
+    Route::delete('questions/{id}', [QuestionController::class, 'destroy'])->name('api.questions.destroy');
     Route::apiResource('inputs', RequiredInputController::class)->except(['show'])->names('api.inputs');
     Route::get('agents', [AgentController::class, 'index'])->name('api.agents.index');
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');

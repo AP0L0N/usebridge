@@ -17,6 +17,7 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
     Route::post('/projects/{slug}/inputs/{id}/resolve', [ProjectController::class, 'resolveInput'])->name('projects.inputs.resolve');
+    Route::post('/projects/{slug}/questions/{id}/answer', [ProjectController::class, 'answerQuestion'])->name('projects.questions.answer');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');
     // r0 screens removed in r1.
