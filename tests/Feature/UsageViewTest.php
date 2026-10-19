@@ -87,10 +87,14 @@ class UsageViewTest extends TestCase
                 ->where('updatedAt', '15:29')
                 ->where('fromLabel', 'Tue 13 Oct')
                 ->where('toLabel', 'Mon 19 Oct')
-                ->has('series', 6)
+                ->has('series', 11)
                 ->where('series.0.name', 'The Many')
                 ->where('series.0.key', 'a1')
-                ->where('series.5.name', 'Other agents (14)')
+                ->where('series.9.name', 'Alice')
+                ->where('series.9.key', 'a10')
+                ->where('series.10.name', 'Other agents (9)')
+                ->where('series.10.key', 'ao')
+                ->has('topAgents', 5)
                 ->where('topAgents.0.agentId', self::THE_MANY)
                 ->where('topAgents.0.tokens', 427362325)
                 ->where('topAgents.1.name', 'Shodan')
@@ -104,11 +108,55 @@ class UsageViewTest extends TestCase
                 ->where('table.rows.0.factor', 'median')
                 ->where('table.rows.1.factor', 'calibrated'));
 
-        // Day segments add up to the day total (Other = total - top 5).
-        $days = $this->get('/usage')->viewData('page')['props']['days'];
-        foreach ($days as $d) {
+        // Day segments add up to the day total (Other = total - named agents).
+        $props = $this->get('/usage')->viewData('page')['props'];
+        foreach ($props['days'] as $d) {
+            $this->assertCount(11, $d['segments']);
             $this->assertSame($d['total'], array_sum($d['segments']));
         }
+
+        $this->assertNamedRule($props, 10, 9);
+    }
+
+    /** Named = every agent >= 3% (prefix of the ranking), keys a1..aN, then one Other in `ao`. */
+    private function assertNamedRule(array $props, int $named, int $other): void
+    {
+        $total = $props['rangeTotal'];
+        $series = $props['series'];
+        $namedSeries = array_values(array_filter($series, fn ($s) => $s['agentId'] !== null));
+        $this->assertCount($named, $namedSeries);
+        $this->assertSame(array_map(fn ($i) => 'a'.$i, range(1, $named)), array_column($namedSeries, 'key'));
+        foreach ($namedSeries as $s) {
+            $this->assertGreaterThanOrEqual(0.03, $s['total'] / $total, $s['name']);
+        }
+
+        $namedIds = array_column($namedSeries, 'agentId');
+        $rest = array_values(array_filter($props['table']['rows'], fn ($r) => ! in_array($r['agentId'], $namedIds, true)));
+        $this->assertCount($other, $rest);
+        foreach ($rest as $r) {
+            $this->assertLessThan(0.03, $r['tokens'] / $total, $r['name']);
+            $this->assertSame('ao', $r['color']);
+        }
+
+        $last = end($series);
+        $this->assertSame(['key' => 'ao', 'agentId' => null, 'name' => "Other agents ($other)"], array_diff_key($last, ['total' => 1]));
+        $this->assertSame($total - array_sum(array_column($namedSeries, 'total')), $last['total']);
+        $this->assertGreaterThan(0.05, $last['total'] / $total);
+        $this->assertLessThan(0.07, $last['total'] / $total);
+        $this->assertCount($named + 1, $series);
+    }
+
+    #[Test]
+    public function agent_detail_colour_follows_the_named_set(): void
+    {
+        $this->loadFixtures();
+        $this->unlock();
+
+        $rows = $this->get('/usage')->viewData('page')['props']['table']['rows'];
+        $this->assertSame('Alice', $rows[9]['name']);
+        $this->assertSame('Angela', $rows[10]['name']);
+        $this->get('/usage/agents/'.$rows[9]['agentId'])->assertInertia(fn (Assert $page) => $page->where('agent.color', 'a10'));
+        $this->get('/usage/agents/'.$rows[10]['agentId'])->assertInertia(fn (Assert $page) => $page->where('agent.color', 'ao'));
     }
 
     #[Test]
@@ -129,8 +177,16 @@ class UsageViewTest extends TestCase
                 ->where('days.29.present', true)
                 ->has('table.rows', 19));
 
-        $days = $this->get('/usage?range=30')->viewData('page')['props']['days'];
-        $this->assertCount(23, array_filter($days, fn ($d) => ! $d['present']));
+        $props = $this->get('/usage?range=30')->viewData('page')['props'];
+        $this->assertCount(23, array_filter($props['days'], fn ($d) => ! $d['present']));
+
+        // Same totals as the 7-day range here, so the same named set from the 30-day totals.
+        $this->assertNamedRule($props, 10, 9);
+        $week = $this->get('/usage')->viewData('page')['props']['series'];
+        $this->assertSame($week, $props['series']);
+        foreach ($props['days'] as $d) {
+            $this->assertSame($d['present'] ? 11 : null, $d['segments'] === null ? null : count($d['segments']));
+        }
     }
 
     #[Test]

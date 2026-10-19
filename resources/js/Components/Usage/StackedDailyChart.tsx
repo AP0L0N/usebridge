@@ -16,7 +16,7 @@ type Props = {
 };
 
 /**
- * Stacked daily bars (top 5 + Other, bottom→top = rank). The SVG is the picture (role="img" + title);
+ * Stacked daily bars (named agents + Other, bottom→top = rank). The SVG is the picture (role="img" + title);
  * an HTML overlay of buttons over each day slot carries hover / focus / keyboard
  * (roving tabindex, ←/→ between days, Enter opens the day, Esc closes the tooltip).
  */
@@ -144,7 +144,7 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
   );
 }
 
-/** "Show as table": Date × (Total, top 5, Other). */
+/** "Show as table": Date × (Total, named agents, Other). */
 export function DailyTable({ days, series, caption }: { days: OverviewDay[]; series: Series[]; caption: string }) {
   return (
     <div className="ttbl">

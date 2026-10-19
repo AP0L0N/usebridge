@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 // Usage view: every token figure is an estimate (est_* fields of the daily files). Counts are real.
 
-export type ColorKey = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6';
+// a1..a12: named chart agents in rank order (share >= 3%, max 12); ao: "Other agents" and everyone outside the named set.
+export type ColorKey = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' | 'a9' | 'a10' | 'a11' | 'a12' | 'ao';
 export type Factor = 'calibrated' | 'median';
 
 export type DayEntry = { date: string; label: string; longLabel: string; present: boolean; today: boolean };

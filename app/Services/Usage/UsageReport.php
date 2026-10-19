@@ -12,8 +12,13 @@ use Carbon\CarbonImmutable;
  *
  * - Range = last N days ending today (Europe/Ljubljana), N = 7 | 30. A day without a row is an
  *   explicit `present: false` entry, never a zero.
- * - Colours: agents ranked by est_tokens_total summed over the range; ranks 1–5 get a1..a5,
- *   everyone else a6 ("Other agents (n)"). The same index is used on every list and the detail page.
+ * - Chart grouping: agents ranked by est_tokens_total summed over the range (desc, then name).
+ *   Walking that ranking, an agent is "named" while its share of the range total is >= 3%
+ *   (OTHER_SHARE_FLOOR) and fewer than 12 (MAX_NAMED) are named; the first agent under 3% ends the
+ *   walk. Everyone else folds into "Other agents (n)". See selectNamed().
+ * - Colours: named agents get a1..aN in rank order, everyone else `ao` (the Other grey). The same
+ *   key is used on every list and the detail page, computed from the page's range.
+ * - "Top agents" / "Top routines" lists are always TOP_LIST (5) long, independent of the chart.
  * - "All agents" table is always the last 7 days (optionally one ?day).
  * - Factor: daily files carry no calibration flag (spec data gap 5), so K != params.median_K
  *   means "calibrated", otherwise "median K".
@@ -22,7 +27,17 @@ final class UsageReport
 {
     public const RANGES = [7, 30];
 
-    public const TOP = 5;
+    /** Length of the side "Top agents" / "Top routines" lists. */
+    public const TOP_LIST = 5;
+
+    /** Cap on named chart series, so colours and the legend stay usable. */
+    public const MAX_NAMED = 12;
+
+    /** Minimum share of the range total for an agent to get its own chart series. */
+    public const OTHER_SHARE_FLOOR = 0.03;
+
+    /** Colour key of the "Other agents" segment and of every agent outside the named set. */
+    public const OTHER_KEY = 'ao';
 
     private const UNMATCHED = 'unmatched';
 
@@ -55,37 +70,38 @@ final class UsageReport
         $this->load($dates);
 
         $agents = $this->aggregate($dates);
-        $colors = $this->colors($agents);
         $rangeTotal = $this->sumTotal($dates);
+        $named = self::selectNamed($agents, $rangeTotal);
+        $colors = $this->colors($agents, $named);
         $present = array_values(array_filter($dates, fn ($d) => isset($this->files[$d])));
 
-        $top = array_slice($agents, 0, self::TOP);
-        $topIds = array_column($top, 'id');
-        $otherCount = max(0, count($agents) - count($top));
+        $top = array_slice($agents, 0, self::TOP_LIST);
+        $namedIds = array_column($named, 'id');
+        $otherCount = count($agents) - count($named);
 
         $series = array_map(fn ($a) => [
             'key' => $colors[$a['id']],
             'agentId' => $a['id'],
             'name' => $a['name'],
             'total' => $a['tokens'],
-        ], $top);
+        ], $named);
         if ($otherCount > 0) {
             $series[] = [
-                'key' => 'a6',
+                'key' => self::OTHER_KEY,
                 'agentId' => null,
                 'name' => "Other agents ($otherCount)",
-                'total' => array_sum(array_column(array_slice($agents, self::TOP), 'tokens')),
+                'total' => max(0, $rangeTotal - array_sum(array_column($named, 'tokens'))),
             ];
         }
 
-        $days = array_map(function (string $d) use ($topIds, $otherCount) {
+        $days = array_map(function (string $d) use ($namedIds, $otherCount) {
             $file = $this->files[$d] ?? null;
             $entry = $this->dayEntry($d) + ['total' => null, 'segments' => null];
             if ($file !== null) {
                 $byId = array_column($file['agents'], 'est_tokens_total', 'agent_id');
-                $segments = array_map(fn ($id) => (int) ($byId[$id] ?? 0), $topIds);
+                $segments = array_map(fn ($id) => (int) ($byId[$id] ?? 0), $namedIds);
                 if ($otherCount > 0) {
-                    $segments[] = (int) $file['est_tokens_total'] - array_sum($segments);
+                    $segments[] = max(0, (int) $file['est_tokens_total'] - array_sum($segments));
                 }
                 $entry['total'] = (int) $file['est_tokens_total'];
                 $entry['segments'] = $segments;
@@ -121,7 +137,7 @@ final class UsageReport
                 'share' => $rangeTotal > 0 ? $a['tokens'] / $rangeTotal : 0,
                 'turns' => $a['turns'],
             ], $top),
-            'topRoutines' => array_map(fn ($r) => $r + ['color' => $colors[$r['agentId']] ?? 'a6'], array_slice($routines, 0, self::TOP)),
+            'topRoutines' => array_map(fn ($r) => $r + ['color' => $colors[$r['agentId']] ?? self::OTHER_KEY], array_slice($routines, 0, self::TOP_LIST)),
             'unmatched' => $unmatched,
             'table' => $this->table($colors, $day),
             'method' => $this->latest($dates)['method'] ?? null,
@@ -141,8 +157,8 @@ final class UsageReport
         $this->load($dates);
 
         $agents = $this->aggregate($dates);
-        $colors = $this->colors($agents);
         $rangeTotal = $this->sumTotal($dates);
+        $colors = $this->colors($agents, self::selectNamed($agents, $rangeTotal));
         $rank = array_search($agentId, array_column($agents, 'id'), true);
         $mine = $rank === false ? null : $agents[$rank];
 
@@ -220,7 +236,7 @@ final class UsageReport
             'agent' => [
                 'id' => $agentId,
                 'name' => $latest['name'],
-                'color' => $colors[$agentId] ?? 'a6',
+                'color' => $colors[$agentId] ?? self::OTHER_KEY,
                 'rank' => $rank === false ? null : $rank + 1,
                 'of' => count($agents),
                 'factor' => self::factor($latest, $file),
@@ -301,12 +317,39 @@ final class UsageReport
         return $acc;
     }
 
-    /** @return array<string, string> agent_id => a1..a6 */
-    private function colors(array $ranked): array
+    /**
+     * The named chart series: a prefix of the ranking. Walk from the largest agent and keep
+     * naming while the agent's share of $rangeTotal is >= OTHER_SHARE_FLOOR and fewer than
+     * MAX_NAMED are named; stop at the first agent under the floor (or at the cap). A range
+     * total of 0 names no one.
+     *
+     * @template T of array{tokens: int}
+     *
+     * @param  list<T>  $ranked  agents sorted by tokens desc
+     * @return list<T>
+     */
+    public static function selectNamed(array $ranked, int $rangeTotal): array
     {
-        $out = [];
-        foreach ($ranked as $i => $a) {
-            $out[$a['id']] = $i < self::TOP ? 'a'.($i + 1) : 'a6';
+        if ($rangeTotal <= 0) {
+            return [];
+        }
+        $named = [];
+        foreach ($ranked as $a) {
+            if (count($named) >= self::MAX_NAMED || $a['tokens'] / $rangeTotal < self::OTHER_SHARE_FLOOR) {
+                break;
+            }
+            $named[] = $a;
+        }
+
+        return $named;
+    }
+
+    /** @return array<string, string> agent_id => a1..aN for the named set, OTHER_KEY for everyone else */
+    private function colors(array $ranked, array $named): array
+    {
+        $out = array_fill_keys(array_column($ranked, 'id'), self::OTHER_KEY);
+        foreach (array_values($named) as $i => $a) {
+            $out[$a['id']] = 'a'.($i + 1);
         }
 
         return $out;
@@ -396,7 +439,7 @@ final class UsageReport
         $rows = array_map(fn ($a) => [
             'agentId' => $a['id'],
             'name' => $a['name'],
-            'color' => $colors[$a['id']] ?? 'a6',
+            'color' => $colors[$a['id']] ?? self::OTHER_KEY,
             'tokens' => $a['tokens'],
             'share' => $total > 0 ? $a['tokens'] / $total : 0,
             'daily' => array_map(fn ($d) => isset($this->files[$d]) ? (int) ($this->agentIn($d, $a['id'])['est_tokens_total'] ?? 0) : null, $week),

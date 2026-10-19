@@ -115,7 +115,7 @@ export default function Overview(p: OverviewProps) {
                   <h2 id="h-daily">{narrow ? 'Daily estimate' : 'Daily estimate by agent'}</h2>
                   {loading
                     ? <span className="sub" role="status">Loading usage files…</span>
-                    : <span className="sub">{narrow ? 'total only' : 'Stacked: top 5 agents of the range + the rest'}</span>}
+                    : <span className="sub">{narrow ? 'total only' : 'Stacked: agents with ≥ 3% of the range + the rest'}</span>}
                   {!narrow && !loading && (
                     <div className="right">
                       {missing > 0 && <span className="hscale"><MissingKey />No file for that day ({missing}) · not the same as zero</span>}

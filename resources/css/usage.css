@@ -1,5 +1,5 @@
 /* Bridge · Usage. Rules from design/usage (html/usage.css, 19 Oct 2026), tokens are the r4 :root tokens in bridge.css. */
-:root{--a1:#1F3A5F;--a2:#1F7A80;--a3:#7A4B8C;--a4:#A8661C;--a5:#B04A6A;--a6:#8B8F98;--sel:#E7EDF5;--h0:#F4F2EC;--h1:#D5DEEA;--h2:#A9BCD4;--h3:#6F8DB3;--h4:#3E5F8A;--h5:#1F3A5F}
+:root{--a1:#1F3A5F;--a2:#1F7A80;--a3:#7A4B8C;--a4:#A8661C;--a5:#B04A6A;--a6:#3D6B3D;--a7:#6B3D1F;--a8:#1F4A6B;--a9:#6B1F4A;--a10:#4A6B1F;--a11:#1F6B5A;--a12:#5A1F6B;--ao:#8B8F98;--sel:#E7EDF5;--h0:#F4F2EC;--h1:#D5DEEA;--h2:#A9BCD4;--h3:#6F8DB3;--h4:#3E5F8A;--h5:#1F3A5F}
 .nav{display:flex;gap:4px;margin-left:28px}.nav a{color:#d8dbe0;text-decoration:none;font-size:15px;font-weight:700;padding:8px 14px;border-radius:10px}
 .nav a[aria-current=page]{background:#ffffff1f;color:#fff}
 .est{font-weight:700}.est::before{content:"~";font-weight:400;color:var(--ink3);margin-right:1px}
