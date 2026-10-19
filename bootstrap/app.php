@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
+        // The usage upload is decoded only by UsageDayValidator, after the size/type guard.
+        $usageUpload = fn (Request $request) => $request->is('api/usage/days');
+        $middleware->trimStrings(except: [$usageUpload]);
+        $middleware->convertEmptyStringsToNull(except: [$usageUpload]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

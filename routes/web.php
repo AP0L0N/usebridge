@@ -4,6 +4,7 @@ use App\Http\Controllers\GateController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\StatusUpdateController;
+use App\Http\Controllers\UsageController;
 use App\Http\Middleware\EnsureWorkspaceGate;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,10 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::post('/projects/{slug}/questions/{id}/answer', [ProjectController::class, 'answerQuestion'])->name('projects.questions.answer');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');
+    Route::get('/usage', [UsageController::class, 'index'])->name('usage');
+    Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
+        ->where('agentId', '[A-Za-z0-9_-]{1,64}')
+        ->name('usage.agent');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/agents', '/');

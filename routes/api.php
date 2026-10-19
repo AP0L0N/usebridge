@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\RemovedEndpointController;
 use App\Http\Controllers\Api\RequiredInputController;
 use App\Http\Controllers\Api\StatusUpdateController;
+use App\Http\Controllers\Api\UsageDayController;
+use App\Http\Middleware\GuardUsageUpload;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -31,6 +33,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('agents', [AgentController::class, 'index'])->name('api.agents.index');
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');
     Route::patch('agents/{id}', [AgentController::class, 'update'])->name('api.agents.update');
+
+    // Usage: one estimator day file per POST (raw JSON body, <= 512 KB), upsert by date.
+    Route::post('usage/days', [UsageDayController::class, 'store'])
+        ->middleware(GuardUsageUpload::class)
+        ->name('api.usage.days.store');
 
     // r0 CEO queue, kept for agents: items become Required inputs (see CeoQueueCompatController).
     Route::get('ceo-queue-items', [CeoQueueCompatController::class, 'index'])->name('api.ceo-queue.index');
