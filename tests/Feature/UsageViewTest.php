@@ -437,4 +437,177 @@ class UsageViewTest extends TestCase
             ->where('days.2.present', false)
             ->where('unreadable', ['2026-10-15.json']));
     }
+
+    /** @return array<string, mixed> the decoded fixture file for one date */
+    private static function fixture(string $date): array
+    {
+        return json_decode((string) file_get_contents(base_path("tests/fixtures/usage/$date.json")), true);
+    }
+
+    #[Test]
+    public function yesterday_range_covers_only_the_previous_ljubljana_day(): void
+    {
+        $this->loadFixtures();
+        $this->unlock();
+        $file = self::fixture('2026-10-18');
+
+        // Expected lists, computed from the fixture alone.
+        $agents = $file['agents'];
+        usort($agents, fn ($x, $y) => $y['est_tokens_total'] <=> $x['est_tokens_total'] ?: strcmp($x['name'], $y['name']));
+        $routines = [];
+        $unmatched = ['runs' => 0, 'agents' => [], 'tokens' => 0];
+        foreach ($file['agents'] as $a) {
+            foreach ($a['by_routine'] as $r) {
+                if ($r['routine_id'] === 'unmatched') {
+                    $unmatched['runs'] += $r['runs'];
+                    $unmatched['tokens'] += $r['est_tokens'];
+                    if ($r['runs'] > 0) {
+                        $unmatched['agents'][$a['agent_id']] = true;
+                    }
+
+                    continue;
+                }
+                $k = $a['agent_id']."\0".$r['routine_id'];
+                $routines[$k] ??= ['agentId' => $a['agent_id'], 'routineId' => $r['routine_id'], 'name' => $r['name'], 'runs' => 0, 'tokens' => 0];
+                $routines[$k]['runs'] += $r['runs'];
+                $routines[$k]['tokens'] += $r['est_tokens'];
+            }
+        }
+        $routines = array_values($routines);
+        usort($routines, fn ($x, $y) => $y['tokens'] <=> $x['tokens'] ?: strcmp($x['name'], $y['name']));
+        $nonzero = array_values(array_filter($agents, fn ($a) => $a['est_tokens_total'] > 0));
+
+        $response = $this->get('/usage?range=yesterday')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Usage/Overview')
+                ->where('range', 'yesterday')
+                ->where('today', '2026-10-19')
+                ->where('from', '2026-10-18')
+                ->where('to', '2026-10-18')
+                ->where('fromLabel', 'Sun 18 Oct')
+                ->where('toLabel', 'Sun 18 Oct')
+                ->where('empty', false)
+                ->where('daysWithFile', 1)
+                ->has('days', 1)
+                ->where('days.0.date', '2026-10-18')
+                ->where('days.0.today', false)
+                ->where('days.0.total', $file['est_tokens_total'])
+                ->where('rangeTotal', $file['est_tokens_total'])
+                ->where('agentCount', count($nonzero))
+                ->where('generatedAt', $file['generated_at'])
+                ->where('method', $file['method'])
+                ->where('unmatched', ['runs' => $unmatched['runs'], 'agents' => count($unmatched['agents']), 'tokens' => $unmatched['tokens']])
+                ->where('table.day', '2026-10-18')
+                ->where('table.dayMissing', false)
+                ->where('table.totals.tokens', $file['est_tokens_total'])
+                ->has('table.rows', count($nonzero))
+                ->has('table.dailyLabels', 7));
+
+        $props = $response->viewData('page')['props'];
+        $this->assertSame(
+            array_map(fn ($a) => [$a['agent_id'], $a['est_tokens_total']], array_slice($agents, 0, UsageReport::TOP_LIST)),
+            array_map(fn ($a) => [$a['agentId'], $a['tokens']], $props['topAgents']),
+        );
+        $this->assertSame(
+            array_map(fn ($r) => [$r['agentId'], $r['routineId'], $r['runs'], $r['tokens']], array_slice($routines, 0, UsageReport::TOP_LIST)),
+            array_map(fn ($r) => [$r['agentId'], $r['routineId'], $r['runs'], $r['tokens']], $props['topRoutines']),
+        );
+        $this->assertSame(array_column($nonzero, 'est_tokens_total', 'agent_id'), array_column($props['table']['rows'], 'tokens', 'agentId'));
+        $this->assertEveryAgentIsASeries($props, array_column($file['agents'], 'est_tokens_total', 'agent_id'));
+
+        // An explicit ?day still wins over the range's own day.
+        $this->get('/usage?range=yesterday&day=2026-10-16')->assertInertia(fn (Assert $page) => $page
+            ->where('range', 'yesterday')
+            ->where('table.day', '2026-10-16')
+            ->where('table.totals.tokens', 807261233)
+            ->where('rangeTotal', $file['est_tokens_total']));
+    }
+
+    #[Test]
+    public function yesterday_range_agent_detail_for_the_many(): void
+    {
+        $this->loadFixtures();
+        $this->unlock();
+        $file = self::fixture('2026-10-18');
+        $mine = collect($file['agents'])->firstWhere('agent_id', self::THE_MANY);
+        $this->assertNotNull($mine);
+        $ranked = collect($file['agents'])->sortBy([['est_tokens_total', 'desc'], ['name', 'asc']])->pluck('agent_id')->values();
+
+        $response = $this->get('/usage/agents/'.self::THE_MANY.'?range=yesterday')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Usage/Agent')
+                ->where('range', 'yesterday')
+                ->where('from', '2026-10-18')
+                ->where('to', '2026-10-18')
+                ->where('hoursFromLabel', 'Sun 18 Oct')
+                ->where('stats.tokens', $mine['est_tokens_total'])
+                ->where('stats.io', $mine['est_io_tokens'])
+                ->where('stats.turns', $mine['turns'])
+                ->where('stats.share', $mine['est_tokens_total'] / $file['est_tokens_total'])
+                ->where('agent.rank', $ranked->search(self::THE_MANY) + 1)
+                ->where('agent.of', count($file['agents']))
+                ->has('days', 1)
+                ->where('days.0.value', $mine['est_tokens_total'])
+                ->has('heat', 1)
+                ->where('heat.0.date', '2026-10-18')
+                ->where('heat.0.cutoffHour', null)
+                ->where('hourTotals', $mine['by_hour'])
+                ->where('routineTotals.tokens', $mine['est_tokens_total']));
+
+        $props = $response->viewData('page')['props'];
+        $expected = [];
+        foreach ($mine['by_routine'] as $r) {
+            if ($r['routine_id'] !== 'unmatched') {
+                $expected[$r['routine_id']] = [$r['runs'], $r['est_tokens']];
+            }
+        }
+        $got = [];
+        foreach ($props['routines'] as $r) {
+            if ($r['kind'] === 'routine') {
+                $got[$r['routineId']] = [$r['runs'], $r['tokens']];
+            }
+        }
+        $this->assertEquals($expected, $got);
+        $this->assertSame($mine['other_est_tokens'], collect($props['routines'])->firstWhere('kind', 'other')['tokens']);
+        $this->assertSame($mine['est_tokens_total'], array_sum(array_column($props['routines'], 'tokens')));
+    }
+
+    #[Test]
+    public function yesterday_range_without_a_file_is_empty_and_ignores_today(): void
+    {
+        $this->loadFixtures();
+        $this->unlock();
+        Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00', 'Europe/Ljubljana')); // yesterday = 13 Oct (first fixture)
+        $this->get('/usage?range=yesterday')->assertInertia(fn (Assert $page) => $page->where('from', '2026-10-13')->where('empty', false)->has('days', 1));
+
+        Carbon::setTestNow(Carbon::parse('2026-10-13 09:00:00', 'Europe/Ljubljana')); // yesterday = 12 Oct, no file; today has one
+        $this->get('/usage?range=yesterday')->assertInertia(fn (Assert $page) => $page
+            ->where('from', '2026-10-12')
+            ->where('to', '2026-10-12')
+            ->where('empty', true)
+            ->where('rangeTotal', 0)
+            ->where('updatedAt', null)
+            ->where('generatedAt', null)
+            ->where('days.0.present', false));
+    }
+
+    #[Test]
+    public function range_values_other_than_7_30_yesterday_fall_back_to_7(): void
+    {
+        $this->loadFixtures();
+        $this->unlock();
+
+        foreach (['1', 'Yesterday', 'YESTERDAY', 'yester day', '7.0', '-yesterday'] as $r) {
+            $this->get('/usage?range='.rawurlencode($r))->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
+            $this->get('/usage/agents/'.self::THE_MANY.'?range='.rawurlencode($r))->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
+        }
+        // normalizeRange('yesterday ') is 7 (see UsageYesterdayRangeTest), but over HTTP the global
+        // TrimStrings middleware trims query values first, exactly as it already does for "30 ".
+        $this->get('/usage?range=yesterday%20')->assertInertia(fn (Assert $page) => $page->where('range', 'yesterday'));
+        $this->get('/usage?range=30%20')->assertInertia(fn (Assert $page) => $page->where('range', 30));
+        $this->get('/usage?range[]=yesterday')->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
+        $this->get('/usage/agents/'.self::THE_MANY.'?range[]=yesterday')->assertInertia(fn (Assert $page) => $page->where('range', 7));
+    }
 }

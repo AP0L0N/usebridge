@@ -10,7 +10,7 @@ import { RangeSeg } from '../../Components/Usage/RangeSeg';
 import { RankList } from '../../Components/Usage/RankList';
 import { DailyTable, StackedDailyChart } from '../../Components/Usage/StackedDailyChart';
 import { UsageTable } from '../../Components/Usage/UsageTable';
-import { count, initials, rangeWords, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
+import { count, inRange, initials, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
 
 function ChartSkeleton() {
   return (
@@ -66,7 +66,8 @@ export default function Overview(p: OverviewProps) {
   const [loading, setLoading] = useState(false);
   const missing = p.days.length - p.daysWithFile;
   const rangeTxt = rangeWords(p.range);
-  const agentHref = (id: string) => withQuery(`/usage/agents/${encodeURIComponent(id)}`, { range: p.range === 7 ? null : p.range });
+  const span = spanLabel(p.fromLabel, p.toLabel);
+  const agentHref = (id: string) => withQuery(`/usage/agents/${encodeURIComponent(id)}`, { range: rangeParam(p.range) });
 
   const openDay = (date: string) => {
     router.get(withQuery(window.location.pathname + window.location.search, { day: date }), {}, {
@@ -75,8 +76,12 @@ export default function Overview(p: OverviewProps) {
       onSuccess: () => document.getElementById('h-all')?.scrollIntoView({ block: 'start' }),
     });
   };
-  const clearDay = withQuery('/usage', { range: p.range === 7 ? null : p.range });
+  const clearDay = withQuery('/usage', { range: rangeParam(p.range) });
   const t = p.table;
+  const yesterday = p.range === 'yesterday';
+  // Yesterday range: the table is scoped to that day by the range itself (no "only" notice).
+  const tableByRange = yesterday && t.day === p.to;
+  const clearDayText = yesterday ? 'Show yesterday' : 'Show the last 7 days';
 
   return (
     <>
@@ -88,22 +93,22 @@ export default function Overview(p: OverviewProps) {
             <h1>Usage</h1>
             <p className="summary">
               {p.empty
-                ? <>No usage files · {p.fromLabel} – {p.toLabel}</>
-                : <><b><Est value={p.rangeTotal} /></b> tokens{narrow ? '' : ` across ${p.agentCount} agents`} · {p.fromLabel} – {p.toLabel}</>}
+                ? <>No usage files · {span}</>
+                : <><b><Est value={p.rangeTotal} /></b> tokens{narrow ? '' : ` across ${p.agentCount} agents`} · {span}</>}
               {p.range === 30 && !p.empty && <> · <b>{p.daysWithFile} of {p.days.length} days have a file</b></>}
             </p>
           </div>
           <div className="tools"><RangeSeg range={p.range} onLoading={setLoading} /></div>
         </div>
 
-        <EstNote updatedAt={p.updatedAt} />
+        <EstNote updatedAt={p.updatedAt} day={yesterday ? 'yesterday' : 'today'} />
 
         {p.empty && !loading ? (
           <section className="card">
             <div className="empty" style={{ margin: 0, padding: '48px 24px' }}>
               <div className="eico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></div>
               <h2>No usage estimates yet</h2>
-              <p>The estimator writes one file per day. None found for the {rangeTxt}, so there is nothing to chart. Settings → Usage still has the real total.</p>
+              <p>The estimator writes one file per day. None found {yesterday ? 'for yesterday' : `for the ${rangeTxt}`}, so there is nothing to chart. Settings → Usage still has the real total.</p>
             </div>
             <InfoLines unreadable={p.unreadable} />
           </section>
@@ -157,7 +162,7 @@ export default function Overview(p: OverviewProps) {
                 </section>
                 <section className="card" aria-labelledby="h-tr">
                   <div className="chead"><h2 id="h-tr">Top routines</h2><span className="sub">{rangeTxt}</span></div>
-                  {p.topRoutines.length === 0 && <p className="foot">No routine runs matched in the {rangeTxt}.</p>}
+                  {p.topRoutines.length === 0 && <p className="foot">No routine runs matched {inRange(p.range)}.</p>}
                   <RankList label="Top routines" items={p.topRoutines.map((r) => ({
                     key: `${r.agentId}-${r.routineId}`, name: r.name, value: r.tokens,
                     meta: (
@@ -177,14 +182,14 @@ export default function Overview(p: OverviewProps) {
             <h2 className="sect" id="h-all">
               All agents <span className="cnt">{t.rows.length}</span>{' '}
               <span style={{ textTransform: 'none', letterSpacing: 0 }}>
-                · {t.day ? t.dayLabel : 'last 7 days'} · select a name for hours and routines
+                · {tableByRange ? 'yesterday' : t.day ? t.dayLabel : 'last 7 days'} · select a name for hours and routines
               </span>
             </h2>
-            {t.day && t.dayMissing && (
-              <p className="notice" role="status">No usage file for {t.dayLabel}. <Link href={clearDay} preserveScroll>Show the last 7 days</Link></p>
+            {t.day && !tableByRange && t.dayMissing && (
+              <p className="notice" role="status">No usage file for {t.dayLabel}. <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
             )}
-            {t.day && !t.dayMissing && (
-              <p className="dayf">Showing {t.dayLabel} only. <Link href={clearDay} preserveScroll>Show the last 7 days</Link></p>
+            {t.day && !tableByRange && !t.dayMissing && (
+              <p className="dayf">Showing {t.dayLabel} only. <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
             )}
             {t.rows.length > 0 && <section className="card"><UsageTable table={t} range={p.range} narrow={narrow} /></section>}
           </>

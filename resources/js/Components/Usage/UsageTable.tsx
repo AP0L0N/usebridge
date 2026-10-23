@@ -1,17 +1,17 @@
 import { Link } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
-import { count, pct, withQuery, type UsageTableData } from '../../lib/usage';
+import { count, pct, rangeParam, withQuery, type Range, type UsageTableData } from '../../lib/usage';
 import { Est } from './Est';
 import { FactorBadge } from './FactorBadge';
 import { Sparkline } from './Sparkline';
 
-type Props = { table: UsageTableData; range: number; narrow: boolean };
+type Props = { table: UsageTableData; range: Range; narrow: boolean };
 
 /** All agents table. Name links to the detail page (no whole-row click). Narrow: Agent + Tokens, rest in an expandable row. */
 export function UsageTable({ table, range, narrow }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const maxShare = Math.max(0.0001, ...table.rows.map((r) => r.share));
-  const href = (id: string) => withQuery(`/usage/agents/${encodeURIComponent(id)}`, { range: range === 7 ? null : range });
+  const href = (id: string) => withQuery(`/usage/agents/${encodeURIComponent(id)}`, { range: rangeParam(range) });
   const scope = table.day ? table.dayLabel : `last 7 days, ${table.fromLabel} – ${table.toLabel}`;
   const caption = `Estimated tokens per agent, ${scope}`;
 

@@ -20,10 +20,11 @@ export type UsageTableData = {
   dailyLabels: string[]; rows: TableRow[];
   totals: { tokens: number; turns: number; routineRuns: number; unmatched: number; io: number };
 };
+export type Range = 'yesterday' | 7 | 30;
 export type CoverageNote = { date: string; label: string; note: string };
 
 export type OverviewProps = {
-  range: 7 | 30; today: string; from: string; to: string; fromLabel: string; toLabel: string;
+  range: Range; today: string; from: string; to: string; fromLabel: string; toLabel: string;
   empty: boolean; daysWithFile: number; rangeTotal: number; agentCount: number;
   updatedAt: string | null; generatedAt: string | null; coverageNotes: CoverageNote[]; unreadable: string[];
   series: Series[]; days: OverviewDay[]; topAgents: TopAgent[]; topRoutines: TopRoutine[];
@@ -33,7 +34,7 @@ export type OverviewProps = {
 export type HeatRow = DayEntry & { hours: number[] | null; cutoffHour: number | null };
 export type RoutineRow = { kind: 'routine' | 'unmatched' | 'other'; routineId: string; name: string; runs: number | null; tokens: number; share: number; perRun: number | null };
 export type AgentProps = {
-  range: 7 | 30; today: string; from: string; to: string; fromLabel: string; toLabel: string; hoursFromLabel: string;
+  range: Range; today: string; from: string; to: string; fromLabel: string; toLabel: string; hoursFromLabel: string;
   updatedAt: string | null;
   agent: { id: string; name: string; color: AgentColor; rank: number | null; of: number; factor: Factor; K: number; medianK: number };
   zero: boolean;
@@ -107,7 +108,14 @@ export const count = (n: number) => String(n); // counts as in the mocks: 2459, 
 export const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('');
 
-export const rangeWords = (range: number) => `last ${range} days`;
+/** "yesterday" · "last 7 days" · "last 30 days" */
+export const rangeWords = (range: Range) => (range === 'yesterday' ? 'yesterday' : `last ${range} days`);
+/** For "in the …" sentences: "yesterday" · "in the last 7 days". */
+export const inRange = (range: Range) => (range === 'yesterday' ? 'yesterday' : `in the ${rangeWords(range)}`);
+/** "Tue 13 Oct – Mon 19 Oct", or one label when the range is one day. */
+export const spanLabel = (fromLabel: string, toLabel: string) => (fromLabel === toLabel ? fromLabel : `${fromLabel} – ${toLabel}`);
+/** ?range= value: 7 is the default and has no param. */
+export const rangeParam = (range: Range) => (range === 7 ? null : range);
 
 /** Query helper: keep other params, set/unset one. */
 export function withQuery(base: string, params: Record<string, string | number | null | undefined>) {

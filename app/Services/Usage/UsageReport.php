@@ -10,7 +10,8 @@ use Carbon\CarbonImmutable;
  * Everything the Usage pages show, built from usage_days. The UI does no estimating:
  * every figure is a sum or ratio of the files' est_* fields (counts: turns, runs).
  *
- * - Range = last N days ending today (Europe/Ljubljana), N = 7 | 30. A day without a row is an
+ * - Range = last N days ending today (Europe/Ljubljana), N = 7 | 30, or "yesterday": the one
+ *   calendar day before today's Ljubljana date (from = to = that day). A day without a row is an
  *   explicit `present: false` entry, never a zero.
  * - Chart series: every agent with a nonzero est_tokens_total summed over the range, ranked by
  *   that sum (desc, then name). Agents at zero for the range are left out (chart, legend, and the
@@ -19,13 +20,16 @@ use Carbon\CarbonImmutable;
  * - Colours: #RRGGBB per agent_id from AgentColors, placed over every stored day, so an agent has
  *   the same colour in every range, list and on its detail page.
  * - "Top agents" / "Top routines" lists are always TOP_LIST (5) long, independent of the chart.
- * - "All agents" table is always the last 7 days (optionally one ?day).
+ * - "All agents" table is always the last 7 days (optionally one ?day); in the yesterday range it
+ *   is yesterday unless ?day says otherwise. Its sparkline column is always the last 7 days.
  * - Factor: daily files carry no calibration flag (spec data gap 5), so K != params.median_K
  *   means "calibrated", otherwise "median K".
  */
 final class UsageReport
 {
-    public const RANGES = [7, 30];
+    public const YESTERDAY = 'yesterday';
+
+    public const RANGES = [self::YESTERDAY, 7, 30];
 
     /** Length of the side "Top agents" / "Top routines" lists. */
     public const TOP_LIST = 5;
@@ -51,17 +55,29 @@ final class UsageReport
         $this->today = $this->now->format('Y-m-d');
     }
 
-    public static function normalizeRange(mixed $range): int
+    /** 7 | 30 | 'yesterday'; anything else is 7. */
+    public static function normalizeRange(mixed $range): int|string
     {
-        return is_scalar($range) && in_array((string) $range, ['7', '30'], true) ? (int) $range : 7;
+        if (! is_scalar($range)) {
+            return 7;
+        }
+        $range = (string) $range;
+
+        return match ($range) {
+            '7', '30' => (int) $range,
+            self::YESTERDAY => self::YESTERDAY,
+            default => 7,
+        };
     }
 
     /** @return array<string, mixed> props for Usage/Overview */
-    public function overview(int $range, ?string $day = null): array
+    public function overview(int|string $range, ?string $day = null): array
     {
         $range = self::normalizeRange($range);
         $dates = $this->dates($range);
-        $this->load($dates);
+        $to = end($dates);
+        // The All agents sparklines need the last 7 days, which hold yesterday too.
+        $this->load($range === self::YESTERDAY ? $this->dates(7) : $dates);
 
         $agents = $this->aggregate($dates);
         $rangeTotal = $this->sumTotal($dates);
@@ -96,15 +112,15 @@ final class UsageReport
             'range' => $range,
             'today' => $this->today,
             'from' => $dates[0],
-            'to' => $this->today,
+            'to' => $to,
             'fromLabel' => self::longLabel($dates[0]),
-            'toLabel' => self::longLabel($this->today),
+            'toLabel' => self::longLabel($to),
             'empty' => $present === [],
             'daysWithFile' => count($present),
             'rangeTotal' => $rangeTotal,
             'agentCount' => count($charted),
-            'updatedAt' => $this->updatedAt(),
-            'generatedAt' => $this->files[$this->today]['generated_at'] ?? null,
+            'updatedAt' => $this->updatedAt($to),
+            'generatedAt' => $this->files[$to]['generated_at'] ?? null,
             'coverageNotes' => $this->coverageNotes($dates),
             'unreadable' => $this->unreadableFiles($dates),
             'series' => $series,
@@ -119,13 +135,13 @@ final class UsageReport
             ], $top),
             'topRoutines' => array_map(fn ($r) => $r + ['color' => $this->colorOf($r['agentId'])], array_slice($routines, 0, self::TOP_LIST)),
             'unmatched' => $unmatched,
-            'table' => $this->table($day),
+            'table' => $this->table($day, $range === self::YESTERDAY ? $to : null),
             'method' => $this->latest($dates)['method'] ?? null,
         ];
     }
 
     /** @return array<string, mixed>|null props for Usage/Agent, null when the agent never appears in any stored day */
-    public function agent(string $agentId, int $range): ?array
+    public function agent(string $agentId, int|string $range): ?array
     {
         $identity = $this->findAgent($agentId);
         if ($identity === null) {
@@ -134,6 +150,7 @@ final class UsageReport
 
         $range = self::normalizeRange($range);
         $dates = $this->dates($range);
+        $to = end($dates);
         $this->load($dates);
 
         $agents = $this->aggregate($dates);
@@ -147,7 +164,7 @@ final class UsageReport
             return $this->dayEntry($d) + ['value' => isset($this->files[$d]) ? (int) ($a['est_tokens_total'] ?? 0) : null];
         }, $dates);
 
-        // Hour view: always the last 7 days (also in the 30-day range, stated in the sub-line).
+        // Hour view: the last 7 days of the range (also in the 30-day range, stated in the sub-line); yesterday: that day.
         $hourDates = array_slice($dates, -7);
         $hourTotals = array_fill(0, 24, 0);
         $heat = [];
@@ -207,11 +224,11 @@ final class UsageReport
             'range' => $range,
             'today' => $this->today,
             'from' => $dates[0],
-            'to' => $this->today,
+            'to' => $to,
             'fromLabel' => self::longLabel($dates[0]),
-            'toLabel' => self::longLabel($this->today),
+            'toLabel' => self::longLabel($to),
             'hoursFromLabel' => self::longLabel($hourDates[0]),
-            'updatedAt' => $this->updatedAt(),
+            'updatedAt' => $this->updatedAt($to),
             'agent' => [
                 'id' => $agentId,
                 'name' => $latest['name'],
@@ -242,9 +259,12 @@ final class UsageReport
 
     // ---- internals -------------------------------------------------------------------
 
-    /** @return list<string> Y-m-d, oldest first, ending today */
-    private function dates(int $n): array
+    /** @return list<string> Y-m-d, oldest first, ending today; yesterday: [today - 1 calendar day] */
+    private function dates(int|string $n): array
     {
+        if ($n === self::YESTERDAY) {
+            return [$this->yesterday()];
+        }
         $out = [];
         for ($i = $n - 1; $i >= 0; $i--) {
             $out[] = OrgDate::addCalendarDays($this->today, -$i);
@@ -384,11 +404,17 @@ final class UsageReport
         return [$acc, ['runs' => $um['runs'], 'agents' => count($um['agents']), 'tokens' => $um['tokens']]];
     }
 
-    /** All agents table: last 7 days, or one day when ?day= is given. */
-    private function table(?string $day): array
+    /** Yesterday in Europe/Ljubljana: calendar arithmetic on today's org date, never on a UTC instant. */
+    private function yesterday(): string
     {
-        $week = array_slice($this->dates(30), -7); // files for the last 7 days are always loaded (range >= 7)
-        $filter = $day !== null && UsageDayValidator::isRealDate($day) ? $day : null;
+        return OrgDate::addCalendarDays($this->today, -1);
+    }
+
+    /** All agents table: last 7 days, or one day when ?day= is given, else $rangeDay (the yesterday range). */
+    private function table(?string $day, ?string $rangeDay = null): array
+    {
+        $week = $this->dates(7); // files for the last 7 days are always loaded (overview loads them in every range)
+        $filter = $day !== null && UsageDayValidator::isRealDate($day) ? $day : $rangeDay;
 
         if ($filter !== null && ! isset($this->files[$filter]) && ! in_array($filter, $week, true)) {
             // A direct link to a day outside the loaded range: look it up on its own.
@@ -513,9 +539,10 @@ final class UsageReport
         return $median !== null && (float) $agent['K'] !== (float) $median ? 'calibrated' : 'median';
     }
 
-    private function updatedAt(): ?string
+    /** generated_at (HH:MM, Ljubljana) of the range's last day: today, or yesterday in that range. */
+    private function updatedAt(string $date): ?string
     {
-        $g = $this->files[$this->today]['generated_at'] ?? null;
+        $g = $this->files[$date]['generated_at'] ?? null;
 
         return $g ? CarbonImmutable::parse($g)->timezone(OrgDate::TIMEZONE)->format('H:i') : null;
     }

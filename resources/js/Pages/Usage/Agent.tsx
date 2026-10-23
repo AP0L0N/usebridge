@@ -11,7 +11,7 @@ import { ChartPatterns, MissingStub } from '../../Components/Usage/MissingStub';
 import { RangeSeg } from '../../Components/Usage/RangeSeg';
 import { RoutineTable } from '../../Components/Usage/RoutineTable';
 import { StatTile } from '../../Components/Usage/StatTile';
-import { count, estText, pct, rangeWords, useNarrow, withQuery, type AgentColor, type AgentProps } from '../../lib/usage';
+import { count, estText, inRange, pct, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type AgentColor, type AgentProps } from '../../lib/usage';
 
 type Day = AgentProps['days'][number];
 
@@ -78,7 +78,7 @@ export default function Agent(p: AgentProps) {
   const { agent, stats } = p;
   const rangeTxt = rangeWords(p.range);
   const busiest = Math.max(0, ...p.heat.flatMap((r) => r.hours ?? []));
-  const hourScope = p.range === 7 ? '' : `last 7 days (${p.hoursFromLabel} – ${p.toLabel}) · `;
+  const hourScope = p.range === 7 ? '' : p.range === 'yesterday' ? `yesterday (${p.toLabel}) · ` : `last 7 days (${p.hoursFromLabel} – ${p.toLabel}) · `;
   const K = Math.round(agent.K);
 
   return (
@@ -86,7 +86,7 @@ export default function Agent(p: AgentProps) {
       <Head title={`${agent.name} · Usage`} />
       <TopBar />
       <main className="wrap">
-        <Link className="crumb" href={withQuery('/usage', { range: p.range === 7 ? null : p.range })}>← Usage</Link>
+        <Link className="crumb" href={withQuery('/usage', { range: rangeParam(p.range) })}>← Usage</Link>
         <div className="ahead">
           <h1>{agent.name}</h1>
           <span className="badge b-arch">{agent.rank !== null ? `#${agent.rank} of ${agent.of} · ${rangeTxt}` : `No usage · ${rangeTxt}`}</span>
@@ -94,12 +94,12 @@ export default function Agent(p: AgentProps) {
           <div className="tools"><RangeSeg range={p.range} /></div>
         </div>
 
-        <EstNote updatedAt={p.updatedAt} />
+        <EstNote updatedAt={p.updatedAt} day={p.range === 'yesterday' ? 'yesterday' : 'today'} />
 
         {p.zero ? (
           <div className="empty zero">
             <div className="eico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></div>
-            <h2>No estimated usage for this agent in the {rangeTxt}.</h2>
+            <h2>No estimated usage for this agent {inRange(p.range)}.</h2>
             <p>It stays in the All agents table with 0. Settings → Usage still has the real total.</p>
             <InfoLines unreadable={p.unreadable} />
           </div>
@@ -136,7 +136,7 @@ export default function Agent(p: AgentProps) {
               <section className="card" aria-labelledby="h-dd">
                 <div className="chead">
                   <h2 id="h-dd">Daily</h2>
-                  <span className="sub">{p.fromLabel} – {p.toLabel}</span>
+                  <span className="sub">{spanLabel(p.fromLabel, p.toLabel)}</span>
                   <div className="right">
                     <button type="button" className="tlink" aria-expanded={dailyTable} onClick={() => setDailyTable((v) => !v)}>{dailyTable ? 'Show as chart' : 'Show as table'}</button>
                   </div>
