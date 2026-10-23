@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { axisLabel, colorVar, estSpoken, estText, niceStep, type ColorKey, type OverviewDay, type Series } from '../../lib/usage';
-import { ChartTooltip } from './ChartTooltip';
+import { axisLabel, estSpoken, estText, niceStep, type OverviewDay, type Series } from '../../lib/usage';
+import { ChartTooltip, tipHeight, tipWidth } from './ChartTooltip';
 import { ChartPatterns, MissingStub } from './MissingStub';
 import { Est } from './Est';
 
@@ -9,14 +9,15 @@ const W = 880, H = 380, X0 = 58, BASE = 350, TOP = 26, GAP = 1.5;
 type Props = {
   days: OverviewDay[];
   series: Series[];
-  isolated: ColorKey | null;
+  /** agentId of the isolated series */
+  isolated: string | null;
   fromLabel: string;
   toLabel: string;
   onOpenDay: (date: string) => void;
 };
 
 /**
- * Stacked daily bars (named agents + Other, bottom→top = rank). The SVG is the picture (role="img" + title);
+ * Stacked daily bars (one segment per agent with usage in the range, bottom→top = rank). The SVG is the picture (role="img" + title);
  * an HTML overlay of buttons over each day slot carries hover / focus / keyboard
  * (roving tabindex, ←/→ between days, Enter opens the day, Esc closes the tooltip).
  */
@@ -41,7 +42,7 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
   const bx = (i: number) => X0 + i * slot + (slot - bw) / 2;
   const wide = n <= 7;
   const showX = (i: number) => wide || i % 3 === 0 || days[i]!.today;
-  const isoIdx = isolated ? series.findIndex((s) => s.key === isolated) : -1;
+  const isoIdx = isolated ? series.findIndex((s) => s.agentId === isolated) : -1;
 
   const show = (i: number) => { setActive(i); setTipOpen(true); };
   const hide = () => { setTipOpen(false); setActive(null); };
@@ -60,14 +61,16 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
   };
 
   // Tooltip position in px inside the wrapper: right of the bar, or left when there is no room.
-  let tip: { left: number; top: number } | null = null;
+  // Many agents: the tooltip goes two columns (tipWidth) and is kept inside the chart's height, scrolling if it still does not fit.
+  let tip: { left: number; top: number; maxHeight: number } | null = null;
   if (tipOpen && active !== null && wrap.current) {
     const w = wrap.current.getBoundingClientRect().width, k = w / W, d = days[active]!;
-    const tw = d.present ? 250 : 270;
+    const tw = Math.min(w, tipWidth(d, series)), hgt = H * k;
     const right = (bx(active) + bw + 6) * k + 10;
     const left = right + tw > w ? Math.max(0, (bx(active) - 6) * k - tw - 10) : right;
     const barTop = d.total ? y(d.total) : BASE - 14;
-    tip = { left, top: Math.max(0, Math.min(barTop * k - 40, (BASE - 200) * k)) };
+    const top = Math.max(0, Math.min(barTop * k - 40, (BASE - 200) * k, hgt - tipHeight(d, series)));
+    tip = { left, top, maxHeight: hgt - top };
   }
 
   return (
@@ -101,7 +104,7 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
             const h = Math.max(0.8, y0 - y1 - GAP);
             if (si === isoIdx) isoTop = y0 - h;
             return (
-              <rect key={si} className="seg" x={x} y={y0 - h} width={bw} height={h} fill={colorVar(series[si]!.key)}
+              <rect key={si} className="seg" x={x} y={y0 - h} width={bw} height={h} fill={series[si]!.color}
                 opacity={isolated && si !== isoIdx ? 0.22 : 1} />
             );
           });
@@ -139,12 +142,12 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
           />
         ))}
       </div>
-      {tip && active !== null && <ChartTooltip id="u-chart-tip" day={days[active]!} series={series} left={tip.left} top={tip.top} />}
+      {tip && active !== null && <ChartTooltip id="u-chart-tip" day={days[active]!} series={series} left={tip.left} top={tip.top} maxHeight={tip.maxHeight} />}
     </div>
   );
 }
 
-/** "Show as table": Date × (Total, named agents, Other). */
+/** "Show as table": Date × (Total, one column per agent). */
 export function DailyTable({ days, series, caption }: { days: OverviewDay[]; series: Series[]; caption: string }) {
   return (
     <div className="ttbl">
@@ -154,7 +157,7 @@ export function DailyTable({ days, series, caption }: { days: OverviewDay[]; ser
           <tr>
             <th scope="col">Date</th>
             <th scope="col">Total (est.)</th>
-            {series.map((s) => <th key={s.key} scope="col">{s.agentId ? s.name : 'Other agents'}</th>)}
+            {series.map((s) => <th key={s.agentId} scope="col">{s.name}</th>)}
           </tr>
         </thead>
         <tbody>

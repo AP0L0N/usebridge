@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\UsageDay;
+use App\Services\Usage\AgentColors;
 use App\Services\Usage\UsageDayImporter;
+use App\Services\Usage\UsageReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -87,13 +89,10 @@ class UsageViewTest extends TestCase
                 ->where('updatedAt', '15:29')
                 ->where('fromLabel', 'Tue 13 Oct')
                 ->where('toLabel', 'Mon 19 Oct')
-                ->has('series', 11)
+                ->has('series', 19)
                 ->where('series.0.name', 'The Many')
-                ->where('series.0.key', 'a1')
+                ->where('series.0.agentId', self::THE_MANY)
                 ->where('series.9.name', 'Alice')
-                ->where('series.9.key', 'a10')
-                ->where('series.10.name', 'Other agents (9)')
-                ->where('series.10.key', 'ao')
                 ->has('topAgents', 5)
                 ->where('topAgents.0.agentId', self::THE_MANY)
                 ->where('topAgents.0.tokens', 427362325)
@@ -104,59 +103,149 @@ class UsageViewTest extends TestCase
                 ->has('table.rows', 19)
                 ->where('table.totals.tokens', 2625145391)
                 ->where('table.totals.turns', 2459)
-                ->where('table.rows.1.color', 'a2')
+                ->where('table.rows.1.color', AgentColors::PALETTE[AgentColors::home(self::SHODAN)])
                 ->where('table.rows.0.factor', 'median')
                 ->where('table.rows.1.factor', 'calibrated'));
 
-        // Day segments add up to the day total (Other = total - named agents).
         $props = $this->get('/usage')->viewData('page')['props'];
+        $this->assertEveryAgentIsASeries($props, self::fixtureRangeTotals());
+    }
+
+    /** agent_id => est_tokens_total summed over the 7 fixture files. */
+    private static function fixtureRangeTotals(): array
+    {
+        $totals = [];
+        foreach (UsageImportTest::fixturePaths() as $path) {
+            foreach (json_decode((string) file_get_contents($path), true)['agents'] as $a) {
+                $totals[$a['agent_id']] = ($totals[$a['agent_id']] ?? 0) + $a['est_tokens_total'];
+            }
+        }
+
+        return $totals;
+    }
+
+    /**
+     * One series per agent with nonzero range total, ranked desc (then name), its own colour,
+     * no "Other" anywhere; every present day's segments (one per series) sum to the day total.
+     *
+     * @param  array<string, int>  $totals  agent_id => range total
+     */
+    private function assertEveryAgentIsASeries(array $props, array $totals): void
+    {
+        $nonzero = array_filter($totals, fn ($t) => $t > 0);
+        $series = $props['series'];
+        $this->assertCount(count($nonzero), $series);
+        $this->assertEqualsCanonicalizing(array_keys($nonzero), array_column($series, 'agentId'));
+        foreach ($series as $i => $s) {
+            $this->assertSame(['agentId', 'name', 'color', 'total'], array_keys($s));
+            $this->assertSame($totals[$s['agentId']], $s['total']);
+            $this->assertMatchesRegularExpression('/^#[0-9A-F]{6}$/', $s['color']);
+            if ($i > 0) {
+                $prev = $series[$i - 1];
+                $this->assertTrue($prev['total'] > $s['total'] || ($prev['total'] === $s['total'] && strcmp($prev['name'], $s['name']) < 0));
+            }
+        }
+        if (count($series) <= count(AgentColors::PALETTE)) {
+            $this->assertCount(count($series), array_unique(array_column($series, 'color')));
+        }
+        $this->assertSame($props['rangeTotal'], array_sum(array_column($series, 'total')));
+        $this->assertSame(count($nonzero), $props['agentCount']);
+        $this->assertCount(UsageReport::TOP_LIST, $props['topAgents']);
+
         foreach ($props['days'] as $d) {
-            $this->assertCount(11, $d['segments']);
+            if (! $d['present']) {
+                $this->assertNull($d['segments']);
+
+                continue;
+            }
+            $this->assertCount(count($series), $d['segments']);
             $this->assertSame($d['total'], array_sum($d['segments']));
         }
 
-        $this->assertNamedRule($props, 10, 9);
-    }
-
-    /** Named = every agent >= 3% (prefix of the ranking), keys a1..aN, then one Other in `ao`. */
-    private function assertNamedRule(array $props, int $named, int $other): void
-    {
-        $total = $props['rangeTotal'];
-        $series = $props['series'];
-        $namedSeries = array_values(array_filter($series, fn ($s) => $s['agentId'] !== null));
-        $this->assertCount($named, $namedSeries);
-        $this->assertSame(array_map(fn ($i) => 'a'.$i, range(1, $named)), array_column($namedSeries, 'key'));
-        foreach ($namedSeries as $s) {
-            $this->assertGreaterThanOrEqual(0.03, $s['total'] / $total, $s['name']);
-        }
-
-        $namedIds = array_column($namedSeries, 'agentId');
-        $rest = array_values(array_filter($props['table']['rows'], fn ($r) => ! in_array($r['agentId'], $namedIds, true)));
-        $this->assertCount($other, $rest);
-        foreach ($rest as $r) {
-            $this->assertLessThan(0.03, $r['tokens'] / $total, $r['name']);
-            $this->assertSame('ao', $r['color']);
-        }
-
-        $last = end($series);
-        $this->assertSame(['key' => 'ao', 'agentId' => null, 'name' => "Other agents ($other)"], array_diff_key($last, ['total' => 1]));
-        $this->assertSame($total - array_sum(array_column($namedSeries, 'total')), $last['total']);
-        $this->assertGreaterThan(0.05, $last['total'] / $total);
-        $this->assertLessThan(0.07, $last['total'] / $total);
-        $this->assertCount($named + 1, $series);
+        $json = json_encode($props);
+        $this->assertStringNotContainsStringIgnoringCase('Other agents', $json);
+        $this->assertStringNotContainsString('"ao"', $json);
     }
 
     #[Test]
-    public function agent_detail_colour_follows_the_named_set(): void
+    public function agent_colour_is_the_same_in_both_ranges_and_on_the_detail_page(): void
     {
         $this->loadFixtures();
         $this->unlock();
 
-        $rows = $this->get('/usage')->viewData('page')['props']['table']['rows'];
-        $this->assertSame('Alice', $rows[9]['name']);
-        $this->assertSame('Angela', $rows[10]['name']);
-        $this->get('/usage/agents/'.$rows[9]['agentId'])->assertInertia(fn (Assert $page) => $page->where('agent.color', 'a10'));
-        $this->get('/usage/agents/'.$rows[10]['agentId'])->assertInertia(fn (Assert $page) => $page->where('agent.color', 'ao'));
+        $week = array_column($this->get('/usage')->viewData('page')['props']['series'], 'color', 'agentId');
+        $month = $this->get('/usage?range=30')->viewData('page')['props'];
+        $this->assertSame($week, array_column($month['series'], 'color', 'agentId'));
+        foreach (['topAgents', 'topRoutines'] as $list) {
+            foreach ($month[$list] as $r) {
+                $this->assertSame($week[$r['agentId']], $r['color']);
+            }
+        }
+        foreach ($month['table']['rows'] as $r) {
+            $this->assertSame($week[$r['agentId']], $r['color']);
+        }
+        foreach (array_keys($week) as $id) {
+            $this->get('/usage/agents/'.$id)->assertInertia(fn (Assert $page) => $page->where('agent.color', $week[$id]));
+            $this->get('/usage/agents/'.$id.'?range=30')->assertInertia(fn (Assert $page) => $page->where('agent.color', $week[$id]));
+        }
+
+        // A day where ranks shift (one agent only) keeps everyone's colour.
+        Carbon::setTestNow(Carbon::parse('2026-10-14 12:00:00', 'Europe/Ljubljana'));
+        $early = array_column($this->get('/usage')->viewData('page')['props']['series'], 'color', 'agentId');
+        $this->assertNotSame(array_keys(array_intersect_key($week, $early)), array_keys($early)); // ranks did shift
+        $this->assertEquals(array_intersect_key($week, $early), $early);
+    }
+
+    #[Test]
+    public function agent_with_zero_usage_in_the_range_is_hidden(): void
+    {
+        $importer = app(UsageDayImporter::class);
+        $zeroed = null;
+        foreach (UsageImportTest::fixturePaths() as $path) {
+            $day = json_decode((string) file_get_contents($path), true);
+            $zeroed ??= end($day['agents'])['agent_id'];
+            foreach ($day['agents'] as &$a) {
+                if ($a['agent_id'] === $zeroed) {
+                    $day['est_tokens_total'] -= $a['est_tokens_total'];
+                    $a['est_tokens_total'] = 0;
+                    $a['est_io_tokens'] = 0;
+                    $a['other_est_tokens'] = 0;
+                    $a['by_hour'] = array_fill(0, 24, 0);
+                    $a['by_routine'] = array_map(fn ($r) => ['est_tokens' => 0] + $r, $a['by_routine']);
+                }
+            }
+            unset($a);
+            $importer->import((string) json_encode($day));
+        }
+        $this->unlock();
+
+        $totals = self::fixtureRangeTotals();
+        $totals[$zeroed] = 0;
+        $props = $this->get('/usage')->viewData('page')['props'];
+        $this->assertEveryAgentIsASeries($props, $totals);
+        $this->assertCount(18, $props['series']);
+        $this->assertNotContains($zeroed, array_column($props['series'], 'agentId'));
+        $this->assertNotContains($zeroed, array_column($props['table']['rows'], 'agentId'));
+        $this->assertCount(18, $props['table']['rows']);
+
+        // Its detail page still works, in its usual colour.
+        $this->get('/usage/agents/'.$zeroed)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('zero', true)
+            ->where('agent.color', $this->colorFor($zeroed)));
+    }
+
+    /** The colour an agent gets with the plain fixtures. */
+    private function colorFor(string $agentId): string
+    {
+        $ids = [];
+        foreach (UsageImportTest::fixturePaths() as $path) {
+            $day = array_column(json_decode((string) file_get_contents($path), true)['agents'], 'agent_id');
+            $new = array_values(array_diff($day, $ids));
+            sort($new, SORT_STRING);
+            array_push($ids, ...$new);
+        }
+
+        return AgentColors::assign($ids)[$agentId];
     }
 
     #[Test]
@@ -180,13 +269,10 @@ class UsageViewTest extends TestCase
         $props = $this->get('/usage?range=30')->viewData('page')['props'];
         $this->assertCount(23, array_filter($props['days'], fn ($d) => ! $d['present']));
 
-        // Same totals as the 7-day range here, so the same named set from the 30-day totals.
-        $this->assertNamedRule($props, 10, 9);
+        // Same totals as the 7-day range here, so the same series.
+        $this->assertEveryAgentIsASeries($props, self::fixtureRangeTotals());
         $week = $this->get('/usage')->viewData('page')['props']['series'];
         $this->assertSame($week, $props['series']);
-        foreach ($props['days'] as $d) {
-            $this->assertSame($d['present'] ? 11 : null, $d['segments'] === null ? null : count($d['segments']));
-        }
     }
 
     #[Test]
@@ -249,7 +335,7 @@ class UsageViewTest extends TestCase
                 ->where('agent.name', 'The Many')
                 ->where('agent.rank', 1)
                 ->where('agent.of', 19)
-                ->where('agent.color', 'a1')
+                ->where('agent.color', $this->colorFor(self::THE_MANY))
                 ->where('agent.factor', 'median')
                 ->where('zero', false)
                 ->where('stats.tokens', 427362325)

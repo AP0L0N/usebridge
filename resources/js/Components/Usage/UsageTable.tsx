@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
-import { colorVar, count, pct, withQuery, type UsageTableData } from '../../lib/usage';
+import { count, pct, withQuery, type UsageTableData } from '../../lib/usage';
 import { Est } from './Est';
 import { FactorBadge } from './FactorBadge';
 import { Sparkline } from './Sparkline';
@@ -27,7 +27,7 @@ export function UsageTable({ table, range, narrow }: Props) {
             return (
               <Fragment key={r.agentId}>
                 <tr>
-                  <td><span className="an"><i style={{ background: colorVar(r.color) }} aria-hidden="true" /><Link href={href(r.agentId)}>{r.name}</Link></span></td>
+                  <td><span className="an"><i style={{ background: r.color }} aria-hidden="true" /><Link href={href(r.agentId)}>{r.name}</Link></span></td>
                   <td><Est value={r.tokens} /></td>
                   <td>
                     <button type="button" className="xbtn" aria-expanded={isOpen} aria-controls={id} onClick={() => setOpen((o) => ({ ...o, [r.agentId]: !isOpen }))}>
@@ -78,7 +78,7 @@ export function UsageTable({ table, range, narrow }: Props) {
         <tbody>
           {table.rows.map((r) => (
             <tr key={r.agentId}>
-              <td><span className="an"><i style={{ background: colorVar(r.color) }} aria-hidden="true" /><Link href={href(r.agentId)}>{r.name}</Link></span></td>
+              <td><span className="an"><i style={{ background: r.color }} aria-hidden="true" /><Link href={href(r.agentId)}>{r.name}</Link></span></td>
               <td><Est value={r.tokens} /></td>
               <td><span className="share"><b style={{ width: `${Math.max(r.share > 0 ? 2 : 0, Math.round((r.share / maxShare) * 60))}px` }} aria-hidden="true" />{pct(r.share)}</span></td>
               <td><Sparkline values={r.daily} color={r.color} /></td>

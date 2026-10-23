@@ -11,14 +11,14 @@ import { ChartPatterns, MissingStub } from '../../Components/Usage/MissingStub';
 import { RangeSeg } from '../../Components/Usage/RangeSeg';
 import { RoutineTable } from '../../Components/Usage/RoutineTable';
 import { StatTile } from '../../Components/Usage/StatTile';
-import { colorVar, count, estText, pct, rangeWords, useNarrow, withQuery, type AgentProps, type ColorKey } from '../../lib/usage';
+import { count, estText, pct, rangeWords, useNarrow, withQuery, type AgentColor, type AgentProps } from '../../lib/usage';
 
 type Day = AgentProps['days'][number];
 
 const H = 200, BASE = 172, TOP = 22;
 
 /** One series, one bar per day in the agent's colour. Missing day = hatched stub; today = stripe + "so far". */
-function AgentDailyBars({ days, color, title, narrow }: { days: Day[]; color: ColorKey; title: string; narrow: boolean }) {
+function AgentDailyBars({ days, color, title, narrow }: { days: Day[]; color: AgentColor; title: string; narrow: boolean }) {
   const W = narrow ? 360 : 600;
   const n = days.length;
   const wide = n <= 7;
@@ -41,7 +41,7 @@ function AgentDailyBars({ days, color, title, narrow }: { days: Day[]; color: Co
         return (
           <g key={d.date}>
             <title>{`${d.longLabel}${d.today ? ' (so far)' : ''}: ${estText(d.value)}`}</title>
-            <rect x={x} y={BASE - bh} width={bw} height={bh} rx="2" fill={colorVar(color)} />
+            <rect x={x} y={BASE - bh} width={bw} height={bh} rx="2" fill={color} />
             {d.today && d.value > 0 && <rect x={x} y={BASE - bh} width={bw} height={bh} fill="url(#u-today)" />}
             {wide && !narrow && <text className="vl" x={cx} y={BASE - bh - 6} textAnchor="middle">{estText(d.value)}</text>}
             {label}

@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 
 // Usage view: every token figure is an estimate (est_* fields of the daily files). Counts are real.
 
-// a1..a12: named chart agents in rank order (share >= 3%, max 12); ao: "Other agents" and everyone outside the named set.
-export type ColorKey = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' | 'a9' | 'a10' | 'a11' | 'a12' | 'ao';
+// Agent colour: "#RRGGBB" from the server (AgentColors), fixed per agent_id across ranges and pages.
+export type AgentColor = string;
 export type Factor = 'calibrated' | 'median';
 
 export type DayEntry = { date: string; label: string; longLabel: string; present: boolean; today: boolean };
 export type OverviewDay = DayEntry & { total: number | null; segments: number[] | null };
-export type Series = { key: ColorKey; agentId: string | null; name: string; total: number };
-export type TopAgent = { agentId: string; name: string; color: ColorKey; tokens: number; share: number; turns: number };
-export type TopRoutine = { routineId: string; name: string; agentId: string; agentName: string; color: ColorKey; runs: number; tokens: number; perRun: number | null };
+export type Series = { agentId: string; name: string; color: AgentColor; total: number };
+export type TopAgent = { agentId: string; name: string; color: AgentColor; tokens: number; share: number; turns: number };
+export type TopRoutine = { routineId: string; name: string; agentId: string; agentName: string; color: AgentColor; runs: number; tokens: number; perRun: number | null };
 export type TableRow = {
-  agentId: string; name: string; color: ColorKey; tokens: number; share: number; daily: (number | null)[];
+  agentId: string; name: string; color: AgentColor; tokens: number; share: number; daily: (number | null)[];
   turns: number; routineRuns: number; unmatched: number; io: number; factor: Factor;
 };
 export type UsageTableData = {
@@ -35,15 +35,13 @@ export type RoutineRow = { kind: 'routine' | 'unmatched' | 'other'; routineId: s
 export type AgentProps = {
   range: 7 | 30; today: string; from: string; to: string; fromLabel: string; toLabel: string; hoursFromLabel: string;
   updatedAt: string | null;
-  agent: { id: string; name: string; color: ColorKey; rank: number | null; of: number; factor: Factor; K: number; medianK: number };
+  agent: { id: string; name: string; color: AgentColor; rank: number | null; of: number; factor: Factor; K: number; medianK: number };
   zero: boolean;
   stats: { tokens: number; share: number; io: number; turns: number; matchedRuns: number; unmatchedRuns: number };
   days: (DayEntry & { value: number | null })[];
   hourTotals: number[]; heat: HeatRow[]; routines: RoutineRow[];
   routineTotals: { wakes: number; tokens: number }; unreadable: string[];
 };
-
-export const colorVar = (k: ColorKey) => `var(--${k})`;
 
 const UNITS = [
   { min: 1e9, div: 1e9, unit: 'B', word: 'billion' },

@@ -10,7 +10,7 @@ import { RangeSeg } from '../../Components/Usage/RangeSeg';
 import { RankList } from '../../Components/Usage/RankList';
 import { DailyTable, StackedDailyChart } from '../../Components/Usage/StackedDailyChart';
 import { UsageTable } from '../../Components/Usage/UsageTable';
-import { colorVar, count, initials, rangeWords, useNarrow, withQuery, type ColorKey, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
+import { count, initials, rangeWords, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
 
 function ChartSkeleton() {
   return (
@@ -30,11 +30,11 @@ function ChartSkeleton() {
 
 /** ≤720px: one horizontal total bar per day + "Split" select (All agents / one series). */
 function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] }) {
-  const [split, setSplit] = useState<'all' | ColorKey>('all');
-  const idx = split === 'all' ? -1 : series.findIndex((s) => s.key === split);
+  const [split, setSplit] = useState<string>('all');
+  const idx = split === 'all' ? -1 : series.findIndex((s) => s.agentId === split);
   const val = (d: OverviewDay) => (idx < 0 ? d.total ?? 0 : d.segments?.[idx] ?? 0);
   const max = Math.max(1, ...days.filter((d) => d.present).map(val));
-  const color = idx < 0 ? 'var(--accent)' : colorVar(series[idx]!.key);
+  const color = idx < 0 ? 'var(--accent)' : series[idx]!.color;
   return (
     <>
       <ul className="hbars" aria-label="Daily estimate">
@@ -50,9 +50,9 @@ function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] })
       </ul>
       <label className="picker" style={{ marginTop: 12, width: '100%' }}>
         Split:
-        <select value={split} onChange={(e) => setSplit(e.target.value as 'all' | ColorKey)}>
+        <select value={split} onChange={(e) => setSplit(e.target.value)}>
           <option value="all">All agents</option>
-          {series.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
+          {series.map((s) => <option key={s.agentId} value={s.agentId}>{s.name}</option>)}
         </select>
       </label>
     </>
@@ -61,7 +61,7 @@ function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] })
 
 export default function Overview(p: OverviewProps) {
   const narrow = useNarrow();
-  const [isolated, setIsolated] = useState<ColorKey | null>(null);
+  const [isolated, setIsolated] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
   const [loading, setLoading] = useState(false);
   const missing = p.days.length - p.daysWithFile;
@@ -115,7 +115,7 @@ export default function Overview(p: OverviewProps) {
                   <h2 id="h-daily">{narrow ? 'Daily estimate' : 'Daily estimate by agent'}</h2>
                   {loading
                     ? <span className="sub" role="status">Loading usage files…</span>
-                    : <span className="sub">{narrow ? 'total only' : 'Stacked: agents with ≥ 3% of the range + the rest'}</span>}
+                    : <span className="sub">{narrow ? 'total only' : 'Stacked by agent'}</span>}
                   {!narrow && !loading && (
                     <div className="right">
                       {missing > 0 && <span className="hscale"><MissingKey />No file for that day ({missing}) · not the same as zero</span>}
@@ -143,7 +143,7 @@ export default function Overview(p: OverviewProps) {
                     <ul className="ntop">
                       {p.topAgents.map((a) => (
                         <li key={a.agentId}>
-                          <span className="an"><i style={{ background: colorVar(a.color) }} aria-hidden="true" /><Link href={agentHref(a.agentId)}>{a.name}</Link></span>
+                          <span className="an"><i style={{ background: a.color }} aria-hidden="true" /><Link href={agentHref(a.agentId)}>{a.name}</Link></span>
                           <Est value={a.tokens} />
                         </li>
                       ))}
