@@ -42,7 +42,7 @@ export function UsageTable({ table, range, narrow }: Props) {
                         <dt>Share</dt><dd>{pct(r.share)}</dd>
                         <dt>Turns</dt><dd>{count(r.turns)}</dd>
                         <dt>Routine runs</dt><dd>{count(r.routineRuns)}</dd>
-                        <dt>Unmatched wakes</dt><dd>{count(r.unmatched)}</dd>
+                        <dt>No routine (ad-hoc)</dt><dd>{count(r.unmatched)}</dd>
                         <dt>Fresh text only (est.)</dt><dd><Est value={r.io} /></dd>
                         <dt>Factor</dt><dd><FactorBadge factor={r.factor} /></dd>
                       </dl>
@@ -70,7 +70,7 @@ export function UsageTable({ table, range, narrow }: Props) {
             <th scope="col">Daily<span className="sr-only"> (last 7 days, chart only)</span></th>
             <th scope="col">Turns</th>
             <th scope="col">Routine runs</th>
-            <th scope="col">Unmatched wakes</th>
+            <th scope="col">No routine (ad-hoc)</th>
             <th scope="col">Fresh text only (est.)</th>
             <th scope="col">Factor</th>
           </tr>

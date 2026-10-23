@@ -36,6 +36,8 @@ final class UsageReport
 
     private const UNMATCHED = 'unmatched';
 
+    public const UNMATCHED_LABEL = 'No routine (ad-hoc)';
+
     private CarbonImmutable $now;
 
     private string $today;
@@ -212,7 +214,7 @@ final class UsageReport
         $share = fn (int $v) => $tokens > 0 ? $v / $tokens : 0;
         $routineRows = array_map(fn ($r) => $r + ['kind' => 'routine', 'share' => $share($r['tokens']), 'perRun' => $r['runs'] > 0 ? intdiv($r['tokens'], $r['runs']) : null], $rows);
         if ($unmatched['runs'] > 0 || $unmatched['tokens'] > 0) {
-            $routineRows[] = ['kind' => 'unmatched', 'routineId' => self::UNMATCHED, 'name' => 'Unmatched wakes', 'runs' => $unmatched['runs'], 'tokens' => $unmatched['tokens'], 'share' => $share($unmatched['tokens']), 'perRun' => $unmatched['runs'] > 0 ? intdiv($unmatched['tokens'], $unmatched['runs']) : null];
+            $routineRows[] = ['kind' => 'unmatched', 'routineId' => self::UNMATCHED, 'name' => self::UNMATCHED_LABEL, 'runs' => $unmatched['runs'], 'tokens' => $unmatched['tokens'], 'share' => $share($unmatched['tokens']), 'perRun' => $unmatched['runs'] > 0 ? intdiv($unmatched['tokens'], $unmatched['runs']) : null];
         }
         $routineRows[] = ['kind' => 'other', 'routineId' => 'other_est_tokens', 'name' => 'Other: chats, tasks and subagents', 'runs' => null, 'tokens' => $other, 'share' => $share($other), 'perRun' => null];
         $matchedRuns = array_sum(array_column($rows, 'runs'));

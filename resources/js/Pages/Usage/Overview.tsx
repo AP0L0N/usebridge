@@ -173,7 +173,7 @@ export default function Overview(p: OverviewProps) {
                     ),
                   }))} />
                   {p.unmatched.runs > 0 && (
-                    <p className="foot">Not in this list: <b>unmatched wakes</b>, {count(p.unmatched.runs)} runs across {p.unmatched.agents} agents, <Est value={p.unmatched.tokens} />. They have no routine to rank.</p>
+                    <p className="foot">Not in this list: <b>no routine (ad-hoc)</b>, {count(p.unmatched.runs)} runs across {p.unmatched.agents} agents, <Est value={p.unmatched.tokens} />. They have no routine to rank.</p>
                   )}
                 </section>
               </div>

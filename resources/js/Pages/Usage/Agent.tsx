@@ -109,7 +109,7 @@ export default function Agent(p: AgentProps) {
               <StatTile label="Tokens (est.)" value={<Est value={stats.tokens} />} hint={`${pct(stats.share)} of all agents`} />
               <StatTile label="Fresh text only (est.)" value={<Est value={stats.io} />} hint="without context re-reads" />
               <StatTile label="Turns" value={count(stats.turns)} hint="counted, not estimated" />
-              <StatTile label="Unprompted wakes" value={count(stats.matchedRuns + stats.unmatchedRuns)} hint={`${count(stats.matchedRuns)} matched a routine · ${count(stats.unmatchedRuns)} unmatched`} />
+              <StatTile label="Unprompted wakes" value={count(stats.matchedRuns + stats.unmatchedRuns)} hint={`${count(stats.matchedRuns)} matched a routine · ${count(stats.unmatchedRuns)} no routine (ad-hoc)`} />
             </div>
 
             <div className="dgrid">

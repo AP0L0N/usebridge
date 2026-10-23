@@ -379,8 +379,22 @@ class UsageViewTest extends TestCase
             ->where('routines.0.routineId', 'tamara-normiranec-updates')
             ->where('routines.0.runs', 20)
             ->where('routines.2.kind', 'unmatched')
+            ->where('routines.2.name', 'No routine (ad-hoc)')
             ->where('routines.3.kind', 'other')
             ->where('routineTotals.wakes', 50));
+    }
+
+    #[Test]
+    public function old_unmatched_label_is_gone_from_app_and_js(): void
+    {
+        foreach (['app', 'resources/js'] as $dir) {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir), \FilesystemIterator::SKIP_DOTS));
+            foreach ($files as $file) {
+                if ($file->isFile()) {
+                    $this->assertStringNotContainsStringIgnoringCase('Unmatched wakes', file_get_contents($file->getPathname()), $file->getPathname());
+                }
+            }
+        }
     }
 
     #[Test]

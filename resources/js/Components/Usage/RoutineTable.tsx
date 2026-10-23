@@ -1,7 +1,7 @@
 import { count, pct, type RoutineRow } from '../../lib/usage';
 import { Est } from './Est';
 
-/** Routines + Unmatched wakes + Other (chats, tasks and subagents). Narrow keeps Routine / Runs / Tokens. */
+/** Routines + No routine (ad-hoc) + Other (chats, tasks and subagents). Narrow keeps Routine / Runs / Tokens. */
 export function RoutineTable({ rows, totals, caption }: { rows: RoutineRow[]; totals: { wakes: number; tokens: number }; caption: string }) {
   return (
     <div className="tscroll">
@@ -21,7 +21,7 @@ export function RoutineTable({ rows, totals, caption }: { rows: RoutineRow[]; to
             <tr key={`${r.kind}-${r.routineId}`}>
               <td className="l">
                 <b>{r.name}</b>
-                <span className={`rtag${r.kind === 'unmatched' ? ' um' : ''}`}>{r.kind === 'unmatched' ? 'no routine matched' : r.routineId}</span>
+                <span className={`rtag${r.kind === 'unmatched' ? ' um' : ''}`}>{r.kind === 'unmatched' ? 'ad-hoc' : r.routineId}</span>
               </td>
               <td>{r.runs === null ? <span aria-label="no runs">—</span> : count(r.runs)}</td>
               <td><Est value={r.tokens} /></td>
