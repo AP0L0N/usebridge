@@ -1,5 +1,8 @@
 <?php
 
+use App\Services\Polymarket\InvalidPolymarketFeed;
+use App\Services\Polymarket\PolymarketFeedImporter;
+use App\Services\Polymarket\PolymarketFeedValidator;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
@@ -87,3 +90,38 @@ Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.
 
     return $failed === 0 ? 0 : 1;
 })->purpose('Import measured Claude Code / Kimi Code usage files (strictly validated, replace by date)');
+
+// Same validator + importer as POST /api/polymarket/feed, from two files (one-off seed / backfill on the server).
+Artisan::command('bridge:polymarket-import {snapshot : feed.json} {series : book_series.json} {--dry-run : Validate only, write nothing}', function (PolymarketFeedImporter $importer) {
+    $raw = [];
+    foreach (['snapshot', 'series'] as $arg) {
+        $path = (string) $this->argument($arg);
+        if (! is_file($path) || ! is_readable($path)) {
+            $this->error("$path: not a readable file");
+
+            return 1;
+        }
+        if (filesize($path) > PolymarketFeedValidator::MAX_FILE_BYTES) {
+            $this->error("$path: larger than 8 MB");
+
+            return 1;
+        }
+        $raw[$arg] = (string) file_get_contents($path);
+    }
+    $dry = (bool) $this->option('dry-run');
+    try {
+        $r = $importer->importFiles($raw['snapshot'], $raw['series'], $dry);
+    } catch (InvalidPolymarketFeed $e) {
+        $this->error('invalid');
+        foreach ($e->errors as $key => $messages) {
+            $this->line("  $key: ".implode(' ', $messages));
+        }
+
+        return 1;
+    }
+    $s = $r['series'];
+    $this->info(sprintf('%ssnapshot %s (as_of %s) · series: %d received, %d inserted, %d updated, %d unchanged, %d total',
+        $dry ? 'dry run, nothing written · would be: ' : '', $r['snapshot'], $r['as_of'], $s['received'], $s['inserted'], $s['updated'], $s['unchanged'], $s['total']));
+
+    return 0;
+})->purpose('Import the Polymarket desk feed (feed.json + book_series.json), same rules as POST /api/polymarket/feed');

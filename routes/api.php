@@ -3,12 +3,14 @@
 use App\Http\Controllers\Api\AgentController;
 use App\Http\Controllers\Api\CeoQueueCompatController;
 use App\Http\Controllers\Api\NextStepController;
+use App\Http\Controllers\Api\PolymarketFeedController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\RemovedEndpointController;
 use App\Http\Controllers\Api\RequiredInputController;
 use App\Http\Controllers\Api\StatusUpdateController;
 use App\Http\Controllers\Api\UsageDayController;
+use App\Http\Middleware\GuardPolymarketUpload;
 use App\Http\Middleware\GuardUsageUpload;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('usage/days', [UsageDayController::class, 'store'])
         ->middleware(GuardUsageUpload::class)
         ->name('api.usage.days.store');
+
+    // Polymarket desk: {snapshot: feed.json, series: book_series.json} (raw JSON body, <= 1 MB), posted by Captain.
+    Route::post('polymarket/feed', [PolymarketFeedController::class, 'store'])
+        ->middleware(GuardPolymarketUpload::class)
+        ->name('api.polymarket.feed.store');
 
     // r0 CEO queue, kept for agents: items become Required inputs (see CeoQueueCompatController).
     Route::get('ceo-queue-items', [CeoQueueCompatController::class, 'index'])->name('api.ceo-queue.index');

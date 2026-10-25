@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\GateController;
+use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\StatusUpdateController;
@@ -25,6 +26,7 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')
         ->name('usage.agent');
+    Route::get('/polymarket', [PolymarketController::class, 'index'])->name('polymarket');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/agents', '/');

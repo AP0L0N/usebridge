@@ -4,10 +4,13 @@ import { t } from '../lib/strings';
 const NAV = [
   { href: '/', label: 'Portfolio' },
   { href: '/usage', label: 'Usage' },
+  { href: '/polymarket', label: 'Polymarket' },
 ];
 
-/** "/" and /projects/* belong to Portfolio, /usage* to Usage. */
-const activeHref = (url: string) => (url === '/usage' || url.startsWith('/usage/') || url.startsWith('/usage?') ? '/usage' : '/');
+const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
+
+/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /polymarket* to Polymarket. */
+const activeHref = (url: string) => (under(url, '/usage') ? '/usage' : under(url, '/polymarket') ? '/polymarket' : '/');
 
 export function TopBar({ nav = true }: { nav?: boolean } = {}) {
   const active = activeHref(usePage().url);

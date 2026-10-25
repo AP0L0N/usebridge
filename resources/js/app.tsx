@@ -1,5 +1,6 @@
 import '../css/bridge.css';
 import '../css/usage.css';
+import '../css/polymarket.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 

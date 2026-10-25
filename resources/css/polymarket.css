@@ -1,0 +1,134 @@
+/* Bridge · Polymarket desk (/polymarket, Tommy's mock r1, 25 Oct 2026). Only new rules; tokens = bridge.css :root.
+   Page-specific overrides of shared selectors are scoped to .pmdesk. */
+:root{--neg:#8A3B12;--neg-bg:#FBEDE3;--pos:var(--ok);--pos-bg:var(--ok-bg);--hw:#6B6F78;--fund:#8A8F99}
+.num{font-variant-numeric:tabular-nums}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+.pmdesk .dhead .summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hpills{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;border-radius:99px;padding:5px 12px;background:var(--card);border:1.5px solid var(--line);color:var(--ink2)}
+.pill i{width:8px;height:8px;border-radius:50%;background:#3FB37F}
+.pill b{color:var(--ink)}
+.badge.sm{font-size:13px;padding:3px 10px 3px 8px}.badge.sm svg{width:14px;height:14px}
+/* note */
+.note{display:grid;grid-template-columns:44px 1fr auto;gap:0 16px;align-items:start;background:var(--card);border-radius:var(--r);padding:18px 24px;box-shadow:0 1px 0 var(--line);margin-bottom:24px;position:relative}
+.note::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:var(--accent)}
+.av{width:44px;height:44px;border-radius:50%;background:var(--sel);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:18px}
+.note .who2{margin:0;font-size:14px;color:var(--ink3)}.note .who2 b{color:var(--ink);font-size:15px}
+.note blockquote{margin:2px 0 0;font-size:17px;color:var(--ink);font-style:italic;max-width:1040px}
+.note .nmeta{font-size:14px;color:var(--ink3);text-align:right;white-space:nowrap}
+/* stats */
+.stats.pm{grid-template-columns:repeat(4,1fr);margin-bottom:16px}
+.stats.pm .val{font-variant-numeric:tabular-nums}
+.stats.pm.second{margin-bottom:24px}
+.stats.pm.second .stat{padding:14px 20px}.stats.pm.second .val{font-size:22px}
+.stat.key{box-shadow:inset 0 3px 0 var(--accent),0 1px 0 var(--line)}
+.chip{display:inline-flex;align-items:center;font-size:13px;font-weight:700;border-radius:99px;padding:1px 8px;margin-left:8px;vertical-align:4px;font-variant-numeric:tabular-nums}
+.chip.pos{background:var(--pos-bg)}.chip.neg{background:var(--neg-bg)}.chip.mut{background:var(--arch-bg);color:var(--arch)}
+.stat .hint .d{font-weight:700;font-variant-numeric:tabular-nums}
+.hwbar{height:6px;border-radius:99px;background:var(--arch-bg);margin:8px 0 2px;position:relative;overflow:hidden}
+.hwbar span{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--accent)}
+/* chart */
+.ccard{margin-bottom:24px}
+.clegend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 4px;padding:0;list-style:none;font-size:14px;color:var(--ink2)}
+.clegend li{display:inline-flex;align-items:center;gap:8px}
+.clegend svg{flex:none}
+.pmchart{display:block;width:100%;height:auto;overflow:visible}
+.pmchart text{font-family:"Atkinson Hyperlegible",system-ui,sans-serif;font-size:13px;fill:var(--ink3);font-variant-numeric:tabular-nums}
+.pmchart .grid{stroke:var(--line);stroke-width:1}.pmchart .vgrid{stroke:#EEEBE3;stroke-width:1}
+.pmchart .wk{stroke:#E2DED4}
+.pmchart .base{stroke:#CFCBC0;stroke-width:1.5}
+.pmchart .xl{fill:var(--ink2)}.pmchart .xl.b{fill:var(--ink);font-weight:700}.pmchart .xm{fill:var(--ink3);font-size:12px}
+.pmchart .line{fill:none;stroke:var(--accent);stroke-width:2.25;stroke-linejoin:round;stroke-linecap:round}
+.pmchart .hw{fill:none;stroke:var(--hw);stroke-width:1.5;stroke-dasharray:6 5}
+.pmchart .fund{stroke:var(--fund);stroke-width:1.5;stroke-dasharray:2 4}
+.pmchart .stop{stroke:var(--w2);stroke-width:2;stroke-dasharray:7 5}
+.pmchart .lbl{font-size:13px;font-weight:700;fill:var(--ink2)}.pmchart .lbl.hw{fill:var(--ink2)}
+.pmchart .lv{font-size:13px;font-weight:700;fill:var(--ink)}
+.pmchart .sw{fill:var(--accent)}.pmchart .swl{font-size:12px;fill:var(--accent);font-weight:700}
+.pmchart .swtrack{stroke:var(--line);stroke-width:1}
+.pmchart .ann{font-size:12px;fill:#7A4A12;font-weight:700}
+.chart-wrap{position:relative}
+.tip.pmtip{width:236px;pointer-events:none}
+.tip.pmtip dl{display:grid;grid-template-columns:1fr auto;gap:2px 12px;margin:6px 0 0;font-variant-numeric:tabular-nums}
+.tip.pmtip dt{color:#b9bec8}.tip.pmtip dd{margin:0;text-align:right;font-weight:700}
+.tip.pmtip .src{margin:8px 0 0;color:#b9bec8;font-size:12px}
+.cfoot{display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;margin:6px 0 0;padding-top:10px;border-top:1px dashed var(--line);font-size:14px;color:var(--ink2)}
+.annot-chip{font-size:12px;color:var(--ink3);border:1px dashed #B9B4A8;border-radius:6px;padding:1px 6px;background:#FFFDF6}
+/* positions */
+.ptbl td.l{white-space:normal}
+.ptbl .mk{display:flex;align-items:flex-start;gap:8px;max-width:440px}
+.ptbl .mk a{color:var(--ink);font-weight:700;text-decoration:none;line-height:1.35}
+.ptbl .mk a:hover{text-decoration:underline}
+.ptbl .mk svg{width:13px;height:13px;color:var(--ink3);flex:none;margin-top:4px}
+.ptbl td{padding-top:11px;padding-bottom:11px;vertical-align:top}
+.sidep{display:inline-block;font-size:13px;font-weight:700;border-radius:6px;padding:1px 8px}
+.sidep.yes{background:#E1F2E8;color:var(--ok)}.sidep.no{background:#FBEDE3;color:var(--neg)}
+.ptbl .pct{font-size:13px;color:var(--ink3);display:block;font-weight:400}
+.ends{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.ends .rel{font-size:13px;color:var(--ink3)}
+.kb.warn{background:#FFF4D6;color:#5C4500}.kb.navy{background:var(--sel);color:var(--accent)}
+.ptbl tr.tot td{font-weight:700}
+.ptbl tr.grp td{background:#FAF9F6;color:var(--ink2);border-top:1px solid var(--line)}
+.ptbl tr.grp .gt{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink2)}
+.ptbl tr.grp .gt svg{width:14px;height:14px}
+.ptbl tr.setl td{color:var(--ink3);background:#FAF9F6}.ptbl tr.setl .mk a{color:var(--ink2);font-weight:400}
+.tnote{margin:12px 0 0;font-size:13px;color:var(--ink3)}
+/* bottom */
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.bgrid .card{padding-bottom:18px}
+.tl{list-style:none;margin:14px 0 0;padding:0}
+.tl li{position:relative;padding:0 0 16px 26px;border-left:2px solid var(--line);margin-left:6px}
+.tl li:last-child{border-color:transparent;padding-bottom:0}
+.tl li .dot{position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--card)}
+.tl li .dot.r{background:#3FB37F}.tl li .dot.s{background:var(--card);border:2.5px solid var(--accent)}
+.tl .th{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tl time{font-size:14px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.tl .amt{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.tl .m{margin:2px 0 0;font-size:15px;color:var(--ink)}.tl .m small{color:var(--ink3);font-size:14px}
+.tl .day{list-style:none;border:0;margin:6px 0 8px;padding:0;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3)}
+.tside{font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--sel);color:var(--accent)}
+.tside.sell{background:var(--neg-bg);color:var(--neg)}.tside.red{background:var(--ok-bg);color:var(--ok)}.tside.swp{background:var(--arch-bg);color:var(--ink2)}
+.approx{color:var(--ink3)}
+.quiet{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink2);background:#FAF9F6;border:1.5px dashed var(--line);border-radius:10px;padding:8px 12px;margin:12px 0 0}
+.quiet svg{width:16px;height:16px;flex:none;color:var(--ink3)}
+.srcline{margin:28px 0 0;font-size:13px;color:var(--ink3);display:flex;gap:16px;flex-wrap:wrap}
+/* states */
+.stat.null .val{color:var(--ink3);font-size:22px;padding:4px 0}
+.mini-empty{text-align:center;padding:28px 12px 12px;color:var(--ink2)}.mini-empty .eico{margin-bottom:10px}
+.mini-empty h3{margin:0 0 4px;font-size:18px;color:var(--ink)}.mini-empty p{margin:0;font-size:15px}
+.banner{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 16px;font-size:15px;margin:0 0 20px}
+.banner svg{width:20px;height:20px;flex:none;margin-top:1px}.banner p{margin:0}
+.banner.w1{background:#FFF4D6;color:#5C4500}.banner.w2{background:#FDE9D6;color:#5A2A00}.banner.nt{background:var(--sel);color:var(--accent)}
+.banner b{color:inherit}.banner .k{margin-left:auto;white-space:nowrap;font-weight:700}
+/* app additions (not in the mock) */
+.pmdesk .dhead{align-items:flex-end}
+.pmdesk .ccard .chart-wrap{margin-top:4px}
+.ptbl .mk span{line-height:1.35}
+.ptbl tr.grp .tlink{font-size:15px}
+.ptbl tr.setl .sidep{opacity:.85}
+.pmtip h4{margin:0}
+@media (max-width:1100px){.stats.pm{grid-template-columns:repeat(2,1fr)}}
+/* 720px: DATA-SPEC §7 (not mocked). Positions become stacked cards: market / side · value · P&L / ends. */
+@media (max-width:720px){
+.stats.pm{grid-template-columns:1fr 1fr}.bgrid{grid-template-columns:1fr;gap:16px}
+.note{grid-template-columns:36px 1fr;padding:16px 18px}.note .av{width:36px;height:36px;font-size:16px}.note .nmeta{grid-column:2;text-align:left;margin:6px 0 0}
+.pmdesk .dhead .summary{gap:8px}
+.banner{flex-wrap:wrap}.banner .k{margin-left:32px}
+.ptbl .hide-m{display:none}
+.ptbl thead{display:none}
+.ptbl,.ptbl tbody{display:block}
+.ptbl tr{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+.ptbl td{display:block;border:0;padding:0 !important;white-space:normal}
+.ptbl td.mkc{grid-column:1/-1;text-align:left}
+.ptbl td.endc{grid-column:1/-1}.ptbl td.endc .ends{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px}
+.ptbl tr.tot,.ptbl tr.grp{grid-template-columns:1fr auto auto}
+.ptbl tr.tot td.mkc,.ptbl tr.grp td.mkc{grid-column:auto}
+.ptbl tr.grp td.endc{grid-column:1/-1;text-align:left !important}
+.ptbl tr.grp .gt svg{display:none}
+.ptbl tr.tot td{border-top:0}
+.ptbl tr.grp,.ptbl tr.setl{padding-left:8px;padding-right:8px;background:#FAF9F6}
+.ptbl .pct{display:inline;margin-left:6px}
+.chead .right{margin-left:0;width:100%}
+.cfoot{flex-direction:column;gap:4px}
+}
+.pmchart.narrow text{font-size:16px}.pmchart.narrow .xm,.pmchart.narrow .swl,.pmchart.narrow .ann{font-size:15px}
