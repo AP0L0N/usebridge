@@ -16,6 +16,8 @@ use Throwable;
  *   needs no timezone maths for the session axis.
  * - Book Δ "since yesterday" / "vs 7 days ago" are relative to the snapshot's as_of (the moment the
  *   book value is from): the last run before that day's 00:00, and the last run at or before as_of − 7 days.
+ * - Freshness follows Captain's post schedule: one snapshot per weekday at ~19:00, none on weekends;
+ *   only weekday posts missed after their 21:00 grace make the feed late (1) or stale (2+).
  * - Fills are the last 7 days before now; redeems & sweeps are listed newest first (the page shows 6).
  * - Both position key styles are read (outcome|side, avg_price|avg_entry, value_usd|current_value_usd);
  *   a position without `settled` is settled when it is redeemable at value 0.
@@ -24,18 +26,17 @@ use Throwable;
  */
 final class DeskReport
 {
-    /** Fresh while the snapshot is at most 2 h 30 old. */
-    private const FRESH_SECONDS = 9000;
+    /** Captain posts the snapshot every weekday (Mon–Fri) at ~19:00 local; nothing on weekends. */
+    private const POST_HOUR = 19;
 
-    private const STALE_SECONDS = 26 * 3600;
+    /** A post from this hour on counts for that weekday (an early 18:30 post is that day's post). */
+    private const WINDOW_OPENS = 17;
 
-    /** Desk runs 08:05–18:05 every 2 h (minutes of the local day). */
-    private const FIRST_RUN = 8 * 60 + 5;
+    /** A weekday's post is missed once this hour passes without one. */
+    private const GRACE_UNTIL = 21;
 
-    private const LAST_RUN = 18 * 60 + 5;
-
-    /** Overnight lasts until 08:45. */
-    private const MORNING_GRACE = 8 * 60 + 45;
+    /** How many days back missed posts are counted. */
+    private const LOOKBACK_DAYS = 14;
 
     private CarbonImmutable $now;
 
@@ -438,61 +439,46 @@ final class DeskReport
     }
 
     /**
-     * fresh | overnight | late | stale (DATA-SPEC §5), with the badge and banner copy.
+     * fresh | late | stale (DATA-SPEC §5), with the badge and banner copy.
+     *
+     * A post is expected every weekday at POST_HOUR (local wall clock). Weekday D's post is missed when
+     * now ≥ D GRACE_UNTIL:00 and the snapshot is from before D WINDOW_OPENS:00. No missed posts → fresh
+     * (a Friday post stays fresh all weekend), one → late, two or more → stale.
      *
      * @return array{state: string, badge: string, banner: array{title: string, body: string, key: string}|null}
      */
     private function freshness(CarbonImmutable $asOf): array
     {
-        $age = max(0, $this->now->getTimestamp() - $asOf->getTimestamp());
-        if ($age <= self::FRESH_SECONDS) {
+        $missed = 0;
+        $latestMissed = null;
+        for ($i = 0; $i <= self::LOOKBACK_DAYS; $i++) {
+            $day = $this->now->startOfDay()->subDays($i);
+            if ($day->isWeekend() || $day->setTime(self::GRACE_UNTIL, 0) > $this->now || $day->setTime(self::WINDOW_OPENS, 0) <= $asOf) {
+                continue;
+            }
+            $missed++;
+            $latestMissed ??= $day;
+        }
+
+        if ($latestMissed === null) {
             return ['state' => 'fresh', 'badge' => 'Fresh', 'banner' => null];
         }
-        if ($age > self::STALE_SECONDS) {
-            $days = max(1, intdiv($age, 86400));
-            $n = $days === 1 ? '1 day' : "$days days";
+        $key = 'Last post '.$asOf->format('D H:i');
+        if ($missed === 1) {
+            $dow = $latestMissed->format('D');
 
-            return ['state' => 'stale', 'badge' => "Stale · no run for $n", 'banner' => [
-                'title' => "No desk run for $n.",
-                'body' => 'Book value and prices are out of date. Ask Frank if the desk routine is paused.',
-                'key' => 'Last run '.$asOf->format('D H:i'),
+            return ['state' => 'late', 'badge' => "Late · missed $dow post", 'banner' => [
+                'title' => "The $dow ~".sprintf('%02d:00', self::POST_HOUR).' post hasn’t arrived.',
+                'body' => 'Figures are from '.$asOf->format('D j M, H:i').' and may have moved.',
+                'key' => $key,
             ]];
         }
 
-        $minute = (int) $this->now->format('G') * 60 + (int) $this->now->format('i');
-        if ($minute >= self::LAST_RUN || $minute < self::MORNING_GRACE) {
-            // Overnight only if the day's last run (18:05) reported, give or take the fresh window.
-            $session = $minute >= self::LAST_RUN ? $this->now : $this->now->subDay();
-            $lastRun = $session->setTime(18, 5)->subSeconds(self::FRESH_SECONDS);
-            if ($asOf >= $lastRun) {
-                return ['state' => 'overnight', 'badge' => 'Overnight · next run 08:05', 'banner' => [
-                    'title' => 'Overnight.',
-                    'body' => 'The desk runs 08:05–18:05 every 2 hours. Prices below are from the last run.',
-                    'key' => 'Next run 08:05',
-                ]];
-            }
-        }
-
-        $hours = intdiv($age, 3600);
-
-        return ['state' => 'late', 'badge' => "Late · last run $hours h ago", 'banner' => [
-            'title' => 'The '.self::nextRun($asOf).' run hasn’t reported yet.',
-            'body' => 'Figures are from the last run at '.$asOf->format('H:i').' and may have moved.',
-            'key' => "$hours h old",
+        return ['state' => 'stale', 'badge' => "Stale · $missed posts missed", 'banner' => [
+            'title' => "$missed weekday posts missed.",
+            'body' => 'Book value and prices are out of date. Check Captain’s weekday desk routine.',
+            'key' => $key,
         ]];
-    }
-
-    /** The scheduled run after $asOf (runs at :05 every 2 h, 08:05–18:05). */
-    private static function nextRun(CarbonImmutable $asOf): string
-    {
-        $after = (int) $asOf->format('G') * 60 + (int) $asOf->format('i') + 30;
-        for ($m = self::FIRST_RUN; $m <= self::LAST_RUN; $m += 120) {
-            if ($m > $after) {
-                return sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
-            }
-        }
-
-        return '08:05';
     }
 
     /** @return array{status: ?string, country: ?string, geoblock: ?bool}|null */

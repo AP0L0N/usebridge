@@ -1,7 +1,7 @@
 // Polymarket desk (Pages/Polymarket/Desk): props from App\Services\Polymarket\DeskReport + formatting (DATA-SPEC r1 §5).
 
 export type Freshness = {
-  state: 'fresh' | 'overnight' | 'late' | 'stale';
+  state: 'fresh' | 'late' | 'stale';
   badge: string;
   banner: { title: string; body: string; key: string } | null;
 };

@@ -10,16 +10,12 @@ const CheckIcon = () => (
 export const WarnIcon = () => (
   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><path d="M10 3 18 17H2z" /><path d="M10 8.5v3.5M10 14.6v.1" strokeLinecap="round" /></svg>
 );
-const InfoIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 9v5M10 6.2v.1" strokeLinecap="round" /></svg>
-);
 const InboxIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-8h13L21 13v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM3 13h5l1.5 3h5L16 13h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
 );
 
 const BADGE: Record<Freshness['state'], { cls: string; icon: ReactNode }> = {
   fresh: { cls: 'b-ok', icon: <CheckIcon /> },
-  overnight: { cls: 'b-arch', icon: <ClockIcon /> },
   late: { cls: 'b-w1', icon: <ClockIcon /> },
   stale: { cls: 'b-w2', icon: <WarnIcon /> },
 };
@@ -29,11 +25,11 @@ export function FreshBadge({ f }: { f: Freshness }) {
   return <span className={`badge ${b.cls} sm`}>{b.icon}<span>{f.badge}</span></span>;
 }
 
-/** Under the header when the feed is not fresh: overnight (blue note), late (w1), stale (w2). */
+/** Under the header when the feed is not fresh: late (w1), stale (w2). */
 export function FreshBanner({ f }: { f: Freshness }) {
   if (!f.banner) return null;
-  const cls = f.state === 'stale' ? 'w2' : f.state === 'late' ? 'w1' : 'nt';
-  const icon = f.state === 'stale' ? <WarnIcon /> : f.state === 'late' ? <ClockIcon /> : <InfoIcon />;
+  const cls = f.state === 'stale' ? 'w2' : 'w1';
+  const icon = f.state === 'stale' ? <WarnIcon /> : <ClockIcon />;
   return (
     <div className={`banner ${cls}`} role="status">
       {icon}

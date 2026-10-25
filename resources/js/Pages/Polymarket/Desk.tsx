@@ -49,7 +49,7 @@ function DeskBody({ f }: { f: DeskFeed }) {
         <div>
           <h1>Polymarket desk</h1>
           <p className="summary">
-            <span>Updated <b>{f.asOfLabel}</b> · refreshes every desk run (08–18, every 2 h)</span>
+            <span>Updated <b>{f.asOfLabel}</b> · posted weekdays ~19:00</span>
             <FreshBadge f={f.freshness} />
           </p>
         </div>

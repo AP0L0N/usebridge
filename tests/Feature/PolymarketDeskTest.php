@@ -166,23 +166,36 @@ class PolymarketDeskTest extends TestCase
                 ->has('feed.sweeps.items', 0));
     }
 
+    /** Posts are expected weekdays ~19:00; a weekday's post is missed at 21:00 unless a snapshot arrived from 17:00 on. */
     public static function freshness(): array
     {
+        $fri = '2026-10-23T19:02+02:00';
+
         return [
-            'fresh at 2h30' => ['2026-10-26 00:22:00', 'fresh', 'Fresh', null],
-            'overnight after the last run' => ['2026-10-26 02:00:00', 'overnight', 'Overnight · next run 08:05', 'Next run 08:05'],
-            'overnight until 08:45' => ['2026-10-26 08:44:00', 'overnight', 'Overnight · next run 08:05', 'Next run 08:05'],
-            'late once the morning run is due' => ['2026-10-26 09:00:00', 'late', 'Late · last run 11 h ago', '11 h old'],
-            'stale after 26 h' => ['2026-10-27 00:00:00', 'stale', 'Stale · no run for 1 day', 'Last run Sun 21:52'],
-            'stale for days' => ['2026-10-28 09:00:00', 'stale', 'Stale · no run for 2 days', 'Last run Sun 21:52'],
+            'Fri post, Fri evening' => [$fri, '2026-10-23 20:00:00', 'fresh', 'Fresh', null],
+            'Fri post, Sat midday' => [$fri, '2026-10-24 12:00:00', 'fresh', 'Fresh', null],
+            'Fri post, Sun night' => [$fri, '2026-10-25 23:00:00', 'fresh', 'Fresh', null],
+            'Fri post, Mon midday' => [$fri, '2026-10-26 12:00:00', 'fresh', 'Fresh', null],
+            'Fri post, Mon 19:30' => [$fri, '2026-10-26 19:30:00', 'fresh', 'Fresh', null],
+            'Fri post, Mon 20:59' => [$fri, '2026-10-26 20:59:00', 'fresh', 'Fresh', null],
+            'Fri post, Mon 21:00' => [$fri, '2026-10-26 21:00:00', 'late', 'Late · missed Mon post', 'Last post Fri 19:02'],
+            'Fri post, Tue midday' => [$fri, '2026-10-27 12:00:00', 'late', 'Late · missed Mon post', 'Last post Fri 19:02'],
+            'Fri post, Tue 21:30' => [$fri, '2026-10-27 21:30:00', 'stale', 'Stale · 2 posts missed', 'Last post Fri 19:02'],
+            'early Mon post, Mon night' => ['2026-10-26T18:30+01:00', '2026-10-26 22:00:00', 'fresh', 'Fresh', null],
+            'early Mon post, Tue afternoon' => ['2026-10-26T18:30+01:00', '2026-10-27 15:00:00', 'fresh', 'Fresh', null],
+            'Wed snapshot before the window' => ['2026-10-28T16:00+01:00', '2026-10-28 21:00:00', 'late', 'Late · missed Wed post', 'Last post Wed 16:00'],
+            // CEST → CET on 25 Oct: the rule is wall-clock, no DST special case.
+            'Fri post (CEST), Mon morning (CET)' => [$fri, '2026-10-26 10:00:00', 'fresh', 'Fresh', null],
         ];
     }
 
     #[Test]
     #[DataProvider('freshness')]
-    public function freshness_states(string $now, string $state, string $badge, ?string $key): void
+    public function freshness_states(string $asOf, string $now, string $state, string $badge, ?string $key): void
     {
-        $this->importFeed();
+        $snap = PolymarketFeedTest::fixture('feed');
+        $snap['as_of'] = $asOf;
+        $this->importFeed($snap);
         $this->at($now);
         $this->unlock();
 
@@ -193,7 +206,24 @@ class PolymarketDeskTest extends TestCase
     }
 
     #[Test]
-    public function late_during_run_hours_names_the_missed_run(): void
+    public function late_names_the_missed_weekday_post(): void
+    {
+        $snap = PolymarketFeedTest::fixture('feed');
+        $snap['as_of'] = '2026-10-23T19:02+02:00';
+        $this->importFeed($snap);
+        $this->at('2026-10-26 21:00:00');
+        $this->unlock();
+
+        $this->get('/polymarket')->assertInertia(fn (Assert $page) => $page
+            ->where('feed.freshness.state', 'late')
+            ->where('feed.freshness.badge', 'Late · missed Mon post')
+            ->where('feed.freshness.banner.title', 'The Mon ~19:00 post hasn’t arrived.')
+            ->where('feed.freshness.banner.body', 'Figures are from Fri 23 Oct, 19:02 and may have moved.')
+            ->where('feed.freshness.banner.key', 'Last post Fri 19:02'));
+    }
+
+    #[Test]
+    public function book_delta_yesterday_is_relative_to_the_snapshot_day(): void
     {
         $snap = PolymarketFeedTest::fixture('feed');
         $snap['as_of'] = '2026-10-26T10:08+01:00';
@@ -202,12 +232,24 @@ class PolymarketDeskTest extends TestCase
         $this->unlock();
 
         $this->get('/polymarket')->assertInertia(fn (Assert $page) => $page
-            ->where('feed.freshness.state', 'late')
-            ->where('feed.freshness.badge', 'Late · last run 3 h ago')
-            ->where('feed.freshness.banner.title', 'The 12:05 run hasn’t reported yet.')
-            ->where('feed.freshness.banner.body', 'Figures are from the last run at 10:08 and may have moved.')
             ->where('feed.asOfLabel', 'Today, 10:08')
             // Δ vs yesterday is relative to as_of's day: the last run on 25 Oct.
             ->where('feed.book.deltaYesterday', 80.57));
+    }
+
+    #[Test]
+    public function stale_counts_the_missed_weekday_posts(): void
+    {
+        $snap = PolymarketFeedTest::fixture('feed');
+        $snap['as_of'] = '2026-10-23T19:02+02:00';
+        $this->importFeed($snap);
+        $this->at('2026-10-27 21:30:00');
+        $this->unlock();
+
+        $this->get('/polymarket')->assertInertia(fn (Assert $page) => $page
+            ->where('feed.freshness.state', 'stale')
+            ->where('feed.freshness.badge', 'Stale · 2 posts missed')
+            ->where('feed.freshness.banner.title', '2 weekday posts missed.')
+            ->where('feed.freshness.banner.body', 'Book value and prices are out of date. Check Captain’s weekday desk routine.'));
     }
 }
