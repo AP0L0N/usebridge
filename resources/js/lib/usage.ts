@@ -29,7 +29,22 @@ export type OverviewProps = {
   updatedAt: string | null; generatedAt: string | null; coverageNotes: CoverageNote[]; unreadable: string[];
   series: Series[]; days: OverviewDay[]; topAgents: TopAgent[]; topRoutines: TopRoutine[];
   unmatched: { runs: number; agents: number; tokens: number }; table: UsageTableData; method: string | null;
+  cli: CliBlock;
 };
+
+// Measured Claude Code / Kimi Code tokens (cli_usage_days): real counts from the CLI logs, not estimates.
+export type CliTool = 'claude_code' | 'kimi_code';
+export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number };
+export type CliToolStats = CliSums & { tool: CliTool; name: string; color: AgentColor; days: number };
+export type CliAgentRow = CliSums & { agentId: string; name: string };
+export type CliTableRow = CliSums & { date: string; label: string; tool: CliTool; name: string; color: AgentColor; agents: CliAgentRow[] };
+export type CliBlock = {
+  empty: boolean; coverageFrom: string | null; coverageFromLabel: string | null; daysWithRows: number;
+  total: number; calls: number; tools: CliToolStats[]; series: Series[]; days: OverviewDay[]; table: CliTableRow[];
+};
+
+/** How a token figure is rendered: estimate (tilde, "estimated") or measured (plain, "measured"). */
+export type ValueKind = 'est' | 'measured';
 
 export type HeatRow = DayEntry & { hours: number[] | null; cutoffHour: number | null };
 export type RoutineRow = { kind: 'routine' | 'unmatched' | 'other'; routineId: string; name: string; runs: number | null; tokens: number; share: number; perRun: number | null };
@@ -86,11 +101,22 @@ export function estSpoken(n: number): string {
 /** Plain-text estimate for SVG text / titles: "~427 M" (true zero: "0"). */
 export const estText = (n: number) => (n === 0 ? '0' : `~${fmt(n)}`);
 
-/** Axis labels: "~200 M", "~1 B". */
-export function axisLabel(n: number): string {
+/** Screen-reader text for a measured figure: "427 million tokens, measured". */
+export function measuredSpoken(n: number): string {
+  if (n === 0) return '0 tokens';
+  const p = parts(n);
+  return `${p.num}${p.word ? ` ${p.word}` : ''} tokens, measured`;
+}
+
+/** Plain-text figure by kind: "~427 M" for estimates, "427 M" measured. */
+export const valueText = (n: number, kind: ValueKind) => (kind === 'measured' ? fmt(n) : estText(n));
+export const valueSpoken = (n: number, kind: ValueKind) => (kind === 'measured' ? measuredSpoken(n) : estSpoken(n));
+
+/** Axis labels: "~200 M", "~1 B" (measured: no tilde). */
+export function axisLabel(n: number, kind: ValueKind = 'est'): string {
   if (n === 0) return '0';
   const p = parts(n);
-  return `~${String(parseFloat(p.num))} ${p.unit}`.trim();
+  return `${kind === 'measured' ? '' : '~'}${String(parseFloat(p.num))} ${p.unit}`.trim();
 }
 
 /** Gridline step from 1/2/5 × 10^k so the axis gets ~5 lines (807 M → 200 M, top 1 B). */

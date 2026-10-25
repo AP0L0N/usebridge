@@ -2,6 +2,7 @@
 
 namespace App\Services\Usage;
 
+use App\Models\CliUsageDay;
 use App\Models\UsageDay;
 use App\Support\OrgDate;
 use Carbon\CarbonImmutable;
@@ -24,6 +25,10 @@ use Carbon\CarbonImmutable;
  *   is yesterday unless ?day says otherwise. Its sparkline column is always the last 7 days.
  * - Factor: daily files carry no calibration flag (spec data gap 5), so K != params.median_K
  *   means "calibrated", otherwise "median K".
+ * - `cli`: measured Claude Code / Kimi Code tokens (cli_usage_days, collector cli_usage.py) over the same
+ *   range, independent of usage_days. A day counts as present when it has rows, or lies between the
+ *   collector's coverage start and the last imported day (then zero is a true zero); earlier or later
+ *   days are "no data". Total = input + output + cache read + cache creation.
  */
 final class UsageReport
 {
@@ -37,6 +42,9 @@ final class UsageReport
     private const UNMATCHED = 'unmatched';
 
     public const UNMATCHED_LABEL = 'No routine (ad-hoc)';
+
+    /** Fixed chart colours per CLI tool (from the AgentColors palette, so they sit well next to the agents). */
+    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F'];
 
     private CarbonImmutable $now;
 
@@ -139,6 +147,105 @@ final class UsageReport
             'unmatched' => $unmatched,
             'table' => $this->table($day, $range === self::YESTERDAY ? $to : null),
             'method' => $this->latest($dates)['method'] ?? null,
+            'cli' => $this->cli($dates),
+        ];
+    }
+
+    /**
+     * Measured Claude Code / Kimi Code tokens over the range (see the class comment).
+     *
+     * @param  list<string>  $dates
+     * @return array<string, mixed>
+     */
+    public function cli(array $dates): array
+    {
+        $rows = CliUsageDay::query()
+            ->whereBetween('date', [$dates[0], end($dates)])
+            ->orderBy('date')->orderBy('tool')->orderBy('agent_id')
+            ->get();
+        $coverageFrom = CliUsageDay::query()->min('date');
+        $coverageFrom = $coverageFrom !== null ? substr((string) $coverageFrom, 0, 10) : null;
+        $lastDate = CliUsageDay::query()->max('date');
+        $lastDate = $lastDate !== null ? substr((string) $lastDate, 0, 10) : null;
+
+        $sum = fn () => ['input' => 0, 'output' => 0, 'cacheRead' => 0, 'cacheCreation' => 0, 'total' => 0, 'calls' => 0];
+        $add = function (array &$acc, CliUsageDay $r): void {
+            $acc['input'] += $r->input_tokens;
+            $acc['output'] += $r->output_tokens;
+            $acc['cacheRead'] += $r->cache_read_tokens;
+            $acc['cacheCreation'] += $r->cache_creation_tokens;
+            $acc['total'] += $r->total();
+            $acc['calls'] += $r->calls;
+        };
+
+        $tools = [];
+        foreach (CliUsageDay::TOOLS as $tool) {
+            $tools[$tool] = ['tool' => $tool, 'name' => CliUsageDay::TOOL_LABELS[$tool], 'color' => self::TOOL_COLORS[$tool]] + $sum() + ['days' => 0];
+        }
+        /** @var array<string, array<string, array{sum: array<string, int>, agents: list<array<string, mixed>>}>> date => tool => … */
+        $byDay = [];
+        foreach ($rows as $r) {
+            $d = substr((string) $r->getRawOriginal('date'), 0, 10);
+            $tool = $r->tool;
+            if (! isset($tools[$tool])) {
+                continue; // unknown tool (not expected: the validator rejects it)
+            }
+            $add($tools[$tool], $r);
+            $cell = &$byDay[$d][$tool];
+            $cell ??= ['sum' => $sum(), 'agents' => []];
+            $add($cell['sum'], $r);
+            $agent = ['agentId' => $r->agent_id, 'name' => $r->agent_name] + $sum();
+            $add($agent, $r);
+            $cell['agents'][] = $agent;
+            unset($cell);
+        }
+        foreach ($tools as $tool => &$t) {
+            $t['days'] = count(array_filter($byDay, fn ($cells) => isset($cells[$tool])));
+        }
+        unset($t);
+
+        $series = array_values(array_map(
+            fn ($t) => ['agentId' => $t['tool'], 'name' => $t['name'], 'color' => $t['color'], 'total' => $t['total']],
+            array_filter($tools, fn ($t) => $t['calls'] > 0),
+        ));
+        $seriesTools = array_column($series, 'agentId');
+
+        $days = array_map(function (string $d) use ($byDay, $seriesTools, $coverageFrom, $lastDate) {
+            $cells = $byDay[$d] ?? [];
+            $present = $cells !== [] || ($coverageFrom !== null && $lastDate !== null && $d >= $coverageFrom && $d <= $lastDate);
+            $entry = $this->dayEntry($d);
+            $entry['present'] = $present;
+
+            return $entry + [
+                'total' => $present ? array_sum(array_map(fn ($c) => $c['sum']['total'], $cells)) : null,
+                'segments' => $present ? array_map(fn ($tool) => $cells[$tool]['sum']['total'] ?? 0, $seriesTools) : null,
+            ];
+        }, $dates);
+
+        $table = [];
+        foreach ($byDay as $d => $cells) {
+            foreach ($cells as $tool => $cell) {
+                $table[] = [
+                    'date' => $d,
+                    'label' => self::longLabel($d),
+                    'tool' => $tool,
+                    'name' => $tools[$tool]['name'],
+                    'color' => $tools[$tool]['color'],
+                ] + $cell['sum'] + ['agents' => count($cell['agents']) > 1 ? $cell['agents'] : []];
+            }
+        }
+
+        return [
+            'empty' => $rows->isEmpty(),
+            'coverageFrom' => $coverageFrom,
+            'coverageFromLabel' => $coverageFrom !== null ? self::longLabel($coverageFrom) : null,
+            'daysWithRows' => count($byDay),
+            'total' => array_sum(array_column($tools, 'total')),
+            'calls' => array_sum(array_column($tools, 'calls')),
+            'tools' => array_values($tools),
+            'series' => $series,
+            'days' => $days,
+            'table' => $table,
         ];
     }
 

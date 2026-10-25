@@ -1,8 +1,9 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { axisLabel, estSpoken, estText, niceStep, type OverviewDay, type Series } from '../../lib/usage';
+import { axisLabel, niceStep, valueSpoken, valueText, type OverviewDay, type Series, type ValueKind } from '../../lib/usage';
 import { ChartTooltip, tipHeight, tipWidth } from './ChartTooltip';
 import { ChartPatterns, MissingStub } from './MissingStub';
 import { Est } from './Est';
+import { Measured } from './Measured';
 
 const W = 880, H = 380, X0 = 58, BASE = 350, TOP = 26, GAP = 1.5;
 
@@ -13,7 +14,16 @@ type Props = {
   isolated: string | null;
   fromLabel: string;
   toLabel: string;
-  onOpenDay: (date: string) => void;
+  /** Enter / click opens the day elsewhere on the page; omitted = bars are not actionable. */
+  onOpenDay?: (date: string) => void;
+  /** Estimates (default, "~") or measured figures (plain). */
+  kind?: ValueKind;
+  /** Element id prefix, unique per chart on the page. */
+  idPrefix?: string;
+  /** Accessible chart title; default is the estimate wording. */
+  title?: string;
+  /** What a missing day means, for the tooltip and the bar labels. */
+  missing?: { short: string; long: string };
 };
 
 /**
@@ -21,7 +31,7 @@ type Props = {
  * an HTML overlay of buttons over each day slot carries hover / focus / keyboard
  * (roving tabindex, ←/→ between days, Enter opens the day, Esc closes the tooltip).
  */
-export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, onOpenDay }: Props) {
+export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, onOpenDay, kind = 'est', idPrefix = 'u-chart', title, missing }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const btns = useRef<(HTMLButtonElement | null)[]>([]);
   const n = days.length;
@@ -75,13 +85,13 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
 
   return (
     <div ref={wrap} style={{ position: 'relative' }}>
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="u-chart-t">
-        <title id="u-chart-t">{`Daily estimated tokens by agent, ${fromLabel} to ${toLabel}. Table view has every value.`}</title>
+      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${idPrefix}-t`}>
+        <title id={`${idPrefix}-t`}>{title ?? `Daily estimated tokens by agent, ${fromLabel} to ${toLabel}. Table view has every value.`}</title>
         <ChartPatterns />
         {ticks.map((v) => (
           <g key={v}>
             <line className={v === 0 ? 'base' : 'grid'} x1={X0} x2={W} y1={y(v)} y2={y(v)} />
-            <text x={X0 - 8} y={y(v) + 4} textAnchor="end">{axisLabel(v)}</text>
+            <text x={X0 - 8} y={y(v) + 4} textAnchor="end">{axisLabel(v, kind)}</text>
           </g>
         ))}
         {days.map((d, i) => {
@@ -116,7 +126,7 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
             <g key={d.date}>
               {rects}
               {d.today && total > 0 && <rect x={x} y={y(total)} width={bw} height={BASE - y(total)} fill="url(#u-today)" />}
-              {showVal && <text className="vl" x={cx} y={labelY} textAnchor="middle">{estText(labelVal)}</text>}
+              {showVal && <text className="vl" x={cx} y={labelY} textAnchor="middle">{valueText(labelVal, kind)}</text>}
               {ring}
               {xl}
             </g>
@@ -131,24 +141,25 @@ export function StackedDailyChart({ days, series, isolated, fromLabel, toLabel, 
             type="button"
             tabIndex={i === focusIdx ? 0 : -1}
             style={{ left: `${((X0 + i * slot) / W) * 100}%`, width: `${(slot / W) * 100}%`, top: `${(18 / H) * 100}%`, height: `${((BASE - 18) / H) * 100}%` }}
-            aria-label={`${d.longLabel}${d.today ? ', so far' : ''}: ${d.present ? estSpoken(d.total ?? 0) : 'no file, not counted in any total'}. Enter opens that day in the table.`}
-            aria-describedby={tipOpen && active === i ? 'u-chart-tip' : undefined}
+            aria-label={`${d.longLabel}${d.today ? ', so far' : ''}: ${d.present ? valueSpoken(d.total ?? 0, kind) : missing?.short ?? 'no file, not counted in any total'}.${onOpenDay ? ' Enter opens that day in the table.' : ''}`}
+            aria-describedby={tipOpen && active === i ? `${idPrefix}-tip` : undefined}
             onMouseEnter={() => show(i)}
             onMouseLeave={hide}
             onFocus={() => { setFocusIdx(i); show(i); }}
             onBlur={hide}
             onKeyDown={(e) => onKey(e, i)}
-            onClick={() => onOpenDay(d.date)}
+            onClick={onOpenDay ? () => onOpenDay(d.date) : undefined}
           />
         ))}
       </div>
-      {tip && active !== null && <ChartTooltip id="u-chart-tip" day={days[active]!} series={series} left={tip.left} top={tip.top} maxHeight={tip.maxHeight} />}
+      {tip && active !== null && <ChartTooltip id={`${idPrefix}-tip`} day={days[active]!} series={series} left={tip.left} top={tip.top} maxHeight={tip.maxHeight} kind={kind} clickable={!!onOpenDay} missingText={missing?.long} />}
     </div>
   );
 }
 
 /** "Show as table": Date × (Total, one column per agent). */
-export function DailyTable({ days, series, caption }: { days: OverviewDay[]; series: Series[]; caption: string }) {
+export function DailyTable({ days, series, caption, kind = 'est', missingText }: { days: OverviewDay[]; series: Series[]; caption: string; kind?: ValueKind; missingText?: string }) {
+  const Val = kind === 'measured' ? Measured : Est;
   return (
     <div className="ttbl">
       <table className="tbl">
@@ -156,7 +167,7 @@ export function DailyTable({ days, series, caption }: { days: OverviewDay[]; ser
         <thead>
           <tr>
             <th scope="col">Date</th>
-            <th scope="col">Total (est.)</th>
+            <th scope="col">{kind === 'measured' ? 'Total (measured)' : 'Total (est.)'}</th>
             {series.map((s) => <th key={s.agentId} scope="col">{s.name}</th>)}
           </tr>
         </thead>
@@ -168,11 +179,11 @@ export function DailyTable({ days, series, caption }: { days: OverviewDay[]; ser
               </th>
               {d.present && d.segments ? (
                 <>
-                  <td><Est value={d.total ?? 0} /></td>
-                  {d.segments.map((v, i) => <td key={i}><Est value={v} /></td>)}
+                  <td><Val value={d.total ?? 0} /></td>
+                  {d.segments.map((v, i) => <td key={i}><Val value={v} /></td>)}
                 </>
               ) : (
-                <td className="num-miss" colSpan={series.length + 1}>No file. Not counted in any total.</td>
+                <td className="num-miss" colSpan={series.length + 1}>{missingText ?? 'No file. Not counted in any total.'}</td>
               )}
             </tr>
           ))}

@@ -1,0 +1,40 @@
+{
+ "date": "2026-10-23",
+ "timezone": "Europe/Ljubljana",
+ "generated_at": "2026-10-25T11:31:47+01:00",
+ "source": "measured",
+ "coverage_from": "2026-10-12",
+ "tools": [
+  {
+   "tool": "claude_code",
+   "agent_id": "5b79509e-da30-43eb-a944-a73c98593b18",
+   "name": "Shodan",
+   "input": 256,
+   "output": 143144,
+   "cache_read": 9311114,
+   "cache_creation": 347510,
+   "calls": 128
+  },
+  {
+   "tool": "claude_code",
+   "agent_id": "abbdbd34-ae97-421f-999a-4cb0b28f4587",
+   "name": "Xerxes",
+   "input": 2420,
+   "output": 1100811,
+   "cache_read": 160886151,
+   "cache_creation": 3282179,
+   "calls": 1206
+  },
+  {
+   "tool": "claude_code",
+   "agent_id": "unattributed",
+   "name": "Unattributed",
+   "input": 1690,
+   "output": 708772,
+   "cache_read": 136428431,
+   "cache_creation": 2382956,
+   "calls": 839
+  }
+ ],
+ "method": "Measured, not estimated: real token counts the CLIs log on the shared box, summed per Europe/Ljubljana day. Claude Code: every assistant line with message.usage in ~/.claude/projects/**/*.jsonl (main and subagent transcripts), one count per message.id (fallback requestId) keeping the line with the largest output_tokens, so per-block lines and copies in resumed or forked sessions are not double counted; day from the line's timestamp. Kimi Code: every step.end event in ~/.kimi-code/sessions/*/*/agents/*/wire.jsonl, one count per messageId (usage.record turn lines only for files without step.end); inputOther->input, inputCacheRead->cache_read, inputCacheCreation->cache_creation; day from the event time. Agent: best effort by the session's working directory prefix (CWD_AGENTS in cli_usage.py), else unattributed. calls = counted LLM calls. Claude Code deletes old transcripts, so days before coverage_from are incomplete. Total = input + output + cache_read + cache_creation; cache reads are billed at a discount."
+}

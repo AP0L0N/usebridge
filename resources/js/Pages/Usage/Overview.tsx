@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { TopBar } from '../../Components/TopBar';
 import { ChartLegend } from '../../Components/Usage/ChartLegend';
+import { CliUsage } from '../../Components/Usage/CliUsage';
 import { EstNote } from '../../Components/Usage/EstNote';
 import { Est } from '../../Components/Usage/Est';
 import { InfoLines } from '../../Components/Usage/InfoLines';
@@ -194,6 +195,8 @@ export default function Overview(p: OverviewProps) {
             {t.rows.length > 0 && <section className="card"><UsageTable table={t} range={p.range} narrow={narrow} /></section>}
           </>
         )}
+
+        <CliUsage cli={p.cli} range={p.range} fromLabel={p.fromLabel} toLabel={p.toLabel} narrow={narrow} loading={loading} />
       </main>
     </>
   );

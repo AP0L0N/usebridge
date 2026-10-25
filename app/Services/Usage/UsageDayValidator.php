@@ -11,6 +11,8 @@ use stdClass;
  * Exact keys at every level (unknown or missing key = invalid), real JSON integers for
  * int fields, values capped at 1e15, sum(agents[].est_tokens_total) == est_tokens_total.
  * by_hour is allowed to be off by rounding (spec "Sanity checks"), so it is not summed.
+ * Optional top-level `cli_usage`: absent, null, or a collector object valid per CliUsageValidator whose
+ * date equals the day's date (measured Claude Code / Kimi Code tokens; see UsageDayImporter).
  *
  * Decodes with objects (not assoc arrays) so `{}` and `[]` stay distinguishable.
  */
@@ -24,6 +26,9 @@ final class UsageDayValidator
 
     private const TOP_KEYS = ['date', 'timezone', 'generated_at', 'est_tokens_total', 'agents', 'method', 'params', 'coverage_note'];
 
+    /** Top-level keys that may be left out. */
+    private const OPTIONAL_TOP_KEYS = ['cli_usage'];
+
     private const PARAM_KEYS = ['wake_gap_ms', 'routine_window_min', 'wake_floor_tokens', 'chars_per_token', 'subagent_factor', 'median_K', 'ctx_cap_chars'];
 
     private const AGENT_KEYS = ['agent_id', 'name', 'est_tokens_total', 'est_io_tokens', 'turns', 'visible_chars', 'K', 'K_io', 'by_routine', 'other_est_tokens', 'by_hour'];
@@ -33,8 +38,10 @@ final class UsageDayValidator
     /** @var array<string, list<string>> */
     private array $errors = [];
 
+    public function __construct(private readonly CliUsageValidator $cli = new CliUsageValidator) {}
+
     /**
-     * @return array<string, mixed> the validated day as an associative array
+     * @return array<string, mixed> the validated day as an associative array (cli_usage included when given)
      *
      * @throws InvalidUsageDay
      */
@@ -67,9 +74,11 @@ final class UsageDayValidator
 
     private function checkTop(stdClass $doc): void
     {
-        if (! $this->keys($doc, self::TOP_KEYS, '')) {
+        if (! $this->keys($doc, self::TOP_KEYS, '', self::OPTIONAL_TOP_KEYS)) {
             return;
         }
+
+        $this->checkCliUsage($doc);
 
         if (! is_string($doc->date) || ! self::isRealDate($doc->date)) {
             $this->fail('date', 'Must be a real calendar date (YYYY-MM-DD).');
@@ -121,6 +130,28 @@ final class UsageDayValidator
 
         if ($this->errors === [] && $sum !== $doc->est_tokens_total) {
             $this->fail('est_tokens_total', 'Must equal the sum of agents[].est_tokens_total.');
+        }
+    }
+
+    /** `cli_usage`: absent or null is fine; otherwise a collector object for the same date. */
+    private function checkCliUsage(stdClass $doc): void
+    {
+        if (! property_exists($doc, 'cli_usage') || $doc->cli_usage === null) {
+            return;
+        }
+        $cli = $doc->cli_usage;
+        if (! $cli instanceof stdClass) {
+            $this->fail('cli_usage', 'Must be null or an object.');
+
+            return;
+        }
+        foreach ($this->cli->check($cli, 'cli_usage.') as $path => $messages) {
+            foreach ($messages as $m) {
+                $this->fail($path, $m);
+            }
+        }
+        if (isset($cli->date) && is_string($cli->date) && is_string($doc->date) && $cli->date !== $doc->date) {
+            $this->fail('cli_usage.date', 'Must equal the day\'s date.');
         }
     }
 
@@ -202,12 +233,12 @@ final class UsageDayValidator
         return true;
     }
 
-    /** Exact key set: reports unknown and missing keys; false when the shape is unusable. */
-    private function keys(stdClass $o, array $allowed, string $prefix): bool
+    /** Exact key set: reports unknown and missing keys (optional ones may be absent); false when the shape is unusable. */
+    private function keys(stdClass $o, array $allowed, string $prefix, array $optional = []): bool
     {
         $present = array_keys(get_object_vars($o));
         $ok = true;
-        foreach (array_diff($present, $allowed) as $k) {
+        foreach (array_diff($present, $allowed, $optional) as $k) {
             $this->fail($prefix.mb_substr((string) $k, 0, 64), 'Unknown key.');
             $ok = false;
         }
@@ -256,7 +287,7 @@ final class UsageDayValidator
         return checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
-    private static function isIsoWithOffset(string $s): bool
+    public static function isIsoWithOffset(string $s): bool
     {
         if (preg_match('/^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d)(\.\d{1,6})?)?(Z|[+-](0\d|1[0-4]):([0-5]\d))$/', $s, $m) !== 1) {
             return false;

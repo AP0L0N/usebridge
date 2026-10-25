@@ -161,3 +161,19 @@
 .tbl td.l .rtag{display:inline-block;margin:2px 0 0;overflow-wrap:anywhere;white-space:normal}
 .tbl th,.tbl td{padding-left:6px;padding-right:6px}
 }
+
+/* ---- Claude Code & Kimi Code: measured tokens (cli_usage_days) ---- */
+.meas{font-weight:700}.meas0{font-weight:700}
+.kb.meas-b{background:var(--ok-bg);color:var(--ok)}
+.cli-tools{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:14px 0 18px}
+.cli-tool{border:1.5px solid var(--line);border-radius:12px;padding:12px 16px 14px}
+.cli-tool h3{margin:0 0 8px;font-size:16px;display:flex;align-items:center;gap:8px}.cli-tool h3 i{width:12px;height:12px;border-radius:3px;flex:none}
+.cli-tool h3 .sub{font-weight:400;color:var(--ink3);font-size:14px;margin-left:auto}
+.cli-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px 12px}
+.cli-stat .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);margin:0;white-space:nowrap}
+.cli-stat .val{font-size:18px;font-weight:700;margin:1px 0 0;line-height:1.2;font-variant-numeric:tabular-nums}
+.cli-stat.tot .val{color:var(--accent)}
+.ntop.cli .an{font-weight:400;font-size:14px}.ntop.cli .an i{flex:none}.ntop.cli .v{white-space:nowrap;flex:none}
+.tbl tr.sub td,.tbl tr.sub th{color:var(--ink2);font-size:14px;border-bottom-style:dashed}.tbl tr.sub th{padding-left:22px;font-weight:400}
+@media (max-width:1100px){.cli-stats{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.cli-tools{grid-template-columns:1fr;gap:12px}.cli-stats{grid-template-columns:repeat(3,1fr)}.cli-stat .val{font-size:16px}}
