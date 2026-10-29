@@ -10,7 +10,7 @@ import { firstName, type ColumnKey, type PortfolioProject } from '../lib/kanban'
 type Props = { projects: PortfolioProject[]; now: string };
 
 const COLS: [ColumnKey, string][] = [
-  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
+  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done (7 days)'],
 ];
 
 function rule(p: PortfolioProject): string {

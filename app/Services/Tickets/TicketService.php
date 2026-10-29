@@ -127,7 +127,7 @@ final class TicketService
         $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
         $prefix = $locked->ticket_prefix;
         if (blank($prefix)) {
-            $prefix = TicketPrefix::generate($locked->name, Project::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+            $prefix = TicketPrefix::forProject((string) $locked->id, (string) $locked->name, Project::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
         }
         $seq = (int) $locked->ticket_seq;
         do {

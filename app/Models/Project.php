@@ -39,7 +39,7 @@ class Project extends Model
         // Every new project gets a unique ticket key prefix (same generator as the tickets migration).
         static::creating(function (Project $project) {
             if (blank($project->ticket_prefix)) {
-                $project->ticket_prefix = TicketPrefix::generate((string) $project->name, static::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
             }
         });
     }

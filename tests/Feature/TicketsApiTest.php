@@ -63,7 +63,7 @@ class TicketsApiTest extends TestCase
     public function prefixes_come_from_the_name_and_are_unique(): void
     {
         $this->assertSame('CA', Project::find(self::CA)->ticket_prefix);
-        $this->assertSame('ME', Project::find(self::MW)->ticket_prefix);
+        $this->assertSame('MW', Project::find(self::MW)->ticket_prefix); // fixed in TicketPrefix::MAP
         $this->assertSame('CA', TicketPrefix::generate('Concierge Avant'));
         $this->assertSame('CAV', TicketPrefix::generate('Concierge Avant', ['CA']));
         $this->assertSame('ME', TicketPrefix::generate('merkwell'));
@@ -71,12 +71,17 @@ class TicketsApiTest extends TestCase
         $this->assertSame('ZA', TicketPrefix::generate('Žabja Akademija'));
         $this->assertSame('P', TicketPrefix::generate('123'));
         $this->assertSame('X2', TicketPrefix::generate('X', ['X']));
+        // Captain's fixed map wins for those ids; the reserved prefixes are never generated for other projects.
+        $this->assertSame('CA', TicketPrefix::forProject('proj-concierge-avant', 'Concierge'));
+        $this->assertSame('MW', TicketPrefix::forProject('proj-merkwell', 'Merkwell'));
+        $this->assertSame('CO', TicketPrefix::forProject('proj-other', 'Concierge'));
+        $this->assertSame('CAV', TicketPrefix::forProject('proj-other', 'Concierge Avant'));
 
         // Created via the API: same generator, optional explicit prefix.
         $this->api()->postJson('/api/projects', ['name' => 'Concierge Atlas', 'slug' => 'concierge-atlas', 'owner_agent_id' => self::JANICE])
             ->assertCreated()->assertJsonPath('data.ticket_prefix', 'CAT');
-        $this->postJson('/api/projects', ['name' => 'Merkwell Two', 'slug' => 'mw2', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MW'])
-            ->assertCreated()->assertJsonPath('data.ticket_prefix', 'MW');
+        $this->postJson('/api/projects', ['name' => 'Merkwell Two', 'slug' => 'mw2', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MV'])
+            ->assertCreated()->assertJsonPath('data.ticket_prefix', 'MV');
         $this->postJson('/api/projects', ['name' => 'X', 'slug' => 'x', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MW'])
             ->assertUnprocessable()->assertJsonValidationErrors('ticket_prefix');
         // The prefix may change only before the first ticket.
@@ -102,7 +107,7 @@ class TicketsApiTest extends TestCase
         $two = $this->newTicket();
         $this->postJson("/api/tickets/{$two['key']}/archive", ['actor' => self::JANICE])->assertOk()->assertJsonPath('data.archived', true);
         $this->assertSame('CA-3', $this->newTicket()['key']);
-        $this->assertSame('ME-1', $this->newTicket([], self::MW)['key']);
+        $this->assertSame('MW-1', $this->newTicket([], self::MW)['key']);
         $this->assertSame(3, Project::find(self::CA)->ticket_seq);
 
         // POST /api/tickets with project_id is the same endpoint.
@@ -203,7 +208,7 @@ class TicketsApiTest extends TestCase
         $this->postJson("/api/tickets/{$e['key']}/archive", ['actor' => self::JANICE])->assertOk();
 
         $keys = fn (string $q) => array_column($this->getJson('/api/tickets'.$q)->assertOk()->json('data'), 'key');
-        $this->assertEqualsCanonicalizing(['CA-1', 'CA-2', 'CA-3', 'ME-1'], $keys(''));
+        $this->assertEqualsCanonicalizing(['CA-1', 'CA-2', 'CA-3', 'MW-1'], $keys(''));
         $this->assertSame(['CA-1', 'CA-2', 'CA-3'], $keys('?project_id='.self::CA));
         $this->assertSame(['CA-1', 'CA-2', 'CA-3'], array_column($this->getJson('/api/projects/'.self::CA.'/tickets')->json('data'), 'key'));
         $this->assertSame(['CA-2'], $keys('?status=in_progress'));
@@ -220,7 +225,7 @@ class TicketsApiTest extends TestCase
 
         $this->travelMinutes(60);
         $this->patchJson("/api/tickets/{$d['key']}", ['priority' => 'p2', 'actor' => self::ANATOLY])->assertOk();
-        $this->assertSame(['ME-1'], $keys('?updated_since='.urlencode(Carbon::now()->subMinute()->toIso8601String())));
+        $this->assertSame(['MW-1'], $keys('?updated_since='.urlencode(Carbon::now()->subMinute()->toIso8601String())));
         $this->assertNotEmpty([$a, $b, $c]);
     }
 

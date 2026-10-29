@@ -8,6 +8,7 @@ use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use App\Models\Ticket;
 use App\Services\Tickets\Actor;
+use App\Services\Tickets\BoardView;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -131,12 +132,21 @@ class ProjectStatus
         ];
     }
 
-    /** Live (not archived) tickets per column, every column key present. @return array<string,int> */
+    /**
+     * Live (not archived) tickets per column, every column key present. Done counts only tickets done in the last
+     * BoardView::DONE_DAYS days (Tommy, 29 Oct: the card legend reads "Done (7 days)").
+     *
+     * @return array<string,int>
+     */
     public static function ticketCounts(Project $project): array
     {
+        $since = Carbon::now()->subDays(BoardView::DONE_DAYS);
         $rows = $project->relationLoaded('tickets')
-            ? $project->tickets->whereNull('archived_at')->countBy('status')->all()
+            ? $project->tickets->whereNull('archived_at')
+                ->filter(fn ($t) => $t->status !== BoardColumns::DONE || ($t->done_at !== null && $t->done_at->gte($since)))
+                ->countBy('status')->all()
             : Ticket::query()->where('project_id', $project->id)->whereNull('archived_at')
+                ->where(fn ($w) => $w->where('status', '!=', BoardColumns::DONE)->orWhere('done_at', '>=', $since))
                 ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status')->all();
 
         return array_map(fn (string $k) => (int) ($rows[$k] ?? 0), array_combine(BoardColumns::keys(), BoardColumns::keys()));

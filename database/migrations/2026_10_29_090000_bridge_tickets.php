@@ -32,7 +32,7 @@ return new class extends Migration
 
         $taken = [];
         foreach (DB::table('projects')->orderBy('created_at')->orderBy('id')->get(['id', 'name']) as $p) {
-            $prefix = TicketPrefix::generate((string) $p->name, $taken);
+            $prefix = TicketPrefix::forProject((string) $p->id, (string) $p->name, $taken);
             $taken[] = $prefix;
             DB::table('projects')->where('id', $p->id)->update(['ticket_prefix' => $prefix]);
         }

@@ -1,5 +1,7 @@
 # Kanban UI shots (29 Oct 2026)
 
+_Updated 29 Oct, about 09:35 CET, after Tommy's calls: `portfolio-1440/390.png` and `states-move-sheet-390.png` were reshot the same way. The other shots are byte-identical on reshoot or untouched._
+
 Shot from a **local** server only: a throwaway sqlite DB in `/tmp`, seeded with `database/seeders/KanbanSampleSeeder.php`
 (SAMPLE content mirroring Tommy's mocks; it refuses to run outside `local`/`testing`), `npm run build`, `php -S` on a free
 port, and playwright-core + Chrome at 1440×1000 and 390×844 (DPR 1). Full-page shots unless noted. For dialogs the viewport
@@ -54,13 +56,13 @@ Flows run against the local server (all passed):
 2. **Waiting on Tilen is oldest `waiting_since` first** (SPEC §1/§2), so CA-119 (4d) sits above CA-115 (1d). The mock has them the other way round.
 3. **Portfolio order follows SPEC §2.** Smooth sailing is sorted by latest activity, so ChatPulse (today) comes before AdriaEdition (yesterday). The mock has the reverse.
 4. **Waiting ages are computed from `status_set_at` in whole days.** Merkwell shows 7d (mock 8d), the Shopify migration 3d (mock 4d), and Concierge Avant "<1d" because its status was set today at 07:40 (mock 1d).
-5. **Portfolio counts include every live ticket**, so Concierge Avant shows Done 12 (3 from the last 7 days plus the 9 older ones). The mock shows 3.
+5. **Portfolio Done counts only the last 7 days** (Tommy, 29 Oct) and the legend reads "Done (7 days)", so Concierge Avant shows Done (7 days) 3, as in the mock. The other columns count every live ticket.
 6. **Labels are alphabetical** ("Check-in, Decision"), which is the order the API returns them in. The mock lists them in hand-picked order.
 7. **The card's Ask line is the ticket's real `ask`**, clamped to 2 lines. The mock's card used a shorter paraphrase of the same ask.
-8. **The Move sheet's Waiting on Tilen row says "Oldest first", not "Top of column".** That column is ordered by age, so a moved ticket lands last, not on top (see the questions below).
-9. **Desktop modal:** the scrim covers the whole viewport, top bar included, and the dialog sits 48px from the viewport top. In the mock the scrim starts under the top bar. On mobile the top bar stays visible above the sheet, as in the mock.
+8. **The Move sheet's Waiting on Tilen row says "Goes to the end, sorted oldest first"** (Tommy, 29 Oct): that column is ordered by age, so a moved ticket lands last. The other rows say "Top of column".
+9. **Desktop modal:** the scrim covers the whole viewport, top bar included, and the dialog sits 48px from the viewport top. In the mock the scrim starts under the top bar; Tommy confirmed the full-viewport scrim (29 Oct). On mobile the top bar stays visible above the sheet, as in the mock.
 10. **Side fields are live controls.** Assignee and Priority are native selects styled as plain values (the chevron shows on hover). Due opens the native date picker and has a Clear button. Labels has Edit (comma-separated names). The mock shows static values.
 11. **The status-change toast floats** at the bottom centre for 15 s or until dismissed, and opening History dismisses it. The mock shows it inline.
 12. **The thread shows every column move as an inline event**, including To do → In progress on CA-115. The mock only shows the last one.
 13. **The composer's sent line reads "Sent · Janice gets it on their next run".** The states mock says "her"; the SPEC string uses "their".
-14. **New UI the mocks don't cover:** the status override menu (radio list, note, Save) behind the header badge, the Filter popover, the ask prompt, the empty-column copy for columns other than Waiting on Tilen and In progress, and "Show last 7 days only" after "Show N older".
+14. **New UI the mocks don't cover:** the status override menu (radio list, note, Save) behind the header badge, the Filter popover, the ask prompt, the empty-column copy for columns other than Waiting on Tilen and In progress, and "Show last 7 days only" after "Show N older". Tommy confirmed the override menu, Filter popover and ask prompt as built (29 Oct). There is no "New" dot on cards, per Tommy; the unread strip and the New divider in the thread stay.

@@ -22,7 +22,7 @@ class TicketsMigrationTest extends TestCase
     use RefreshDatabase;
     use TicketHelpers;
 
-    private const TOTAL = 'total: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9 (waiting_tilen 6, todo 1, in_progress 2) · skipped 0';
+    private const TOTAL = 'total: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9 (waiting_tilen 5, todo 1, in_progress 3) · skipped 0';
 
     private string $long;
 
@@ -77,7 +77,7 @@ class TicketsMigrationTest extends TestCase
     {
         $before = $this->legacy();
         $this->artisan('bridge:tickets-migrate --dry-run')
-            ->expectsOutputToContain('Concierge Avant ('.self::CA.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_tilen 5, todo 0, in_progress 0) · skipped 0')
+            ->expectsOutputToContain('Concierge Avant ('.self::CA.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_tilen 4, todo 0, in_progress 1) · skipped 0')
             ->expectsOutputToContain('total: dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9')
             ->assertSuccessful();
         $this->assertSame(0, Ticket::count());
@@ -136,6 +136,8 @@ class TicketsMigrationTest extends TestCase
         $this->assertStringContainsString('_Carried over from Required inputs (waiting on Tilen, since 8 Sep 2026)._', $i1->description);
         $this->assertSame('2026-09-08 15:00:00', $i1->waiting_since->format('Y-m-d H:i:s'));
         $this->assertSame(['input', 'waiting-on-other'], $this->byRow('required_input', 'in-ca-2')->labels->pluck('name')->all());
+        $i2 = $this->byRow('required_input', 'in-ca-2'); // not Tilen's: In progress, assigned to that person, no ask
+        $this->assertSame(['in_progress', 'human', 'Copywriter', null, null], [$i2->status, $i2->assignee_type, $i2->assignee_id, $i2->ask, $i2->waiting_since]);
 
         // Next steps.
         $n1 = $this->byRow('next_step', 'ns-1');
@@ -148,7 +150,7 @@ class TicketsMigrationTest extends TestCase
         $n5 = $this->byRow('next_step', 'ns-5');
         $this->assertSame(['agent', self::ANATOLY], [$n5->assignee_type, $n5->assignee_id]); // falls back to the PM
         $this->assertSame([0, 1], [$n1->position, $n5->position]);
-        $this->assertSame(['ME-1', 'ME-2', 'ME-3', 'ME-4'], Ticket::query()->where('project_id', self::MW)->orderBy('key')->pluck('key')->all());
+        $this->assertSame(['MW-1', 'MW-2', 'MW-3', 'MW-4'], Ticket::query()->where('project_id', self::MW)->orderBy('key')->pluck('key')->all());
 
         // Events: created by migration via api.
         $this->assertSame(9, TicketEvent::query()->where('type', 'created')->where('actor_id', 'migration')->where('actor_type', 'system')->where('source', 'api')->count());
@@ -181,7 +183,7 @@ class TicketsMigrationTest extends TestCase
             ->assertSuccessful();
         $this->artisan('bridge:tickets-migrate')->expectsOutputToContain('· skipped 10')->assertSuccessful();
         $this->assertSame(10, Ticket::count());
-        $this->assertSame('ME-5', $this->byRow('question', 'q-new')->key);
+        $this->assertSame('MW-5', $this->byRow('question', 'q-new')->key);
         $this->assertSame([self::ANATOLY, 'agent'], [$this->byRow('question', 'q-new')->created_by, $this->byRow('question', 'q-new')->created_by_type]);
 
         $this->artisan('bridge:tickets-migrate --project=proj-nope')->expectsOutputToContain('Unknown project id')->assertFailed();
@@ -245,5 +247,16 @@ class TicketsMigrationTest extends TestCase
 
         $t = $this->byRow('next_step', 'ns-owner');
         $this->assertSame(['agent', BridgeSeeder::AGENT_SHODAN], [$t->assignee_type, $t->assignee_id]);
+    }
+
+    public function test_input_waiting_on_an_agent_goes_to_in_progress_with_that_agent(): void
+    {
+        RequiredInput::create(['id' => 'in-janice', 'project_id' => self::CA, 'text' => 'Janice confirms the guest copy', 'waiting_on' => 'Janice', 'since' => '2026-10-20 10:00:00']);
+
+        $this->artisan('bridge:tickets-migrate', ['--project' => self::CA])->assertSuccessful();
+
+        $t = $this->byRow('required_input', 'in-janice');
+        $this->assertSame(['in_progress', 'agent', self::JANICE], [$t->status, $t->assignee_type, $t->assignee_id]);
+        $this->assertSame(['input', 'waiting-on-other'], $t->labels->pluck('name')->all());
     }
 }

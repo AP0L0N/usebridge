@@ -15,6 +15,35 @@ final class TicketPrefix
 
     public const PATTERN = '/^[A-Z][A-Z0-9]{0,7}$/';
 
+    /**
+     * Fixed prefixes decided by Captain (29 Oct 2026), keyed by project id. Used by the tickets migration and
+     * whenever a prefix is assigned, so these never depend on name order. Other projects keep the generated prefix.
+     *
+     * @var array<string, string>
+     */
+    public const MAP = [
+        'proj-concierge-avant' => 'CA',
+        'proj-merkwell' => 'MW',
+    ];
+
+    /**
+     * Prefix for a project: the MAP entry when set (and free), else generated from the name. Prefixes reserved in
+     * MAP for other projects are never handed out by the generator.
+     *
+     * @param  iterable<string>  $taken  prefixes already in use
+     */
+    public static function forProject(string $id, string $name, iterable $taken = []): string
+    {
+        $taken = array_map('strtoupper', is_array($taken) ? $taken : iterator_to_array($taken));
+        $mapped = self::MAP[$id] ?? null;
+        if ($mapped !== null && ! in_array($mapped, $taken, true)) {
+            return $mapped;
+        }
+        $reserved = array_values(array_diff_key(self::MAP, [$id => true]));
+
+        return self::generate($name, [...$taken, ...$reserved]);
+    }
+
     /** @param  iterable<string>  $taken  prefixes already in use */
     public static function generate(string $name, iterable $taken = []): string
     {

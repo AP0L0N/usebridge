@@ -89,10 +89,14 @@ class KanbanPagesTest extends TestCase
         $this->newTicket(['status' => 'in_progress']);
         $gone = $this->newTicket(['status' => 'in_progress']);
         $this->postJson("/api/tickets/{$gone['key']}/archive", ['actor' => self::JANICE])->assertOk();
+        // Done counts only the last 7 days (legend "Done (7 days)").
+        $recent = $this->newTicket(['status' => 'done']);
+        $old = $this->newTicket(['status' => 'done']);
+        Ticket::query()->where('key', $old['key'])->update(['done_at' => now()->subDays(8)]);
 
         $ca = collect($this->cards())->firstWhere('id', self::CA);
         $this->assertSame(2, $ca['waitingTilenCount']);
-        $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 2, 'review' => 0, 'done' => 0], $ca['ticketCounts']);
+        $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 2, 'review' => 0, 'done' => 1], $ca['ticketCounts']);
     }
 
     #[Test]

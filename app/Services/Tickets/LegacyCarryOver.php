@@ -122,19 +122,24 @@ final class LegacyCarryOver
 
                 continue;
             }
-            $labels = ['input'];
-            if (strcasecmp(trim((string) $i->waiting_on), 'tilen') !== 0) {
-                $labels[] = 'waiting-on-other';
-            }
+            $forTilen = strcasecmp(trim((string) $i->waiting_on), 'tilen') === 0;
+            // Only items that need Tilen go to Waiting on Tilen; inputs owned by someone else go to In progress, assigned to them.
+            $owner = $forTilen ? null : $this->matchAgent($i->waiting_on);
+            $assignee = match (true) {
+                $forTilen => $pm,
+                $owner !== null => ['assignee_type' => 'agent', 'assignee_id' => $owner],
+                filled($i->waiting_on) => ['assignee_type' => 'human', 'assignee_id' => trim((string) $i->waiting_on)],
+                default => $pm,
+            };
             $ticket = $this->create($project, [
                 'title' => self::cut($i->text, 140),
                 'description' => self::description($i->text, sprintf('_Carried over from Required inputs (waiting on %s, since %s)._', $i->waiting_on, self::date($i->since))),
-                'status' => BoardColumns::WAITING_TILEN,
-                ...$pm,
-                'ask' => self::cut($i->text, 280),
-                'labels' => $labels,
+                'status' => $forTilen ? BoardColumns::WAITING_TILEN : BoardColumns::IN_PROGRESS,
+                ...$assignee,
+                'ask' => $forTilen ? self::cut($i->text, 280) : null,
+                'labels' => $forTilen ? ['input'] : ['input', 'waiting-on-other'],
             ], [
-                'waiting_since' => $i->since,
+                'waiting_since' => $forTilen ? $i->since : null,
                 'created_at' => $i->created_at ?? $i->since,
                 'created_by' => Actor::MIGRATION,
                 'created_by_type' => 'system',

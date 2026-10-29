@@ -86,8 +86,10 @@ There is **no "Blocked" column**. Set `blocked_reason` (≤140 chars) instead. T
 | Status event id | `pse-<ulid>` | |
 | Project id | as before | `proj-concierge-avant` (`{id}` paths also accept the slug) |
 
-Each project's `ticket_prefix` comes from the initials of its name (Concierge Avant → `CA`, a one-word name → its first two
-letters). If the prefix is taken, a letter or digit is added. You can set it with `POST /api/projects` (`ticket_prefix`,
+Each project's `ticket_prefix` comes from the initials of its name (a one-word name → its first two letters). If the
+prefix is taken, a letter or digit is added. Two prefixes are fixed by project id (`TicketPrefix::MAP`), used by the
+migration and at creation: `proj-concierge-avant` → `CA` and `proj-merkwell` → `MW`; the generator never hands those two
+out to another project. You can set it with `POST /api/projects` (`ticket_prefix`,
 `^[A-Z][A-Z0-9]{0,7}$`) or `PATCH /api/projects/{id}`, but only while the project has no tickets.
 
 ## Errors and warnings
@@ -524,7 +526,8 @@ The old sections are **superseded** by tickets. The old rows are never deleted.
 |---|---|
 | Question, state `open` | `waiting_tilen`. The text becomes the title (≤140) and the ask (≤280), `context` becomes `ask_context`, yes/no questions get `ask_options` `["Yes","No"]`. Assigned to the PM, label `question`, `waiting_since` = when it was asked. |
 | Question, state `answered` | The same ticket, plus Tilen's answer as an input comment (at `answered_at`), so it shows `needs_pm_pickup: true`. Please pick these up. |
-| Required input, open | `waiting_tilen` with the text as the ask, label `input` (plus `waiting-on-other` when it was waiting on someone other than Tilen). |
+| Required input, open, waiting on Tilen | `waiting_tilen` with the text as the ask, label `input`, PM assignee. |
+| Required input, open, waiting on someone else | `in_progress`, labels `input` + `waiting-on-other`, no ask, assigned to that person (an agent when the name matches one, e.g. Janice → `agent-janice`; otherwise a human assignee with that name). |
 | Next step `in_progress` | `in_progress`, label `next-step`. |
 | Next step `blocker` | `todo` with `blocked_reason`, labels `next-step` and `blocker`. A blocker owned by Tilen becomes `waiting_tilen` with the text as the ask. |
 | Closed questions, resolved inputs, done next steps | Not carried over; they stay in the old tables as history. |

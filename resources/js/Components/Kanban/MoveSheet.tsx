@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Sheet, useFocusTrap } from './Bits';
 import { WAITING, type Column, type ColumnKey, type Ticket } from '../../lib/kanban';
 
-/** Mobile "Move to" sheet (SPEC §4): six 52px rows, the current one marked, the ticket goes to the top of the target. */
+/** Mobile "Move to" sheet (SPEC §4): six 52px rows, the current one marked, the ticket goes to the top of the target (Waiting on Tilen: the end, oldest first). */
 export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns: Column[]; onPick: (to: ColumnKey) => void; onClose: () => void }) {
   return (
     <Sheet label={`Move ${t.key}`} onClose={onClose}>
@@ -15,7 +15,7 @@ export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns:
             <li key={c.key} aria-current={cur ? 'true' : undefined}>
               <button type="button" onClick={() => (cur ? onClose() : onPick(c.key))}>
                 <span className={`dot c-${c.key}`} aria-hidden="true" />{c.label}
-                {cur ? <span className="cur">Current</span> : c.key === WAITING ? <span className="pos">Oldest first</span> : null}
+                {cur ? <span className="cur">Current</span> : <span className="pos">{c.key === WAITING ? 'Goes to the end, sorted oldest first' : 'Top of column'}</span>}
               </button>
             </li>
           );

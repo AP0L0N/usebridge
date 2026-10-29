@@ -69,7 +69,7 @@ class KanbanSampleSeeder extends Seeder
                 'Region page live; mobile hero next. Nothing needed from you.', 'agent-enrique', $this->at(-1, '21:15'), [5, 3, 2, 0, 1, 12], $this->at(-1, '21:15'));
             $this->project('proj-chatpulse', 'ChatPulse', 'chatpulse', 'CP', 'agent-alice', 'smooth',
                 'Tenant Figma port at screen 16 of 22.', 'agent-alice', $this->at(0, '06:50'), [2, 4, 3, 0, 0, 6], $this->at(0, '06:50'));
-            $this->project('proj-merkwell', 'Merkwell', 'merkwell', 'ME', 'agent-anatoly', 'waiting',
+            $this->project('proj-merkwell', 'Merkwell', 'merkwell', 'MW', 'agent-anatoly', 'waiting',
                 'Outreach list waits on your pricing call.', 'agent-anatoly', $this->at(-8, '10:05'), [1, 1, 0, 1, 0, 4], $this->at(-8, '10:05'));
             $this->project('proj-zeleni', 'Zeleni Mark', 'zeleni-mark', 'ZM', 'agent-xerxes', null, null, null, null, [0, 2, 1, 0, 0, 0], $this->at(-3, '11:00'));
             $arch = $this->project('proj-renewal', 'Chipolo renewal redesign', 'chipolo-renewal', 'CR', 'agent-shodan', 'archived',
