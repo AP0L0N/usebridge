@@ -162,7 +162,7 @@
 .tbl th,.tbl td{padding-left:6px;padding-right:6px}
 }
 
-/* ---- Claude Code & Kimi Code: measured tokens (cli_usage_days) ---- */
+/* ---- Claude Code, Kimi Code & OpenCode Go: measured tokens (cli_usage_days) ---- */
 .meas{font-weight:700}.meas0{font-weight:700}
 .kb.meas-b{background:var(--ok-bg);color:var(--ok)}
 .cli-tools{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:14px 0 18px}
@@ -175,5 +175,16 @@
 .cli-stat.tot .val{color:var(--accent)}
 .ntop.cli .an{font-weight:400;font-size:14px}.ntop.cli .an i{flex:none}.ntop.cli .v{white-space:nowrap;flex:none}
 .tbl tr.sub td,.tbl tr.sub th{color:var(--ink2);font-size:14px;border-bottom-style:dashed}.tbl tr.sub th{padding-left:22px;font-weight:400}
+.cli-models{list-style:none;margin:12px 0 0;padding:0}
+.cli-models li{display:grid;grid-template-columns:minmax(0,1.4fr) auto minmax(40px,1fr) auto;align-items:center;gap:4px 12px;padding:5px 0;border-top:1px solid var(--line);font-size:14px}
+.cli-models .mv{font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.cli-models .mbar{height:6px;border-radius:99px;background:var(--arch-bg);overflow:hidden}.cli-models .mbar span{display:block;height:100%;border-radius:99px}
+.cli-models .mc{color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mname{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em;overflow-wrap:anywhere;background:none;padding:0}
+.mname.none{font-family:inherit;font-style:italic;color:var(--ink3)}
+.tbl-tools{margin:0 0 6px;text-align:right}
+.rowtog{font:inherit;color:var(--accent);background:none;border:0;padding:0 6px 0 0;cursor:pointer;min-width:24px;min-height:24px}
+.tbl tr.msub th{padding-left:34px}.tbl .ameta{color:var(--ink3);font-size:13px}
+.ntop.cli li.msub{min-height:32px;padding-left:22px;border-top-style:dashed;color:var(--ink2);font-size:14px}
 @media (max-width:1100px){.cli-stats{grid-template-columns:repeat(3,1fr)}}
-@media (max-width:720px){.cli-tools{grid-template-columns:1fr;gap:12px}.cli-stats{grid-template-columns:repeat(3,1fr)}.cli-stat .val{font-size:16px}}
+@media (max-width:720px){.cli-models li{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'n v' 'b c'}.cli-models .mname{grid-area:n}.cli-models .mv{grid-area:v}.cli-models .mbar{grid-area:b}.cli-models .mc{grid-area:c;text-align:right}.cli-tools{grid-template-columns:1fr;gap:12px}.cli-stats{grid-template-columns:repeat(3,1fr)}.cli-stat .val{font-size:16px}}

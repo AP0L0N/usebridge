@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { count, fmt, rangeWords, spanLabel, type CliBlock, type CliSums, type CliToolStats, type OverviewDay, type Range, type Series } from '../../lib/usage';
+import { count, fmt, rangeWords, spanLabel, type CliBlock, type CliModelRow, type CliSums, type CliToolStats, type OverviewDay, type Range, type Series } from '../../lib/usage';
 import { ChartLegend } from './ChartLegend';
 import { Measured, MeasuredBadge } from './Measured';
 import { MissingKey } from './MissingStub';
@@ -20,6 +20,16 @@ const SUM_COLS: { key: keyof CliSums; label: string }[] = [
   { key: 'total', label: 'Total' },
 ];
 
+function ModelName({ m }: { m: CliModelRow }) {
+  return m.model ? <code className="mname">{m.model}</code> : <span className="mname none">{m.label}</span>;
+}
+
+/** "claude-opus-5-5" -> "opus 5.5" (tidy agent meta only; full ids stay in the model rows). */
+function shortModel(m: CliModelRow): string {
+  if (!m.model) return 'not recorded';
+  return m.model.replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2');
+}
+
 function ToolTile({ t, range }: { t: CliToolStats; range: Range }) {
   return (
     <div className="cli-tool">
@@ -33,11 +43,23 @@ function ToolTile({ t, range }: { t: CliToolStats; range: Range }) {
         ))}
         <div className="cli-stat"><p className="lbl">Calls</p><p className="val">{count(t.calls)}</p></div>
       </div>
+      {t.calls > 0 && t.models.length > 0 && (
+        <ul className="cli-models" aria-label={`${t.name} tokens per model`}>
+          {t.models.map((m) => (
+            <li key={m.model ?? 'none'}>
+              <ModelName m={m} />
+              <span className="mv"><Measured value={m.total} /></span>
+              <span className="mbar" aria-hidden="true"><span style={{ width: `${t.total > 0 ? Math.max(1, (m.total / t.total) * 100).toFixed(1) : 0}%`, background: t.color }} /></span>
+              <span className="mc">{count(m.calls)} calls</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-/** ≤720px: one horizontal total bar per day (both tools). */
+/** ≤720px: one horizontal total bar per day (all tools). */
 function NarrowDays({ days }: { days: OverviewDay[] }) {
   const max = Math.max(1, ...days.filter((d) => d.present).map((d) => d.total ?? 0));
   return (
@@ -66,10 +88,18 @@ function Cells({ r }: { r: CliSums }) {
 
 /** Day × tool table, with one indented row per agent when a (day, tool) has more than one. */
 function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
+  const keyOf = (r: { date: string; tool: string }) => `${r.date}-${r.tool}`;
+  const expandable = cli.table.filter((r) => r.models.length > 0);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const allOpen = expandable.length > 0 && expandable.every((r) => open.has(keyOf(r)));
+  const toggleOne = (k: string) => setOpen((cur) => { const n = new Set(cur); if (!n.delete(k)) n.add(k); return n; });
   return (
     <div className="ttbl">
+      {expandable.length > 0 && (
+        <p className="tbl-tools"><button type="button" className="tlink" aria-pressed={allOpen} onClick={() => setOpen(allOpen ? new Set() : new Set(expandable.map(keyOf)))}>{allOpen ? 'Hide models' : 'Show models'}</button></p>
+      )}
       <table className="tbl">
-        <caption>Measured tokens per day and tool, {scope}. Agent rows (indented) are a best-effort split by working directory.</caption>
+        <caption>Measured tokens per day and tool, {scope}. Agent rows (indented) are a best-effort split by working directory; model rows (indented, from the toggle) split a day and tool by model.</caption>
         <thead>
           <tr>
             <th scope="col">Day</th>
@@ -80,15 +110,27 @@ function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
         </thead>
         <tbody>
           {cli.table.map((r) => (
-            <Fragment key={`${r.date}-${r.tool}`}>
+            <Fragment key={keyOf(r)}>
               <tr>
-                <th scope="row">{r.label}</th>
+                <th scope="row">
+                  {r.models.length > 0 && (
+                    <button type="button" className="rowtog" aria-expanded={open.has(keyOf(r))} aria-label={`${open.has(keyOf(r)) ? 'Hide' : 'Show'} models for ${r.label}, ${r.name}`} onClick={() => toggleOne(keyOf(r))}>{open.has(keyOf(r)) ? '▾' : '▸'}</button>
+                  )}
+                  {r.label}
+                </th>
                 <td className="l"><span className="an"><i style={{ background: r.color }} aria-hidden="true" />{r.name}</span></td>
                 <Cells r={r} />
               </tr>
+              {open.has(keyOf(r)) && r.models.map((m) => (
+                <tr key={`m-${m.model ?? 'none'}`} className="sub msub">
+                  <th scope="row"><ModelName m={m} /></th>
+                  <td className="l">{r.name}</td>
+                  <Cells r={m} />
+                </tr>
+              ))}
               {r.agents.map((a) => (
                 <tr key={a.agentId} className="sub">
-                  <th scope="row">{a.name}</th>
+                  <th scope="row">{a.name}{a.models.length > 0 && <span className="ameta"> · {a.models.map(shortModel).join(' / ')}</span>}</th>
                   <td className="l">{r.name}</td>
                   <Cells r={a} />
                 </tr>
@@ -96,7 +138,7 @@ function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
             </Fragment>
           ))}
           <tr className="tot">
-            <td colSpan={2}>All days, both tools</td>
+            <td colSpan={2}>All days, all tools</td>
             <td>{fmt(cli.tools.reduce((s, t) => s + t.input, 0))}</td>
             <td>{fmt(cli.tools.reduce((s, t) => s + t.output, 0))}</td>
             <td>{fmt(cli.tools.reduce((s, t) => s + t.cacheRead, 0))}</td>
@@ -111,7 +153,7 @@ function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
 }
 
 /**
- * "Claude Code & Kimi Code — measured tokens": real counts from the CLI logs on the shared box, over the
+ * "Coding tools (Claude Code, Kimi Code & OpenCode Go) — measured tokens": real counts from the CLI logs on the shared box, over the
  * same range as the estimates above (yesterday / 7 / 30 days), independent of the estimator files.
  */
 export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Props) {
@@ -124,7 +166,7 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
   return (
     <>
       <h2 className="sect" id="h-cli">
-        Claude Code &amp; Kimi Code <span style={{ textTransform: 'none', letterSpacing: 0 }}>· measured tokens · {span}</span>
+        Claude Code, Kimi Code &amp; OpenCode Go <span style={{ textTransform: 'none', letterSpacing: 0 }}>· measured tokens · {span}</span>
       </h2>
       <section className="card" aria-labelledby="h-cli" aria-busy={loading}>
         <div className="chead">
@@ -137,7 +179,7 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
 
         {cli.empty ? (
           <p className="foot" style={{ marginTop: 10 }}>
-            No measured Claude Code or Kimi Code usage {range === 'yesterday' ? 'for yesterday' : `in the ${rangeWords(range)}`}
+            No measured Claude Code, Kimi Code or OpenCode Go usage {range === 'yesterday' ? 'for yesterday' : `in the ${rangeWords(range)}`}
             {cli.coverageFromLabel ? <> (the collector's logs start {cli.coverageFromLabel}).</> : ' (nothing imported yet).'}
           </p>
         ) : (
@@ -180,10 +222,18 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
             {narrow && (
               <ul className="ntop cli" style={{ marginTop: 12 }} aria-label="Measured tokens per day and tool">
                 {cli.table.map((r) => (
-                  <li key={`${r.date}-${r.tool}`}>
-                    <span className="an"><i style={{ background: r.color }} aria-hidden="true" /><span><b>{r.label}</b> · {r.name} · {count(r.calls)} calls</span></span>
-                    <span className="v"><Measured value={r.total} /></span>
-                  </li>
+                  <Fragment key={`${r.date}-${r.tool}`}>
+                    <li>
+                      <span className="an"><i style={{ background: r.color }} aria-hidden="true" /><span><b>{r.label}</b> · {r.name} · {count(r.calls)} calls</span></span>
+                      <span className="v"><Measured value={r.total} /></span>
+                    </li>
+                    {r.models.map((m) => (
+                      <li key={`m-${m.model ?? 'none'}`} className="msub">
+                        <span className="an"><span><ModelName m={m} /> · {count(m.calls)} calls</span></span>
+                        <span className="v"><Measured value={m.total} /></span>
+                      </li>
+                    ))}
+                  </Fragment>
                 ))}
               </ul>
             )}
@@ -193,6 +243,7 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
         <p className="foot" style={{ marginTop: 12 }}>
           Total = input + output + cache read + cache creation; cache reads are billed at a discount. Calls = counted LLM calls.
           Agent split is best effort, by the working directory of each session; the rest is “Unattributed”.
+          Models are the ids each tool logs (Claude Code message.model, Kimi Code usage.record model, OpenCode Go modelID); “model not recorded” = the log line had no model or the row predates per-model import.
         </p>
       </section>
     </>
