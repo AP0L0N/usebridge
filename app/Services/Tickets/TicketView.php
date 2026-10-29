@@ -203,6 +203,9 @@ final class TicketView
         if (! empty($f['needs_pm_pickup'])) {
             $q->needsPmPickup();
         }
+        if (! empty($f['unread_for_tilen'])) {
+            $q->unreadForTilen();
+        }
         if (! empty($f['blocked'])) {
             $q->whereNotNull('blocked_reason');
         }

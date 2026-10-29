@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Tickets\Actor;
 use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -80,6 +81,23 @@ class Ticket extends Model
     {
         return $q->whereNotNull('tilen_input_at')
             ->where(fn (Builder $w) => $w->whereNull('tilen_input_ack_at')->orWhereColumn('tilen_input_ack_at', '<', 'tilen_input_at'));
+    }
+
+    /**
+     * Query twin of TicketView::unread(): an agent comment newer than Tilen's last_seen_at, on a ticket that involves him
+     * (waiting on him, or he has commented). Drives GET /api/tickets?unread_for_tilen=1.
+     */
+    public function scopeUnreadForTilen(Builder $q): Builder
+    {
+        $seen = fn ($r) => $r->selectRaw('1')->from('ticket_read_states')
+            ->whereColumn('ticket_read_states.ticket_id', 'ticket_comments.ticket_id')->where('ticket_read_states.user', Actor::TILEN);
+
+        return $q
+            ->where(fn (Builder $w) => $w->where('status', BoardColumns::WAITING_TILEN)
+                ->orWhereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_id', Actor::TILEN)))
+            ->whereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_type', 'agent')
+                ->where(fn ($w) => $w->whereNotExists($seen)
+                    ->orWhereExists(fn ($r) => $seen($r)->whereColumn('ticket_comments.created_at', '>', 'ticket_read_states.last_seen_at'))));
     }
 
     /** Ticket by key (CA-12, case-insensitive) or id (tk-…). */

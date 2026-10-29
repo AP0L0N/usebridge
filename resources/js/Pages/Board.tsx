@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { IconSearch } from '../Components/Icons';
-import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, ToastHost, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
+import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, SHEET_Q, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { TicketCard } from '../Components/Kanban/TicketCard';
 import { StatusBlock, setByLabel } from '../Components/Kanban/StatusBlock';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
@@ -28,8 +28,9 @@ export default function BoardPage(props: Props) {
   return <div className="kanban"><ToastHost><Board {...props} /></ToastHost></div>;
 }
 
-type Filters = { assignee: string; label: string; priority: string; blocked: boolean; unread: boolean };
-const NO_FILTERS: Filters = { assignee: '', label: '', priority: '', blocked: false, unread: false };
+/** Board filters (local state, like search). `replies` / `pickup` match the card chips "New reply from …" / "Your input · not picked up yet". */
+type Filters = { assignee: string; label: string; priority: string; blocked: boolean; replies: boolean; pickup: boolean };
+const NO_FILTERS: Filters = { assignee: '', label: '', priority: '', blocked: false, replies: false, pickup: false };
 const POLL_MS = 30_000;
 /** Card to refocus once the ticket dialog closes (module scope: survives Inertia's remount on history restore). */
 let returnTo: string | null = null;
@@ -80,7 +81,8 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     if (filters.label && !t.labels.some((l) => l.name === filters.label)) return false;
     if (filters.priority && t.priority !== filters.priority) return false;
     if (filters.blocked && !t.blocked) return false;
-    if (filters.unread && !(t.unread_for_tilen || t.needs_pm_pickup)) return false;
+    if (filters.replies && !t.unread_for_tilen) return false;
+    if (filters.pickup && !t.needs_pm_pickup) return false;
     return true;
   }, [q, filters]);
   const visible = useMemo(() => cols.map((c) => ({ ...c, tickets: c.tickets.filter(matches) })), [cols, matches]);
@@ -264,8 +266,10 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape' && dragging.current) {
         e.preventDefault();
+        const dk = start.current?.t.key;
         start.current = null; dragging.current = false; setDrag(null);
         document.body.classList.remove('kdragging');
+        if (dk) setFocusKey(dk);
         setLive('Move cancelled.');
       }
     };
@@ -377,6 +381,15 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   // Default tab: Waiting on Tilen when it has tickets, else In progress; after the dialog closes, the card's own column.
   const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key
     ?? (waitingCount > 0 ? WAITING : 'in_progress'));
+  // A filter change on mobile lands on a tab with matches: stay if the current one has some, else the first that does (b4).
+  const lastFilters = useRef(filters);
+  useEffect(() => {
+    if (lastFilters.current === filters) return;
+    lastFilters.current = filters;
+    if (!mobile || nFilters === 0 || (visible.find((c) => c.key === tab)?.tickets.length ?? 0) > 0) return;
+    const hit = visible.find((c) => c.tickets.length > 0);
+    if (hit) setTab(hit.key);
+  }, [filters, mobile, nFilters, visible, tab]);
   const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const strip = tabsRef.current, btn = strip?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -432,7 +445,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
               <input type="text" placeholder="Search tickets" value={q} onChange={(e) => setQ(e.target.value)} />
               {q && <button type="button" className="clr" aria-label="Clear search" onClick={() => setQ('')}>×</button>}
             </label>
-            <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} mobile={mobile} />
+            <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
             <button className="btn add" type="button" aria-label={mobile ? 'Add ticket' : undefined} onClick={addTop}><IcPlus /><span className="t">Add ticket</span></button>
           </div>
         </div>
@@ -450,7 +463,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
             {visible.map((c) => (
               <button key={c.key} id={`tab-${c.key}`} role="tab" type="button" className={c.key === WAITING ? 'wt' : ''} aria-selected={c.key === tab}
                 aria-controls={`col-${c.key}`} tabIndex={c.key === tab ? 0 : -1} onClick={() => setTab(c.key)} onKeyDown={tabKey}>
-                {c.label}<span className="cnt">{c.tickets.length}</span>
+                {c.label}<span className={`cnt${c.tickets.length === 0 ? ' zero' : ''}`}>{c.tickets.length}</span>
               </button>
             ))}
           </div>
@@ -506,10 +519,16 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
       )}
       {moveFor && (
         <MoveSheet t={moveFor} columns={cols} onClose={() => setMoveFor(null)}
-          onPick={(to) => { const t = moveFor; setMoveFor(null); requestMove({ t, to, index: 0, via: 'sheet' }); }} />
+          onPick={(to, ask) => {
+            const t = moveFor;
+            setMoveFor(null);
+            if (ask) doMove(t, to, {}, ask, { undo: true });
+            else requestMove({ t, to, index: 0, via: 'sheet' });
+          }} />
       )}
       {askFor && (
-        <AskPrompt t={askFor.t} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
+        <AskPrompt t={askFor.t} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
+          restoreFocus={askFor.via === 'drag' || askFor.via === 'key' ? () => document.querySelector<HTMLElement>(`.board [data-key="${askFor.t.key}"] .tkl`) : undefined}
           onSubmit={(ask) => {
             const a = askFor;
             setAskFor(null);
@@ -577,42 +596,61 @@ function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug:
   );
 }
 
-function FilterMenu({ filters, setFilters, n, tickets, people, labels, mobile }: {
-  filters: Filters; setFilters: (f: Filters) => void; n: number; tickets: Ticket[]; people: Person[]; labels: Label[]; mobile: boolean;
+function FilterMenu({ filters, setFilters, n, tickets, people, labels }: {
+  filters: Filters; setFilters: (f: Filters) => void; n: number; tickets: Ticket[]; people: Person[]; labels: Label[];
 }) {
+  // Two render paths (Tommy review b1): a bottom Sheet at <=640px, a popover under the button above that.
+  const asSheet = useMedia(SHEET_Q);
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  useDismiss(ref, open, close);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const firstRef = useRef<HTMLSelectElement>(null);
+  // Esc, Done and outside click hand focus back to the Filter button (b2). The sheet's focus trap does the same on close.
+  const close = useCallback(() => { setOpen(false); refocus(btnRef.current); }, []);
+  useDismiss([btnRef, popRef], open && !asSheet, close);
+  useEffect(() => { if (open && !asSheet) firstRef.current?.focus({ preventScroll: true }); }, [open, asSheet]);
   const assignees = [...new Set(tickets.map((t) => t.assignee_id).filter(Boolean) as string[])]
     .map((id) => ({ id, name: people.find((p) => p.id === id)?.name ?? tickets.find((t) => t.assignee_id === id)?.assignee_name ?? id }));
   const usedLabels = labels.filter((l) => tickets.some((t) => t.labels.some((x) => x.id === l.id)));
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
+  const fields = (
+    <>
+      <label className="flabel" htmlFor="f-as">Assignee</label>
+      <select ref={firstRef} id="f-as" className="qin" value={filters.assignee} onChange={(e) => set({ assignee: e.target.value })}>
+        <option value="">Anyone</option><option value="none">Unassigned</option>
+        {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+      </select>
+      <label className="flabel" htmlFor="f-lb">Label</label>
+      <select id="f-lb" className="qin" value={filters.label} onChange={(e) => set({ label: e.target.value })}>
+        <option value="">Any label</option>
+        {usedLabels.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
+      </select>
+      <label className="flabel" htmlFor="f-pr">Priority</label>
+      <select id="f-pr" className="qin" value={filters.priority} onChange={(e) => set({ priority: e.target.value })}>
+        <option value="">Any priority</option><option value="p1">P1 · High</option><option value="p2">P2 · Medium</option><option value="p3">P3 · Normal</option>
+      </select>
+      <label className="chkl"><input type="checkbox" checked={filters.blocked} onChange={(e) => set({ blocked: e.target.checked })} />Blocked only</label>
+      <label className="chkl"><input type="checkbox" checked={filters.replies} onChange={(e) => set({ replies: e.target.checked })} />New replies for you</label>
+      <label className="chkl"><input type="checkbox" checked={filters.pickup} onChange={(e) => set({ pickup: e.target.checked })} />Your input not picked up</label>
+      <div className="qact ffoot">
+        <button className="abtn" type="button" onClick={() => setFilters(NO_FILTERS)} disabled={!n}>Clear filters</button>
+        <button className="btn" type="button" onClick={close}>Done</button>
+      </div>
+    </>
+  );
   return (
-    <div className="pwrap" ref={ref}>
-      <button className={`fbtn${n ? ' on' : ''}`} type="button" aria-haspopup="dialog" aria-expanded={open} aria-label={mobile ? `Filter${n ? `, ${n} active` : ''}` : undefined} onClick={() => setOpen((v) => !v)}>
-        <IcFilter /><span className="t">Filter{n ? ` · ${n}` : ''}</span>
+    <div className="pwrap">
+      <button ref={btnRef} className={`fbtn${n ? ' on' : ''}`} type="button" aria-haspopup="dialog" aria-expanded={open}
+        aria-label={`Filter${n ? `, ${n} active` : ''}`} onClick={() => (open ? close() : setOpen(true))}>
+        <IcFilter /><span className="t" aria-hidden="true">Filter{n ? ` · ${n}` : ''}</span>
+        {n > 0 && <span className="cnt" aria-hidden="true">{n}</span>}
       </button>
-      {open && (
-        <div className="pop menu fmenu" role="dialog" aria-label="Filter tickets">
-          <label className="flabel" htmlFor="f-as">Assignee</label>
-          <select id="f-as" className="qin" value={filters.assignee} onChange={(e) => set({ assignee: e.target.value })}>
-            <option value="">Anyone</option><option value="none">Unassigned</option>
-            {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <label className="flabel" htmlFor="f-lb">Label</label>
-          <select id="f-lb" className="qin" value={filters.label} onChange={(e) => set({ label: e.target.value })}>
-            <option value="">Any label</option>
-            {usedLabels.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
-          </select>
-          <label className="flabel" htmlFor="f-pr">Priority</label>
-          <select id="f-pr" className="qin" value={filters.priority} onChange={(e) => set({ priority: e.target.value })}>
-            <option value="">Any priority</option><option value="p1">P1 · High</option><option value="p2">P2 · Medium</option><option value="p3">P3 · Normal</option>
-          </select>
-          <label className="chkl"><input type="checkbox" checked={filters.blocked} onChange={(e) => set({ blocked: e.target.checked })} />Blocked only</label>
-          <label className="chkl"><input type="checkbox" checked={filters.unread} onChange={(e) => set({ unread: e.target.checked })} />Has unread</label>
-          <div className="qact"><button className="abtn" type="button" onClick={() => setFilters(NO_FILTERS)} disabled={!n}>Clear filters</button><button className="btn" type="button" onClick={close}>Done</button></div>
-        </div>
+      {open && !asSheet && <div ref={popRef} className="pop menu fmenu" role="dialog" aria-label="Filter tickets">{fields}</div>}
+      {open && asSheet && (
+        <Sheet label="Filter tickets" onClose={() => setOpen(false)} initialFocus={firstRef} restoreFocus={() => btnRef.current} className="fsheet">
+          <h3>Filter tickets</h3>
+          <div className="sheetb fform">{fields}</div>
+        </Sheet>
       )}
     </div>
   );

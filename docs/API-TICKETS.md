@@ -193,6 +193,7 @@ List tickets, with filters. Results are ordered by project, then column order, t
 | `assignee` | string | no | Agent id, `tilen`, a free-text name, or `none`. |
 | `label` | string | no | Label name (case-insensitive). |
 | `needs_pm_pickup` | 0/1 | no | Only tickets with Tilen input that hasn't been acknowledged. |
+| `unread_for_tilen` | 0/1 | no | Only tickets with an agent comment Tilen hasn't seen yet (same rule as the `unread_for_tilen` field; the board's "New replies for you" filter). |
 | `blocked` | 0/1 | no | Only tickets with `blocked_reason`. |
 | `updated_since` | ISO time | no | `updated_at` ≥ this. New comments bump `updated_at`. |
 | `include_archived` | 0/1 | no | Default 0. |

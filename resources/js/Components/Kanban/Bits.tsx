@@ -76,24 +76,48 @@ export function useMedia(query: string): boolean {
 
 export const MOBILE = '(max-width: 720px)';
 
-/** Close on outside click / Escape (menus, popovers). */
-export function useDismiss(ref: RefObject<HTMLElement | null>, open: boolean, onClose: () => void) {
+/** Close on outside click / Escape (menus, popovers). `refs`: everything that counts as inside (e.g. the opener + the popover). */
+export function useDismiss(refs: RefObject<HTMLElement | null> | RefObject<HTMLElement | null>[], open: boolean, onClose: (how: 'outside' | 'escape') => void) {
+  const list = useRef(refs);
+  list.current = refs;
   useEffect(() => {
     if (!open) return;
-    const down = (e: PointerEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    const inside = (n: Node) => (Array.isArray(list.current) ? list.current : [list.current]).some((r) => r.current?.contains(n));
+    const down = (e: PointerEvent) => { if (!inside(e.target as Node)) onClose('outside'); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose('escape'); } };
     document.addEventListener('pointerdown', down);
     document.addEventListener('keydown', key, true);
     return () => { document.removeEventListener('pointerdown', down); document.removeEventListener('keydown', key, true); };
-  }, [ref, open, onClose]);
+  }, [open, onClose]);
+}
+
+/** Filters (and other small forms) switch from a popover to a bottom Sheet at this width (Tommy review b1). */
+export const SHEET_Q = '(max-width: 640px)';
+
+/**
+ * Focus `el` now, and again after the current pointer event if the click landed on something non-focusable
+ * (the browser's mousedown default would otherwise drop focus to <body>). A click into another field keeps its focus.
+ */
+export function refocus(el: HTMLElement | null | undefined) {
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  window.setTimeout(() => {
+    const a = document.activeElement;
+    if ((!a || a === document.body) && document.contains(el)) el.focus({ preventScroll: true });
+  }, 0);
 }
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-/** Keep Tab inside `ref` while active; Escape calls onEscape. Restores focus to the opener on unmount. */
-export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () => void, initialFocus?: RefObject<HTMLElement | null>) {
+/**
+ * Keep Tab inside `ref` while active; Escape calls onEscape. On unmount focus goes back to the opener, or to
+ * `restore()` when given (e.g. the dragged card, which was not focused when the dialog opened).
+ */
+export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () => void, initialFocus?: RefObject<HTMLElement | null>, restore?: () => HTMLElement | null | undefined) {
   const esc = useRef(onEscape);
   esc.current = onEscape;
+  const back = useRef(restore);
+  back.current = restore;
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     (initialFocus?.current ?? ref.current?.querySelector<HTMLElement>(FOCUSABLE))?.focus({ preventScroll: true });
@@ -111,15 +135,25 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
     document.addEventListener('keydown', key);
     return () => {
       document.removeEventListener('keydown', key);
-      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+      const to = back.current?.() ?? opener;
+      if (to && document.contains(to)) refocus(to);
     };
   }, [ref, initialFocus]);
 }
 
+type SheetProps = {
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+  className?: string;
+  initialFocus?: RefObject<HTMLElement | null>;
+  restoreFocus?: () => HTMLElement | null | undefined;
+};
+
 /** Bottom sheet (mobile) / centred panel: scrim, focus trap, Esc closes. */
-export function Sheet({ label, onClose, children, className = '' }: { label: string; onClose: () => void; children: ReactNode; className?: string }) {
+export function Sheet({ label, onClose, children, className = '', initialFocus, restoreFocus }: SheetProps) {
   const ref = useRef<HTMLDivElement>(null);
-  useFocusTrap(ref, onClose);
+  useFocusTrap(ref, onClose, initialFocus, restoreFocus);
   return (
     <div className="ovl sheetov" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={ref} className={`sheet ${className}`} role="dialog" aria-modal="true" aria-label={label}>

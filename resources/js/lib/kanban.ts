@@ -205,7 +205,7 @@ export async function send<T = unknown>(method: 'POST' | 'PATCH', url: string, b
     throw new ApiError('Network error', 0);
   }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(json.message ?? `HTTP ${res.status}`, res.status, json.errors ?? {});
+  if (!res.ok) throw new ApiError(json.message ?? 'Something went wrong.', res.status, json.errors ?? {});
   return json as T;
 }
 

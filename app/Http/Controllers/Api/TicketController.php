@@ -22,7 +22,7 @@ class TicketController extends Controller
 
     public function __construct(private readonly TicketService $tickets) {}
 
-    /** GET /api/tickets ?project_id=&status=&assignee=&label=&needs_pm_pickup=1&blocked=1&updated_since=&include_archived=1&limit= */
+    /** GET /api/tickets ?project_id=&status=&assignee=&label=&needs_pm_pickup=1&unread_for_tilen=1&blocked=1&updated_since=&include_archived=1&limit= */
     public function index(Request $request): JsonResponse
     {
         $f = $request->validate([
@@ -37,12 +37,13 @@ class TicketController extends Controller
             'assignee' => ['nullable', 'string', 'max:120'],
             'label' => ['nullable', 'string', 'max:24'],
             'needs_pm_pickup' => ['nullable', 'in:0,1,true,false'],
+            'unread_for_tilen' => ['nullable', 'in:0,1,true,false'],
             'blocked' => ['nullable', 'in:0,1,true,false'],
             'include_archived' => ['nullable', 'in:0,1,true,false'],
             'updated_since' => ['nullable', 'date'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
-        foreach (['needs_pm_pickup', 'blocked', 'include_archived'] as $k) {
+        foreach (['needs_pm_pickup', 'unread_for_tilen', 'blocked', 'include_archived'] as $k) {
             $f[$k] = self::flag($f[$k] ?? false);
         }
         $q = TicketView::filter(Ticket::query()->with(TicketView::with()), $f)->limit((int) ($f['limit'] ?? 100));

@@ -297,9 +297,7 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .pop.menu,.pop.hpop{position:absolute;z-index:30;top:calc(100% + 6px)}
   .pop.hpop{right:0;width:420px;max-height:70vh;overflow:auto}
   .smenu{left:0;width:340px}
-  .fmenu{right:0;width:300px;display:flex;flex-direction:column;gap:6px}
-  .fmenu .qin{height:44px}.fmenu .chkl{display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px}
-  .fmenu .chkl input{width:20px;height:20px;accent-color:var(--accent)}
+  .fmenu{right:0;width:300px}
   .amenu{right:0;width:220px;padding:6px;display:flex;flex-direction:column}
   .amenu button{font:inherit;font-size:16px;text-align:left;background:none;border:0;border-radius:8px;min-height:44px;padding:0 12px;cursor:pointer;color:var(--ink)}
   .amenu button:hover,.amenu button:focus-visible{background:var(--tilen-bg)}
@@ -364,7 +362,6 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
     .cstat{padding-left:0}
     .pop.hpop{width:min(420px,calc(100vw - 32px))}
     .btools .pwrap{flex:none}
-    .fmenu{position:fixed;left:16px;right:16px;top:auto;width:auto}
     .toasts{bottom:16px}
   }
 }
@@ -385,3 +382,61 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   @media (max-width:720px){.dlgov{top:60px}.dlg{min-height:calc(100vh - 60px)}}
 }
 .kanban .fld .v>.plain.selw{width:auto;flex:1;min-width:0}
+
+/* ---- Tommy review 29 Oct: status menu (a), filters (b), ask step (c) ---- */
+.kanban{
+  /* (a) status menu: anchored under the whole status card, chevron on the badge */
+  .pstat{position:relative}
+  .pop.smenu{left:0;width:400px}
+  .bbtn{position:relative}
+  .bbtn .badge{padding-right:30px}
+  .bbtn>svg{position:absolute;right:11px;top:50%;width:12px;height:12px;margin-top:-6px;color:var(--ink2);pointer-events:none}
+  .sform .opt.arch{position:relative;margin-top:19px}
+  .sform .opt.arch::before{content:"";position:absolute;left:-2px;right:-2px;top:-15px;height:1px;background:var(--line)}
+  .sform .sfs>.hint{margin-top:8px}
+  .sform .other{gap:6px;margin-top:14px}
+  .sform .hint.cur{overflow-wrap:anywhere}
+  .sform .qact{gap:10px;margin-top:12px}
+  .sform .qact+.hint{margin-top:10px}
+  .sform .btn[disabled]{background:var(--ink3);cursor:default}
+  .hint.count{text-align:right;font-variant-numeric:tabular-nums}
+  /* (b) filters: popover (desktop) and the "Filter tickets" sheet (<=640px) share the field markup */
+  .fmenu,.fform{display:flex;flex-direction:column}
+  .fmenu .flabel,.fform .flabel{margin:0 0 4px}
+  .fmenu .flabel~.flabel,.fform .flabel~.flabel{margin-top:6px}
+  .fmenu .qin,.fform .qin{height:44px;width:100%}
+  .fmenu .chkl,.fform .chkl{display:flex;align-items:center;gap:8px;min-height:44px;font-size:15px}
+  .fmenu .chkl:first-of-type,.fform .chkl:first-of-type{margin-top:6px}
+  .fmenu .chkl input,.fform .chkl input{width:20px;height:20px;flex:none;accent-color:var(--accent)}
+  .ffoot{justify-content:flex-end;gap:10px;margin-top:12px}
+  .ffoot .btn,.ffoot .abtn{min-height:44px}
+  .ffoot .abtn[disabled]{color:var(--ink3);cursor:default}
+  .ffoot .btn{width:auto;justify-content:center;display:inline-flex;align-items:center}
+  .sheet .sform .qact{flex-direction:column;align-items:stretch}
+  .sheet .sform .qact .btn,.sheet .sform .qact .abtn{width:100%;justify-content:center;min-height:48px}
+  .fbtn .cnt{display:none}
+  .ctabs button .cnt.zero{color:var(--ink3)}
+  .ctabs button[aria-selected=true] .cnt.zero{color:#ffffffb3}
+  .ctabs button.wt .cnt.zero{background:var(--arch-bg);color:var(--ink3)}
+  @media (max-width:720px){
+    .fbtn .cnt{display:inline-block;font-size:13px;font-weight:700;line-height:1.4;background:var(--accent);color:#fff;border-radius:99px;padding:1px 8px}
+    .btools .fbtn{gap:6px}
+  }
+  /* (c) the ask: desktop dialog and the Move sheet's second step */
+  .asub{margin:-4px 0 12px;font-size:14px;color:var(--ink2);overflow-wrap:anywhere}
+  .askf .other{gap:6px;margin-top:0;max-width:none}
+  .askf .qta{max-width:none}
+  .askf .qta:focus{outline:3px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
+  .askf .qta.bad{border-color:var(--w3)}
+  .askf .err-line{margin:2px 0 0}
+  .askf .qact{gap:10px;margin-top:12px}
+  .askf .btn,.askf .abtn{min-height:44px}
+  .qact.stack1{flex-direction:column;align-items:stretch}
+  .qact.stack1 .btn,.qact.stack1 .abtn{width:100%;justify-content:center;min-height:48px}
+  .askw{padding:0 20px 8px}
+  .sheet .askw h3{margin:6px 0 4px}
+  .askh{display:flex;align-items:flex-start;gap:2px;margin-left:-12px}
+  .askh .ibtn{flex:none}
+  .askh>div{min-width:0}
+}
+
