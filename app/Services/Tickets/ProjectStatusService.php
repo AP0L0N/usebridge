@@ -66,6 +66,41 @@ final class ProjectStatusService
         });
     }
 
+    /**
+     * Archive = status 'archived' + archived_at, logged. Idempotent (an already archived project logs nothing).
+     * Never deletes anything.
+     */
+    public function archive(Project $project, Actor $actor, ?string $note = null): ?ProjectStatusEvent
+    {
+        return $project->isArchived() && $project->status === 'archived' ? null : $this->set($project, 'archived', $note, $actor);
+    }
+
+    /**
+     * Unarchive = reopen: back to the status the project had before it was archived (smooth when unknown), logged,
+     * archived_at cleared (no "Reopened" chip). Idempotent.
+     */
+    public function unarchive(Project $project, Actor $actor, ?string $note = null): ?ProjectStatusEvent
+    {
+        if (! $project->isArchived() && $project->status !== 'archived') {
+            return null;
+        }
+
+        $event = $this->set($project, $this->statusBeforeArchive($project), $note, $actor);
+        // A manual unarchive is not "Reopened" (that chip is for an update arriving on an archived project).
+        $project->forceFill(['reopened_at' => null])->save();
+
+        return $event;
+    }
+
+    /** The last non-archived status the project had (from the log), 'smooth' when there is none. */
+    public function statusBeforeArchive(Project $project): string
+    {
+        $from = ProjectStatusEvent::query()->where('project_id', $project->id)->where('to_status', 'archived')
+            ->orderByDesc('created_at')->orderByDesc('id')->value('from_status');
+
+        return in_array($from, ['smooth', 'waiting'], true) ? $from : 'smooth';
+    }
+
     public function current(Project $project, TicketView $view): array
     {
         return [

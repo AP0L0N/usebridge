@@ -190,6 +190,24 @@ export function Sheet({ label, onClose, children, className = '', initialFocus, 
   );
 }
 
+/** Confirm dialog on the existing Sheet (scrim, focus trap, Esc/scrim = cancel). `message` is the question, shown verbatim. */
+export function ConfirmSheet({ message, confirmLabel, busy = false, error, onConfirm, onCancel, restoreFocus }: {
+  message: string; confirmLabel: string; busy?: boolean; error?: string | null; onConfirm: () => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  return (
+    // Same look as the ticket drawer's "Discard unsaved changes?" confirm: safe action (.btn) first, then the red one.
+    <Sheet label={message} className="confirm cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
+      <h3>{message}</h3>
+      <div className="qact">
+        <button ref={cancelRef} className="btn" type="button" onClick={onCancel}>Cancel</button>
+        <button className="abtn dng" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />Working…</> : confirmLabel}</button>
+      </div>
+      {error && <p className="err-line" role="alert">✕ {error}</p>}
+    </Sheet>
+  );
+}
+
 // ---------------------------------------------------------------- toasts
 
 export type Toast = { id: number; body: ReactNode; tone?: 'dark' | 'err'; action?: { label: string; run: () => void }; ms?: number; icon?: ReactNode };
