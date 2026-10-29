@@ -1,41 +1,79 @@
 import { Head, Link } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
-import { StatusBadge, rowClass } from '../Components/StatusBadge';
 import { Highlight } from '../Components/Highlight';
-import { QuestionBadge } from '../Components/Questions';
-import { IconInbox, IconReopen, IconSearch } from '../Components/Icons';
-import { lastUpdated } from '../lib/dates';
-import { t } from '../lib/strings';
-import type { ProjectSummary } from '../lib/types';
+import { IconInbox, IconSearch } from '../Components/Icons';
+import { IcWait, PmBadge } from '../Components/Kanban/Bits';
+import { activityDay, updateTime } from '../lib/dates';
+import { firstName, type ColumnKey, type PortfolioProject } from '../lib/kanban';
 
-type Props = { projects: ProjectSummary[]; now: string };
+type Props = { projects: PortfolioProject[]; now: string };
 
-const severity = (p: ProjectSummary) => (p.status === 'waiting' ? 3 - (p.level ?? 1) : 3); // L3=0, L2=1, L1=2, smooth=3
-const ts = (p: ProjectSummary) => (p.lastUpdatedAt ? Date.parse(p.lastUpdatedAt) : 0);
-const byOrder = (a: ProjectSummary, b: ProjectSummary) => severity(a) - severity(b) || ts(b) - ts(a);
+const COLS: [ColumnKey, string][] = [
+  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
+];
+
+const ms = (iso: string | null) => (iso ? Date.parse(iso) : 0);
+const activity = (p: PortfolioProject) => ms(p.lastActivityAt ?? p.lastUpdatedAt);
+
+/** SPEC §2: Waiting input (L3 → L1, then oldest status_set_at), Smooth sailing (latest activity first), Status not set. */
+const group = (p: PortfolioProject) => (p.pmStatus === 'waiting' ? 0 : p.pmStatus === 'smooth' ? 1 : 2);
+function byOrder(a: PortfolioProject, b: PortfolioProject): number {
+  const g = group(a) - group(b);
+  if (g) return g;
+  if (a.pmStatus === 'waiting') return (b.pmLevel ?? 1) - (a.pmLevel ?? 1) || ms(a.pmStatusSetAt) - ms(b.pmStatusSetAt);
+  return activity(b) - activity(a);
+}
+
+function rule(p: PortfolioProject): string {
+  if (p.archived || p.pmStatus === 'archived') return 's-arch';
+  if (p.pmStatus === 'smooth') return 's-ok';
+  if (p.pmStatus === 'waiting') return `s-w${p.pmLevel ?? 1}`;
+  return 's-none';
+}
 
 function readUrl() {
   const u = new URLSearchParams(window.location.search);
   return { q: u.get('q') ?? '', archived: u.get('archived') === '1' };
 }
 
-function Row({ p, q, now }: { p: ProjectSummary; q: string; now: string }) {
+function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
+  const counts = COLS.map(([k, label]) => ({ k, label, n: p.ticketCounts?.[k] ?? 0 })).filter((c) => c.n > 0);
+  const total = counts.reduce((s, c) => s + c.n, 0);
+  const archived = p.archived || p.pmStatus === 'archived';
   return (
-    <Link className={`prow ${rowClass(p.status, p.level)}`} href={`/projects/${p.slug}`}>
-      <span className="spine" />
-      <div className="pmain">
-        <div className="pname">
-          <span><Highlight text={p.name} q={q} /></span>
-          <QuestionBadge n={p.openQuestions} />
-          {p.reopened && (
-            <span className="reopen" title={t('dash.reopened.tooltip')}><IconReopen /><span>{t('dash.reopened')}</span></span>
-          )}
+    <Link className={`pc ${rule(p)}`} href={`/projects/${p.slug}`}>
+      <div className="pcb">
+        <div className="pctop">
+          <div>
+            <h2><Highlight text={p.name} q={q} /></h2>
+            {p.pmName && <p className="pm">PM <Highlight text={p.pmName} q={q} /></p>}
+          </div>
+          <PmBadge status={archived ? 'archived' : p.pmStatus} level={p.pmLevel} ageDays={p.pmAgeDays} />
         </div>
-        {p.latestLine && <p className="pline"><Highlight text={p.latestLine} q={q} /></p>}
+        {p.pmStatus && p.pmStatusSetAt ? (
+          <>
+            <p className="sset">Set by <b>{p.pmStatusSetBy === p.pmAgentId ? firstName(p.pmStatusSetByName) : p.pmStatusSetByName}</b> · <time dateTime={p.pmStatusSetAt}>{updateTime(p.pmStatusSetAt, now)}</time></p>
+            {p.pmStatusNote && <p className="snote"><Highlight text={p.pmStatusNote} q={q} /></p>}
+          </>
+        ) : (
+          <p className="sset">The PM hasn’t set a status yet</p>
+        )}
+        <div className="cbar" role="img" aria-label={`${total} tickets by column`}>
+          {counts.map((c) => <i key={c.k} className={`c-${c.k}`} style={{ flex: c.n }} />)}
+        </div>
+        {counts.length > 0 && (
+          <ul className="ccount">
+            {counts.map((c) => <li key={c.k}><i className={`c-${c.k}`} aria-hidden="true" />{c.label} <b>{c.n}</b></li>)}
+          </ul>
+        )}
       </div>
-      <div className="pbadge"><StatusBadge status={p.status} level={p.level} ageDays={p.ageDays} /></div>
-      <div className="pupd"><span className="lbl">{t('dash.updated')}</span> <time dateTime={p.lastUpdatedAt ?? undefined}>{lastUpdated(p.lastUpdatedAt, now)}</time></div>
+      <div className="pcf">
+        {p.waitingTilenCount > 0
+          ? <span className="wchip" aria-label={`${p.waitingTilenCount} ${p.waitingTilenCount === 1 ? 'ticket' : 'tickets'} waiting on you`}><IcWait />{p.waitingTilenCount} for you</span>
+          : <span />}
+        <span>Last activity <time dateTime={p.lastActivityAt ?? undefined}>{activityDay(p.lastActivityAt ?? p.lastUpdatedAt, now)}</time></span>
+      </div>
     </Link>
   );
 }
@@ -52,71 +90,71 @@ export default function Portfolio({ projects, now }: Props) {
   }, [q, showArchived]);
 
   const query = q.trim();
+  const isArch = (p: PortfolioProject) => p.archived || p.pmStatus === 'archived';
   const { active, archived } = useMemo(() => {
     const n = query.toLowerCase();
     const hits = n
-      ? projects.filter((p) => p.name.toLowerCase().includes(n) || (p.searchText ?? '').toLowerCase().includes(n))
+      ? projects.filter((p) => [p.name, p.pmName, p.pmStatusNote].some((s) => (s ?? '').toLowerCase().includes(n)))
       : projects;
     return {
-      active: hits.filter((p) => !p.archived).sort(byOrder),
+      active: hits.filter((p) => !isArch(p)).sort(byOrder),
       // Search always includes archived; otherwise only when toggled on.
-      archived: n || showArchived ? hits.filter((p) => p.archived).sort((a, b) => ts(b) - ts(a)) : [],
+      archived: n || showArchived ? hits.filter(isArch).sort((a, b) => activity(b) - activity(a)) : [],
     };
   }, [projects, query, showArchived]);
 
-  const nonArchived = projects.filter((p) => !p.archived);
-  const w = nonArchived.filter((p) => p.status === 'waiting').length;
-  const o = nonArchived.filter((p) => p.status === 'smooth').length;
+  const live = projects.filter((p) => !isArch(p));
+  const waitingProjects = live.filter((p) => p.pmStatus === 'waiting').length;
+  const forYou = live.reduce((s, p) => s + (p.waitingTilenCount ?? 0), 0);
   const total = active.length + archived.length;
-  const [, mid, tail] = t('dash.summary').split(/\{w\}|\{o\}/);
 
   return (
-    <>
-      <Head title={t('dash.title')} />
+    <div className="kanban">
+      <Head title="Portfolio" />
       <TopBar />
       <main className="wrap">
         <div className="dhead">
           <div>
-            <h1>{t('dash.title')}</h1>
+            <h1>Portfolio</h1>
             <p className="summary" aria-live="polite">
-              {query ? (total ? t('dash.results', { n: total, q: query }) : '\u00a0')
-                : projects.length ? <><b>{w}</b>{mid}<b>{o}</b>{tail}</> : '\u00a0'}
+              {query ? (total ? `${total} ${total === 1 ? 'result' : 'results'} for “${query}”, incl. archived` : ' ')
+                : projects.length ? <><b>{live.length}</b> active {live.length === 1 ? 'project' : 'projects'} · <b>{waitingProjects}</b> waiting input · <b>{forYou}</b> {forYou === 1 ? 'ticket' : 'tickets'} waiting on you</> : ' '}
             </p>
           </div>
           <div className="tools">
             <label className={`search${q ? ' filled' : ''}`}>
               <IconSearch />
-              <span className="sr-only">{t('dash.search.placeholder')}</span>
-              <input type="text" placeholder={t('dash.search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && <button type="button" className="clr" aria-label={t('dash.noresults.clear')} onClick={() => setQ('')}>×</button>}
+              <span className="sr-only">Search projects</span>
+              <input type="text" placeholder="Search projects" value={q} onChange={(e) => setQ(e.target.value)} />
+              {q && <button type="button" className="clr" aria-label="Clear search" onClick={() => setQ('')}>×</button>}
             </label>
             <button type="button" role="switch" aria-checked={showArchived} className={`toggle${showArchived ? ' on' : ''}`} onClick={() => setShowArchived((v) => !v)}>
-              <span className="sw"><span /></span><span>{t('dash.showArchived')}</span>
+              <span className="sw"><span /></span><span>Show archived</span>
             </button>
           </div>
         </div>
 
         {projects.length === 0 ? (
-          <div className="empty"><div className="eico big"><IconInbox /></div><h2>{t('dash.empty.title')}</h2><p>{t('dash.empty.body')}</p></div>
+          <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Projects show up here once Captain creates them.</p></div>
         ) : query && total === 0 ? (
           <div className="empty">
             <div className="eico"><IconSearch /></div>
-            <h2>{t('dash.noresults.title', { q: query })}</h2>
-            <p>{t('dash.noresults.body')}</p>
-            <button type="button" className="btn" onClick={() => setQ('')}>{t('dash.noresults.clear')}</button>
+            <h2>No projects match “{query}”</h2>
+            <p>Search covers project names, PMs and status notes. Try a shorter word.</p>
+            <button type="button" className="btn" onClick={() => setQ('')}>Clear search</button>
           </div>
         ) : (
           <>
-            {active.length > 0 && <div className="plist">{active.map((p) => <Row key={p.id} p={p} q={query} now={now} />)}</div>}
+            {active.length > 0 && <div className="pgrid2">{active.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>}
             {archived.length > 0 && (
               <>
-                <h3 className="sect"><span>{t('dash.archived.heading')}</span> <span className="cnt">{archived.length}</span></h3>
-                <div className="plist arch">{archived.map((p) => <Row key={p.id} p={p} q={query} now={now} />)}</div>
+                <h2 className="sect"><span>Archived</span> <span className="cnt">{archived.length}</span></h2>
+                <div className="pgrid2">{archived.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>
               </>
             )}
           </>
         )}
       </main>
-    </>
+    </div>
   );
 }

@@ -7,6 +7,7 @@ use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use App\Models\Ticket;
+use App\Services\Tickets\Actor;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -88,8 +89,11 @@ class ProjectStatus
         return '';
     }
 
-    public static function summary(Project $project, ?CarbonInterface $now = null): array
+    public static function summary(Project $project, ?CarbonInterface $now = null, ?array $names = null): array
     {
+        $names ??= Actor::names();
+        // Kanban: the waiting level/age count from status_set_at (SPEC §2), same thresholds as level().
+        $pmDays = $project->status === 'waiting' && $project->status_set_at ? self::ageDays($project->status_set_at, $now) : null;
         $updates = $project->statusUpdates->sortByDesc(fn (StatusUpdate $u) => $u->created_at?->getTimestamp() ?? 0)->values();
         $latest = $updates->first();
         $derived = self::derive($project, $now);
@@ -113,6 +117,11 @@ class ProjectStatus
             'pmStatusNote' => $project->status_note,
             'pmStatusSetBy' => $project->status_set_by,
             'pmStatusSetAt' => $project->status_set_at?->toIso8601String(),
+            'pmStatusSetByName' => Actor::label($project->status_set_by, $names),
+            'pmLevel' => $pmDays === null ? null : self::level($pmDays),
+            'pmAgeDays' => $pmDays,
+            'pmAgentId' => $project->owner_agent_id,
+            'pmName' => Actor::label($project->owner_agent_id, $names),
             'ticketPrefix' => $project->ticket_prefix,
             'ticketCounts' => $counts,
             'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN],

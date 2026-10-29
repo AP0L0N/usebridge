@@ -31,12 +31,12 @@ class TicketController extends Controller
 
     public function __construct(private readonly TicketService $tickets) {}
 
-    /** Deep link. Until the UI run turns it into the modal, render the project page with the ticket as a prop. */
+    /** Deep link: the board with the ticket open (modal on desktop, full-screen sheet on mobile). */
     public function show(Request $request, ProjectController $projects, string $slug, string $key): Response
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
 
-        return $projects->show($request, $slug)->with('ticket', (new TicketView)->detail($ticket));
+        return $projects->show($request, $slug, $ticket);
     }
 
     /** Quick add: {title*, status backlog|todo (default backlog)}. */

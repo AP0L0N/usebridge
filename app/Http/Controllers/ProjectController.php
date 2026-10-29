@@ -2,76 +2,62 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Agent;
+use App\Models\Label;
 use App\Models\Project;
 use App\Models\Question;
 use App\Models\RequiredInput;
+use App\Models\Ticket;
 use App\Services\InputResolution;
 use App\Services\QuestionAnswer;
-use Illuminate\Http\Request;
-use App\Services\ProjectStatus;
+use App\Services\Tickets\Actor;
+use App\Services\Tickets\BoardView;
+use App\Services\Tickets\ProjectStatusService;
+use App\Services\Tickets\TicketView;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProjectController extends Controller
 {
-    public const DONE_VISIBLE_DAYS = ProjectStatus::DONE_VISIBLE_DAYS;
-
-    public const TIMELINE_STEP_DAYS = 7;
-
-    public function show(Request $request, string $slug): Response
+    /**
+     * The Kanban board (SPEC §2). The old sections (status feed, Required inputs, Next steps, Questions) are no longer
+     * shown; their tables stay as read-only history. Props are closures so partial reloads (30 s poll: only=board,
+     * ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket ("Show N older").
+     */
+    public function show(Request $request, string $slug, ?Ticket $ticket = null): Response
     {
-        $project = Project::query()
-            ->where('slug', $slug)
-            ->with(['requiredInputs', 'questions', 'nextSteps' => fn ($q) => $q->whereNull('done_at')])
-            ->firstOrFail();
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        $view = new TicketView;
+        $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
 
-        // r3: timeline window in whole 7-day steps (?days=7|14|21...).
-        $days = (int) $request->query('days', self::TIMELINE_STEP_DAYS);
-        $days = min(3650, max(self::TIMELINE_STEP_DAYS, (int) (ceil($days / self::TIMELINE_STEP_DAYS) * self::TIMELINE_STEP_DAYS)));
-        $cutoff = now()->subDays($days);
-
-        $inputs = $project->requiredInputs;
-        $open = $inputs->whereNull('resolved_at')->sortBy(fn ($i) => $i->since->getTimestamp())->values();
-        // r3: cleared inputs disappear 2 days after they were resolved (r4: same rule for answered questions).
-        $done = ProjectStatus::recentlyDone($inputs, 'resolved_at');
-
-        // r4: open questions oldest first; answered ones newest first, hidden after 2 days; closed never shown.
-        $openQuestions = $project->questions->where('state', 'open')->sortBy(fn ($q) => $q->created_at->getTimestamp())->values();
-        $answeredQuestions = ProjectStatus::recentlyDone($project->questions->where('state', 'answered'), 'answered_at');
-
-        $updates = $project->statusUpdates()->with('agent')
-            ->where('created_at', '>=', $cutoff)
-            ->orderByDesc('created_at')->get()
-            ->map(fn ($u) => [
-                'id' => $u->id,
-                'body' => $u->body,
-                'agentName' => $u->agent?->name ?? $u->agent_id,
-                'createdAt' => $u->created_at?->toIso8601String(),
-            ]);
-        $hasOlder = $project->statusUpdates()->where('created_at', '<', $cutoff)->exists();
-
-        $project->load('statusUpdates');
-        $summary = ProjectStatus::summary($project);
-        unset($summary['searchText']);
-
-        $steps = $project->nextSteps->sortBy([['position', 'asc'], [fn ($a, $b) => $a->created_at <=> $b->created_at]])->values();
-
-        return Inertia::render('Project', [
-            'project' => $summary,
-            'statusUpdates' => $updates,
-            'timeline' => ['days' => $days, 'step' => self::TIMELINE_STEP_DAYS, 'hasMore' => $hasOlder],
-            'openInputs' => $open->map(fn ($i) => ProjectStatus::inputView($i)),
-            'doneInputs' => $done->map(fn ($i) => ProjectStatus::inputView($i)),
-            'openQuestions' => $openQuestions->map->toView(),
-            'answeredQuestions' => $answeredQuestions->map->toView(),
-            'nextSteps' => [
-                'inProgress' => $steps->where('kind', 'in_progress')->values()->map->toView(),
-                'blockers' => $steps->where('kind', 'blocker')->values()->map->toView(),
-            ],
+        return Inertia::render('Board', [
+            'board' => fn () => (new BoardView($view))->build($project, $doneSince),
+            'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
+            'people' => fn () => self::people(),
+            'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
+            'doneAll' => $doneSince !== null,
+            'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
             'now' => now()->toIso8601String(),
         ]);
+    }
+
+    /** Ticket detail for the modal: detail() plus when Tilen last opened it (the thread's "New" divider). */
+    public static function ticketDetail(Ticket $ticket, TicketView $view): array
+    {
+        return [...$view->detail($ticket), 'tilen_last_seen_at' => $ticket->tilenReadState?->last_seen_at?->toIso8601String()];
+    }
+
+    /** Agents (+ Tilen) for avatars, role tags and the assignee picker. @return list<array{id:string,name:string,role:string,type:string}> */
+    public static function people(): array
+    {
+        return [
+            ['id' => Actor::TILEN, 'name' => 'Tilen', 'role' => 'You', 'type' => 'human'],
+            ...Agent::query()->orderBy('name')->get(['id', 'name', 'role_label'])
+                ->map(fn (Agent $a) => ['id' => $a->id, 'name' => $a->name, 'role' => (string) $a->role_label, 'type' => 'agent'])->all(),
+        ];
     }
 
     /** Gate-session tick/untick (CSRF-protected web route). resolved_by = 'tilen'. */
