@@ -54,12 +54,12 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
 const actorShort = (e: { actor_id: string | null; actor_name: string | null }) => (e.actor_id === 'tilen' ? 'You' : firstName(e.actor_name) || e.actor_id || '');
 
 /** Native <select> laid over the mock's .sel button look (accessible, works on touch). */
-function SelectField({ id, label, value, options, onChange, wt = false, dot }: {
-  id: string; label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; wt?: boolean; dot?: string;
+function SelectField({ id, label, value, options, onChange, wt = false, dot, plain = '' }: {
+  id: string; label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; wt?: boolean; dot?: string; plain?: string;
 }) {
   const cur = options.find((o) => o.value === value);
   return (
-    <div className={`sel selw${wt ? ' wt' : ''}`}>
+    <div className={`${plain ? `plain ${plain}` : 'sel'} selw${wt ? ' wt' : ''}`}>
       <span className="l">{dot && <span className={`dot c-${dot}`} aria-hidden="true" />}{cur?.label ?? '—'}</span><IcChev />
       <select id={id} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -81,7 +81,9 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   useFocusTrap(ref, onClose, titleRef);
 
   // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under Tilen's eyes.
-  const [seenAt] = useState(() => detail?.tilen_last_seen_at ?? null);
+  // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
+  const [seenAt, setSeenAt] = useState<string | null | undefined>(() => (detail ? detail.tilen_last_seen_at : undefined));
+  useEffect(() => { if (seenAt === undefined && detail) setSeenAt(detail.tilen_last_seen_at); }, [detail, seenAt]);
   const [unreadAtOpen] = useState(() => fallback.unread_for_tilen);
 
   const pm = project.pm_name;
@@ -133,7 +135,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
         <p className="k"><label htmlFor={`as-${inSheet}`}>Assignee</label></p>
         <div className="v fsel">
           <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
-          <SelectField id={`as-${inSheet}`} label="Assignee" value={t.assignee_id ?? ''} options={assigneeOptions}
+          <SelectField id={`as-${inSheet}`} label="Assignee" plain="pv" value={t.assignee_id ?? ''} options={assigneeOptions}
             onChange={(v) => patch(v ? { assignee: v } : { assignee_type: null, assignee_id: null })} />
         </div>
         {t.assignee_id && <p className="sm">{t.assignee_type === 'agent' ? `Agent · ${roleTag(t.assignee_id, project.pm_agent_id, people) || 'Agent'}` : t.assignee_id === 'tilen' ? 'You' : 'Person'}</p>}
@@ -142,7 +144,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
         <p className="k"><label htmlFor={`pr-${inSheet}`}>Priority</label></p>
         <div className="v fsel">
           {t.priority !== 'p3' && <span className={`pri ${t.priority}`} aria-hidden="true"><IcFlag /></span>}
-          <SelectField id={`pr-${inSheet}`} label="Priority" value={t.priority} options={prOptions} onChange={(v) => patch({ priority: v })} />
+          <SelectField id={`pr-${inSheet}`} label="Priority" plain={`pri ${t.priority}`} value={t.priority} options={prOptions} onChange={(v) => patch({ priority: v })} />
         </div>
       </div>
       <DueField t={t} now={now} id={`due-${inSheet}`} onSave={(v) => patch({ due_on: v })} />
@@ -176,7 +178,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
           </div>
           <div className="dlgb">
             <div className="main">
-              {t.labels.length > 0 && <div className="tlbs top">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
+              {t.labels.length > 0 && <div className="tlbs tl0">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
               <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
               {mobile && (
                 <div className="mf">
@@ -196,7 +198,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
               <section className="dsec" aria-labelledby="th-h">
                 <h2 id="th-h">Comments &amp; activity <span className="cnt">{t.comment_count}</span></h2>
                 {detail
-                  ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt} unread={unreadAtOpen} />
+                  ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt ?? null} unread={unreadAtOpen} />
                   : <p className="hint" role="status">Loading comments…</p>}
                 <Composer t={t} slug={project.slug} pmFirst={pmFirst} onSent={onChanged} />
               </section>
@@ -220,8 +222,13 @@ function DueField({ t, now, id, onSave }: { t: Ticket; now: string; id: string; 
     <div className="fld">
       <p className="k"><label htmlFor={id}>Due</label></p>
       <div className="v">
-        {t.due_on && <span className={`due${dueSoon(t.due_on, now) ? ' soon' : ''}`}><IcCal />{dueLabel(t.due_on)}</span>}
-        <input id={id} type="date" className="din" value={t.due_on ?? ''} aria-label="Due date" onChange={(e) => onSave(e.target.value || null)} />
+        <span className={`plain selw due${t.due_on && dueSoon(t.due_on, now) ? ' soon' : ''}`}>
+          <span className="l"><IcCal />{t.due_on ? dueLabel(t.due_on) : 'No due date'}</span>
+          <input id={id} type="date" value={t.due_on ?? ''} aria-label={`Due date${t.due_on ? `: ${dueLabel(t.due_on)}` : ''}`}
+            onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported */ } }}
+            onChange={(e) => onSave(e.target.value || null)} />
+        </span>
+        {t.due_on && <button type="button" className="edit" onClick={() => onSave(null)}>Clear</button>}
       </div>
     </div>
   );
@@ -351,7 +358,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
         )}
         <div className="other">
           <label className="flabel" htmlFor="tin-t">{noteRequired ? `Note for ${pmFirst}` : `Note for ${pmFirst} (optional)`}</label>
-          <textarea className="qta" id="tin-t" aria-describedby={t.ask_context ? 'tin-q tin-c' : 'tin-q'} required={noteRequired}
+          <textarea className="qta" id="tin-t" aria-describedby={t.ask_context ? 'tin-q tin-c' : 'tin-q'} aria-required={noteRequired}
             value={note} onChange={(e) => { setNote(e.target.value); if (state === 'err') setState('idle'); }} />
         </div>
         <div className="qact">
@@ -452,7 +459,7 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }} />
         <div className="row">
           <label className="chkl"><input type="checkbox" checked={asInput} onChange={(e) => setAsInput(e.target.checked)} />Mark as my input for the PM</label>
-          <button className="btn" type="submit" disabled={state === 'busy' || !body.trim()}>{state === 'busy' ? <><span className="spin" />Sending…</> : 'Comment'}</button>
+          <button className="btn" type="submit" disabled={state === 'busy'}>{state === 'busy' ? <><span className="spin" />Sending…</> : 'Comment'}</button>
         </div>
       </div>
       <div className="cstat">

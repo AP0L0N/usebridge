@@ -370,3 +370,18 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
 }
 @keyframes tkflash{from{background:var(--tilen-bg)}to{background:var(--card)}}
 @media (prefers-reduced-motion:reduce){.kanban .tk.flash{animation:none}.kanban .tk.picked{transform:none}}
+.kanban{
+  .tlbs.tl0{margin:0 0 8px}
+  .plain.selw{display:flex;align-items:center;gap:6px;min-height:44px;width:100%;font-size:15px;border-radius:8px;padding:0 4px;margin-left:-4px;cursor:pointer}
+  .plain.selw svg{width:16px;height:16px;flex:none}
+  .plain.selw>svg{color:var(--ink3);opacity:0;margin-left:auto}
+  .plain.selw:hover{background:var(--paper)}.plain.selw:hover>svg{opacity:1}
+  .plain.selw .l{display:inline-flex;align-items:center;gap:6px}
+  .plain.selw input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font:inherit}
+  .plain.selw:has(input:focus-visible){outline:3px solid var(--accent);outline-offset:2px}
+  .plain.pri{font-weight:700}
+  .fsel{gap:4px}
+  .fld .v .edit{margin-left:auto}
+  @media (max-width:720px){.dlgov{top:60px}.dlg{min-height:calc(100vh - 60px)}}
+}
+.kanban .fld .v>.plain.selw{width:auto;flex:1;min-width:0}

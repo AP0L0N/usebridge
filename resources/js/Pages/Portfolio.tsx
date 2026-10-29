@@ -13,18 +13,6 @@ const COLS: [ColumnKey, string][] = [
   ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
 ];
 
-const ms = (iso: string | null) => (iso ? Date.parse(iso) : 0);
-const activity = (p: PortfolioProject) => ms(p.lastActivityAt ?? p.lastUpdatedAt);
-
-/** SPEC §2: Waiting input (L3 → L1, then oldest status_set_at), Smooth sailing (latest activity first), Status not set. */
-const group = (p: PortfolioProject) => (p.pmStatus === 'waiting' ? 0 : p.pmStatus === 'smooth' ? 1 : 2);
-function byOrder(a: PortfolioProject, b: PortfolioProject): number {
-  const g = group(a) - group(b);
-  if (g) return g;
-  if (a.pmStatus === 'waiting') return (b.pmLevel ?? 1) - (a.pmLevel ?? 1) || ms(a.pmStatusSetAt) - ms(b.pmStatusSetAt);
-  return activity(b) - activity(a);
-}
-
 function rule(p: PortfolioProject): string {
   if (p.archived || p.pmStatus === 'archived') return 's-arch';
   if (p.pmStatus === 'smooth') return 's-ok';
@@ -97,9 +85,10 @@ export default function Portfolio({ projects, now }: Props) {
       ? projects.filter((p) => [p.name, p.pmName, p.pmStatusNote].some((s) => (s ?? '').toLowerCase().includes(n)))
       : projects;
     return {
-      active: hits.filter((p) => !isArch(p)).sort(byOrder),
+      // Order comes from the server (PortfolioController::order, SPEC §2).
+      active: hits.filter((p) => !isArch(p)),
       // Search always includes archived; otherwise only when toggled on.
-      archived: n || showArchived ? hits.filter(isArch).sort((a, b) => activity(b) - activity(a)) : [],
+      archived: n || showArchived ? hits.filter(isArch) : [],
     };
   }, [projects, query, showArchived]);
 

@@ -167,18 +167,18 @@ class TilenWebTicketsTest extends TestCase
     }
 
     #[Test]
-    public function deep_link_renders_the_project_page_and_existing_pages_still_render(): void
+    public function deep_link_renders_the_board_with_the_ticket_and_existing_pages_still_render(): void
     {
         $this->api();
         $this->waitingTicket();
         $this->gate()->get('/projects/concierge-avant/tickets/CA-1')->assertOk()
-            ->assertInertia(fn (Assert $p) => $p->component('Project')->where('ticket.key', 'CA-1')->where('project.ticketPrefix', 'CA')->has('ticket.comments'));
+            ->assertInertia(fn (Assert $p) => $p->component('Board')->where('ticket.key', 'CA-1')->where('board.project.ticket_prefix', 'CA')->has('ticket.comments'));
         $this->assertSame(route('projects.tickets.show', ['slug' => 'concierge-avant', 'key' => 'CA-1']), url('/projects/concierge-avant/tickets/CA-1'));
         $this->get('/projects/concierge-avant/tickets/CA-9')->assertNotFound();
         $this->get('/projects/merkwell/tickets/CA-1')->assertNotFound();
 
         $this->get('/')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Portfolio')->has('projects', 2)
             ->where('projects.0.waitingTilenCount', fn ($n) => is_int($n)));
-        $this->get('/projects/merkwell')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Project')->where('project.ticketPrefix', 'ME'));
+        $this->get('/projects/merkwell')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->where('board.project.ticket_prefix', 'ME'));
     }
 }

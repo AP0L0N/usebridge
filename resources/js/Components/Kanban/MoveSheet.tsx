@@ -40,7 +40,7 @@ export function AskPrompt({ t, onSubmit, onCancel }: { t: Ticket; onSubmit: (ask
         <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
           <div className="other">
             <label className="flabel" htmlFor="ask-in">What do you need from Tilen?</label>
-            <textarea ref={input} id="ask-in" className="qta sm" maxLength={280} required aria-invalid={err} aria-describedby={err ? 'ask-err' : undefined}
+            <textarea ref={input} id="ask-in" className="qta sm" maxLength={280} aria-required="true" aria-invalid={err} aria-describedby={err ? 'ask-err' : undefined}
               value={ask} onChange={(e) => { setAsk(e.target.value); setErr(false); }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} />
             {err && <p className="err-line" id="ask-err" role="alert">Write the ask: a ticket in Waiting on Tilen always has one.</p>}

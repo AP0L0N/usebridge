@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\User;
+use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -245,8 +246,7 @@ class BridgeR4QuestionsTest extends TestCase
         $this->assertSame(3, $this->merkwell()['level']);
         RequiredInput::query()->delete();
 
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p
-            ->where('project.status', 'waiting')->where('project.level', 2));
+        $this->assertSame(['waiting', 2], [$this->merkwell()['status'], $this->merkwell()['level']]);
 
         $this->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'skip'])->assertStatus(303);
         $this->assertSame('smooth', $this->merkwell()['status']);
@@ -265,7 +265,7 @@ class BridgeR4QuestionsTest extends TestCase
     }
 
     #[Test]
-    public function project_view_lists_open_and_recent_answered_questions_only(): void
+    public function board_no_longer_lists_questions_and_keeps_their_rows(): void
     {
         $this->gate();
         $older = $this->question(['text' => 'older']);
@@ -276,8 +276,10 @@ class BridgeR4QuestionsTest extends TestCase
         foreach ([['recent', 47], ['edge', 48], ['old', 49]] as [$id, $h]) {
             $this->question(['id' => $id, 'state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()->subHours($h)]);
         }
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Project')
-            ->has('openQuestions', 2)->where('openQuestions.0.id', $older->id)->where('openQuestions.1.id', $newer->id)
-            ->has('answeredQuestions', 2)->where('answeredQuestions.0.id', 'recent')->where('answeredQuestions.1.id', 'edge'));
+        // Kanban: questions are superseded by Waiting on Tilen tickets; the board no longer lists them, the rows stay.
+        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openQuestions')->missing('answeredQuestions'));
+        $this->assertSame(2, Question::query()->where('project_id', 'proj-merkwell')->where('state', 'open')->count());
+        $answered = ProjectStatus::recentlyDone(Question::query()->where('state', 'answered')->get(), 'answered_at');
+        $this->assertSame(['recent', 'edge'], $answered->pluck('id')->all());
     }
 }

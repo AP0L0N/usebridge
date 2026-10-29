@@ -25,12 +25,14 @@ type Props = {
 };
 
 export default function BoardPage(props: Props) {
-  return <ToastHost><Board {...props} /></ToastHost>;
+  return <div className="kanban"><ToastHost><Board {...props} /></ToastHost></div>;
 }
 
 type Filters = { assignee: string; label: string; priority: string; blocked: boolean; unread: boolean };
 const NO_FILTERS: Filters = { assignee: '', label: '', priority: '', blocked: false, unread: false };
 const POLL_MS = 30_000;
+/** Card to refocus once the ticket dialog closes (module scope: survives Inertia's remount on history restore). */
+let returnTo: string | null = null;
 
 /** Where a card lands: before a ticket, after one, or the top of the column (API before_id/after_id/position). */
 type Placement = { before_id?: string; after_id?: string; position?: number };
@@ -101,13 +103,15 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   // ------------------------------------------------------------ status-change toast, once per change (project_read_states)
   const [historyOpen, setHistoryOpen] = useState(false);
   const seenPosted = useRef(false);
+  const statusToast = useRef(0);
+  useEffect(() => { if (historyOpen && statusToast.current) { toasts.dismiss(statusToast.current); statusToast.current = 0; } }, [historyOpen, toasts]);
   useEffect(() => {
     if (seenPosted.current) return;
     seenPosted.current = true;
     const ev = statusHistory[0];
     if (p.status_unseen_by_tilen && ev) {
       const who = ev.set_by === p.pm_agent_id ? firstName(ev.set_by_name) : setByLabel(ev.set_by, ev.set_by_name, p.pm_agent_id);
-      toasts.push({
+      statusToast.current = toasts.push({
         ms: 15000,
         icon: <IcHist />,
         body: (
@@ -128,7 +132,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   const [focusKey, setFocusKey] = useState<string | null>(null);
   useLayoutEffect(() => {
     if (!focusKey) return;
-    document.querySelector<HTMLElement>(`.board [data-key="${focusKey}"] .tkl`)?.focus({ preventScroll: false });
+    document.querySelector<HTMLElement>(`.board [data-key="${focusKey}"] .tkl`)?.focus({ preventScroll: true });
     setFocusKey(null);
   }, [focusKey, cols]);
 
@@ -325,14 +329,13 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   };
 
   // ------------------------------------------------------------ open / close the ticket
-  const lastOpened = useRef<string | null>(null);
   const openedHere = useRef(false);
   const [opening, setOpening] = useState<string | null>(null);
   const openTicket = (t: Ticket, e?: MouseEvent) => {
     if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1)) return; // new tab keeps working
     e?.preventDefault();
     if (suppressClick.current || pick) return;
-    lastOpened.current = t.key;
+    returnTo = t.key;
     openedHere.current = true;
     setOpening(t.key);
     router.visit(ticketUrl(p.slug, t.key), { only: ['ticket'], preserveState: true, preserveScroll: true, onFinish: () => setOpening(null) });
@@ -340,9 +343,9 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   const closeTicket = () => {
     const key = ticket?.key ?? opening;
     setOpening(null);
+    returnTo = key ?? null;
     if (openedHere.current) { openedHere.current = false; window.history.back(); }
     else router.visit(`/projects/${p.slug}`, { preserveState: true, preserveScroll: true });
-    if (key) setFocusKey(key);
   };
   // Opening marks the ticket seen (clears its unread strip on the next board payload).
   const seenKey = useRef<string | null>(null);
@@ -350,9 +353,17 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     if (!ticket) { seenKey.current = null; return; }
     if (seenKey.current === ticket.key) return;
     seenKey.current = ticket.key;
-    lastOpened.current = ticket.key;
     send('POST', `/projects/${p.slug}/tickets/${ticket.key}/seen`).then(() => reload(['board'])).catch(() => {});
   }, [ticket?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Browser Back (or Esc → history.back) closes the dialog. Inertia restores the page from history (a remount with the
+  // props from before the dialog opened), so refresh them and return focus to the card the dialog was opened from.
+  useEffect(() => {
+    if (ticket !== null || !returnTo) return;
+    const key = returnTo;
+    returnTo = null;
+    setFocusKey(key);
+    reload(['board', 'statusHistory']);
+  }, [ticket]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     document.documentElement.classList.toggle('kmodal', ticket !== null || opening !== null);
     return () => document.documentElement.classList.remove('kmodal');
@@ -363,7 +374,9 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
 
   // ------------------------------------------------------------ mobile tabs
   const waitingCount = cols.find((c) => c.key === WAITING)?.count ?? 0;
-  const [tab, setTab] = useState<ColumnKey>(() => (waitingCount > 0 ? WAITING : 'in_progress'));
+  // Default tab: Waiting on Tilen when it has tickets, else In progress; after the dialog closes, the card's own column.
+  const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key
+    ?? (waitingCount > 0 ? WAITING : 'in_progress'));
   const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const strip = tabsRef.current, btn = strip?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -401,7 +414,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   const dragged = drag ? find(drag.key) : undefined;
 
   return (
-    <div className="kanban">
+    <>
       <Head title={p.name} />
       <TopBar />
       <main className="wrap">
@@ -517,7 +530,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
             reload(['board']);
           }} />
       )}
-    </div>
+    </>
   );
 }
 
