@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\RequiredInput;
+use App\Services\BridgeRoster;
 use App\Services\ProjectStatus;
+use App\Services\Tickets\Actor;
 use App\Support\TicketPrefix;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +19,9 @@ class ProjectController extends Controller
 {
     /** r0 fields that agents may still send; accepted and ignored (removed in r1). */
     private const LEGACY_FIELDS = ['goal', 'phase', 'phase_done_looks_like', 'next_deadline', 'needs_decision'];
+
+    /** Every body key PATCH /api/projects/{id} understands; anything else is a 422 (no silent 200). */
+    private const UPDATE_FIELDS = ['name', 'slug', 'owner_agent_id', 'pm_agent_id', 'archived', 'ticket_prefix', 'actor', 'author'];
 
     public function index(): JsonResponse
     {
@@ -58,7 +63,16 @@ class ProjectController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $project = Project::query()->findOrFail($id);
+        $unknown = array_values(array_diff(array_keys($request->all()), [...self::UPDATE_FIELDS, ...self::LEGACY_FIELDS]));
+        if ($unknown) {
+            throw ValidationException::withMessages(['fields' => 'Unknown field(s): '.implode(', ', $unknown)
+                .'. Status goes through PATCH /api/projects/{id}/status; allowed here: '.implode(', ', array_diff(self::UPDATE_FIELDS, ['author'])).'.']);
+        }
+        if ($request->has('pm_agent_id') && $request->has('owner_agent_id') && $request->input('pm_agent_id') !== $request->input('owner_agent_id')) {
+            throw ValidationException::withMessages(['pm_agent_id' => 'Send pm_agent_id or owner_agent_id (same field), not two different values.']);
+        }
         $data = $request->validate([
+            'pm_agent_id' => ['sometimes', 'string', 'exists:agents,id'],
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => ['sometimes', 'string', 'max:255', 'unique:projects,slug,'.$project->id.',id'],
             'owner_agent_id' => ['sometimes', 'string', 'exists:agents,id'],
@@ -76,7 +90,17 @@ class ProjectController extends Controller
                 $project->reopened_at = null;
             }
         }
-        $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'owner_agent_id', 'ticket_prefix'])))->save();
+        // The PM (pm_agent_id, stored as owner_agent_id) is Captain-only and logged in project_pm_events.
+        $pm = $data['pm_agent_id'] ?? $data['owner_agent_id'] ?? null;
+        $pmActor = null;
+        if ($pm !== null && $pm !== $project->owner_agent_id) {
+            $pmActor = Actor::fromApi($request);
+            abort_unless($pmActor->isCaptain(), 403, 'Only Captain ('.Actor::CAPTAIN.') can change a project\'s PM.');
+        }
+        $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'ticket_prefix'])))->save();
+        if ($pmActor !== null) {
+            BridgeRoster::setPm($project, $pm, $pmActor->id, 'api');
+        }
         $this->syncNeedsDecision($project, $data['needs_decision'] ?? null, $request->has('needs_decision'));
 
         return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs', 'questions']))]);
@@ -128,6 +152,20 @@ class ProjectController extends Controller
         $s = ProjectStatus::summary($p);
         unset($s['searchText']);
 
-        return [...$s, 'owner_agent_id' => $p->owner_agent_id, 'ticket_prefix' => $p->ticket_prefix];
+        // `status` is the current PM-set status (PATCH /api/projects/{id}/status) once one is set; before that (and for
+        // archived projects) it is the r1 status derived from open inputs/questions, kept as derived_status.
+        $pmSet = $p->status !== null && $p->archived_at === null;
+
+        return [
+            ...$s,
+            'status' => $pmSet ? $p->status : $s['status'],
+            'level' => $pmSet ? $s['pmLevel'] : $s['level'],
+            'ageDays' => $pmSet ? $s['pmAgeDays'] : $s['ageDays'],
+            'derived_status' => $s['status'],
+            'status_source' => $pmSet ? 'pm' : 'derived',
+            'owner_agent_id' => $p->owner_agent_id,
+            'pm_agent_id' => $p->owner_agent_id,
+            'ticket_prefix' => $p->ticket_prefix,
+        ];
     }
 }

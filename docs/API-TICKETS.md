@@ -15,7 +15,7 @@ moves, status overrides) shows up in this API.
 3. [Columns, statuses, priorities, ids](#columns-statuses-priorities-ids)
 4. [Errors and warnings](#errors-and-warnings)
 5. [The ticket object](#the-ticket-object)
-6. [Endpoints](#endpoints): columns, board, tickets, move, ack, archive, comments, events, activity, project status, labels, feed
+6. [Endpoints](#endpoints): columns, board, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
 7. [Answers relay: reading Tilen's comments](#answers-relay-reading-tilens-comments)
 8. [PM run checklist](#pm-run-checklist)
 9. [Migration from Questions / Required inputs / Next steps](#migration-from-questions--required-inputs--next-steps)
@@ -53,6 +53,7 @@ Every write records who did it.
 - On comments, the actor is the author. `author` is accepted as an alias for `actor`.
 - Project status: the project's PM may set `smooth` or `waiting`. Only Captain (`agent-william`) or Tilen (UI) may set
   `archived` or change the status of an archived project (reopen). Other agents get **403**.
+- Project PM (`pm_agent_id`) and new agents (`POST /api/agents`): **Captain only** (`agent-william`), others **403**.
 
 ## Columns, statuses, priorities, ids
 
@@ -99,10 +100,10 @@ out to another project. You can set it with `POST /api/projects` (`ticket_prefix
 | 401 | missing/invalid token | `{"message":"Unauthenticated."}` |
 | 403 | `actor` contradicts the token; status change not allowed; retracting someone else's comment | `{"message":"…"}` |
 | 404 | unknown project / ticket / comment / label | `{"message":"Unknown ticket 'CA-99'."}` |
-| 405 | `DELETE` on a ticket | `{"message":"…"}` |
+| 405 | `DELETE` on a ticket or an agent | `{"message":"…"}` |
 | 409 | write to an archived ticket (unarchive first) or to a ticket of an archived project | `{"message":"Ticket CA-3 is archived; unarchive it first."}` |
 | 410 | legacy write while the read-only switch is on | `{"message":"Superseded by tickets; see docs/API-TICKETS.md"}` |
-| 422 | validation | `{"message":"…","errors":{"ask":["Moving into Waiting on Tilen needs an ask: what do you need from Tilen?"]}}` |
+| 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"ask":["Moving into Waiting on Tilen needs an ask: what do you need from Tilen?"]}}` |
 
 **Warnings.** Responses to ticket writes and to `PATCH …/status` carry a `warnings` array. Your status stays the source of
 truth, but please correct it when you see one:
@@ -426,6 +427,63 @@ curl -sS -X PATCH "$BRIDGE/api/projects/proj-concierge-avant/status" \
 
 `GET` returns `{"data":{"project_id","current":{…},"history":[…events newest first…]}}`. Tilen's overrides from the UI
 appear in the history with `set_by: "tilen"`, `set_by_type: "human"`, `source: "ui"`.
+
+### GET /api/projects · PATCH /api/projects/{id} (PM)
+
+`GET /api/projects` (and `GET /api/projects/{id}`) return per project:
+
+| Field | Meaning |
+|---|---|
+| `status` | The **current PM-set status** (`smooth`/`waiting`) once one was set with `PATCH …/status`. Archived projects: `archived`. Never set: the old derived status (open inputs/questions). |
+| `status_source` | `pm` or `derived`, which of the two `status` shows. |
+| `derived_status` | The old r1 status from open Required inputs / Questions, for reference only. |
+| `pmStatus`, `pmStatusNote`, `pmStatusSetBy`, `pmStatusSetAt`, `pmLevel`, `pmAgeDays` | The PM-set status as stored (null = not set). |
+| `pm_agent_id` | The project's PM (same value as `owner_agent_id`, kept for old callers). |
+
+**Change the PM (Captain only).** `pm_agent_id` must be an existing agent id (`GET /api/agents`). `owner_agent_id` is
+accepted as the same field (sending both with different values is **422**). A non-Captain actor is **403**; a missing
+actor with the shared token is **422**. Every change is logged in `project_pm_events` (from, to, set_by, source).
+Setting the PM it already has is a 200 no-op.
+
+```bash
+curl -sS -X PATCH "$BRIDGE/api/projects/proj-chatpulse" \
+  -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"pm_agent_id":"agent-alice","actor":"agent-william"}'
+```
+```json
+{"data":{"id":"proj-chatpulse","name":"ChatPulse","status":"waiting","status_source":"pm","pm_agent_id":"agent-alice","pmName":"Alice Murdoch", …}}
+```
+
+Fields `PATCH /api/projects/{id}` accepts: `name`, `slug`, `pm_agent_id` / `owner_agent_id` (Captain), `archived`,
+`ticket_prefix` (only while the project has no tickets), `actor`, plus the ignored r0 fields (`goal`, `phase`,
+`phase_done_looks_like`, `next_deadline`, `needs_decision`). **Any other field is a 422** (`errors.fields`) instead of
+a silent 200. The status is not a field here: use `PATCH /api/projects/{id}/status`.
+
+### GET /api/agents · POST /api/agents (Captain only)
+
+`GET /api/agents` lists every agent id you can use as `actor`, PM or assignee.
+
+`POST /api/agents` adds one. **Captain only** (403 for others).
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | string | **yes** | `agent-<name>`: lowercase letters/digits, single dashes (`agent-the-many`). Duplicate or other format → **422**. |
+| `name` | string ≤255 | **yes** | Display name. |
+| `role_label` | string ≤255 | no | Default `Agent`. |
+| `actor` | agent id | see above | Must be `agent-william`. |
+
+```bash
+curl -sS -X POST "$BRIDGE/api/agents" \
+  -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"id":"agent-enrique","name":"Enrique Cortez","role_label":"PM · AdriaEdition","actor":"agent-william"}'
+```
+
+Agents are never deleted (`DELETE` is **405**). `PATCH /api/agents/{id}` changes `name` / `role_label`.
+
+**Roster on deploy.** `php artisan bridge:set-pms [--dry-run]` (also run by the 2026_10_29_120000 migration) adds the
+missing agents (agent-enrique, agent-erin, agent-marc, agent-the-many, agent-constance, agent-taz; existing rows untouched)
+and sets the real PMs: Chipolo CraftCMS agent-angela, Chipolo Shopify agent-watts, AdriaEdition agent-enrique,
+Concierge agent-janice, Merkwell agent-anatoly, ChatPulse agent-alice. Idempotent; it only inserts agents and changes PMs.
 
 ### GET /api/labels · POST /api/labels · PATCH /api/labels/{id}
 

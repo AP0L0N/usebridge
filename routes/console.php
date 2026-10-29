@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Services\BridgeRoster;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
 use App\Services\Polymarket\PolymarketFeedValidator;
@@ -147,3 +148,24 @@ Artisan::command('bridge:tickets-migrate {--dry-run : Compute and roll back, wri
 
     return 0;
 })->purpose('Carry open Questions / Required inputs / Next steps over to tickets (idempotent; --dry-run writes nothing)');
+
+// Captain's roster (29 Oct): add missing agents, set the real PM per active project. Idempotent; the
+// 2026_10_29_120000 migration applies it on deploy, this re-runs or previews it. Only inserts agents / changes PMs.
+Artisan::command('bridge:set-pms {--dry-run : Show what would change, write nothing}', function () {
+    $dry = (bool) $this->option('dry-run');
+    $r = BridgeRoster::apply($dry);
+    $w = $dry ? 'would create' : 'created';
+    $this->info("Agents $w: ".($r['agents_created'] ? implode(', ', $r['agents_created']) : 'none'));
+    $this->line('Agents already present (untouched): '.($r['agents_kept'] ? implode(', ', $r['agents_kept']) : 'none'));
+    foreach ($r['pms'] as $p) {
+        $this->line(sprintf('  %-34s %s', $p['project'], $p['changed'] ? ($dry ? 'would set ' : 'set ').($p['from'] ?? '—').' -> '.$p['to'] : 'ok ('.$p['to'].')'));
+    }
+    foreach ($r['missing_projects'] as $id) {
+        $this->warn("  $id: project not found, skipped");
+    }
+    foreach ($r['missing_agents'] as $id) {
+        $this->error("  $id: agent missing, PM not set");
+    }
+
+    return $r['missing_agents'] ? 1 : 0;
+})->purpose("Add the Captain's missing agents and set each active project's real PM (idempotent)");
