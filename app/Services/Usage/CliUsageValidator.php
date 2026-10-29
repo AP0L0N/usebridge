@@ -11,8 +11,10 @@ use stdClass;
  * Strict schema check for one collector file (bridge-usage/data/cli/YYYY-MM-DD.json, cli_usage.py), the
  * same object that an estimator day file carries under its optional `cli_usage` key. Same rules as
  * UsageDayValidator: exact keys at every level, real JSON integers capped at 1e15, 512 KB, tool in
- * CliUsageDay::TOOLS, one row per (tool, agent_id), every row with calls >= 1 (the collector writes
- * no zero rows). Decodes with objects so `{}` and `[]` stay distinguishable.
+ * CliUsageDay::TOOLS, every row with calls >= 1 (the collector writes no zero rows). Rows may carry an
+ * optional `model` (null, or 1–128 characters without control characters); files from before the
+ * collector reported models have none. One row per (tool, agent_id, model), where null and an absent
+ * `model` are the same "not recorded" model. Decodes with objects so `{}` and `[]` stay distinguishable.
  */
 final class CliUsageValidator
 {
@@ -20,13 +22,17 @@ final class CliUsageValidator
 
     public const CAP = UsageDayValidator::CAP;
 
-    public const MAX_ROWS = 400;
+    public const MAX_ROWS = 2000;
 
     private const MAX_ERRORS = 50;
 
     public const TOP_KEYS = ['date', 'timezone', 'generated_at', 'source', 'coverage_from', 'tools', 'method'];
 
     public const ROW_KEYS = ['tool', 'agent_id', 'name', 'input', 'output', 'cache_read', 'cache_creation', 'calls'];
+
+    public const OPTIONAL_ROW_KEYS = ['model'];
+
+    public const MODEL_MAX = 128;
 
     /** @var array<string, list<string>> */
     private array $errors = [];
@@ -117,8 +123,13 @@ final class CliUsageValidator
 
                 continue;
             }
-            if (! $this->keys($row, self::ROW_KEYS, "$path.")) {
+            if (! $this->keys($row, self::ROW_KEYS, "$path.", self::OPTIONAL_ROW_KEYS)) {
                 continue;
+            }
+            $model = $row->model ?? null;
+            if ($model !== null && (! is_string($model) || $model === '' || mb_strlen($model) > self::MODEL_MAX
+                || preg_match('/[\p{Cc}]/u', $model) !== 0)) {
+                $this->fail("$path.model", 'Must be null or a string of 1–'.self::MODEL_MAX.' characters without control characters.');
             }
             if (! is_string($row->tool) || ! in_array($row->tool, CliUsageDay::TOOLS, true)) {
                 $this->fail("$path.tool", 'Must be one of: '.implode(', ', CliUsageDay::TOOLS).'.');
@@ -136,22 +147,22 @@ final class CliUsageValidator
             if (is_int($row->calls) && $row->calls < 1) {
                 $this->fail("$path.calls", 'Must be at least 1 (the collector writes no zero rows).');
             }
-            if (is_string($row->tool) && is_string($row->agent_id)) {
-                $key = $row->tool."\0".$row->agent_id;
+            if (is_string($row->tool) && is_string($row->agent_id) && ($model === null || is_string($model))) {
+                $key = $row->tool."\0".$row->agent_id."\0".($model ?? '');
                 if (isset($seen[$key])) {
-                    $this->fail("$path.agent_id", 'Duplicate (tool, agent_id) in this day.');
+                    $this->fail("$path.agent_id", 'Duplicate (tool, agent_id, model) in this day.');
                 }
                 $seen[$key] = true;
             }
         }
     }
 
-    /** Exact key set: reports unknown and missing keys; false when the shape is unusable. */
-    private function keys(stdClass $o, array $allowed, string $prefix): bool
+    /** Exact key set (plus optional keys): reports unknown and missing keys; false when the shape is unusable. */
+    private function keys(stdClass $o, array $allowed, string $prefix, array $optional = []): bool
     {
         $present = array_keys(get_object_vars($o));
         $ok = true;
-        foreach (array_diff($present, $allowed) as $k) {
+        foreach (array_diff($present, $allowed, $optional) as $k) {
             $this->fail($prefix.mb_substr((string) $k, 0, 64), 'Unknown key.');
             $ok = false;
         }

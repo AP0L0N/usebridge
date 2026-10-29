@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Stores one validated collector object (CliUsageValidator) as cli_usage_days rows: the day's rows are
- * replaced as a whole (idempotent per date; one row per (date, tool, agent)). A day before the collector's
+ * replaced as a whole (idempotent per date; one row per (date, tool, agent, model); a null or absent
+ * `model` is stored as CliUsageDay::NO_MODEL). A day before the collector's
  * coverage_from is skipped untouched: the CLIs delete old transcripts, so such a file is cut short and must
  * never overwrite a complete day imported earlier. Shared by UsageDayImporter (nested `cli_usage` key, same
  * transaction) and `php artisan bridge:cli-usage-import` (standalone files, backfill).
@@ -59,6 +60,7 @@ final class CliUsageImporter
                 'tool' => $r['tool'],
                 'agent_id' => $r['agent_id'],
                 'agent_name' => $r['name'],
+                'model' => $r['model'] ?? CliUsageDay::NO_MODEL,
                 'input_tokens' => $r['input'],
                 'output_tokens' => $r['output'],
                 'cache_read_tokens' => $r['cache_read'],
@@ -67,8 +69,8 @@ final class CliUsageImporter
                 'created_at' => $now,
                 'updated_at' => $now,
             ], $cli['tools']);
-            if ($rows !== []) {
-                CliUsageDay::query()->insert($rows);
+            foreach (array_chunk($rows, 500) as $chunk) {
+                CliUsageDay::query()->insert($chunk);
             }
 
             return $created;

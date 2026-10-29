@@ -25,10 +25,13 @@ use Carbon\CarbonImmutable;
  *   is yesterday unless ?day says otherwise. Its sparkline column is always the last 7 days.
  * - Factor: daily files carry no calibration flag (spec data gap 5), so K != params.median_K
  *   means "calibrated", otherwise "median K".
- * - `cli`: measured Claude Code / Kimi Code tokens (cli_usage_days, collector cli_usage.py) over the same
- *   range, independent of usage_days. A day counts as present when it has rows, or lies between the
- *   collector's coverage start and the last imported day (then zero is a true zero); earlier or later
- *   days are "no data". Total = input + output + cache read + cache creation.
+ * - `cli`: measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days, collector cli_usage.py)
+ *   over the same range, independent of usage_days. A day counts as present when it has rows, or lies
+ *   between the collector's coverage start and the last imported day (then zero is a true zero); earlier
+ *   or later days are "no data". Total = input + output + cache read + cache creation. Rows are stored
+ *   per model; tools, table cells and their agents also carry a `models` breakdown (total desc) that sums
+ *   to the row it sits in. Model '' (rows from before models were collected, or a log without one) is
+ *   `model: null` with the label "model not recorded".
  */
 final class UsageReport
 {
@@ -44,7 +47,7 @@ final class UsageReport
     public const UNMATCHED_LABEL = 'No routine (ad-hoc)';
 
     /** Fixed chart colours per CLI tool (from the AgentColors palette, so they sit well next to the agents). */
-    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F'];
+    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F', 'opencode_go' => '#44954A'];
 
     private CarbonImmutable $now;
 
@@ -152,7 +155,7 @@ final class UsageReport
     }
 
     /**
-     * Measured Claude Code / Kimi Code tokens over the range (see the class comment).
+     * Measured Claude Code / Kimi Code / OpenCode Go tokens over the range (see the class comment).
      *
      * @param  list<string>  $dates
      * @return array<string, mixed>
@@ -161,7 +164,7 @@ final class UsageReport
     {
         $rows = CliUsageDay::query()
             ->whereBetween('date', [$dates[0], end($dates)])
-            ->orderBy('date')->orderBy('tool')->orderBy('agent_id')
+            ->orderBy('date')->orderBy('tool')->orderBy('agent_id')->orderBy('model')
             ->get();
         $coverageFrom = CliUsageDay::query()->min('date');
         $coverageFrom = $coverageFrom !== null ? substr((string) $coverageFrom, 0, 10) : null;
@@ -178,11 +181,26 @@ final class UsageReport
             $acc['calls'] += $r->calls;
         };
 
+        /** Adds row $r to the per-model sums $models (model => sums), keyed by the stored model ('' = not recorded). */
+        $addModel = function (array &$models, CliUsageDay $r) use ($sum, $add): void {
+            $m = (string) $r->model;
+            $models[$m] ??= ['model' => $m === CliUsageDay::NO_MODEL ? null : $m, 'label' => $m === CliUsageDay::NO_MODEL ? CliUsageDay::NO_MODEL_LABEL : $m] + $sum();
+            $add($models[$m], $r);
+        };
+        /** model => sums as a list, total desc (then label) */
+        $modelList = function (array $models): array {
+            uasort($models, fn ($a, $b) => [$b['total'], $a['label']] <=> [$a['total'], $b['label']]);
+
+            return array_values($models);
+        };
+
         $tools = [];
+        /** @var array<string, array<string, array<string, true>>> tool => model => date => true */
+        $modelDays = [];
         foreach (CliUsageDay::TOOLS as $tool) {
-            $tools[$tool] = ['tool' => $tool, 'name' => CliUsageDay::TOOL_LABELS[$tool], 'color' => self::TOOL_COLORS[$tool]] + $sum() + ['days' => 0];
+            $tools[$tool] = ['tool' => $tool, 'name' => CliUsageDay::TOOL_LABELS[$tool], 'color' => self::TOOL_COLORS[$tool]] + $sum() + ['days' => 0, 'models' => []];
         }
-        /** @var array<string, array<string, array{sum: array<string, int>, agents: list<array<string, mixed>>}>> date => tool => … */
+        /** @var array<string, array<string, array{sum: array<string, int>, agents: array<string, array<string, mixed>>, models: array<string, array<string, mixed>>}>> date => tool => … */
         $byDay = [];
         foreach ($rows as $r) {
             $d = substr((string) $r->getRawOriginal('date'), 0, 10);
@@ -191,16 +209,26 @@ final class UsageReport
                 continue; // unknown tool (not expected: the validator rejects it)
             }
             $add($tools[$tool], $r);
+            $addModel($tools[$tool]['models'], $r);
+            $modelDays[$tool][(string) $r->model][$d] = true;
             $cell = &$byDay[$d][$tool];
-            $cell ??= ['sum' => $sum(), 'agents' => []];
+            $cell ??= ['sum' => $sum(), 'agents' => [], 'models' => []];
             $add($cell['sum'], $r);
-            $agent = ['agentId' => $r->agent_id, 'name' => $r->agent_name] + $sum();
+            $addModel($cell['models'], $r);
+            // one entry per agent, summed over its models (rows come per (agent, model))
+            $agent = &$cell['agents'][$r->agent_id];
+            $agent ??= ['agentId' => $r->agent_id, 'name' => $r->agent_name] + $sum() + ['models' => []];
             $add($agent, $r);
-            $cell['agents'][] = $agent;
-            unset($cell);
+            $addModel($agent['models'], $r);
+            unset($agent, $cell);
         }
         foreach ($tools as $tool => &$t) {
             $t['days'] = count(array_filter($byDay, fn ($cells) => isset($cells[$tool])));
+            foreach ($t['models'] as $m => &$model) {
+                $model['days'] = count($modelDays[$tool][$m]);
+            }
+            unset($model);
+            $t['models'] = $modelList($t['models']);
         }
         unset($t);
 
@@ -225,13 +253,14 @@ final class UsageReport
         $table = [];
         foreach ($byDay as $d => $cells) {
             foreach ($cells as $tool => $cell) {
+                $agents = array_values(array_map(fn ($a) => array_replace($a, ['models' => $modelList($a['models'])]), $cell['agents']));
                 $table[] = [
                     'date' => $d,
                     'label' => self::longLabel($d),
                     'tool' => $tool,
                     'name' => $tools[$tool]['name'],
                     'color' => $tools[$tool]['color'],
-                ] + $cell['sum'] + ['agents' => count($cell['agents']) > 1 ? $cell['agents'] : []];
+                ] + $cell['sum'] + ['agents' => count($agents) > 1 ? $agents : [], 'models' => $modelList($cell['models'])];
             }
         }
 

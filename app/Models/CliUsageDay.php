@@ -5,17 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Measured Claude Code / Kimi Code tokens for one (date, tool, agent): a row of a collector file
- * (bridge-usage/data/cli/YYYY-MM-DD.json, or the `cli_usage` key of an estimator day file).
- * `date` stays a plain Y-m-d string so lookups match on SQLite and MySQL alike.
+ * Measured Claude Code / Kimi Code / OpenCode Go tokens for one (date, tool, agent, model): a row of a
+ * collector file (bridge-usage/data/cli/YYYY-MM-DD.json, or the `cli_usage` key of an estimator day file).
+ * `model` is the model name as the CLI logged it; '' (NO_MODEL) when the log recorded none, and for rows
+ * imported before the collector reported models. `date` stays a plain Y-m-d string so lookups match on
+ * SQLite and MySQL alike.
  */
 class CliUsageDay extends Model
 {
-    public const TOOLS = ['claude_code', 'kimi_code'];
+    public const TOOLS = ['claude_code', 'kimi_code', 'opencode_go'];
 
-    public const TOOL_LABELS = ['claude_code' => 'Claude Code', 'kimi_code' => 'Kimi Code'];
+    public const TOOL_LABELS = ['claude_code' => 'Claude Code', 'kimi_code' => 'Kimi Code', 'opencode_go' => 'OpenCode Go'];
 
-    protected $fillable = ['date', 'tool', 'agent_id', 'agent_name', 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_creation_tokens', 'calls'];
+    /** Stored `model` when the log recorded no model (collector `null` or no `model` key). */
+    public const NO_MODEL = '';
+
+    public const NO_MODEL_LABEL = 'model not recorded';
+
+    protected $fillable = ['date', 'tool', 'agent_id', 'agent_name', 'model', 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_creation_tokens', 'calls'];
 
     protected function casts(): array
     {
