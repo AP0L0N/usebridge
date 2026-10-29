@@ -363,6 +363,90 @@ class CliUsageTest extends TestCase
         $this->assertSame(0, UsageDay::count());
     }
 
+    #[Test]
+    public function reposting_a_day_with_models_replaces_legacy_model_less_rows_without_doubling(): void
+    {
+        // Production after the 2026-10-29 deploy: the 24 Oct day was imported without `model` (stored as NO_MODEL).
+        $importer = app(CliUsageImporter::class);
+        $importer->importRaw(self::fixture('2026-10-24'));
+        $importer->importRaw(self::fixture('2026-10-23'));
+
+        $snapshot = fn (string $date) => CliUsageDay::query()->where('date', $date)->orderBy('agent_id')->orderBy('model')
+            ->get(['tool', 'agent_id', 'model', 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_creation_tokens', 'calls'])
+            ->toArray();
+        $sumBy = fn (string $date, string $expr) => CliUsageDay::query()->where('date', $date)
+            ->selectRaw("tool, sum($expr) as t")->groupBy('tool')->pluck('t', 'tool')->map(fn ($t) => (int) $t)->all();
+        $tokens = 'input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens';
+
+        $legacy = $snapshot('2026-10-24');
+        $legacySums = $sumBy('2026-10-24', $tokens);
+        $legacyCalls = $sumBy('2026-10-24', 'calls');
+        $this->assertCount(3, $legacy);
+        $this->assertSame([CliUsageDay::NO_MODEL], array_values(array_unique(array_column($legacy, 'model'))));
+        $this->assertSame(self::D24_TOTAL, array_sum($legacySums));
+        $untouched23 = $snapshot('2026-10-23');
+        $this->assertCount(count(json_decode(self::fixture('2026-10-23'), true)['tools']), $untouched23);
+        $this->assertSame([CliUsageDay::NO_MODEL], array_values(array_unique(array_column($untouched23, 'model'))));
+
+        // The estimator day for 24 Oct (the 19 Oct fixture re-dated), posted first without cli_usage.
+        $day = json_decode(UsageImportTest::fixture(), true);
+        $day['date'] = '2026-10-24';
+        $this->postDay(json_encode($day))->assertCreated()->assertJsonPath('data.date', '2026-10-24');
+        $this->assertSame(3, CliUsageDay::where('date', '2026-10-24')->count());
+
+        // Per-model version of the same collector file: each legacy row split in two, every field summing exactly to the original.
+        $cli = json_decode(self::fixture('2026-10-24'), true);
+        $cli['tools'] = array_merge(...array_map(function (array $row) {
+            $opus = $row;
+            $haiku = $row;
+            $opus['model'] = 'claude-opus-5-5';
+            $haiku['model'] = 'claude-haiku-5-5';
+            foreach (['input', 'output', 'cache_read', 'cache_creation'] as $field) {
+                $opus[$field] = intdiv($row[$field], 2);
+                $haiku[$field] = $row[$field] - $opus[$field];
+            }
+            $opus['calls'] = max(1, intdiv($row['calls'], 2));
+            $haiku['calls'] = max(1, $row['calls'] - $opus['calls']);
+
+            return [$opus, $haiku];
+        }, $cli['tools']));
+        $this->assertCount(2 * count($legacy), $cli['tools']);
+
+        $body = json_encode($day + ['cli_usage' => $cli]);
+        $this->postDay($body)->assertOk()
+            ->assertJsonPath('data.created', false)
+            ->assertJsonPath('data.est_tokens_total', $day['est_tokens_total'])
+            ->assertJsonPath('data.cli.created', false)
+            ->assertJsonPath('data.cli.rows', 2 * count($legacy))
+            ->assertJsonPath('data.cli.total', self::D24_TOTAL);
+
+        // No doubling: model-less rows gone, token sums per tool unchanged, calls never lower, row count doubled.
+        $after = $snapshot('2026-10-24');
+        $this->assertSame(0, CliUsageDay::where('date', '2026-10-24')->where('model', CliUsageDay::NO_MODEL)->count());
+        $this->assertCount(2 * count($legacy), $after);
+        $this->assertSame($legacySums, $sumBy('2026-10-24', $tokens));
+        foreach ($sumBy('2026-10-24', 'calls') as $tool => $calls) {
+            $this->assertGreaterThanOrEqual($legacyCalls[$tool], $calls);
+        }
+
+        // The other day is untouched: same rows, same totals, still model-less.
+        $this->assertSame($untouched23, $snapshot('2026-10-23'));
+
+        // The usage_days payload keeps no cli_usage and carries the estimator figures.
+        $row = UsageDay::query()->where('date', '2026-10-24')->sole();
+        $this->assertArrayNotHasKey('cli_usage', $row->payload);
+        $this->assertSame($day, $row->payload);
+        $this->assertEquals($day['est_tokens_total'], $row->est_tokens_total);
+        $this->assertSame(1, UsageDay::count());
+
+        // Idempotent: the identical POST again changes nothing.
+        $this->postDay($body)->assertOk()->assertJsonPath('data.cli.created', false);
+        $this->assertSame($after, $snapshot('2026-10-24'));
+        $this->assertSame($legacySums, $sumBy('2026-10-24', $tokens));
+        $this->assertSame($untouched23, $snapshot('2026-10-23'));
+        $this->assertSame(1, UsageDay::count());
+    }
+
     // ---- artisan ------------------------------------------------------------------------------
 
     #[Test]
