@@ -35,6 +35,7 @@ The real clock was Thu 29 Oct 2026, about 09:00 CET, the same day as the mocks, 
 | `states-move-undo-390.png` | — (SPEC §4) | After a Move-sheet move: the toast with Undo (viewport) |
 | `states-move-error-1440.png` | — (SPEC §4) | A move whose request fails (500 injected in the browser): the card is back in Backlog, error toast "Couldn’t move CA-133. Try again." (viewport) |
 | `states-input-sent-1440/390.png` | `states-*` §5 | After "Send to Janice": SENT box, and the Tilen's-input bubble with the amber ack line |
+| `ticket-after-ack-1440/390.png` | — (QA M1) | CA-115 after the PM acks Tilen's input while it stays in Waiting on Tilen: "You answered at …" with his answer and "Picked up by Janice", not a blank form; "Answer again" is secondary |
 | `states-new-divider-1440/390.png` | — (SPEC §2 thread) | CA-118 opened from the board: the unread reply from Erin sits under the navy New divider (viewport) |
 
 ## Checks (every shot)
@@ -116,3 +117,9 @@ All points are done. The PM's name comes from the project (`pm_name`, first name
 | c4 | Esc after a desktop drag (on the ask, or during the drag itself) returns focus to the dragged card |
 | c5 | "Enter moves it · Shift+Enter for a new line · n/280", right-aligned, `.hint` style |
 | c6 | Kept: focus trap, initial focus on the textarea, `aria-modal`, required/invalid states, the card stays put until confirmed, and Esc cancels |
+
+## Constance QA 29 Oct (of e1de76a)
+
+- **M1 done.** The ticket view has `tilen_answered_ask`: true while Tilen's latest input answers the current ask (sent or picked up). It turns false when the PM sets a new ask or moves the ticket back into Waiting on Tilen after his answer, and only then does a blank Your input form show again. After an ack the box reads "You answered at {time}", with his answer, "Picked up by {PM} · time" and a secondary "Answer again" button. Shots: `ticket-after-ack-1440/390.png`. Test: `TilenWebTicketsTest::acked_input_keeps_the_answered_state_until_the_pm_asks_something_new`.
+- **L1 done.** `overscroll-behavior-x: none` on the mobile board and tabs, and on `<html>` while the board page is mounted, so a right swipe only switches tabs. Not verified on a real device.
+- **L3 done.** The portfolio's "Last activity" now uses the same format as the board ("Today, 07:58", "Yesterday, 21:15", "Wed 21 Oct, 10:05"). `portfolio-1440/390.png` were reshot.

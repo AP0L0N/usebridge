@@ -86,6 +86,7 @@ final class TicketView
             'tilen_input_at' => $t->tilen_input_at?->toIso8601String(),
             'tilen_input_ack_at' => $t->tilen_input_ack_at?->toIso8601String(),
             'needs_pm_pickup' => $t->needsPmPickup(),
+            'tilen_answered_ask' => $this->answeredAsk($t),
             'labels' => $t->labels->map->toView()->values()->all(),
             'comment_count' => $live->count(),
             'last_comment_at' => $live->max('created_at')?->toIso8601String(),
@@ -217,5 +218,25 @@ final class TicketView
         }
 
         return $q->orderBy('project_id')->orderByRaw(BoardColumns::orderSql())->orderBy('position')->orderBy('key');
+    }
+
+    /**
+     * QA M1: Tilen already answered the current ask (the PM may have acked it while the ticket stays in Waiting on
+     * Tilen). False once the PM sets a new ask or moves the ticket back into Waiting on Tilen after his answer, so a
+     * blank Your input form shows only for a new ask. Queries only acked tickets waiting on Tilen (few).
+     */
+    public function answeredAsk(Ticket $t): bool
+    {
+        if ($t->status !== BoardColumns::WAITING_TILEN || $t->tilen_input_at === null) {
+            return false;
+        }
+        if ($t->needsPmPickup()) {
+            return true;
+        }
+
+        return ! TicketEvent::query()->where('ticket_id', $t->id)->whereIn('type', ['ask_set', 'moved'])
+            ->where('created_at', '>', $t->tilen_input_at)->get(['type', 'from', 'to'])
+            ->contains(fn (TicketEvent $e) => $e->type === 'ask_set'
+                || (($e->to['status'] ?? null) === BoardColumns::WAITING_TILEN && ($e->from['status'] ?? null) !== BoardColumns::WAITING_TILEN));
     }
 }

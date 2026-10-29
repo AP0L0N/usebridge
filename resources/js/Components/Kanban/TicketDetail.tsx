@@ -293,6 +293,14 @@ function Description({ t, onSave }: { t: Ticket; onSave: (d: string | null) => v
   );
 }
 
+/** "at 10:00" today, else "on Wed 28 Oct, 10:00" / "yesterday at 21:15" (QA M1 heading). */
+const answeredAt = (iso: string | null, now: string): string => {
+  const s = updateTime(iso, now);
+  if (s.startsWith('Today, ')) return `at ${s.slice(7)}`;
+  if (s.startsWith('Yesterday, ')) return `yesterday at ${s.slice(11)}`;
+  return `on ${s}`;
+};
+
 /** The latest input comment of Tilen's on this ticket (for the SENT state). */
 const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_tilen_input && !c.retracted);
 
@@ -301,6 +309,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   const opts = t.ask_options ?? [];
   const last = latestInput(detail);
   const sent = !!last && t.needs_pm_pickup;
+  const answered = !!last && !t.needs_pm_pickup && !!t.tilen_answered_ask; // QA M1: acked, ask unchanged
   const [changing, setChanging] = useState(false);
   const [choice, setChoice] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -329,6 +338,17 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
         <div className="tih"><span className="tag">Sent</span><h2 id="tin-h">Your input is with {pmFirst}</h2></div>
         <p className="askc sentl" role="status">You answered <b>{answer}</b> · {updateTime(last.created_at, now)}. It stays here until {pmFirst} picks it up.</p>
         <div className="qact"><button className="abtn" type="button" onClick={() => { setChanging(true); setChoice(last.input_choice); setNote(last.input_choice && last.body !== last.input_choice ? last.body ?? '' : ''); }}>Change answer</button></div>
+      </section>
+    );
+  }
+
+  if (answered && !changing && last) {
+    const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (last.body ?? '').split('\n')[0];
+    return (
+      <section className="tin sent" aria-labelledby="tin-h">
+        <div className="tih"><span className="tag">Answered</span><h2 id="tin-h">You answered {answeredAt(last.created_at, now)}</h2></div>
+        <p className="askc sentl" role="status">Your answer: <b>{answer}</b>.{t.tilen_input_ack_at ? <> Picked up by {pmFirst} · {updateTime(t.tilen_input_ack_at, now)}.</> : null} You don’t need to answer again unless {pmFirst} asks something new.</p>
+        <div className="qact"><button className="abtn" type="button" onClick={() => { setChanging(true); setChoice(last.input_choice); setNote(last.input_choice && last.body !== last.input_choice ? last.body ?? '' : ''); }}>Answer again</button></div>
       </section>
     );
   }

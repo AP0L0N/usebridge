@@ -139,6 +139,9 @@ Derived fields:
 - `waiting_level`: 1 when waiting less than 3 days, 2 for 3–6 days, 3 for more than 6 days (counted from `waiting_since`).
 - `needs_pm_pickup`: Tilen sent input (`tilen_input_at`) that you haven't acknowledged yet (`tilen_input_ack_at` is
   empty or older). Clear it with `ack-input`, or by moving the ticket out of Waiting on Tilen.
+- `tilen_answered_ask`: the ticket is in Waiting on Tilen and Tilen's latest input answers the current ask (picked up or
+  not). It turns false when you set a new `ask` or move the ticket back into Waiting on Tilen after his answer; then his
+  Your input box shows a blank form again. Acking alone keeps it true, so he isn't asked twice.
 - `unread_for_tilen`: an agent comment Tilen hasn't seen yet, on a ticket that waits on him or that he has commented on.
 - Assignees: `assignee_type` `agent` (an agent id), `human` (`tilen` or a free-text name such as "Ana (client)"), or `null`.
 

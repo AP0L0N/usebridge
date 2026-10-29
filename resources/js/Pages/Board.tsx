@@ -404,6 +404,12 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     tabsRef.current?.querySelectorAll<HTMLElement>('[role=tab]')[n]?.focus();
   };
   const touch = useRef<{ x: number; y: number } | null>(null);
+  // QA L1: the board swipes between tabs, so the page must not chain an overscroll into the browser's Back gesture.
+  useEffect(() => {
+    const root = document.documentElement, prev = root.style.overscrollBehaviorX;
+    root.style.overscrollBehaviorX = 'none';
+    return () => { root.style.overscrollBehaviorX = prev; };
+  }, []);
   const swipeEnd = (x: number, y: number) => {
     const s = touch.current;
     touch.current = null;

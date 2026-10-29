@@ -37,6 +37,8 @@ export interface Ticket {
   tilen_input_at: string | null;
   tilen_input_ack_at: string | null;
   needs_pm_pickup: boolean;
+  /** Tilen answered the current ask (sent or already picked up); no blank form until the PM posts a new ask. */
+  tilen_answered_ask?: boolean;
   labels: Label[];
   comment_count: number;
   last_comment_at: string | null;

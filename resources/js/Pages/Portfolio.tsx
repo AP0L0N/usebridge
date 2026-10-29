@@ -4,7 +4,7 @@ import { TopBar } from '../Components/TopBar';
 import { Highlight } from '../Components/Highlight';
 import { IconInbox, IconSearch } from '../Components/Icons';
 import { IcWait, PmBadge } from '../Components/Kanban/Bits';
-import { activityDay, updateTime } from '../lib/dates';
+import { updateTime } from '../lib/dates';
 import { firstName, type ColumnKey, type PortfolioProject } from '../lib/kanban';
 
 type Props = { projects: PortfolioProject[]; now: string };
@@ -60,7 +60,7 @@ function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
         {p.waitingTilenCount > 0
           ? <span className="wchip" aria-label={`${p.waitingTilenCount} ${p.waitingTilenCount === 1 ? 'ticket' : 'tickets'} waiting on you`}><IcWait />{p.waitingTilenCount} for you</span>
           : <span />}
-        <span>Last activity <time dateTime={p.lastActivityAt ?? undefined}>{activityDay(p.lastActivityAt ?? p.lastUpdatedAt, now)}</time></span>
+        <span>Last activity <time dateTime={p.lastActivityAt ?? undefined}>{updateTime(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—'}</time></span>
       </div>
     </Link>
   );

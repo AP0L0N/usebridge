@@ -110,6 +110,40 @@ class TilenWebTicketsTest extends TestCase
     }
 
     #[Test]
+    public function acked_input_keeps_the_answered_state_until_the_pm_asks_something_new(): void
+    {
+        // QA M1: the PM acks while the ticket stays in Waiting on Tilen -> the Your input box shows his answer, not a blank form.
+        $this->api();
+        $t = $this->waitingTicket(['assignee' => self::JANICE]);
+        $this->assertFalse($this->getJson("/api/tickets/{$t['key']}")->assertOk()->json('data.tilen_answered_ask'));
+
+        $this->travelMinutes(1);
+        $this->tilenSays($t['key'], ['input_choice' => 'Yes'])->assertCreated();
+        $this->assertTrue($this->getJson("/api/tickets/{$t['key']}")->json('data.tilen_answered_ask')); // sent, not picked up
+
+        $this->travelMinutes(1);
+        $acked = $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()->json('data');
+        $this->assertSame(['waiting_tilen', false, true], [$acked['status'], $acked['needs_pm_pickup'], $acked['tilen_answered_ask']]);
+
+        // Still answered after a reorder inside the column or an unrelated edit.
+        $this->travelMinutes(1);
+        $this->patchJson("/api/tickets/{$t['key']}", ['priority' => 'p1', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', true);
+
+        // A new ask after his answer -> a fresh blank form.
+        $this->travelMinutes(1);
+        $this->patchJson("/api/tickets/{$t['key']}", ['ask' => 'And the footer copy?', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
+
+        // Answer again, ack, then the PM moves it out and back in -> a new round, blank form again.
+        $this->travelMinutes(1);
+        $this->tilenSays($t['key'], ['input_choice' => 'No'])->assertCreated();
+        $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', true);
+        $this->travelMinutes(1);
+        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
+        $this->travelMinutes(1);
+        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'And the footer copy?', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
+    }
+
+    #[Test]
     public function read_states_drive_unread_for_tilen(): void
     {
         $this->api();

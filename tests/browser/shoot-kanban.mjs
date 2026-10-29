@@ -149,6 +149,12 @@ for (const [w, h] of [[1440, 1000], [390, 844]]) {
       await p.click('.tin button[type=submit]'); await p.waitForSelector('.tin.sent');
       await p.waitForSelector('.cm.tl'); await p.evaluate(() => document.activeElement?.blur());
       await shot(p, `states-input-sent-${w}`, { dialog: true });
+      // QA M1: the PM acks while the ticket stays in Waiting on Tilen -> "You answered at …", not a blank form.
+      execSync(`php artisan tinker --execute="app(App\\Services\\Tickets\\TicketService::class)->ackInput(App\\Models\\Ticket::where('key','CA-115')->firstOrFail(), new App\\Services\\Tickets\\Actor('agent-janice','agent','api'));"`,
+        { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
+      await p.reload(); await p.waitForSelector('.dlg .thread'); await p.waitForSelector('.tin.sent');
+      await p.evaluate(() => { document.activeElement?.blur(); document.querySelector('.dlgov').scrollTop = 0; });
+      await shot(p, `ticket-after-ack-${w}`, { dialog: true });
     }
   }
   if (want('states-open')) {

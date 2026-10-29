@@ -212,7 +212,9 @@
    .btools{width:100%}.btools .search{flex:1;width:auto;min-width:0}.btools .btn.add .t,.btools .fbtn .t{display:none}
    .btools .btn.add,.btools .fbtn{padding:0 12px}
    .bsum{font-size:14px;margin-bottom:10px}
-   .ctabs{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px 6px;scrollbar-width:none}
+   .ctabs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:none;margin:0 -16px 12px;padding:2px 16px 6px;scrollbar-width:none}
+   /* QA L1: a right swipe switches tabs; it must not trigger the browser's Back gesture. */
+   .board{overscroll-behavior-x:none}
    .ctabs button{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;font:inherit;font-size:15px;font-weight:700;border:2px solid var(--line);background:var(--card);color:var(--ink2);border-radius:99px;padding:0 14px;cursor:pointer}
    .ctabs button .cnt{font-size:13px;background:var(--arch-bg);border-radius:99px;padding:0 7px;color:var(--ink2)}
    .ctabs button[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:#fff}
