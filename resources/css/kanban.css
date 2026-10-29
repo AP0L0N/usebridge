@@ -460,6 +460,5 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .sform .arow{margin-top:4px}
   .lnk.dng{color:var(--w3)}
   .sheet.cfm h3{margin:6px 20px 14px;line-height:1.35}
-  .sheet.cfm .qact{flex-direction:column;align-items:stretch}
-  .sheet.cfm .qact .btn,.sheet.cfm .qact .abtn{width:100%;justify-content:center;min-height:48px;display:inline-flex;align-items:center;gap:8px}
+  .sheet.cfm .err-line{margin:10px 20px 0}
 }

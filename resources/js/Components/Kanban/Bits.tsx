@@ -196,15 +196,14 @@ export function ConfirmSheet({ message, confirmLabel, busy = false, error, onCon
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   return (
-    <Sheet label={message} className="cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
+    // Same look as the ticket drawer's "Discard unsaved changes?" confirm: safe action (.btn) first, then the red one.
+    <Sheet label={message} className="confirm cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
       <h3>{message}</h3>
-      <div className="sheetb">
-        <div className="qact">
-          <button className="btn" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />Working…</> : confirmLabel}</button>
-          <button ref={cancelRef} className="abtn" type="button" onClick={onCancel}>Cancel</button>
-        </div>
-        {error && <p className="err-line" role="alert">✕ {error}</p>}
+      <div className="qact">
+        <button ref={cancelRef} className="btn" type="button" onClick={onCancel}>Cancel</button>
+        <button className="abtn dng" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />Working…</> : confirmLabel}</button>
       </div>
+      {error && <p className="err-line" role="alert">✕ {error}</p>}
     </Sheet>
   );
 }

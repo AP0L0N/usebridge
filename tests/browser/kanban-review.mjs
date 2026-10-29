@@ -115,8 +115,8 @@ try {
     ok((await active()).cls.includes('bbtn') && !(await p.$('.sform')), `${tag} outside click closes and returns focus to .bbtn`);
 
     await openStatus();
-    await p.getByLabel('Archived').check();
-    ok(await p.getByText('Hides the project from the portfolio. You can undo it in History.').isVisible(), `${tag} Archived hint`);
+    // Archiving moved out of the radios into "Archive project" (with a confirm; see tests/browser/tilen-controls.mjs).
+    ok(await p.locator('.sform').getByLabel('Archived').count() === 0 && await p.locator('.sform').getByRole('button', { name: 'Archive project' }).count() === 1, `${tag} no Archived radio; "Archive project" link instead`);
     await p.getByLabel('Smooth sailing').check();
     await p.fill('#pst-note', 'Cart sign-off done.');
     await p.route('**/projects/concierge-avant/status', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
