@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react';
 import { StatusBadge } from '../StatusBadge';
 import { IconArch, IconOk, IconWait } from '../Icons';
 import { initial, type Label, type PmStatus, type Person } from '../../lib/kanban';
@@ -107,6 +107,9 @@ export function refocus(el: HTMLElement | null | undefined) {
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+/** Open dialogs, outermost first. Esc and Tab belong to the top one only (a sheet over a ticket, a confirm over a sheet). */
+const layers: symbol[] = [];
+
 /**
  * Keep Tab inside `ref` while active; Escape calls onEscape. On unmount focus goes back to the opener, or to
  * `restore()` when given (e.g. the dragged card, which was not focused when the dialog opened).
@@ -117,11 +120,13 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
   const back = useRef(restore);
   back.current = restore;
   useEffect(() => {
+    const layer = Symbol('layer');
+    layers.push(layer);
     const opener = document.activeElement as HTMLElement | null;
     (initialFocus?.current ?? ref.current?.querySelector<HTMLElement>(FOCUSABLE))?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => {
       const root = ref.current;
-      if (!root) return;
+      if (!root || layers[layers.length - 1] !== layer) return;
       if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); esc.current(); return; }
       if (e.key !== 'Tab') return;
       const els = [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
@@ -133,10 +138,32 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
     document.addEventListener('keydown', key);
     return () => {
       document.removeEventListener('keydown', key);
+      layers.splice(layers.indexOf(layer), 1);
       const to = back.current?.() ?? opener;
       if (to && document.contains(to)) refocus(to);
     };
   }, [ref, initialFocus]);
+}
+
+/**
+ * Scrim dismiss. Fires only when the press went down AND came up on this overlay's own scrim, outside `panel`:
+ * a text-selection drag that starts in the panel and ends on the scrim does not dismiss, and a press inside a
+ * nested overlay (a sheet over a ticket) does not dismiss the ticket underneath.
+ */
+export function useScrimDismiss(panel: RefObject<HTMLElement | null>, onDismiss: () => void) {
+  const downOnScrim = useRef(false);
+  const onScrim = (e: ReactPointerEvent<HTMLElement>) => {
+    const target = e.target as Element;
+    return target.closest('.ovl') === e.currentTarget && !panel.current?.contains(target);
+  };
+  return {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => { downOnScrim.current = onScrim(e); },
+    onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
+      const was = downOnScrim.current;
+      downOnScrim.current = false;
+      if (was && onScrim(e)) onDismiss();
+    },
+  };
 }
 
 type SheetProps = {
@@ -152,8 +179,9 @@ type SheetProps = {
 export function Sheet({ label, onClose, children, className = '', initialFocus, restoreFocus }: SheetProps) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onClose, initialFocus, restoreFocus);
+  const scrim = useScrimDismiss(ref, onClose);
   return (
-    <div className="ovl sheetov" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="ovl sheetov" {...scrim}>
       <div ref={ref} className={`sheet ${className}`} role="dialog" aria-modal="true" aria-label={label}>
         <div className="grab" aria-hidden="true" />
         {children}
