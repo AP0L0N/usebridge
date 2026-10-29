@@ -18,6 +18,7 @@ class RequiredInput extends Model
         return [
             'since' => 'datetime',
             'resolved_at' => 'datetime',
+            'superseded_at' => 'datetime',
         ];
     }
 

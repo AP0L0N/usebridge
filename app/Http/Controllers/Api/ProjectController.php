@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\RequiredInput;
 use App\Services\ProjectStatus;
+use App\Support\TicketPrefix;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProjectController extends Controller
 {
@@ -41,6 +43,7 @@ class ProjectController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:projects,slug'],
             'owner_agent_id' => ['required', 'string', 'exists:agents,id'],
+            'ticket_prefix' => ['nullable', 'string', 'regex:'.TicketPrefix::PATTERN, 'unique:projects,ticket_prefix'],
             ...array_fill_keys(self::LEGACY_FIELDS, ['nullable']),
         ]);
         $needsDecision = $data['needs_decision'] ?? null;
@@ -60,15 +63,20 @@ class ProjectController extends Controller
             'slug' => ['sometimes', 'string', 'max:255', 'unique:projects,slug,'.$project->id.',id'],
             'owner_agent_id' => ['sometimes', 'string', 'exists:agents,id'],
             'archived' => ['sometimes', 'boolean'],
+            'ticket_prefix' => ['sometimes', 'string', 'regex:'.TicketPrefix::PATTERN, 'unique:projects,ticket_prefix,'.$project->id.',id'],
             ...array_fill_keys(self::LEGACY_FIELDS, ['nullable']),
         ]);
+        // Keys are stored on the tickets, so the prefix may only change before the first ticket.
+        if (isset($data['ticket_prefix']) && $data['ticket_prefix'] !== $project->ticket_prefix && $project->tickets()->exists()) {
+            throw ValidationException::withMessages(['ticket_prefix' => 'The ticket prefix can only change while the project has no tickets.']);
+        }
         if (array_key_exists('archived', $data)) {
             $project->archived_at = $data['archived'] ? ($project->archived_at ?? Carbon::now()) : null;
             if ($data['archived']) {
                 $project->reopened_at = null;
             }
         }
-        $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'owner_agent_id'])))->save();
+        $project->fill(array_intersect_key($data, array_flip(['name', 'slug', 'owner_agent_id', 'ticket_prefix'])))->save();
         $this->syncNeedsDecision($project, $data['needs_decision'] ?? null, $request->has('needs_decision'));
 
         return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs', 'questions']))]);
@@ -120,6 +128,6 @@ class ProjectController extends Controller
         $s = ProjectStatus::summary($p);
         unset($s['searchText']);
 
-        return [...$s, 'owner_agent_id' => $p->owner_agent_id];
+        return [...$s, 'owner_agent_id' => $p->owner_agent_id, 'ticket_prefix' => $p->ticket_prefix];
     }
 }

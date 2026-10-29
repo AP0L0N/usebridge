@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Project;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
 use App\Services\Polymarket\PolymarketFeedValidator;
+use App\Services\Tickets\LegacyCarryOver;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
@@ -125,3 +127,23 @@ Artisan::command('bridge:polymarket-import {snapshot : feed.json} {series : book
 
     return 0;
 })->purpose('Import the Polymarket desk feed (feed.json + book_series.json), same rules as POST /api/polymarket/feed');
+
+// Tickets cutover: open/answered Questions, open Required inputs and not-done Next steps become tickets
+// (idempotent; legacy rows only get superseded_at + ticket_id). Not part of the schema migration.
+Artisan::command('bridge:tickets-migrate {--dry-run : Compute and roll back, write nothing} {--project= : Only this project id}', function (LegacyCarryOver $carryOver) {
+    $dry = (bool) $this->option('dry-run');
+    $only = $this->option('project') ?: null;
+    if ($only !== null && ! Project::query()->whereKey($only)->exists()) {
+        $this->error("Unknown project id: $only");
+
+        return 1;
+    }
+    $r = $carryOver->run($dry, $only);
+    $prefix = $dry ? 'dry run, nothing written · would be: ' : '';
+    foreach ($r['projects'] as $p) {
+        $this->line(sprintf('%s (%s): %s%s', $p['name'], $p['id'], $prefix, LegacyCarryOver::line($p)));
+    }
+    $this->info('total: '.$prefix.LegacyCarryOver::line($r['total']));
+
+    return 0;
+})->purpose('Carry open Questions / Required inputs / Next steps over to tickets (idempotent; --dry-run writes nothing)');

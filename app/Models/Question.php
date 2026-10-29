@@ -23,7 +23,7 @@ class Question extends Model
 
     protected function casts(): array
     {
-        return ['answered_at' => 'datetime'];
+        return ['answered_at' => 'datetime', 'superseded_at' => 'datetime'];
     }
 
     public function project(): BelongsTo

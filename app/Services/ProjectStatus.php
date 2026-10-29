@@ -6,6 +6,8 @@ use App\Models\Project;
 use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
+use App\Models\Ticket;
+use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -92,6 +94,7 @@ class ProjectStatus
         $latest = $updates->first();
         $derived = self::derive($project, $now);
         $lastAt = $latest?->created_at ?? $project->updated_at;
+        $counts = self::ticketCounts($project);
 
         return [
             'id' => $project->id,
@@ -105,9 +108,29 @@ class ProjectStatus
             'lastUpdatedAt' => $lastAt?->toIso8601String(),
             'openInputs' => $project->requiredInputs->whereNull('resolved_at')->count(),
             'openQuestions' => $project->questions->where('state', 'open')->count(),
+            // Tickets: PM-set status (PATCH /api/projects/{id}/status) and ticket counts; the UI run switches the badge to these.
+            'pmStatus' => $project->status,
+            'pmStatusNote' => $project->status_note,
+            'pmStatusSetBy' => $project->status_set_by,
+            'pmStatusSetAt' => $project->status_set_at?->toIso8601String(),
+            'ticketPrefix' => $project->ticket_prefix,
+            'ticketCounts' => $counts,
+            'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN],
+            'lastActivityAt' => $project->last_activity_at?->toIso8601String(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),
         ];
+    }
+
+    /** Live (not archived) tickets per column, every column key present. @return array<string,int> */
+    public static function ticketCounts(Project $project): array
+    {
+        $rows = $project->relationLoaded('tickets')
+            ? $project->tickets->whereNull('archived_at')->countBy('status')->all()
+            : Ticket::query()->where('project_id', $project->id)->whereNull('archived_at')
+                ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status')->all();
+
+        return array_map(fn (string $k) => (int) ($rows[$k] ?? 0), array_combine(BoardColumns::keys(), BoardColumns::keys()));
     }
 
     /**

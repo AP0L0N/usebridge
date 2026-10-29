@@ -18,5 +18,14 @@ return [
     */
     'r1_carry_over' => filter_var(env('BRIDGE_R1_CARRY_OVER', true), FILTER_VALIDATE_BOOL),
 
+    /*
+    | Tickets cutover: when true, legacy write endpoints (questions, inputs, next-steps, ceo-queue-items; web input
+    | resolve and question answer) answer 410 and point to docs/API-TICKETS.md. GETs keep working. Flip at UI cutover.
+    */
+    'legacy_read_only' => filter_var(env('BRIDGE_LEGACY_READ_ONLY', false), FILTER_VALIDATE_BOOL),
+
+    /* Public Bridge URL, used for ticket links in API payloads (answers relay). */
+    'public_url' => env('BRIDGE_PUBLIC_URL', 'https://bridge.tilenpoje.eu'),
+
     'org_timezone' => 'Europe/Ljubljana',
 ];
