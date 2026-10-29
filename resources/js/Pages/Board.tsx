@@ -211,6 +211,40 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
   const setDrag = (d: Drag | null) => { dragRef.current = d; setDragState(d); };
   const start = useRef<{ t: Ticket; x: number; y: number; el: HTMLElement } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  // Desktop mouse panning of the board slider (background/headers only; tickets keep their own drag).
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    let st: { x: number; sl: number; id: number; on: boolean } | null = null;
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || window.innerWidth <= 720) return;
+      if ((e.target as HTMLElement).closest('.tk, .ph, a, button, input, textarea, select, label, [draggable="true"], [contenteditable]')) return;
+      st = { x: e.clientX, sl: el.scrollLeft, id: e.pointerId, on: false };
+    };
+    const move = (e: PointerEvent) => {
+      if (!st || e.pointerId !== st.id) return;
+      const dx = e.clientX - st.x;
+      if (!st.on && Math.abs(dx) < 5) return;
+      if (!st.on) { st.on = true; el.setPointerCapture(st.id); el.classList.add('panning'); }
+      el.scrollLeft = st.sl - dx;
+      e.preventDefault();
+    };
+    const up = (e: PointerEvent) => {
+      if (!st || e.pointerId !== st.id) return;
+      if (st.on) {
+        el.classList.remove('panning');
+        const stop = (c: Event) => { c.stopPropagation(); c.preventDefault(); };
+        el.addEventListener('click', stop, { capture: true, once: true });
+        setTimeout(() => el.removeEventListener('click', stop, true), 0);
+      }
+      st = null;
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    return () => { el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); };
+  }, []);
   const suppressClick = useRef(false);
 
   const hit = (x: number, y: number, key: string): { over: ColumnKey | null; index: number } => {

@@ -469,3 +469,8 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .kanban .board>.col{flex:0 0 415px;width:415px;max-width:415px}
   .kanban .board::after{content:"";flex:0 0 12px}
 }
+@media (min-width:721px) and (pointer:fine){
+  .kanban .board{cursor:grab}
+  .kanban .board.panning,.kanban .board.panning *{cursor:grabbing!important;user-select:none;-webkit-user-select:none;scroll-behavior:auto}
+  .kanban .board.panning{scroll-behavior:auto}
+}
