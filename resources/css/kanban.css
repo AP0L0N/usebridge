@@ -462,3 +462,10 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .sheet.cfm h3{margin:6px 20px 14px;line-height:1.35}
   .sheet.cfm .err-line{margin:10px 20px 0}
 }
+
+/* Board as horizontal slider above mobile: fixed 415px columns (Tilen, 29 Oct 2026). Mobile (<=720px) unchanged. */
+@media (min-width:721px){
+  .kanban .board{display:flex;flex-wrap:nowrap;gap:12px;align-items:flex-start;overflow-x:auto;overflow-y:visible;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;padding-bottom:12px;padding-right:24px;scroll-padding-inline:24px}
+  .kanban .board>.col{flex:0 0 415px;width:415px;max-width:415px}
+  .kanban .board::after{content:"";flex:0 0 12px}
+}
