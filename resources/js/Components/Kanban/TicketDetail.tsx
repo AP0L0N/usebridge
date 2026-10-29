@@ -1,9 +1,9 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MarkdownBody } from '../MarkdownBody';
 import {
   Avatar, IcApi, IcBack, IcCal, IcChev, IcClock, IcFlag, IcMore, IcMove, IcOk, IcX, LabelChip, Sheet, WaitAge,
-  personType, useDismiss, useFocusTrap, useToasts,
+  personType, useDismiss, useFocusTrap, useScrimDismiss, useToasts,
 } from './Bits';
 import { updateTime } from '../../lib/dates';
 import {
@@ -68,6 +68,21 @@ function SelectField({ id, label, value, options, onChange, wt = false, dot, pla
   );
 }
 
+/**
+ * Unsaved text in the ticket's fields. Fields report their dirty state (`useDirty`); closing the ticket asks first
+ * when any field is dirty, and an Esc inside a dirty field asks before dropping that field's edit.
+ */
+type Dirty = { report: (field: string, dirty: boolean) => void; askDiscard: (discard: () => void) => void };
+const DirtyCtx = createContext<Dirty>({ report: () => {}, askDiscard: (discard) => discard() });
+
+function useDirty(field: string, dirty: boolean) {
+  const { report } = useContext(DirtyCtx);
+  useEffect(() => {
+    report(field, dirty);
+    return () => report(field, false);
+  }, [report, field, dirty]);
+}
+
 export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived }: Props) {
   const t: Ticket = detail ?? fallback;
   const ref = useRef<HTMLDivElement>(null);
@@ -78,7 +93,19 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const menuRef = useRef<HTMLDivElement>(null);
   const closeMenu = useCallback(() => setMenu(false), []);
   useDismiss(menuRef, menu, closeMenu);
-  useFocusTrap(ref, onClose, titleRef);
+
+  const dirtyFields = useRef(new Map<string, boolean>());
+  const report = useCallback((field: string, dirty: boolean) => { if (dirty) dirtyFields.current.set(field, true); else dirtyFields.current.delete(field); }, []);
+  const [ask, setAsk] = useState<{ discard: () => void } | null>(null);
+  const lastFocus = useRef<HTMLElement | null>(null); // last focused element inside the panel: focus returns here after the confirm
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const askDiscard = useCallback((discard: () => void) => setAsk({ discard }), []);
+  const requestClose = useCallback(() => { if (dirtyFields.current.size) askDiscard(onClose); else onClose(); }, [askDiscard, onClose]);
+  const dirtyApi = useMemo(() => ({ report, askDiscard }), [report, askDiscard]);
+  const keepEditing = () => setAsk(null);
+  const discard = () => { const run = ask?.discard; setAsk(null); run?.(); };
+  const scrim = useScrimDismiss(ref, requestClose);
+  useFocusTrap(ref, requestClose, titleRef);
 
   // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under Tilen's eyes.
   // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
@@ -104,14 +131,18 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
     try { await navigator.clipboard.writeText(url); toasts.push({ body: <p>Link to {t.key} copied</p>, ms: 3000 }); }
     catch { toasts.push({ body: <p>Copy this link: {url}</p> }); }
   };
-  const archive = async () => {
-    setMenu(false);
+  const archiveTicket = async () => {
     try {
       await send('POST', `/projects/${project.slug}/tickets/${t.key}/archive`);
       onArchived(t);
     } catch (e) {
       toasts.push({ tone: 'err', body: <p>Couldn’t archive {t.key}. {e instanceof ApiError ? e.message : 'Try again.'}</p> });
     }
+  };
+  // Archiving closes the ticket, so unsaved text asks first, like any other close.
+  const archive = () => {
+    setMenu(false);
+    if (dirtyFields.current.size) askDiscard(archiveTicket); else archiveTicket();
   };
 
   const statusOptions = columns.map((c) => ({ value: c.key, label: c.label }));
@@ -159,61 +190,72 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   );
 
   return (
-    <div className="ovl dlgov" onPointerDown={(e) => { if (!mobile && e.target === e.currentTarget) onClose(); }}>
-      <div className="dlgw">
-        <div ref={ref} className="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
-          <div className="dlgh">
-            <button className="ibtn only-m" type="button" aria-label="Back to board" onClick={onClose}><IcBack /></button>
-            <span className="crumb">{project.name} / <b>{t.key}</b></span>
-            <div className="pwrap mright" ref={menuRef}>
-              <button className="ibtn" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IcMore /></button>
-              {menu && (
-                <div className="pop menu amenu" role="menu">
-                  <button type="button" role="menuitem" onClick={copyLink}>Copy link</button>
-                  <button type="button" role="menuitem" onClick={archive}>Archive ticket</button>
-                </div>
-              )}
+    <DirtyCtx.Provider value={dirtyApi}>
+      <div className="ovl dlgov" {...scrim}>
+        <div className="dlgw">
+          <div ref={ref} className="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-t" onFocus={(e) => { lastFocus.current = e.target as HTMLElement; }}>
+            <div className="dlgh">
+              <button className="ibtn only-m" type="button" aria-label="Back to board" onClick={requestClose}><IcBack /></button>
+              <span className="crumb">{project.name} / <b>{t.key}</b></span>
+              <div className="pwrap mright" ref={menuRef}>
+                <button className="ibtn" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IcMore /></button>
+                {menu && (
+                  <div className="pop menu amenu" role="menu">
+                    <button type="button" role="menuitem" onClick={copyLink}>Copy link</button>
+                    <button type="button" role="menuitem" onClick={archive}>Archive ticket</button>
+                  </div>
+                )}
+              </div>
+              <button className="ibtn only-d" type="button" aria-label="Close" onClick={requestClose}><IcX /></button>
             </div>
-            <button className="ibtn only-d" type="button" aria-label="Close" onClick={onClose}><IcX /></button>
-          </div>
-          <div className="dlgb">
-            <div className="main">
-              {t.labels.length > 0 && <div className="tlbs tl0">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
-              <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
-              {mobile && (
-                <div className="mf">
-                  {statusSelect('st-m', false)}
-                  <p className="mfr">
-                    <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
-                    <span>{t.assignee_name ? `${t.assignee_name}${t.assignee_id === project.pm_agent_id ? ' · PM' : ''}` : 'Unassigned'}</span>
-                    {t.priority !== 'p3' && <span className={`pri ${t.priority}`}><IcFlag />{t.priority.toUpperCase()}</span>}
-                    {t.due_on && <span className={`due${dueSoon(t.due_on, now) ? ' soon' : ''}`}><IcCal />{dueLabel(t.due_on)}</span>}
-                  </p>
-                  <button className="lnk sm" type="button" aria-haspopup="dialog" onClick={() => setDetails(true)}>Details &amp; history</button>
-                </div>
-              )}
-              {t.blocked_reason && <p className="blk dblk"><span>Blocked · {t.blocked_reason}</span></p>}
-              {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
-              <Description t={t} onSave={(d) => patch({ description: d })} />
-              <section className="dsec" aria-labelledby="th-h">
-                <h2 id="th-h">Comments &amp; activity <span className="cnt">{t.comment_count}</span></h2>
-                {detail
-                  ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt ?? null} unread={unreadAtOpen} />
-                  : <p className="hint" role="status">Loading comments…</p>}
-                <Composer t={t} slug={project.slug} pmFirst={pmFirst} onSent={onChanged} />
-              </section>
+            <div className="dlgb">
+              <div className="main">
+                {t.labels.length > 0 && <div className="tlbs tl0">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
+                <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
+                {mobile && (
+                  <div className="mf">
+                    {statusSelect('st-m', false)}
+                    <p className="mfr">
+                      <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
+                      <span>{t.assignee_name ? `${t.assignee_name}${t.assignee_id === project.pm_agent_id ? ' · PM' : ''}` : 'Unassigned'}</span>
+                      {t.priority !== 'p3' && <span className={`pri ${t.priority}`}><IcFlag />{t.priority.toUpperCase()}</span>}
+                      {t.due_on && <span className={`due${dueSoon(t.due_on, now) ? ' soon' : ''}`}><IcCal />{dueLabel(t.due_on)}</span>}
+                    </p>
+                    <button className="lnk sm" type="button" aria-haspopup="dialog" onClick={() => setDetails(true)}>Details &amp; history</button>
+                  </div>
+                )}
+                {t.blocked_reason && <p className="blk dblk"><span>Blocked · {t.blocked_reason}</span></p>}
+                {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
+                <Description t={t} onSave={(d) => patch({ description: d })} />
+                <section className="dsec" aria-labelledby="th-h">
+                  <h2 id="th-h">Comments &amp; activity <span className="cnt">{t.comment_count}</span></h2>
+                  {detail
+                    ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt ?? null} unread={unreadAtOpen} />
+                    : <p className="hint" role="status">Loading comments…</p>}
+                  <Composer t={t} slug={project.slug} pmFirst={pmFirst} onSent={onChanged} />
+                </section>
+              </div>
+              {!mobile && <aside className="side" aria-label="Ticket fields"><div className="fld"><p className="k" id="k-st">Status</p>{statusSelect('st-d', true)}</div>{sideFields(false)}</aside>}
             </div>
-            {!mobile && <aside className="side" aria-label="Ticket fields"><div className="fld"><p className="k" id="k-st">Status</p>{statusSelect('st-d', true)}</div>{sideFields(false)}</aside>}
           </div>
         </div>
+        {details && mobile && (
+          <Sheet label="Details & history" onClose={() => setDetails(false)} className="dsheet">
+            <h3>Details &amp; history</h3>
+            <div className="sheetb side">{sideFields(true)}</div>
+          </Sheet>
+        )}
+        {ask && (
+          <Sheet label="Discard unsaved changes?" onClose={keepEditing} initialFocus={keepRef} restoreFocus={() => lastFocus.current} className="confirm">
+            <h3>Discard unsaved changes?</h3>
+            <div className="qact">
+              <button ref={keepRef} className="btn" type="button" onClick={keepEditing}>Keep editing</button>
+              <button className="abtn dng" type="button" onClick={discard}>Discard</button>
+            </div>
+          </Sheet>
+        )}
       </div>
-      {details && mobile && (
-        <Sheet label="Details & history" onClose={() => setDetails(false)} className="dsheet">
-          <h3>Details &amp; history</h3>
-          <div className="sheetb side">{sideFields(true)}</div>
-        </Sheet>
-      )}
-    </div>
+    </DirtyCtx.Provider>
   );
 }
 
@@ -235,9 +277,15 @@ function DueField({ t, now, id, onSave }: { t: Ticket; now: string; id: string; 
 }
 
 function LabelsField({ t, labels, onSave }: { t: Ticket; labels: Label[]; onSave: (names: string[]) => void }) {
+  const { askDiscard } = useContext(DirtyCtx);
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState('');
-  const start = () => { setVal(t.labels.map((l) => l.name).join(', ')); setEdit(true); };
+  const [base, setBase] = useState('');
+  const dirty = edit && val.trim() !== base.trim();
+  useDirty('labels', dirty);
+  // Esc leaves the editor; unsaved text asks first, and Discard drops it.
+  const leave = () => (dirty ? askDiscard(() => setEdit(false)) : setEdit(false));
+  const start = () => { const names = t.labels.map((l) => l.name).join(', '); setVal(names); setBase(names); setEdit(true); };
   const save = () => { onSave(val.split(',').map((s) => s.trim()).filter(Boolean)); setEdit(false); };
   return (
     <div className="fld">
@@ -245,7 +293,7 @@ function LabelsField({ t, labels, onSave }: { t: Ticket; labels: Label[]; onSave
       {edit ? (
         <form onSubmit={(e) => { e.preventDefault(); save(); }}>
           <label className="sr-only" htmlFor="lb-in">Labels, separated by commas</label>
-          <input id="lb-in" className="qin" list="lb-list" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEdit(false); } }} />
+          <input id="lb-in" className="qin" list="lb-list" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); leave(); } }} />
           <datalist id="lb-list">{labels.map((l) => <option key={l.id} value={l.name} />)}</datalist>
           <p className="sm">Separate with commas. New names are created in grey.</p>
           <div className="qact"><button className="btn" type="submit">Save</button><button className="abtn" type="button" onClick={() => setEdit(false)}>Cancel</button></div>
@@ -275,15 +323,22 @@ function HistoryField({ events, columns, people, now }: { events: TicketEvent[];
 }
 
 function Description({ t, onSave }: { t: Ticket; onSave: (d: string | null) => void }) {
+  const { askDiscard } = useContext(DirtyCtx);
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState('');
+  const [base, setBase] = useState('');
+  const dirty = edit && val.trim() !== base.trim();
+  useDirty('description', dirty);
+  // Esc leaves the editor; unsaved text asks first, and Discard drops it.
+  const leave = () => (dirty ? askDiscard(() => setEdit(false)) : setEdit(false));
+  const start = () => { const text = t.description ?? ''; setVal(text); setBase(text); setEdit(true); };
   return (
     <section className="dsec" aria-labelledby="desc-h">
-      <h2 id="desc-h">Description {!edit && <button className="edit" type="button" onClick={() => { setVal(t.description ?? ''); setEdit(true); }}>Edit</button>}</h2>
+      <h2 id="desc-h">Description {!edit && <button className="edit" type="button" onClick={start}>Edit</button>}</h2>
       {edit ? (
         <form className="desc" onSubmit={(e) => { e.preventDefault(); onSave(val.trim() ? val : null); setEdit(false); }}>
           <label className="sr-only" htmlFor="desc-in">Description (Markdown)</label>
-          <textarea id="desc-in" className="qta" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEdit(false); } }} />
+          <textarea id="desc-in" className="qta" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); leave(); } }} />
           <div className="qact"><button className="btn" type="submit">Save</button><button className="abtn" type="button" onClick={() => setEdit(false)}>Cancel</button></div>
         </form>
       ) : (
@@ -316,6 +371,14 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   const [state, setState] = useState<'idle' | 'busy' | 'err'>('idle');
   const [err, setErr] = useState('');
   const noteRequired = !opts.length || choice === 'other';
+  // The note's starting text: '' for a new answer, the sent note when changing an answer (dirty only once edited).
+  const [base, setBase] = useState('');
+  const showForm = !((sent || answered) && !changing);
+  useDirty('reply', showForm && note.trim() !== base.trim());
+  const startChange = () => {
+    const prefill = last?.input_choice && last.body !== last.input_choice ? last.body ?? '' : '';
+    setChanging(true); setChoice(last?.input_choice ?? null); setNote(prefill); setBase(prefill);
+  };
 
   const submit = async () => {
     if (opts.length && !choice) { setErr('Pick an answer first.'); setState('err'); return; }
@@ -323,7 +386,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
     setState('busy');
     try {
       await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body: note.trim() || null, is_tilen_input: true, input_choice: opts.length ? choice : null });
-      setState('idle'); setChanging(false); setNote(''); setChoice(null);
+      setState('idle'); setChanging(false); setNote(''); setBase(''); setChoice(null);
       onSent();
     } catch (e) {
       setErr(e instanceof ApiError && e.status !== 0 ? e.message : 'Couldn’t send. Your text is kept. Try again.');
@@ -337,7 +400,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
       <section className="tin sent" aria-labelledby="tin-h">
         <div className="tih"><span className="tag">Sent</span><h2 id="tin-h">Your input is with {pmFirst}</h2></div>
         <p className="askc sentl" role="status">You answered <b>{answer}</b> · {updateTime(last.created_at, now)}. It stays here until {pmFirst} picks it up.</p>
-        <div className="qact"><button className="abtn" type="button" onClick={() => { setChanging(true); setChoice(last.input_choice); setNote(last.input_choice && last.body !== last.input_choice ? last.body ?? '' : ''); }}>Change answer</button></div>
+        <div className="qact"><button className="abtn" type="button" onClick={startChange}>Change answer</button></div>
       </section>
     );
   }
@@ -348,7 +411,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
       <section className="tin sent" aria-labelledby="tin-h">
         <div className="tih"><span className="tag">Answered</span><h2 id="tin-h">You answered {answeredAt(last.created_at, now)}</h2></div>
         <p className="askc sentl" role="status">Your answer: <b>{answer}</b>.{t.tilen_input_ack_at ? <> Picked up by {pmFirst} · {updateTime(t.tilen_input_ack_at, now)}.</> : null} You don’t need to answer again unless {pmFirst} asks something new.</p>
-        <div className="qact"><button className="abtn" type="button" onClick={() => { setChanging(true); setChoice(last.input_choice); setNote(last.input_choice && last.body !== last.input_choice ? last.body ?? '' : ''); }}>Answer again</button></div>
+        <div className="qact"><button className="abtn" type="button" onClick={startChange}>Answer again</button></div>
       </section>
     );
   }
@@ -458,6 +521,7 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
   const [body, setBody] = useState('');
   const [asInput, setAsInput] = useState(false);
   const [state, setState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
+  useDirty('composer', body.trim() !== '');
   useEffect(() => { if (state !== 'ok') return; const id = window.setTimeout(() => setState('idle'), 6000); return () => window.clearTimeout(id); }, [state]);
   const submit = async () => {
     if (!body.trim() || state === 'busy') return;

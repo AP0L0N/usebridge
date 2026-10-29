@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { IcBack, Sheet, useFocusTrap } from './Bits';
+import { IcBack, Sheet, useFocusTrap, useScrimDismiss } from './Bits';
 import { WAITING, type Column, type ColumnKey, type Ticket } from '../../lib/kanban';
 
 const ASK_MAX = 280;
@@ -118,8 +118,9 @@ function AskDialog({ t, input, onSubmit, onCancel, restoreFocus }: {
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onCancel, input, restoreFocus);
+  const scrim = useScrimDismiss(ref, onCancel);
   return (
-    <div className="ovl askov" onPointerDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+    <div className="ovl askov" {...scrim}>
       <div ref={ref} className="pop askbox" role="dialog" aria-modal="true" aria-labelledby="ask-h">
         <h3 id="ask-h">Move {t.key} to Waiting on Tilen</h3>
         <p className="asub">{t.title}</p>

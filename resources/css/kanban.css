@@ -352,6 +352,10 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .sheet .shist{margin-top:4px}
   .dsheet .side{display:flex;flex-direction:column;gap:6px}
   .dsheet .fld{border:1px solid var(--line)}
+  /* discard confirm: Keep editing (.btn) then Discard (.abtn, red) */
+  .sheet.confirm .qact{margin:0 20px;justify-content:flex-end}
+  .sheet.confirm .qact>*{min-height:44px}
+  .abtn.dng{color:var(--w3);border-color:var(--w3)}
   .mvl li button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
   @media (min-width:721px){
     .sheetov{align-items:center}

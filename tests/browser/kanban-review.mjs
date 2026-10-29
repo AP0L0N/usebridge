@@ -1,5 +1,5 @@
 // Browser check for Tommy's review of 1ae66bd (status menu, filters, ask step) against the LOCAL server.
-// Usage: node tests/browser/kanban-review.mjs   (server: php -S 127.0.0.1:8792 from public/, DB_DATABASE=/tmp/kanban.sqlite)
+// Usage: node tests/browser/kanban-review.mjs   (server: php -S 127.0.0.1:8792 from public/, DB_DATABASE=$KANBAN_DB, default /tmp/kanban.sqlite)
 // The gate password is read from .env and never printed. Exits 1 when any check fails.
 import { chromium } from '/home/box/pwcheck/node_modules/playwright-core/index.mjs';
 import { readFileSync } from 'node:fs';
@@ -16,7 +16,8 @@ const HTTP_CODE = /HTTP|\b[45]\d\d\b/;
 
 let failed = 0;
 const ok = (cond, msg) => { console.log(`${cond ? 'ok  ' : 'FAIL'} ${msg}`); if (!cond) failed++; };
-execSync('php artisan db:seed --class=KanbanSampleSeeder --force -q', { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
+const KANBAN_DB = process.env.KANBAN_DB ?? '/tmp/kanban.sqlite';
+execSync('php artisan db:seed --class=KanbanSampleSeeder --force -q', { cwd: REPO, env: { ...process.env, DB_DATABASE: KANBAN_DB } });
 
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
 try {
@@ -194,6 +195,112 @@ try {
       ok(!(await p.$('.sheet')) && a.key === 'CA-131' && a.cls.includes('tkmv'), `${tag} Esc closes the sheet, focus back on the card's Move button`);
     }
     ok(await p.evaluate(() => document.querySelector('[data-key="CA-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} cancelled ask leaves the card in Backlog`);
+    // ---------------- (d) ticket detail: close paths, dirty guard, nested sheets
+    // Opening a ticket marks it seen, so these use CA-121 (no unread, input or blocked state): CA-118 and CA-119 feed the filter checks.
+    const isOpen = async () => (await p.locator('.dlg').count()) > 0;
+    const waitClosed = () => p.waitForSelector('.dlg', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
+    const confirmShown = async () => (await p.locator('[aria-label="Discard unsaved changes?"]').count()) > 0;
+    const openTicketDirect = async (key) => { await p.goto(`${BOARD}/tickets/${key}`); await p.waitForSelector('.dlg h1'); await p.waitForTimeout(250); };
+    const scrimClick = async () => { await p.mouse.click(60, 400); await p.waitForTimeout(150); }; // desktop: the scrim left of the 1040px panel
+    const typeInComposer = async (text) => { await p.click('#cmp'); await p.fill('#cmp', text); await p.waitForTimeout(100); };
+    const keepFocused = () => p.evaluate(() => document.activeElement?.textContent ?? '');
+    const pressButton = (name) => p.getByRole('button', { name, exact: true }).click();
+    const back = () => (m ? p.click('[aria-label="Back to board"]') : scrimClick()); // 390: no scrim, the full-screen panel's Back button
+    await p.goto(BOARD); await p.waitForTimeout(300);
+
+    if (m) {
+      // Filter sheet: a drag that starts on the sheet and ends on the scrim does not close it; a click on the scrim or Esc does.
+      await p.click('.fbtn'); await p.waitForSelector('.sheet'); await p.waitForTimeout(100);
+      const hd = await p.locator('.sheet h3').boundingBox();
+      await p.mouse.move(hd.x + 10, hd.y + hd.height / 2); await p.mouse.down(); await p.mouse.move(w / 2, 20, { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(150);
+      ok(!!(await p.$('.sheet')), `${tag} drag from the filter sheet ending on the scrim does not close it`);
+      await p.mouse.click(w / 2, 20); await p.waitForTimeout(150);
+      ok(!(await p.$('.sheet')), `${tag} filter sheet closes on backdrop click`);
+      await p.click('.fbtn'); await p.waitForSelector('.sheet'); await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+      ok(!(await p.$('.sheet')), `${tag} filter sheet closes on Esc`);
+    }
+
+    // Clean ticket: backdrop (desktop), Esc, and a click inside the panel never closes it.
+    await openTicketDirect('CA-121');
+    const title = await p.locator('.dlg h1').boundingBox();
+    await p.mouse.click(title.x + 10, title.y + title.height / 2); await p.waitForTimeout(150);
+    ok(await isOpen() && !(await confirmShown()), `${tag} click inside the panel does not close`);
+    if (!m) {
+      const hb = await p.locator('.dlg h1').boundingBox();
+      const mid = hb.y + hb.height / 2;
+      await p.mouse.move(hb.x + 4, mid); await p.mouse.down(); await p.mouse.move(60, mid, { steps: 12 }); await p.mouse.up(); await p.waitForTimeout(150);
+      ok(await isOpen() && !(await confirmShown()), `${tag} drag from inside the panel released on the scrim does not close`);
+      await p.mouse.move(60, 400); await p.mouse.down(); await p.mouse.move(hb.x + 10, mid, { steps: 12 }); await p.mouse.up(); await p.waitForTimeout(150);
+      ok(await isOpen(), `${tag} drag from the scrim released inside the panel does not close`);
+      await scrimClick();
+      ok(await waitClosed(), `${tag} backdrop click closes a clean ticket`);
+      await openTicketDirect('CA-121');
+    }
+    await p.keyboard.press('Escape');
+    ok(await waitClosed(), `${tag} Esc closes a clean ticket`);
+
+    // Dirty comment box: backdrop (Back on 390) and Esc ask first; Keep editing keeps the text; Discard closes.
+    await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+    await back(); await p.waitForTimeout(150);
+    ok(await confirmShown() && await isOpen(), `${tag} leaving with a dirty comment shows "Discard unsaved changes?" and keeps the ticket open`);
+    ok((await keepFocused()) === 'Keep editing', `${tag} Keep editing is focused by default`);
+    await pressButton('Keep editing'); await p.waitForTimeout(150);
+    ok(!(await confirmShown()) && await isOpen() && (await p.inputValue('#cmp')) === 'Draft reply', `${tag} Keep editing keeps the ticket open with the text intact`);
+    await back(); await p.waitForTimeout(150);
+    await pressButton('Discard');
+    ok(await waitClosed(), `${tag} Discard closes the ticket`);
+
+    await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    ok(await confirmShown() && await isOpen(), `${tag} Esc with a dirty comment asks first`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    ok(!(await confirmShown()) && await isOpen() && (await p.inputValue('#cmp')) === 'Draft reply', `${tag} Esc on the confirm = Keep editing, text intact`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    await pressButton('Discard');
+    ok(await waitClosed(), `${tag} Discard after Esc closes the ticket`);
+
+    if (!m) {
+      await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+      await p.click('[aria-label="Close"]'); await p.waitForTimeout(150);
+      ok(await confirmShown(), `${tag} X button with a dirty comment asks first`);
+      await pressButton('Discard'); ok(await waitClosed(), `${tag} Discard from the X button closes the ticket`);
+    }
+
+    // Esc inside a dirty description: confirm; Discard drops the edit and keeps the ticket open.
+    await openTicketDirect('CA-121');
+    await p.click('#desc-h .edit'); await p.fill('#desc-in', 'Edited description text'); await p.waitForTimeout(100);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    ok(await confirmShown() && (await p.inputValue('#desc-in')) === 'Edited description text', `${tag} Esc in a dirty description shows the confirm, editor kept`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    ok(!(await confirmShown()) && (await p.inputValue('#desc-in')) === 'Edited description text', `${tag} Keep editing (Esc) keeps the description text`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    await pressButton('Discard'); await p.waitForTimeout(150);
+    ok(!(await p.$('#desc-in')) && await isOpen(), `${tag} Discard drops the description edit, ticket stays open`);
+    await p.keyboard.press('Escape');
+    ok(await waitClosed(), `${tag} Esc on a clean ticket after that closes it`);
+
+    if (!m) {
+      // Labels editor (desktop side panel; on 390 the fields live in the Details sheet).
+      await openTicketDirect('CA-121');
+      await p.click('.fk .edit'); await p.fill('#lb-in', 'Home, Idea, Unsaved'); await p.waitForTimeout(100);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+      ok(await confirmShown() && (await p.inputValue('#lb-in')) === 'Home, Idea, Unsaved', `${tag} Esc in a dirty label editor asks first`);
+      await pressButton('Discard'); await p.waitForTimeout(150);
+      ok(!(await p.$('#lb-in')) && await isOpen(), `${tag} Discard drops the label edit, ticket stays open`);
+      await p.keyboard.press('Escape');
+      ok(await waitClosed(), `${tag} Esc after that closes the clean ticket`);
+    } else {
+      // 390: the Details & history sheet sits over the ticket. Esc and its scrim close only that sheet.
+      await openTicketDirect('CA-121');
+      await p.click('text=Details & history'); await p.waitForSelector('.dsheet'); await p.waitForTimeout(100);
+      await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+      ok(!(await p.$('.dsheet')) && await isOpen(), `${tag} Esc closes the Details sheet only, ticket stays open`);
+      await p.click('text=Details & history'); await p.waitForSelector('.dsheet'); await p.waitForTimeout(100);
+      await p.mouse.click(w / 2, 20); await p.waitForTimeout(150);
+      ok(!(await p.$('.dsheet')) && await isOpen(), `${tag} Details sheet closes on its scrim, ticket stays open`);
+      await p.keyboard.press('Escape');
+      ok(await waitClosed(), `${tag} Esc closes the ticket once no sheet is open`);
+    }
     await ctx.close();
   }
   // One mobile breakpoint (Tommy 29 Oct): at 700px (between the old 640 and 720) the filters open as the "Filter tickets" sheet.
