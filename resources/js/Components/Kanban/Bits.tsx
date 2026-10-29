@@ -91,8 +91,6 @@ export function useDismiss(refs: RefObject<HTMLElement | null> | RefObject<HTMLE
   }, [open, onClose]);
 }
 
-/** Filters (and other small forms) switch from a popover to a bottom Sheet at this width (Tommy review b1). */
-export const SHEET_Q = '(max-width: 640px)';
 
 /**
  * Focus `el` now, and again after the current pointer event if the click landed on something non-focusable

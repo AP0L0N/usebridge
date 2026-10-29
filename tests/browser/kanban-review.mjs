@@ -191,6 +191,25 @@ try {
     ok(await p.evaluate(() => document.querySelector('[data-key="CA-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} cancelled ask leaves the card in Backlog`);
     await ctx.close();
   }
+  // One mobile breakpoint (Tommy 29 Oct): at 700px (between the old 640 and 720) the filters open as the "Filter tickets" sheet.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 700, height: 900 }, deviceScaleFactor: 1 });
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => ok(false, `[700] page error: ${e.message}`));
+    await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
+    await p.goto(BOARD); await p.waitForTimeout(400);
+    for (const x of await p.$$('.toast .tx')) await x.click().catch(() => {});
+    await p.click('.fbtn'); await p.waitForTimeout(250);
+    const r = await p.evaluate(() => {
+      const s = document.querySelector('.sheet'), vw = document.documentElement.clientWidth;
+      return { sheet: s?.getAttribute('aria-label') ?? null, popover: !!document.querySelector('.fmenu'), right: s ? s.getBoundingClientRect().right : 0, vw };
+    });
+    ok(r.sheet === 'Filter tickets' && !r.popover && r.right <= r.vw, `[700] filters open as the "Filter tickets" sheet, not a popover (${JSON.stringify(r)})`);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    await p.click('.bbtn'); await p.waitForTimeout(250);
+    ok(await p.evaluate(() => !!document.querySelector('.sheet .sform, .sheet [aria-label="Set project status"]') || document.querySelector('.sheet')?.textContent.includes('Save status')), `[700] status menu opens as a sheet`);
+    await ctx.close();
+  }
 } finally {
   await browser.close();
 }

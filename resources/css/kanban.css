@@ -402,7 +402,7 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .sform .qact+.hint{margin-top:10px}
   .sform .btn[disabled]{background:var(--ink3);cursor:default}
   .hint.count{text-align:right;font-variant-numeric:tabular-nums}
-  /* (b) filters: popover (desktop) and the "Filter tickets" sheet (<=640px) share the field markup */
+  /* (b) filters: popover (desktop) and the "Filter tickets" sheet (<=720px) share the field markup */
   .fmenu,.fform{display:flex;flex-direction:column}
   .fmenu .flabel,.fform .flabel{margin:0 0 4px}
   .fmenu .flabel~.flabel,.fform .flabel~.flabel{margin-top:6px}

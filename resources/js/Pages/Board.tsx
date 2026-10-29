@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { IconSearch } from '../Components/Icons';
-import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, SHEET_Q, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
+import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { TicketCard } from '../Components/Kanban/TicketCard';
 import { StatusBlock, setByLabel } from '../Components/Kanban/StatusBlock';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
@@ -605,8 +605,8 @@ function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug:
 function FilterMenu({ filters, setFilters, n, tickets, people, labels }: {
   filters: Filters; setFilters: (f: Filters) => void; n: number; tickets: Ticket[]; people: Person[]; labels: Label[];
 }) {
-  // Two render paths (Tommy review b1): a bottom Sheet at <=640px, a popover under the button above that.
-  const asSheet = useMedia(SHEET_Q);
+  // Two render paths (Tommy review b1): a bottom Sheet at the one mobile breakpoint (MOBILE, <=720px), a popover under the button above that.
+  const asSheet = useMedia(MOBILE);
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);

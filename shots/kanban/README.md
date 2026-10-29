@@ -104,7 +104,7 @@ All points are done. The PM's name comes from the project (`pm_name`, first name
 | a8 | "Saved as set by you. Janice sees it in History." |
 | a9 | 12px chevron-down in `--ink2` on the badge |
 | a10 | n/280 counter under the note, right-aligned, `.hint` style |
-| b1 | A separate render path: `useMedia('(max-width: 640px)')` renders the fields in the shared bottom `Sheet` titled "Filter tickets" with full-width selects, and as a popover above 640px. The old `position: fixed` override is gone |
+| b1 | A separate render path: `useMedia(MOBILE)` (`(max-width: 720px)`, the one mobile breakpoint, Tommy 29 Oct) renders the fields in the shared bottom `Sheet` titled "Filter tickets" with full-width selects, and as a popover above 720px. The old `position: fixed` override is gone |
 | b2 | Opening focuses Assignee. Esc, Done and outside click return focus to `.fbtn` |
 | b3 | The icon-only Filter button shows a count pill styled like the column count pill |
 | b4 | When a filter changes on mobile and the current tab has no matches, the board jumps to the first tab that has some. Empty tabs show their 0 in `--ink3` |
