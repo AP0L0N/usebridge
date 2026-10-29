@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { IcChev, IcHist, PlainBadge, PmBadge, Sheet, refocus, useDismiss } from './Bits';
+import { ConfirmSheet, IcChev, IcHist, PlainBadge, PmBadge, Sheet, refocus, useDismiss } from './Bits';
 import { updateTime } from '../../lib/dates';
-import { STATUS_LABEL, firstName, send, type BoardProject, type PmStatus, type StatusEvent } from '../../lib/kanban';
+import { STATUS_LABEL, archiveMessage, firstName, send, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
 
 /** "Janice (PM)", "Tilen", "Captain William Diego (CEO)". */
 export function setByLabel(by: string | null, name: string | null, pmId: string | null): string {
@@ -11,7 +11,7 @@ export function setByLabel(by: string | null, name: string | null, pmId: string 
 }
 
 /** The PM status waiting level counts from status_set_at (SPEC §2): <3 d L1, 3–6 L2, >6 L3. */
-export function pmAge(p: BoardProject, now: string): { level: number; days: number } | null {
+export function pmAge(p: Pick<StatusSubject, 'status' | 'status_set_at'>, now: string): { level: number; days: number } | null {
   if (p.status !== 'waiting' || !p.status_set_at) return null;
   const days = Math.max(0, Math.floor((Date.parse(now) - Date.parse(p.status_set_at)) / 86400000));
   return { level: days > 6 ? 3 : days >= 3 ? 2 : 1, days };
@@ -33,7 +33,7 @@ export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId
 }
 
 type Props = {
-  project: BoardProject;
+  project: StatusSubject;
   history: StatusEvent[];
   now: string;
   mobile: boolean;
@@ -54,24 +54,48 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
   useDismiss([btnRef, menuRef], menu && !mobile, closeMenu);
   useDismiss(histRef, historyOpen && !mobile, closeHist);
   const saved = () => { closeMenu(); onChanged(); };
+  const archived = p.archived || p.status === 'archived';
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState<'idle' | 'busy' | 'err'>('idle');
+  const run = async (action: 'archive' | 'unarchive') => {
+    setBusy('busy');
+    try {
+      await send('POST', `/projects/${p.slug}/${action}`);
+      setBusy('idle'); setConfirm(false); onChanged();
+    } catch {
+      setBusy('err');
+    }
+  };
 
   return (
     <div className="pstat">
+      {archived ? (
+        <>
+          <div className="pwrap"><PmBadge status="archived" /></div>
+          <button type="button" className="btn" disabled={busy === 'busy'} onClick={() => run('unarchive')}>{busy === 'busy' ? <><span className="spin" />Unarchiving…</> : 'Unarchive'}</button>
+          {busy === 'err' && <p className="err-line" role="alert">✕ Couldn’t unarchive. Try again.</p>}
+        </>
+      ) : (
       <div className="pwrap">
         <button ref={btnRef} type="button" className="bbtn" aria-haspopup="dialog" aria-expanded={menu}
           aria-label={`Project status: ${p.status ? STATUS_LABEL[p.status] : 'Status not set'}. Change status`} onClick={() => (menu ? closeMenu() : setMenu(true))}>
           <PmBadge status={p.status} level={age?.level} ageDays={age?.days} /><IcChev />
         </button>
       </div>
+      )}
       {menu && !mobile && (
         <div ref={menuRef} className="pop menu smenu" role="dialog" aria-label="Set project status">
-          <StatusForm project={p} onDone={saved} onCancel={closeMenu} />
+          <StatusForm project={p} onDone={saved} onCancel={closeMenu} onArchive={() => { closeMenu(); setConfirm(true); }} />
         </div>
       )}
       {menu && mobile && (
         <Sheet label="Set project status" onClose={() => setMenu(false)} initialFocus={checkedRadio} restoreFocus={() => btnRef.current}>
-          <div className="sheetb"><StatusForm project={p} onDone={saved} onCancel={closeMenu} /></div>
+          <div className="sheetb"><StatusForm project={p} onDone={saved} onCancel={closeMenu} onArchive={() => { setMenu(false); setConfirm(true); }} /></div>
         </Sheet>
+      )}
+      {confirm && (
+        <ConfirmSheet message={archiveMessage(p.name)} confirmLabel="Archive" busy={busy === 'busy'} error={busy === 'err' ? 'Couldn’t archive. Try again.' : null}
+          onConfirm={() => run('archive')} onCancel={() => { setConfirm(false); setBusy('idle'); }} restoreFocus={() => btnRef.current} />
       )}
       <div className="txt">
         {p.status && p.status_set_at ? (
@@ -104,14 +128,14 @@ const firstRadio = (root: ParentNode | null) => root?.querySelector<HTMLElement>
 const NOTE_MAX = 280;
 
 /** "Janice's note", "Your note" (Tilen set it), "William's note". */
-function noteOwner(p: BoardProject): string {
+function noteOwner(p: StatusSubject): string {
   if (p.status_set_by === 'tilen') return 'Your note';
   const who = firstName(p.status_set_by === p.pm_agent_id ? (p.pm_name ?? p.status_set_by_name) : p.status_set_by_name);
   return who ? `${who}’s note` : 'Current note';
 }
 
 /** Tilen's override: logged as set_by=tilen, source=ui (PATCH /projects/{slug}/status). */
-function StatusForm({ project: p, onDone, onCancel }: { project: BoardProject; onDone: () => void; onCancel: () => void }) {
+export function StatusForm({ project: p, onDone, onCancel, onArchive }: { project: StatusSubject; onDone: () => void; onCancel: () => void; onArchive: () => void }) {
   const [status, setStatus] = useState<PmStatus | null>(p.status);
   const [note, setNote] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'err'>('idle');
@@ -138,14 +162,13 @@ function StatusForm({ project: p, onDone, onCancel }: { project: BoardProject; o
       <fieldset className="sfs">
         <legend>Set project status</legend>
         <div className="opts col1">
-          {(['smooth', 'waiting', 'archived'] as PmStatus[]).map((s) => (
-            <label key={s} className={`opt${s === 'archived' ? ' arch' : ''}`}>
-              <input type="radio" name="pst" checked={status === s} onChange={() => setStatus(s)} aria-describedby={s === 'archived' && status === 'archived' ? 'pst-arch' : undefined} />
+          {(['smooth', 'waiting'] as PmStatus[]).map((s) => (
+            <label key={s} className="opt">
+              <input type="radio" name="pst" checked={status === s} onChange={() => setStatus(s)} />
               {STATUS_LABEL[s]}
             </label>
           ))}
         </div>
-        {status === 'archived' && <p className="hint" id="pst-arch">Hides the project from the portfolio. You can undo it in History.</p>}
       </fieldset>
       <div className="other">
         <label className="flabel" htmlFor="pst-note">Note (optional)</label>
@@ -158,6 +181,7 @@ function StatusForm({ project: p, onDone, onCancel }: { project: BoardProject; o
         <button className="btn" type="submit" disabled={!dirty || state === 'busy'}>{state === 'busy' ? <><span className="spin" />Saving…</> : 'Save status'}</button>
         <button className="abtn" type="button" onClick={onCancel}>Cancel</button>
       </div>
+      <div className="arow"><button className="lnk dng" type="button" onClick={onArchive}>Archive project</button></div>
       <p className="hint">Saved as set by you. {pm ? `${pm} sees` : 'The PM sees'} it in History.</p>
       {state === 'err' && <p className="err-line" role="alert">✕ Couldn’t save the status. Your note is kept.</p>}
     </form>

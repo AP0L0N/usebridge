@@ -14,6 +14,7 @@ use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\TicketView;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -82,18 +83,29 @@ class ProjectController extends Controller
         return back(303);
     }
 
-    public function archive(string $slug): RedirectResponse
+    /** Tilen's archive/unarchive (UI only): logged in project_status_events as tilen/human/ui, nothing is deleted. */
+    public function archive(Request $request, ProjectStatusService $status, string $slug): JsonResponse|RedirectResponse
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
-        $project->update(['archived_at' => $project->archived_at ?? Carbon::now(), 'reopened_at' => null]);
+        $status->archive($project, Actor::tilen());
 
-        return back();
+        return $this->archiveResponse($request, $status, $project);
     }
 
-    public function unarchive(string $slug): RedirectResponse
+    public function unarchive(Request $request, ProjectStatusService $status, string $slug): JsonResponse|RedirectResponse
     {
-        Project::query()->where('slug', $slug)->firstOrFail()->update(['archived_at' => null]);
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        $status->unarchive($project, Actor::tilen());
 
-        return back();
+        return $this->archiveResponse($request, $status, $project);
+    }
+
+    private function archiveResponse(Request $request, ProjectStatusService $status, Project $project): JsonResponse|RedirectResponse
+    {
+        if (! $request->expectsJson()) {
+            return back(303);
+        }
+
+        return response()->json(['data' => ['project_id' => $project->id, 'current' => $status->current($project->fresh(), new TicketView)]]);
     }
 }

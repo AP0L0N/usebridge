@@ -1,11 +1,12 @@
-import { Head, Link } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { Highlight } from '../Components/Highlight';
 import { IconInbox, IconSearch } from '../Components/Icons';
-import { IcWait, PmBadge } from '../Components/Kanban/Bits';
+import { ConfirmSheet, IcMore, IcWait, MOBILE, PmBadge, Sheet, refocus, useDismiss, useMedia } from '../Components/Kanban/Bits';
+import { StatusForm } from '../Components/Kanban/StatusBlock';
 import { updateTime } from '../lib/dates';
-import { firstName, type ColumnKey, type PortfolioProject } from '../lib/kanban';
+import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 
 type Props = { projects: PortfolioProject[]; now: string };
 
@@ -30,6 +31,7 @@ function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
   const total = counts.reduce((s, c) => s + c.n, 0);
   const archived = p.archived || p.pmStatus === 'archived';
   return (
+    <div className="pcw">
     <Link className={`pc ${rule(p)}`} href={`/projects/${p.slug}`}>
       <div className="pcb">
         <div className="pctop">
@@ -63,6 +65,61 @@ function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
         <span>Last activity <time dateTime={p.lastActivityAt ?? undefined}>{updateTime(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—'}</time></span>
       </div>
     </Link>
+    <CardMenu p={p} archived={archived} />
+    </div>
+  );
+}
+
+const subject = (p: PortfolioProject, archived: boolean): StatusSubject => ({
+  name: p.name, slug: p.slug, status: p.pmStatus, status_note: p.pmStatusNote, status_set_by: p.pmStatusSetBy, status_set_by_name: p.pmStatusSetByName,
+  status_set_at: p.pmStatusSetAt, pm_agent_id: p.pmAgentId, pm_name: p.pmName, archived,
+});
+
+/** The card's "⋯" menu: the same status form as the board header (+ Archive), or Unarchive on an archived card. */
+function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
+  const mobile = useMedia(MOBILE);
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState<'idle' | 'busy' | 'err'>('idle');
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => { setOpen(false); refocus(btnRef.current); }, []);
+  useDismiss([btnRef, popRef], open && !mobile, close);
+  const reload = () => router.reload({ only: ['projects'], async: true } as never);
+  const run = async (action: 'archive' | 'unarchive') => {
+    setBusy('busy');
+    try {
+      await send('POST', `/projects/${p.slug}/${action}`);
+      setBusy('idle'); setConfirm(false); setOpen(false); reload();
+    } catch {
+      setBusy('err');
+    }
+  };
+  const sub = subject(p, archived);
+  const body = archived ? (
+    <div className="sform">
+      <p className="hint">{p.name} is archived. Nothing is deleted.</p>
+      <div className="qact">
+        <button className="btn" type="button" disabled={busy === 'busy'} onClick={() => run('unarchive')}>{busy === 'busy' ? <><span className="spin" />Unarchiving…</> : 'Unarchive'}</button>
+        <button className="abtn" type="button" onClick={close}>Cancel</button>
+      </div>
+      {busy === 'err' && <p className="err-line" role="alert">✕ Couldn’t unarchive. Try again.</p>}
+    </div>
+  ) : (
+    <StatusForm project={sub} onDone={() => { close(); reload(); }} onCancel={close} onArchive={() => { setOpen(false); setConfirm(true); }} />
+  );
+  return (
+    <>
+      <div className="pcm">
+        <button ref={btnRef} type="button" className="pcmb" aria-haspopup="dialog" aria-expanded={open} aria-label={`${p.name}: project actions`} onClick={() => (open ? close() : setOpen(true))}><IcMore /></button>
+      </div>
+      {open && !mobile && <div ref={popRef} className="pop menu smenu pcpop" role="dialog" aria-label={archived ? 'Archived project' : 'Set project status'}>{body}</div>}
+      {open && mobile && <Sheet label={archived ? 'Archived project' : 'Set project status'} onClose={() => setOpen(false)} restoreFocus={() => btnRef.current}><div className="sheetb">{body}</div></Sheet>}
+      {confirm && (
+        <ConfirmSheet message={archiveMessage(p.name)} confirmLabel="Archive" busy={busy === 'busy'} error={busy === 'err' ? 'Couldn’t archive. Try again.' : null}
+          onConfirm={() => run('archive')} onCancel={() => { setConfirm(false); setBusy('idle'); }} restoreFocus={() => btnRef.current} />
+      )}
+    </>
   );
 }
 

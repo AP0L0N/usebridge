@@ -162,6 +162,25 @@ export function Sheet({ label, onClose, children, className = '', initialFocus, 
   );
 }
 
+/** Confirm dialog on the existing Sheet (scrim, focus trap, Esc/scrim = cancel). `message` is the question, shown verbatim. */
+export function ConfirmSheet({ message, confirmLabel, busy = false, error, onConfirm, onCancel, restoreFocus }: {
+  message: string; confirmLabel: string; busy?: boolean; error?: string | null; onConfirm: () => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  return (
+    <Sheet label={message} className="cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
+      <h3>{message}</h3>
+      <div className="sheetb">
+        <div className="qact">
+          <button className="btn" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />Working…</> : confirmLabel}</button>
+          <button ref={cancelRef} className="abtn" type="button" onClick={onCancel}>Cancel</button>
+        </div>
+        {error && <p className="err-line" role="alert">✕ {error}</p>}
+      </div>
+    </Sheet>
+  );
+}
+
 // ---------------------------------------------------------------- toasts
 
 export type Toast = { id: number; body: ReactNode; tone?: 'dark' | 'err'; action?: { label: string; run: () => void }; ms?: number; icon?: ReactNode };
