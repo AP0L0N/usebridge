@@ -17,7 +17,7 @@ class NextStep extends Model
 
     protected function casts(): array
     {
-        return ['done_at' => 'datetime', 'position' => 'integer'];
+        return ['done_at' => 'datetime', 'position' => 'integer', 'superseded_at' => 'datetime'];
     }
 
     public function project(): BelongsTo

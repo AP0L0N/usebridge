@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -50,21 +51,23 @@ class GateAndPagesTest extends TestCase
     #[Test]
     public function project_view_renders_and_old_screens_redirect(): void
     {
-        \Illuminate\Support\Carbon::setTestNow('2026-09-10 12:00:00'); // seeded update falls inside the 7-day timeline
+        Carbon::setTestNow('2026-09-10 12:00:00'); // seeded update falls inside the 7-day timeline
         $this->withSession(['bridge_gate_unlocked' => true]);
 
         $this->get(route('projects.show', 'concierge-avant'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Project')
-                ->where('project.status', 'waiting')
-                ->has('openInputs', 1)
-                ->has('statusUpdates', 1));
+                ->component('Board')
+                ->where('board.project.slug', 'concierge-avant')
+                ->has('board.columns', 6)
+                ->where('ticket', null)
+                ->missing('openInputs')
+                ->missing('statusUpdates'));
 
         foreach (['/ops', '/agents', '/queue'] as $old) {
             $this->get($old)->assertRedirect('/');
         }
-        \Illuminate\Support\Carbon::setTestNow();
+        Carbon::setTestNow();
     }
 
     #[Test]

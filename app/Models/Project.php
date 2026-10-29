@@ -2,24 +2,62 @@
 
 namespace App\Models;
 
+use App\Support\TicketPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Project extends Model
 {
+    /** PM-set status (PATCH /api/projects/{id}/status); null = "Status not set". */
+    public const STATUSES = ['smooth', 'waiting', 'archived'];
+
+    public const STATUS_LABELS = ['smooth' => 'Smooth sailing', 'waiting' => 'Waiting input', 'archived' => 'Archived'];
+
     public $incrementing = false;
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'name', 'slug', 'owner_agent_id', 'archived_at', 'reopened_at'];
+    protected $fillable = [
+        'id', 'name', 'slug', 'owner_agent_id', 'archived_at', 'reopened_at',
+        'ticket_prefix', 'status', 'status_note', 'status_set_by', 'status_set_at', 'last_activity_at',
+    ];
 
     protected function casts(): array
     {
         return [
             'archived_at' => 'datetime',
             'reopened_at' => 'datetime',
+            'ticket_seq' => 'integer',
+            'status_set_at' => 'datetime',
+            'last_activity_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Every new project gets a unique ticket key prefix (same generator as the tickets migration).
+        static::creating(function (Project $project) {
+            if (blank($project->ticket_prefix)) {
+                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+            }
+        });
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null || $this->status === 'archived';
+    }
+
+    public static function statusLabel(?string $status): string
+    {
+        return self::STATUS_LABELS[$status] ?? 'Status not set';
+    }
+
+    /** Denormalised "last activity" for the portfolio: bumped by every ticket, comment and status write. */
+    public static function touchActivity(string $projectId): void
+    {
+        static::query()->whereKey($projectId)->toBase()->update(['last_activity_at' => now()]);
     }
 
     public function owner(): BelongsTo
@@ -40,5 +78,20 @@ class Project extends Model
     public function nextSteps(): HasMany
     {
         return $this->hasMany(NextStep::class);
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(Question::class);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    public function statusEvents(): HasMany
+    {
+        return $this->hasMany(ProjectStatusEvent::class);
     }
 }

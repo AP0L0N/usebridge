@@ -49,3 +49,13 @@ export function shortDay(iso: string | null, nowIso: string): string {
   const y = parts(now).y === p.y ? '' : ` ${p.y}`;
   return `${p.wd} ${+p.d} ${p.mon}${y}`;
 }
+
+/** Kanban "Last activity" on portfolio cards: 07:58 (today) · Yesterday · Wed 21 Oct (year added when not current). */
+export function activityDay(iso: string | null, nowIso: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso), now = new Date(nowIso), diff = dayDiff(d, now), p = parts(d);
+  if (diff <= 0) return `${p.hh}:${p.mm}`;
+  if (diff === 1) return 'Yesterday';
+  const y = parts(now).y === p.y ? '' : ` ${p.y}`;
+  return `${p.wd} ${+p.d} ${p.mon}${y}`;
+}

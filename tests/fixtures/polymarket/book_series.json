@@ -1,0 +1,770 @@
+[
+ {
+  "as_of": "2026-10-03T16:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-03-1605.json"
+ },
+ {
+  "as_of": "2026-10-03T18:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-03-1805.json"
+ },
+ {
+  "as_of": "2026-10-04T08:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-0805.json"
+ },
+ {
+  "as_of": "2026-10-04T10:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-1005.json"
+ },
+ {
+  "as_of": "2026-10-04T12:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-1205.json"
+ },
+ {
+  "as_of": "2026-10-04T14:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-1405.json"
+ },
+ {
+  "as_of": "2026-10-04T16:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-1605.json"
+ },
+ {
+  "as_of": "2026-10-04T18:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-04-1805.json"
+ },
+ {
+  "as_of": "2026-10-05T08:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-0805.json"
+ },
+ {
+  "as_of": "2026-10-05T10:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-1005.json"
+ },
+ {
+  "as_of": "2026-10-05T12:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-1205.json"
+ },
+ {
+  "as_of": "2026-10-05T14:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-1405.json"
+ },
+ {
+  "as_of": "2026-10-05T16:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-1605.json"
+ },
+ {
+  "as_of": "2026-10-05T18:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-05-1805.json"
+ },
+ {
+  "as_of": "2026-10-06T08:05+02:00",
+  "book_value_usd": 635.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-0805.json"
+ },
+ {
+  "as_of": "2026-10-06T10:05+02:00",
+  "book_value_usd": 629.84,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-1005.json"
+ },
+ {
+  "as_of": "2026-10-06T12:05+02:00",
+  "book_value_usd": 624.2,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-1205.json"
+ },
+ {
+  "as_of": "2026-10-06T14:05+02:00",
+  "book_value_usd": 615.03,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-1405.json"
+ },
+ {
+  "as_of": "2026-10-06T16:05+02:00",
+  "book_value_usd": 607.19,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-1605.json"
+ },
+ {
+  "as_of": "2026-10-06T18:17+02:00",
+  "book_value_usd": 603.23,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-06-1817.json"
+ },
+ {
+  "as_of": "2026-10-07T12:07+02:00",
+  "book_value_usd": 653.62,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-07-1207.json"
+ },
+ {
+  "as_of": "2026-10-07T14:06+02:00",
+  "book_value_usd": 649.1,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-07-1406.json"
+ },
+ {
+  "as_of": "2026-10-07T16:24+02:00",
+  "book_value_usd": 647.2,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-07-1624.json"
+ },
+ {
+  "as_of": "2026-10-07T18:20+02:00",
+  "book_value_usd": 650.08,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-07-1820.json"
+ },
+ {
+  "as_of": "2026-10-08T08:13+02:00",
+  "book_value_usd": 695.87,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-08-0813.json"
+ },
+ {
+  "as_of": "2026-10-08T10:11+02:00",
+  "book_value_usd": 703.0,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-08-1011.json"
+ },
+ {
+  "as_of": "2026-10-08T12:05+02:00",
+  "book_value_usd": 687.24,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-08-1205.json"
+ },
+ {
+  "as_of": "2026-10-08T14:12+02:00",
+  "book_value_usd": 688.38,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-08-1412.json"
+ },
+ {
+  "as_of": "2026-10-09T08:10+02:00",
+  "book_value_usd": 676.7,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-0810.json"
+ },
+ {
+  "as_of": "2026-10-09T10:17+02:00",
+  "book_value_usd": 685.07,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-1017.json"
+ },
+ {
+  "as_of": "2026-10-09T12:08+02:00",
+  "book_value_usd": 688.13,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-1208.json"
+ },
+ {
+  "as_of": "2026-10-09T14:28+02:00",
+  "book_value_usd": 686.29,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-1428.json"
+ },
+ {
+  "as_of": "2026-10-09T16:33+02:00",
+  "book_value_usd": 687.96,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-1633.json"
+ },
+ {
+  "as_of": "2026-10-09T18:33+02:00",
+  "book_value_usd": 691.19,
+  "cash_usd": 2.06,
+  "source": "odds-desk-2026-10-09-1833.json"
+ },
+ {
+  "as_of": "2026-10-10T10:08+02:00",
+  "book_value_usd": 886.51,
+  "cash_usd": 207.61,
+  "source": "odds-desk-2026-10-10-1008.json"
+ },
+ {
+  "as_of": "2026-10-10T12:12+02:00",
+  "book_value_usd": 855.93,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-10-1212.json"
+ },
+ {
+  "as_of": "2026-10-10T14:10+02:00",
+  "book_value_usd": 854.4,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-10-1410.json"
+ },
+ {
+  "as_of": "2026-10-10T16:13+02:00",
+  "book_value_usd": 853.73,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-10-1613.json"
+ },
+ {
+  "as_of": "2026-10-10T18:13+02:00",
+  "book_value_usd": 850.59,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-10-1813.json"
+ },
+ {
+  "as_of": "2026-10-11T08:06+02:00",
+  "book_value_usd": 856.3,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-11-0806.json"
+ },
+ {
+  "as_of": "2026-10-11T12:13+02:00",
+  "book_value_usd": 846.32,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-11-1213.json"
+ },
+ {
+  "as_of": "2026-10-11T14:13+02:00",
+  "book_value_usd": 845.43,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-11-1413.json"
+ },
+ {
+  "as_of": "2026-10-11T16:07+02:00",
+  "book_value_usd": 846.23,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-11-1607.json"
+ },
+ {
+  "as_of": "2026-10-11T18:12+02:00",
+  "book_value_usd": 855.42,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-11-1812.json"
+ },
+ {
+  "as_of": "2026-10-12T08:22+02:00",
+  "book_value_usd": 882.13,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-0822.json"
+ },
+ {
+  "as_of": "2026-10-12T10:16+02:00",
+  "book_value_usd": 883.38,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-1016.json"
+ },
+ {
+  "as_of": "2026-10-12T12:11+02:00",
+  "book_value_usd": 881.14,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-1211.json"
+ },
+ {
+  "as_of": "2026-10-12T14:24+02:00",
+  "book_value_usd": 874.77,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-1424.json"
+ },
+ {
+  "as_of": "2026-10-12T16:34+02:00",
+  "book_value_usd": 878.41,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-1634.json"
+ },
+ {
+  "as_of": "2026-10-12T18:31+02:00",
+  "book_value_usd": 879.5,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-12-1831.json"
+ },
+ {
+  "as_of": "2026-10-13T08:09+02:00",
+  "book_value_usd": 921.74,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-0809.json"
+ },
+ {
+  "as_of": "2026-10-13T10:10+02:00",
+  "book_value_usd": 930.55,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-1010.json"
+ },
+ {
+  "as_of": "2026-10-13T12:07+02:00",
+  "book_value_usd": 932.37,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-1207.json"
+ },
+ {
+  "as_of": "2026-10-13T14:12+02:00",
+  "book_value_usd": 930.6,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-1412.json"
+ },
+ {
+  "as_of": "2026-10-13T16:25+02:00",
+  "book_value_usd": 930.77,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-1625.json"
+ },
+ {
+  "as_of": "2026-10-13T18:23+02:00",
+  "book_value_usd": 932.7,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-13-1823.json"
+ },
+ {
+  "as_of": "2026-10-14T08:07+02:00",
+  "book_value_usd": 938.88,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-0807.json"
+ },
+ {
+  "as_of": "2026-10-14T10:14+02:00",
+  "book_value_usd": 939.11,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-1014.json"
+ },
+ {
+  "as_of": "2026-10-14T12:07+02:00",
+  "book_value_usd": 939.13,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-1207.json"
+ },
+ {
+  "as_of": "2026-10-14T14:06+02:00",
+  "book_value_usd": 938.36,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-1406.json"
+ },
+ {
+  "as_of": "2026-10-14T16:14+02:00",
+  "book_value_usd": 1019.34,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-1614.json"
+ },
+ {
+  "as_of": "2026-10-14T18:16+02:00",
+  "book_value_usd": 1004.67,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-14-1816.json"
+ },
+ {
+  "as_of": "2026-10-15T08:10+02:00",
+  "book_value_usd": 1001.19,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-15-0810.json"
+ },
+ {
+  "as_of": "2026-10-15T10:15+02:00",
+  "book_value_usd": 1002.1,
+  "cash_usd": 177.26,
+  "source": "odds-desk-2026-10-15-1015.json"
+ },
+ {
+  "as_of": "2026-10-15T12:15+02:00",
+  "book_value_usd": 832.49,
+  "cash_usd": 0.0,
+  "source": "odds-desk-2026-10-15-1215.json"
+ },
+ {
+  "as_of": "2026-10-15T14:09+02:00",
+  "book_value_usd": 831.89,
+  "cash_usd": 0.0,
+  "source": "odds-desk-2026-10-15-1409.json"
+ },
+ {
+  "as_of": "2026-10-15T16:22+02:00",
+  "book_value_usd": 831.71,
+  "cash_usd": 0.0,
+  "source": "odds-desk-2026-10-15-1622.json"
+ },
+ {
+  "as_of": "2026-10-15T18:15+02:00",
+  "book_value_usd": 831.51,
+  "cash_usd": 0.0,
+  "source": "odds-desk-2026-10-15-1815.json"
+ },
+ {
+  "as_of": "2026-10-16T08:05+02:00",
+  "book_value_usd": 782.42,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-16-0805.json"
+ },
+ {
+  "as_of": "2026-10-16T10:08+02:00",
+  "book_value_usd": 787.02,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-16-1008.json"
+ },
+ {
+  "as_of": "2026-10-16T12:16+02:00",
+  "book_value_usd": 786.16,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-16-1216.json"
+ },
+ {
+  "as_of": "2026-10-16T14:05+02:00",
+  "book_value_usd": 786.5,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-16-1405.json"
+ },
+ {
+  "as_of": "2026-10-16T16:10+02:00",
+  "book_value_usd": 784.39,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-16-1610.json"
+ },
+ {
+  "as_of": "2026-10-16T18:11+02:00",
+  "book_value_usd": 779.82,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-16-1811.json"
+ },
+ {
+  "as_of": "2026-10-17T08:13+02:00",
+  "book_value_usd": 789.63,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-0813.json"
+ },
+ {
+  "as_of": "2026-10-17T10:13+02:00",
+  "book_value_usd": 789.61,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-1013.json"
+ },
+ {
+  "as_of": "2026-10-17T12:06+02:00",
+  "book_value_usd": 789.52,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-1206.json"
+ },
+ {
+  "as_of": "2026-10-17T14:11+02:00",
+  "book_value_usd": 787.35,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-1411.json"
+ },
+ {
+  "as_of": "2026-10-17T16:12+02:00",
+  "book_value_usd": 786.88,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-1612.json"
+ },
+ {
+  "as_of": "2026-10-17T18:12+02:00",
+  "book_value_usd": 786.78,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-17-1812.json"
+ },
+ {
+  "as_of": "2026-10-18T08:10+02:00",
+  "book_value_usd": 779.19,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-0810.json"
+ },
+ {
+  "as_of": "2026-10-18T10:12+02:00",
+  "book_value_usd": 780.96,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-1012.json"
+ },
+ {
+  "as_of": "2026-10-18T12:10+02:00",
+  "book_value_usd": 768.16,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-1210.json"
+ },
+ {
+  "as_of": "2026-10-18T14:13+02:00",
+  "book_value_usd": 775.9,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-1413.json"
+ },
+ {
+  "as_of": "2026-10-18T16:13+02:00",
+  "book_value_usd": 774.32,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-1613.json"
+ },
+ {
+  "as_of": "2026-10-18T18:11+02:00",
+  "book_value_usd": 774.0,
+  "cash_usd": 270.48,
+  "source": "odds-desk-2026-10-18-1811.json"
+ },
+ {
+  "as_of": "2026-10-19T08:14+02:00",
+  "book_value_usd": 767.42,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-19-0814.json"
+ },
+ {
+  "as_of": "2026-10-19T10:11+02:00",
+  "book_value_usd": 777.22,
+  "cash_usd": 233.53,
+  "source": "odds-desk-2026-10-19-1011.json"
+ },
+ {
+  "as_of": "2026-10-19T12:12+02:00",
+  "book_value_usd": 774.8,
+  "cash_usd": 202.59,
+  "source": "odds-desk-2026-10-19-1212.json"
+ },
+ {
+  "as_of": "2026-10-19T14:10+02:00",
+  "book_value_usd": 762.24,
+  "cash_usd": 202.59,
+  "source": "odds-desk-2026-10-19-1410.json"
+ },
+ {
+  "as_of": "2026-10-19T16:15+02:00",
+  "book_value_usd": 779.83,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-19-1615.json"
+ },
+ {
+  "as_of": "2026-10-19T18:28+02:00",
+  "book_value_usd": 780.24,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-19-1828.json"
+ },
+ {
+  "as_of": "2026-10-20T08:07+02:00",
+  "book_value_usd": 668.47,
+  "cash_usd": null,
+  "source": "odds-desk-2026-10-20-0807.json"
+ },
+ {
+  "as_of": "2026-10-20T10:14+02:00",
+  "book_value_usd": 662.95,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-20-1014.json"
+ },
+ {
+  "as_of": "2026-10-20T12:10+02:00",
+  "book_value_usd": 663.0,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-20-1210.json"
+ },
+ {
+  "as_of": "2026-10-20T14:15+02:00",
+  "book_value_usd": 659.01,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-20-1415.json"
+ },
+ {
+  "as_of": "2026-10-20T16:12+02:00",
+  "book_value_usd": 653.09,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-20-1612.json"
+ },
+ {
+  "as_of": "2026-10-20T18:08+02:00",
+  "book_value_usd": 654.5,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-20-1808.json"
+ },
+ {
+  "as_of": "2026-10-21T08:11+02:00",
+  "book_value_usd": 656.36,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-0811.json"
+ },
+ {
+  "as_of": "2026-10-21T10:11+02:00",
+  "book_value_usd": 650.76,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-1011.json"
+ },
+ {
+  "as_of": "2026-10-21T12:06+02:00",
+  "book_value_usd": 650.94,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-1206.json"
+ },
+ {
+  "as_of": "2026-10-21T14:13+02:00",
+  "book_value_usd": 651.0,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-1413.json"
+ },
+ {
+  "as_of": "2026-10-21T16:10+02:00",
+  "book_value_usd": 649.44,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-1610.json"
+ },
+ {
+  "as_of": "2026-10-21T18:12+02:00",
+  "book_value_usd": 659.09,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-21-1812.json"
+ },
+ {
+  "as_of": "2026-10-22T08:07+02:00",
+  "book_value_usd": 646.18,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-0807.json"
+ },
+ {
+  "as_of": "2026-10-22T10:11+02:00",
+  "book_value_usd": 644.37,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-1011.json"
+ },
+ {
+  "as_of": "2026-10-22T12:13+02:00",
+  "book_value_usd": 643.74,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-1213.json"
+ },
+ {
+  "as_of": "2026-10-22T14:11+02:00",
+  "book_value_usd": 640.02,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-1411.json"
+ },
+ {
+  "as_of": "2026-10-22T16:15+02:00",
+  "book_value_usd": 630.35,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-1615.json"
+ },
+ {
+  "as_of": "2026-10-22T18:13+02:00",
+  "book_value_usd": 623.03,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-22-1813.json"
+ },
+ {
+  "as_of": "2026-10-23T08:06+02:00",
+  "book_value_usd": 608.89,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-0806.json"
+ },
+ {
+  "as_of": "2026-10-23T10:06+02:00",
+  "book_value_usd": 609.31,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-1006.json"
+ },
+ {
+  "as_of": "2026-10-23T12:10+02:00",
+  "book_value_usd": 611.21,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-1210.json"
+ },
+ {
+  "as_of": "2026-10-23T14:10+02:00",
+  "book_value_usd": 610.35,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-1410.json"
+ },
+ {
+  "as_of": "2026-10-23T16:17+02:00",
+  "book_value_usd": 615.42,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-1617.json"
+ },
+ {
+  "as_of": "2026-10-23T18:12+02:00",
+  "book_value_usd": 611.36,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-23-1812.json"
+ },
+ {
+  "as_of": "2026-10-24T08:05+02:00",
+  "book_value_usd": 608.16,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-0805.json"
+ },
+ {
+  "as_of": "2026-10-24T10:06+02:00",
+  "book_value_usd": 608.66,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-1006.json"
+ },
+ {
+  "as_of": "2026-10-24T12:12+02:00",
+  "book_value_usd": 604.62,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-1212.json"
+ },
+ {
+  "as_of": "2026-10-24T14:08+02:00",
+  "book_value_usd": 602.84,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-1408.json"
+ },
+ {
+  "as_of": "2026-10-24T16:11+02:00",
+  "book_value_usd": 601.79,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-1611.json"
+ },
+ {
+  "as_of": "2026-10-24T18:13+02:00",
+  "book_value_usd": 601.79,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-24-1813.json"
+ },
+ {
+  "as_of": "2026-10-25T08:10+01:00",
+  "book_value_usd": 604.26,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-0810.json"
+ },
+ {
+  "as_of": "2026-10-25T10:12+01:00",
+  "book_value_usd": 622.81,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-1012.json"
+ },
+ {
+  "as_of": "2026-10-25T12:13+01:00",
+  "book_value_usd": 635.76,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-1213.json"
+ },
+ {
+  "as_of": "2026-10-25T14:08+01:00",
+  "book_value_usd": 641.04,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-1408.json"
+ },
+ {
+  "as_of": "2026-10-25T16:06+01:00",
+  "book_value_usd": 663.09,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-1606.json"
+ },
+ {
+  "as_of": "2026-10-25T18:13+01:00",
+  "book_value_usd": 638.79,
+  "cash_usd": 162.9,
+  "source": "odds-desk-2026-10-25-1813.json"
+ }
+]

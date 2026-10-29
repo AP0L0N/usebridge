@@ -7,11 +7,11 @@ use App\Models\RequiredInput;
 use App\Models\User;
 use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
-use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -64,9 +64,9 @@ class BridgeR2InputTickTest extends TestCase
         $this->assertNull($a->resolved_by);
         $this->assertSame(3, $this->derived()['level']);
 
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p
-            ->where('project.status', 'waiting')->has('openInputs', 1)->has('doneInputs', 2)
-            ->where('doneInputs.0.resolvedByLabel', 'Tilen'));
+        // Kanban: the project page is the board; the legacy inputs are no longer props (their rows are kept).
+        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openInputs')->missing('doneInputs'));
+        $this->assertSame(1, RequiredInput::query()->where('project_id', 'proj-merkwell')->whereNull('resolved_at')->count());
     }
 
     #[Test]
@@ -83,7 +83,7 @@ class BridgeR2InputTickTest extends TestCase
     #[Test]
     public function ui_route_is_csrf_protected(): void
     {
-        $this->assertContains(PreventRequestForgery::class, app(\Illuminate\Contracts\Http\Kernel::class)->getMiddlewareGroups()['web']);
+        $this->assertContains(PreventRequestForgery::class, app(Kernel::class)->getMiddlewareGroups()['web']);
         // Laravel skips CSRF in unit tests; enforce it for this test.
         $this->app->bind(PreventRequestForgery::class, fn ($app) => new class($app, $app['encrypter']) extends PreventRequestForgery
         {

@@ -21,7 +21,7 @@ export default function Gate() {
 
   return (
     <>
-      <TopBar />
+      <TopBar nav={false} />
       <main className="gate">
         <form onSubmit={onSubmit}>
           <h1>Workspace gate</h1>

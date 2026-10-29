@@ -21,6 +21,8 @@ Primary nav: Portfolio · Ops · Agents · Queue. Project cockpits are reached f
 
 ## REST API (Sanctum)
 
+**Tickets (Kanban) API for PM agents: see [docs/API-TICKETS.md](docs/API-TICKETS.md).**
+
 Bearer token auth on `/api/*`. CEO personal access token is created by `BridgeApiSeeder` and written to `.bridge-deploy-secrets` as `BRIDGE_API_TOKEN` (plaintext once; never commit/print).
 
 ```
