@@ -48,8 +48,9 @@ async function shot(p, name, { full = true, dialog = false } = {}) {
   results[name] = r; console.log(name, JSON.stringify(r));
 }
 const want = (n) => !only.length || only.some((o) => n.startsWith(o));
-for (const [w, h] of [[1440, 1000], [390, 844]]) {
-  const m = w < 500;
+const SIZES = process.env.SHOOT_WIDTHS ? process.env.SHOOT_WIDTHS.split(',').map((w) => [+w, +w < 500 ? 844 : 1000]) : [[1440, 1000], [390, 844]];
+for (const [w, h] of SIZES) {
+  const m = w <= 720; // the one mobile breakpoint
   reseed();
   const { ctx, p } = await ctxFor(w, h);
   if (want('portfolio')) { await p.goto(BASE + '/?archived=1'); await shot(p, `portfolio-${w}`); }

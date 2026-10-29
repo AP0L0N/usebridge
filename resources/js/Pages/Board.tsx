@@ -469,7 +469,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
             {visible.map((c) => (
               <button key={c.key} id={`tab-${c.key}`} role="tab" type="button" className={c.key === WAITING ? 'wt' : ''} aria-selected={c.key === tab}
                 aria-controls={`col-${c.key}`} tabIndex={c.key === tab ? 0 : -1} onClick={() => setTab(c.key)} onKeyDown={tabKey}>
-                {c.label}<span className={`cnt${c.tickets.length === 0 ? ' zero' : ''}`}>{c.tickets.length}</span>
+                {c.label}<span className={`cnt${c.tickets.length === 0 ? ' is0' : ''}`}>{c.tickets.length}</span>
               </button>
             ))}
           </div>

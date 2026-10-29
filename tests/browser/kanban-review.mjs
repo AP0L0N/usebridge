@@ -80,6 +80,11 @@ try {
       ok(tab.sel === 'tab-in_progress', `${tag} filter change jumps to the first tab with matches (${tab.sel})`);
       ok(tab.badge === '1' && tab.badgeShown, `${tag} count badge on the icon-only filter button`);
       ok(tab.zero === 'rgb(107, 111, 120)', `${tag} 0 counts in tabs use --ink3`);
+      const pills = await p.evaluate(() => {
+        const z = document.querySelector('.ctabs .cnt.is0'), n = document.querySelector('.ctabs .cnt:not(.is0)');
+        return { z: z?.getBoundingClientRect().top, n: n?.getBoundingClientRect().top, mz: z && getComputedStyle(z).marginBottom };
+      });
+      ok(pills.z != null && pills.n != null && Math.abs(pills.z - pills.n) < 1 && pills.mz === '0px', `${tag} zero count pill sits inline with the other counts (${JSON.stringify(pills)})`);
       await openFilter();
     }
     await p.getByLabel('New replies for you').uncheck();
@@ -205,7 +210,12 @@ try {
       return { sheet: s?.getAttribute('aria-label') ?? null, popover: !!document.querySelector('.fmenu'), right: s ? s.getBoundingClientRect().right : 0, vw };
     });
     ok(r.sheet === 'Filter tickets' && !r.popover && r.right <= r.vw, `[700] filters open as the "Filter tickets" sheet, not a popover (${JSON.stringify(r)})`);
-    await p.keyboard.press('Escape'); await p.waitForTimeout(150);
+    await p.getByLabel('New replies for you').check(); await p.click('.ffoot .btn'); await p.waitForTimeout(250);
+    const pills = await p.evaluate(() => {
+      const z = document.querySelector('.ctabs .cnt.is0'), n = document.querySelector('.ctabs .cnt:not(.is0)');
+      return { z: z?.getBoundingClientRect().top, n: n?.getBoundingClientRect().top };
+    });
+    ok(pills.z != null && pills.n != null && Math.abs(pills.z - pills.n) < 1, `[700] zero count pill sits inline with the other counts (${JSON.stringify(pills)})`);
     await p.click('.bbtn'); await p.waitForTimeout(250);
     ok(await p.evaluate(() => !!document.querySelector('.sheet .sform, .sheet [aria-label="Set project status"]') || document.querySelector('.sheet')?.textContent.includes('Save status')), `[700] status menu opens as a sheet`);
     await ctx.close();

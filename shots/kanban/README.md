@@ -31,7 +31,7 @@ The real clock was Thu 29 Oct 2026, about 09:00 CET, the same day as the mocks, 
 | `states-status-menu-1440/390.png` | Tommy review a | Status menu: under the whole status card on desktop, a sheet on mobile. The checked radio has focus, the note is empty with "Janice’s note: …" above it, and Save is disabled (viewport) |
 | `states-status-error-1440/390.png` | Tommy review a7 | Save fails (500 injected in the browser): "✕ Couldn’t save the status. Your note is kept.", and the form stays open with the note (viewport) |
 | `states-filter-1440/390.png` | Tommy review b | Filters: a popover under Filter on desktop, the "Filter tickets" sheet at 390. Assignee has focus (viewport) |
-| `states-filter-result-1440/390.png` | Tommy review b4/b5 | "New replies for you" on: only CA-118 is left. At 390 the board jumps to In progress, empty tabs show a grey 0 and the icon-only Filter button shows a count badge |
+| `states-filter-result-1440/680/390.png` | Tommy review b4/b5 | "New replies for you" on: only CA-118 is left. At 390 the board jumps to In progress, empty tabs show a grey 0 inline with the other counts (`.cnt.is0`; it used to match the global `.zero` from usage.css and float up, Tommy 29 Oct) and the icon-only Filter button shows a count badge |
 | `states-move-undo-390.png` | — (SPEC §4) | After a Move-sheet move: the toast with Undo (viewport) |
 | `states-move-error-1440.png` | — (SPEC §4) | A move whose request fails (500 injected in the browser): the card is back in Backlog, error toast "Couldn’t move CA-133. Try again." (viewport) |
 | `states-input-sent-1440/390.png` | `states-*` §5 | After "Send to Janice": SENT box, and the Tilen's-input bubble with the amber ack line |
@@ -50,7 +50,7 @@ Added for this round: **Overlay edge**, meaning no element inside a sheet, popov
 | `states-status-menu-1440/390` | 0 | none | none | loaded | none |
 | `states-status-error-1440/390` | 0 | none | none | loaded | none |
 | `states-filter-1440/390` | 0 | none | none | loaded | none |
-| `states-filter-result-1440/390` | 0 | none | none | loaded | none |
+| `states-filter-result-1440/680/390` | 0 | none | none | loaded | none |
 | `states-ask-1440/390`, `states-ask-error-1440/390` | 0 | none | none | loaded | none |
 | `states-move-sheet-390`, `states-move-undo-390`, `states-move-error-1440` | 0 | none | none | loaded | none |
 | `board-1440/390`, `states-toast-*`, `states-history-*`, `states-drag-1440`, `states-keyboard-1440`, `ticket-*`, `states-input-sent-*`, `states-new-divider-*`, `portfolio-*` | 0 | none | none | loaded | none |

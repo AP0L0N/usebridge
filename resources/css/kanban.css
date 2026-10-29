@@ -417,9 +417,9 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .sheet .sform .qact{flex-direction:column;align-items:stretch}
   .sheet .sform .qact .btn,.sheet .sform .qact .abtn{width:100%;justify-content:center;min-height:48px}
   .fbtn .cnt{display:none}
-  .ctabs button .cnt.zero{color:var(--ink3)}
-  .ctabs button[aria-selected=true] .cnt.zero{color:#ffffffb3}
-  .ctabs button.wt .cnt.zero{background:var(--arch-bg);color:var(--ink3)}
+  .ctabs button .cnt.is0{color:var(--ink3)}
+  .ctabs button[aria-selected=true] .cnt.is0{color:#ffffffb3}
+  .ctabs button.wt .cnt.is0{background:var(--arch-bg);color:var(--ink3)}
   @media (max-width:720px){
     .fbtn .cnt{display:inline-block;font-size:13px;font-weight:700;line-height:1.4;background:var(--accent);color:#fff;border-radius:99px;padding:1px 8px}
     .btools .fbtn{gap:6px}
