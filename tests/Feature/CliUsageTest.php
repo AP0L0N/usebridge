@@ -10,6 +10,7 @@ use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
 use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageReport;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -116,10 +117,10 @@ class CliUsageTest extends TestCase
             'generated_at without offset' => [fn (array $d) => ['generated_at' => '2026-10-25T06:00:00'] + $d, 'generated_at'],
             'tools not a list' => [fn (array $d) => ['tools' => ['a' => 1]] + $d, 'tools'],
             'unknown row key' => [function (array $d) {
-                $d['tools'][0]['model'] = 'x';
+                $d['tools'][0]['cost_usd'] = 1;
 
                 return $d;
-            }, 'tools.0.model'],
+            }, 'tools.0.cost_usd'],
             'missing row key' => [function (array $d) {
                 unset($d['tools'][1]['calls']);
 
@@ -417,7 +418,7 @@ class CliUsageTest extends TestCase
             ->where('cli.coverageFromLabel', 'Fri 23 Oct')
             ->where('cli.daysWithRows', 2)
             ->where('cli.total', self::D23_TOTAL + self::D24_TOTAL)
-            ->has('cli.tools', 2)
+            ->has('cli.tools', 3)
             ->where('cli.tools.0.tool', 'claude_code')
             ->where('cli.tools.0.name', 'Claude Code')
             ->where('cli.tools.0.color', UsageReport::TOOL_COLORS['claude_code'])
@@ -426,6 +427,11 @@ class CliUsageTest extends TestCase
             ->where('cli.tools.1.tool', 'kimi_code')
             ->where('cli.tools.1.calls', 0)
             ->where('cli.tools.1.total', 0)
+            ->where('cli.tools.1.models', [])
+            ->where('cli.tools.2.tool', 'opencode_go')
+            ->where('cli.tools.2.name', 'OpenCode Go')
+            ->where('cli.tools.2.color', UsageReport::TOOL_COLORS['opencode_go'])
+            ->where('cli.tools.2.calls', 0)
             ->has('cli.series', 1)
             ->where('cli.series.0.agentId', 'claude_code')
             ->has('cli.days', 7)
@@ -451,7 +457,10 @@ class CliUsageTest extends TestCase
 
         $tools = $this->get('/usage')->viewData('page')['props']['cli']['tools'][0];
         $this->assertSame($tools['input'] + $tools['output'] + $tools['cacheRead'] + $tools['cacheCreation'], $tools['total']);
-        $this->assertSame(['tool', 'name', 'color', 'input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls', 'days'], array_keys($tools));
+        $this->assertSame(['tool', 'name', 'color', 'input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls', 'days', 'models'], array_keys($tools));
+        // legacy rows (no model in the files): one "not recorded" model carrying the whole tool
+        $this->assertSame([['model' => null, 'label' => 'model not recorded', 'input' => $tools['input'], 'output' => $tools['output'],
+            'cacheRead' => $tools['cacheRead'], 'cacheCreation' => $tools['cacheCreation'], 'total' => $tools['total'], 'calls' => $tools['calls'], 'days' => 2]], $tools['models']);
     }
 
     #[Test]
@@ -524,5 +533,213 @@ class CliUsageTest extends TestCase
             ->where('cli.table', [])
             ->has('cli.days', 7)
             ->where('cli.days.0.present', false));
+    }
+
+    // ---- models -------------------------------------------------------------------------------
+
+    private static function mrow(string $tool, string $agentId, string $name, mixed $model, int $input, int $output, int $cacheRead, int $cacheCreation, int $calls): array
+    {
+        return array_slice(self::row($tool, $agentId, $name, $input, $output, $cacheRead, $cacheCreation, $calls), 0, 3, true)
+            + ['model' => $model]
+            + array_slice(self::row($tool, $agentId, $name, $input, $output, $cacheRead, $cacheCreation, $calls), 3, null, true);
+    }
+
+    /** 2026-10-20: Xerxes on two Claude models + one unrecorded, Shodan on Kimi, OpenCode Go on two GLM models. */
+    private static function modelDay(string $date = '2026-10-20'): array
+    {
+        return self::synthetic($date, [
+            self::mrow('claude_code', self::XERXES, 'Xerxes', 'claude-opus-5-5', 10, 20, 300, 40, 3),
+            self::mrow('claude_code', self::XERXES, 'Xerxes', 'claude-haiku-5-5', 1, 2, 3, 4, 2),
+            self::mrow('claude_code', self::XERXES, 'Xerxes', null, 0, 0, 0, 0, 1),
+            self::mrow('claude_code', self::SHODAN, 'Shodan', 'claude-opus-5-5', 5, 5, 5, 5, 1),
+            self::mrow('kimi_code', self::SHODAN, 'Shodan', 'kimi-code/k3.1-pro', 7, 7, 7, 7, 2),
+            self::mrow('opencode_go', self::XERXES, 'Xerxes', 'glm-5.3', 100, 50, 1000, 10, 4),
+            self::mrow('opencode_go', self::XERXES, 'Xerxes', 'glm-5.3-flash', 1, 1, 1, 1, 1),
+        ]);
+    }
+
+    #[Test]
+    public function old_payload_without_model_is_stored_as_not_recorded(): void
+    {
+        app(CliUsageImporter::class)->importRaw(self::fixture());
+        $this->assertSame(3, CliUsageDay::count());
+        $this->assertSame([CliUsageDay::NO_MODEL], CliUsageDay::query()->distinct()->pluck('model')->all());
+    }
+
+    #[Test]
+    public function payload_with_models_stores_one_row_per_tool_agent_model(): void
+    {
+        $raw = json_encode(self::modelDay());
+        $doc = (new CliUsageValidator)->validate($raw);
+        $this->assertSame(['tool', 'agent_id', 'name', 'model', 'input', 'output', 'cache_read', 'cache_creation', 'calls'], array_keys($doc['tools'][0]));
+
+        $r = app(CliUsageImporter::class)->importRaw($raw);
+        $this->assertSame(7, $r['rows']);
+        $this->assertSame(7, CliUsageDay::count());
+        $this->assertSame(
+            [['claude_code', self::SHODAN, 'claude-opus-5-5'], ['claude_code', self::XERXES, ''], ['claude_code', self::XERXES, 'claude-haiku-5-5'],
+                ['claude_code', self::XERXES, 'claude-opus-5-5'], ['kimi_code', self::SHODAN, 'kimi-code/k3.1-pro'],
+                ['opencode_go', self::XERXES, 'glm-5.3'], ['opencode_go', self::XERXES, 'glm-5.3-flash']],
+            CliUsageDay::query()->orderBy('tool')->orderBy('agent_id')->orderBy('model')->get()->map(fn ($x) => [$x->tool, $x->agent_id, $x->model])->all(),
+        );
+        $glm = CliUsageDay::query()->where('model', 'glm-5.3')->sole();
+        $this->assertSame([100, 50, 1000, 10, 4], [$glm->input_tokens, $glm->output_tokens, $glm->cache_read_tokens, $glm->cache_creation_tokens, $glm->calls]);
+
+        // Replacing the day with an old-format file goes back to one unrecorded row per (tool, agent).
+        app(CliUsageImporter::class)->import(self::synthetic('2026-10-20', [self::row('claude_code', self::XERXES, 'Xerxes', 1, 1, 1, 1, 1)]));
+        $this->assertSame([''], CliUsageDay::query()->pluck('model')->all());
+    }
+
+    public static function badModelRows(): array
+    {
+        $two = fn (mixed $a, mixed $b, string $agentB = self::XERXES) => [
+            self::mrow('claude_code', self::XERXES, 'Xerxes', $a, 1, 1, 1, 1, 1),
+            self::mrow('claude_code', $agentB, 'Xerxes', $b, 1, 1, 1, 1, 1),
+        ];
+
+        return [
+            'duplicate (tool, agent, model)' => [$two('claude-opus-5-5', 'claude-opus-5-5'), 'tools.1.agent_id'],
+            'null and absent are the same model' => [[self::row('claude_code', self::XERXES, 'Xerxes', 1, 1, 1, 1, 1), self::mrow('claude_code', self::XERXES, 'Xerxes', null, 1, 1, 1, 1, 1)], 'tools.1.agent_id'],
+            'control character' => [$two("claude\nopus", 'x'), 'tools.0.model'],
+            'del character' => [$two("claude\x7Fopus", 'x'), 'tools.0.model'],
+            '129 characters' => [$two(str_repeat('m', 129), 'x'), 'tools.0.model'],
+            'empty string' => [$two('', 'x'), 'tools.0.model'],
+            'number' => [$two(5, 'x'), 'tools.0.model'],
+            'array' => [$two(['claude'], 'x'), 'tools.0.model'],
+            'bool' => [$two(true, 'x'), 'tools.0.model'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('badModelRows')]
+    public function validator_rejects_bad_models(array $tools, string $path): void
+    {
+        try {
+            (new CliUsageValidator)->validate(json_encode(self::synthetic('2026-10-20', $tools)));
+            $this->fail('expected InvalidUsageDay');
+        } catch (InvalidUsageDay $e) {
+            $this->assertArrayHasKey($path, $e->errors, implode(', ', array_keys($e->errors)));
+        }
+    }
+
+    #[Test]
+    public function validator_accepts_two_models_for_one_agent_128_chars_and_opencode_go(): void
+    {
+        $v = new CliUsageValidator;
+        $tools = [
+            self::mrow('claude_code', self::XERXES, 'Xerxes', 'claude-opus-5-5', 1, 1, 1, 1, 1),
+            self::mrow('claude_code', self::XERXES, 'Xerxes', 'claude-sonnet-5-5', 1, 1, 1, 1, 1),
+            self::mrow('claude_code', self::XERXES, 'Xerxes', str_repeat('ž', 128), 1, 1, 1, 1, 1),
+            self::mrow('claude_code', self::XERXES, 'Xerxes', null, 1, 1, 1, 1, 1),
+            self::mrow('kimi_code', self::XERXES, 'Xerxes', 'claude-opus-5-5', 1, 1, 1, 1, 1), // same model, other tool
+            self::mrow('opencode_go', self::XERXES, 'Xerxes', 'glm-5.3', 1, 1, 1, 1, 1),
+        ];
+        $this->assertCount(6, $v->validate(json_encode(self::synthetic('2026-10-20', $tools)))['tools']);
+        // rows with and without the key mix in one file
+        $mixed = [self::row('claude_code', self::XERXES, 'Xerxes', 1, 1, 1, 1, 1), self::mrow('claude_code', self::XERXES, 'Xerxes', 'claude-opus-5-5', 1, 1, 1, 1, 1)];
+        $this->assertCount(2, $v->validate(json_encode(self::synthetic('2026-10-20', $mixed)))['tools']);
+        // up to MAX_ROWS rows
+        $many = array_map(fn ($i) => self::mrow('claude_code', self::XERXES, 'Xerxes', "m$i", 1, 1, 1, 1, 1), range(1, CliUsageValidator::MAX_ROWS));
+        $this->assertCount(CliUsageValidator::MAX_ROWS, $v->validate(json_encode(self::synthetic('2026-10-20', $many)))['tools']);
+        $many[] = self::mrow('claude_code', self::XERXES, 'Xerxes', 'one-more', 1, 1, 1, 1, 1);
+        try {
+            $v->validate(json_encode(self::synthetic('2026-10-20', $many)));
+            $this->fail('expected InvalidUsageDay');
+        } catch (InvalidUsageDay $e) {
+            $this->assertArrayHasKey('tools', $e->errors);
+        }
+    }
+
+    #[Test]
+    public function nested_cli_usage_with_models_imports_per_model_rows(): void
+    {
+        $cli = self::modelDay('2026-10-19');
+        $this->postDay(self::dayWithCli(null, $cli))
+            ->assertCreated()
+            ->assertJsonPath('data.cli.rows', 7)
+            ->assertJsonPath('data.cli.total', 370 + 10 + 0 + 20 + 28 + 1160 + 4);
+        $this->assertSame(7, CliUsageDay::where('date', '2026-10-19')->count());
+        $this->assertSame(2, CliUsageDay::where('tool', 'opencode_go')->count());
+        $this->assertArrayNotHasKey('cli_usage', UsageDay::query()->sole()->payload);
+
+        $bad = $cli;
+        $bad['tools'][1]['model'] = "x\ty";
+        $this->postDay(self::dayWithCli(null, $bad))->assertStatus(422)->assertJsonStructure(['errors' => ['cli_usage.tools.1.model']]);
+    }
+
+    #[Test]
+    public function artisan_import_handles_files_with_models(): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'cli');
+        file_put_contents($tmp, json_encode(self::modelDay()));
+        $this->artisan('bridge:cli-usage-import', ['paths' => [$tmp]])
+            ->expectsOutputToContain('2026-10-20  created  total 1,592 measured  (7 rows)')
+            ->assertExitCode(0);
+        $this->assertSame(7, CliUsageDay::count());
+        $this->assertSame(['glm-5.3', 'glm-5.3-flash'], CliUsageDay::where('tool', 'opencode_go')->orderBy('model')->pluck('model')->all());
+        unlink($tmp);
+    }
+
+    #[Test]
+    public function report_breaks_tools_cells_and_agents_down_by_model_with_unchanged_totals(): void
+    {
+        $importer = app(CliUsageImporter::class);
+        $importer->import(self::modelDay('2026-10-20'));
+        $importer->importRaw(json_encode(self::synthetic('2026-10-21', [self::row('claude_code', self::XERXES, 'Xerxes', 1000, 0, 0, 0, 1)])));
+        $this->unlock();
+        Carbon::setTestNow(Carbon::parse('2026-10-22 12:00:00', 'Europe/Ljubljana'));
+
+        $cli = $this->get('/usage')->assertOk()->viewData('page')['props']['cli'];
+        $this->assertSame(370 + 10 + 0 + 20 + 1000 + 28 + 1160 + 4, $cli['total']);
+        $this->assertSame(['claude_code', 'kimi_code', 'opencode_go'], array_column($cli['tools'], 'tool'));
+        $this->assertSame(['claude_code', 'kimi_code', 'opencode_go'], array_column($cli['series'], 'agentId'));
+
+        $sums = ['input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls'];
+        $sumOf = fn (array $list) => array_combine($sums, array_map(fn ($k) => array_sum(array_column($list, $k)), $sums));
+        foreach ($cli['tools'] as $tool) {
+            $this->assertSame(array_intersect_key($tool, array_flip($sums)), $sumOf($tool['models']), $tool['tool']);
+        }
+        foreach ($cli['table'] as $cell) {
+            $this->assertSame(array_intersect_key($cell, array_flip($sums)), $sumOf($cell['models']));
+            foreach ($cell['agents'] as $agent) {
+                $this->assertSame(array_intersect_key($agent, array_flip($sums)), $sumOf($agent['models']));
+                $this->assertSame(['agentId', 'name', 'input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls', 'models'], array_keys($agent));
+            }
+        }
+
+        $claude = $cli['tools'][0];
+        $this->assertSame(
+            [[null, 'model not recorded', 1000, 2, 2], ['claude-opus-5-5', 'claude-opus-5-5', 370 + 20, 4, 1], ['claude-haiku-5-5', 'claude-haiku-5-5', 10, 2, 1]],
+            array_map(fn ($m) => [$m['model'], $m['label'], $m['total'], $m['calls'], $m['days']], $claude['models']),
+        );
+        $this->assertSame(['model', 'label', 'input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls', 'days'], array_keys($claude['models'][1]));
+        $this->assertSame(1400, $claude['total']);
+        $this->assertSame(2, $claude['days']);
+        $this->assertSame(['glm-5.3', 'glm-5.3-flash'], array_column($cli['tools'][2]['models'], 'model'));
+        $this->assertSame('OpenCode Go', $cli['tools'][2]['name']);
+
+        // 20 Oct, Claude Code: agents stay one entry per agent (summed over models), each with its models
+        $cell = $cli['table'][0];
+        $this->assertSame(['2026-10-20', 'claude_code', 400, 7], [$cell['date'], $cell['tool'], $cell['total'], $cell['calls']]);
+        $this->assertSame([[self::SHODAN, 20, 1], [self::XERXES, 380, 6]], array_map(fn ($a) => [$a['agentId'], $a['total'], $a['calls']], $cell['agents']));
+        $this->assertSame(['claude-opus-5-5', 'claude-haiku-5-5', null], array_column($cell['agents'][1]['models'], 'model'));
+        $this->assertSame([390, 10, 0], array_column($cell['models'], 'total'));
+        // a single agent with two models: still no agent breakdown, but a model breakdown
+        $oc = $cli['table'][2];
+        $this->assertSame(['opencode_go', [], 2], [$oc['tool'], $oc['agents'], count($oc['models'])]);
+        // chart segments per tool are unchanged by the model split
+        $this->assertSame(['2026-10-20', [400, 28, 1164]], [$cli['days'][4]['date'], $cli['days'][4]['segments']]);
+    }
+
+    #[Test]
+    public function migration_keeps_legacy_rows_and_widens_the_unique_key(): void
+    {
+        app(CliUsageImporter::class)->importRaw(self::fixture());
+        $this->assertSame(self::D24_TOTAL, (int) CliUsageDay::query()->selectRaw('sum(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) as t')->value('t'));
+
+        $base = ['date' => '2026-10-24', 'tool' => 'claude_code', 'agent_id' => self::SHODAN, 'agent_name' => 'Shodan', 'input_tokens' => 1, 'output_tokens' => 1, 'cache_read_tokens' => 1, 'cache_creation_tokens' => 1, 'calls' => 1];
+        CliUsageDay::query()->insert($base + ['model' => 'claude-opus-5-5']); // same (date, tool, agent), other model: allowed
+        $this->expectException(QueryException::class);
+        CliUsageDay::query()->insert($base + ['model' => 'claude-opus-5-5']);
     }
 }

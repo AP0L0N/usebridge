@@ -32,12 +32,14 @@ export type OverviewProps = {
   cli: CliBlock;
 };
 
-// Measured Claude Code / Kimi Code tokens (cli_usage_days): real counts from the CLI logs, not estimates.
-export type CliTool = 'claude_code' | 'kimi_code';
+// Measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days): real counts from the CLI logs, not estimates.
+export type CliTool = 'claude_code' | 'kimi_code' | 'opencode_go';
 export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number };
-export type CliToolStats = CliSums & { tool: CliTool; name: string; color: AgentColor; days: number };
-export type CliAgentRow = CliSums & { agentId: string; name: string };
-export type CliTableRow = CliSums & { date: string; label: string; tool: CliTool; name: string; color: AgentColor; agents: CliAgentRow[] };
+/** One model inside a tool / day cell / agent, total desc; model null = not recorded in the log (label "model not recorded"). */
+export type CliModelRow = CliSums & { model: string | null; label: string };
+export type CliToolStats = CliSums & { tool: CliTool; name: string; color: AgentColor; days: number; models: (CliModelRow & { days: number })[] };
+export type CliAgentRow = CliSums & { agentId: string; name: string; models: CliModelRow[] };
+export type CliTableRow = CliSums & { date: string; label: string; tool: CliTool; name: string; color: AgentColor; agents: CliAgentRow[]; models: CliModelRow[] };
 export type CliBlock = {
   empty: boolean; coverageFrom: string | null; coverageFromLabel: string | null; daysWithRows: number;
   total: number; calls: number; tools: CliToolStats[]; series: Series[]; days: OverviewDay[]; table: CliTableRow[];
