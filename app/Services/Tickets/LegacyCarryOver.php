@@ -153,9 +153,13 @@ final class LegacyCarryOver
             $tilenOwned = strcasecmp(trim((string) $s->owner), 'tilen') === 0;
             $blocker = $s->kind === 'blocker';
             $status = ! $blocker ? BoardColumns::IN_PROGRESS : ($tilenOwned ? BoardColumns::WAITING_TILEN : BoardColumns::TODO);
-            $assignee = $s->agent_id && $this->agents->contains('id', $s->agent_id)
-                ? ['assignee_type' => 'agent', 'assignee_id' => $s->agent_id]
-                : (filled($s->owner) ? ['assignee_type' => 'human', 'assignee_id' => $tilenOwned ? Actor::TILEN : trim($s->owner)] : $pm);
+            $ownerAgent = $tilenOwned ? null : $this->matchAgent($s->owner);
+            $assignee = match (true) {
+                $s->agent_id && $this->agents->contains('id', $s->agent_id) => ['assignee_type' => 'agent', 'assignee_id' => $s->agent_id],
+                $ownerAgent !== null => ['assignee_type' => 'agent', 'assignee_id' => $ownerAgent],
+                filled($s->owner) => ['assignee_type' => 'human', 'assignee_id' => $tilenOwned ? Actor::TILEN : trim($s->owner)],
+                default => $pm,
+            };
             $ticket = $this->create($project, [
                 'title' => self::cut($s->text, 140),
                 'description' => self::description($s->text, sprintf('_Carried over from Next steps (%s, since %s)._', $blocker ? 'blocker' : 'in progress', self::date($s->created_at))),

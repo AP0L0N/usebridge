@@ -236,4 +236,14 @@ class TicketsMigrationTest extends TestCase
         config(['bridge.legacy_read_only' => false]);
         $this->patchJson('/api/questions/q-open', ['state' => 'closed'])->assertOk();
     }
+
+    public function test_next_step_owner_name_matching_an_agent_becomes_an_agent_assignee(): void
+    {
+        NextStep::create(['id' => 'ns-owner', 'project_id' => self::MW, 'kind' => 'in_progress', 'text' => 'Deploy the hotfix', 'owner' => 'shodan', 'position' => 9]);
+
+        $this->artisan('bridge:tickets-migrate', ['--project' => self::MW])->assertSuccessful();
+
+        $t = $this->byRow('next_step', 'ns-owner');
+        $this->assertSame(['agent', BridgeSeeder::AGENT_SHODAN], [$t->assignee_type, $t->assignee_id]);
+    }
 }
