@@ -435,7 +435,7 @@ appear in the history with `set_by: "tilen"`, `set_by_type: "human"`, `source: "
 | Field | Meaning |
 |---|---|
 | `status` | The **current PM-set status** (`smooth`/`waiting`) once one was set with `PATCH …/status`. Archived projects: `archived`. Never set: the old derived status (open inputs/questions). |
-| `status_source` | `pm` or `derived`, which of the two `status` shows. |
+| `status_source` | Who set the current `status`: `tilen` (Tilen, in the Bridge UI), `pm` (an agent: the PM or Captain, via this API) or `derived` (never set, `status` is the old derived one). Last write wins: a later PM `PATCH …/status` turns `tilen` into `pm` and the other way round. |
 | `derived_status` | The old r1 status from open Required inputs / Questions, for reference only. |
 | `pmStatus`, `pmStatusNote`, `pmStatusSetBy`, `pmStatusSetAt`, `pmLevel`, `pmAgeDays` | The PM-set status as stored (null = not set). |
 | `pm_agent_id` | The project's PM (same value as `owner_agent_id`, kept for old callers). |
@@ -453,6 +453,21 @@ curl -sS -X PATCH "$BRIDGE/api/projects/proj-chatpulse" \
 ```json
 {"data":{"id":"proj-chatpulse","name":"ChatPulse","status":"waiting","status_source":"pm","pm_agent_id":"agent-alice","pmName":"Alice Murdoch", …}}
 ```
+
+**Tilen's UI controls (web only, not part of this API).** Tilen, signed in through the Bridge gate, can set the project
+status himself (Smooth sailing / Waiting input, optional note up to 280 characters) and archive or unarchive a
+project, from the board header status menu and from each portfolio card's "⋯" menu. These are session routes
+(`PATCH /projects/{slug}/status`, `POST /projects/{slug}/archive`, `POST /projects/{slug}/unarchive`) behind the
+gate; the token API never accepts `actor: "tilen"` (422). Every one of them is logged in `project_status_events`
+(`GET …/status` history) with `set_by: "tilen"`, `set_by_type: "human"`, `source: "ui"`:
+
+- Archive: `to_status: "archived"` (`archived_at` is set, `status` is `archived`). Unarchive: back to the status the
+  project had before it was archived (`smooth` if unknown), `archived_at` cleared. Both are no-ops when already in
+  that state. Nothing is ever deleted (projects, tickets, comments and events stay).
+- `PATCH /api/projects/{id}` with `archived` keeps `archived_at` and `status` in step too, and is logged when an
+  `actor` is known (token name or body `actor`).
+- Archived projects stay in the portfolio under "Archived" (switch "Show archived") and their board still opens
+  with an **Unarchive** button.
 
 Fields `PATCH /api/projects/{id}` accepts: `name`, `slug`, `pm_agent_id` / `owner_agent_id` (Captain), `archived`,
 `ticket_prefix` (only while the project has no tickets), `actor`, plus the ignored r0 fields (`goal`, `phase`,

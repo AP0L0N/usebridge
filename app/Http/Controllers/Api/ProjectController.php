@@ -8,6 +8,7 @@ use App\Models\RequiredInput;
 use App\Services\BridgeRoster;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
+use App\Services\Tickets\ProjectStatusService;
 use App\Support\TicketPrefix;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -85,9 +86,19 @@ class ProjectController extends Controller
             throw ValidationException::withMessages(['ticket_prefix' => 'The ticket prefix can only change while the project has no tickets.']);
         }
         if (array_key_exists('archived', $data)) {
-            $project->archived_at = $data['archived'] ? ($project->archived_at ?? Carbon::now()) : null;
-            if ($data['archived']) {
-                $project->reopened_at = null;
+            // Keep archived_at and the status column in step; logged when the actor is known (token name or body actor).
+            $archiveActor = null;
+            try {
+                $archiveActor = Actor::fromApi($request);
+            } catch (ValidationException) {
+            }
+            if ($archiveActor !== null) {
+                $svc = new ProjectStatusService;
+                $data['archived'] ? $svc->archive($project, $archiveActor) : $svc->unarchive($project, $archiveActor);
+            } elseif ($data['archived']) {
+                $project->forceFill(['archived_at' => $project->archived_at ?? Carbon::now(), 'status' => 'archived', 'reopened_at' => null])->save();
+            } elseif ($project->archived_at !== null) {
+                $project->forceFill(['archived_at' => null, 'status' => (new ProjectStatusService)->statusBeforeArchive($project), 'reopened_at' => null])->save();
             }
         }
         // The PM (pm_agent_id, stored as owner_agent_id) is Captain-only and logged in project_pm_events.
@@ -106,14 +117,14 @@ class ProjectController extends Controller
         return response()->json(['data' => $this->present($project->fresh()->load(['statusUpdates', 'requiredInputs', 'questions']))]);
     }
 
-    public function archive(string $id): JsonResponse
+    public function archive(Request $request, string $id): JsonResponse
     {
-        return $this->update(new Request(['archived' => true]), $id);
+        return $this->update($request->duplicate(array_intersect_key($request->all(), array_flip(['actor', 'author'])) + ['archived' => true]), $id);
     }
 
-    public function unarchive(string $id): JsonResponse
+    public function unarchive(Request $request, string $id): JsonResponse
     {
-        return $this->update(new Request(['archived' => false]), $id);
+        return $this->update($request->duplicate(array_intersect_key($request->all(), array_flip(['actor', 'author'])) + ['archived' => false]), $id);
     }
 
     public function destroy(string $id): JsonResponse
@@ -154,7 +165,7 @@ class ProjectController extends Controller
 
         // `status` is the current PM-set status (PATCH /api/projects/{id}/status) once one is set; before that (and for
         // archived projects) it is the r1 status derived from open inputs/questions, kept as derived_status.
-        $pmSet = $p->status !== null && $p->archived_at === null;
+        $pmSet = $p->status !== null && ($p->archived_at === null || $p->status === 'archived');
 
         return [
             ...$s,
@@ -162,7 +173,8 @@ class ProjectController extends Controller
             'level' => $pmSet ? $s['pmLevel'] : $s['level'],
             'ageDays' => $pmSet ? $s['pmAgeDays'] : $s['ageDays'],
             'derived_status' => $s['status'],
-            'status_source' => $pmSet ? 'pm' : 'derived',
+            // tilen = Tilen set the current status in the UI, pm = an agent (PM/Captain) did, derived = never set.
+            'status_source' => ! $pmSet ? 'derived' : ($p->status_set_by === Actor::TILEN ? 'tilen' : 'pm'),
             'owner_agent_id' => $p->owner_agent_id,
             'pm_agent_id' => $p->owner_agent_id,
             'ticket_prefix' => $p->ticket_prefix,

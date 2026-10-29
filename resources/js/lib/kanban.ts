@@ -140,6 +140,11 @@ export interface PortfolioProject {
   lastUpdatedAt: string | null;
 }
 
+/** What the status form and the archive controls need: the board project, or a portfolio card adapted to it. */
+export type StatusSubject = Pick<BoardProject, 'name' | 'slug' | 'status' | 'status_note' | 'status_set_by' | 'status_set_by_name' | 'status_set_at' | 'pm_agent_id' | 'pm_name' | 'archived'>;
+
+export const archiveMessage = (name: string) => `Archive ${name}? It moves to Archived; you can unarchive any time.`;
+
 export const STATUS_LABEL: Record<PmStatus, string> = { smooth: 'Smooth sailing', waiting: 'Waiting input', archived: 'Archived' };
 
 /** "Dr. Janice Polito" → "Janice"; "Captain William Diego" → "William"; "Tilen" → "Tilen". */
