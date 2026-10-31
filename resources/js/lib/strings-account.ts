@@ -125,6 +125,8 @@ export const SA = {
   'acct.del.typePre': 'Type ',
   'acct.del.typePost': ' to confirm',
   'acct.del.hint': 'The delete button turns on when it matches.',
+  'acct.del.password': 'Current password',
+  'acct.del.passwordHint': 'Enter your password to confirm it is you.',
   'acct.del.keep': 'Keep my account',
   'acct.del.confirm': 'Delete account',
   'acct.del.busy': 'Deleting…',

@@ -264,22 +264,26 @@ function Sessions({ initial, toast }: { initial: DeviceSession[]; toast: ToastFn
   );
 }
 
-/** Danger zone: export (GET /account/export) and delete with a typed email (POST /account/delete, 7-day grace). */
+/** Danger zone: export (GET /account/export) and delete with a typed email + current password (POST /account/delete, 7-day grace). */
 function DangerZone({ account, deletion }: Pick<Props, 'account' | 'deletion'>) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pwError, setPwError] = useState<string | null>(null);
   const matches = typed.trim().toLowerCase() === account.email.toLowerCase();
   const c = deletion.counts;
-  const close = () => { setOpen(false); setTyped(''); setError(null); };
+  const close = () => { setOpen(false); setTyped(''); setPassword(''); setError(null); setPwError(null); };
 
   const confirm = async () => {
     setBusy(true);
-    const res = await requestJson('POST', '/account/delete', { email: typed.trim() });
+    const res = await requestJson('POST', '/account/delete', { email: typed.trim(), current_password: password });
     if (res.ok) { go('/login?status=deletion-requested'); return; }
     setBusy(false);
-    setError(fieldErrors(res.data.errors).email ?? res.data.message ?? t('acct.generic'));
+    const fe = fieldErrors(res.data.errors);
+    setPwError(fe.current_password ?? null);
+    setError(fe.email ?? (fe.current_password ? null : res.data.message ?? t('acct.generic')));
   };
 
   return (
@@ -296,7 +300,7 @@ function DangerZone({ account, deletion }: Pick<Props, 'account' | 'deletion'>) 
       </div>
       {open && (
         <Dialog title={t('acct.del.title')} onClose={close} describedBy="del-d"
-          footer={<><Button kind="secondary" onClick={close}>{t('acct.del.keep')}</Button><Button kind="danger" disabled={!matches} busy={busy} busyLabel={t('acct.del.busy')} onClick={confirm}>{t('acct.del.confirm')}</Button></>}>
+          footer={<><Button kind="secondary" onClick={close}>{t('acct.del.keep')}</Button><Button kind="danger" disabled={!matches || password === ''} busy={busy} busyLabel={t('acct.del.busy')} onClick={confirm}>{t('acct.del.confirm')}</Button></>}>
           <div id="del-d" className="acx-dialog__text">
             <p>
               {t('acct.del.lead')}<b>{tn('acct.count.project', c.projects)}</b>, <b>{tn('acct.count.ticket', c.tickets)}</b>{t('acct.del.and')}<b>{tn('acct.count.token', c.tokens)}</b>{t('acct.del.after')}
@@ -305,6 +309,10 @@ function DangerZone({ account, deletion }: Pick<Props, 'account' | 'deletion'>) 
           </div>
           <Field id="del-confirm" label={<>{t('acct.del.typePre')}{account.email}{t('acct.del.typePost')}</>} error={error ?? undefined} hint={t('acct.del.hint')}>
             <Input id="del-confirm" autoComplete="off" spellCheck={false} value={typed} onChange={(e) => setTyped(e.target.value)} {...describedBy('del-confirm', error ?? undefined, true)} />
+          </Field>
+          <Field id="del-pw" label={t('acct.del.password')} error={pwError ?? undefined} hint={t('acct.del.passwordHint')}>
+            <PasswordInput id="del-pw" what={t('acct.del.password').toLowerCase()} autoComplete="current-password" value={password} disabled={busy}
+              onChange={(e) => setPassword(e.target.value)} {...describedBy('del-pw', pwError ?? undefined, true)} />
           </Field>
         </Dialog>
       )}

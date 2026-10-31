@@ -111,8 +111,10 @@ class AccountSettingsTest extends TestCase
     {
         $this->actingAs($this->sam)->getJson('/account/export')->assertOk()->assertJsonPath('workspace.slug', 'acme-studio');
 
-        $this->actingAs($this->sam)->postJson('/account/delete', ['email' => 'other@example.com'])->assertStatus(422);
-        $this->actingAs($this->sam)->postJson('/account/delete', ['email' => 'SAM@example.com'])->assertOk()
+        $this->actingAs($this->sam)->postJson('/account/delete', ['email' => 'other@example.com', 'current_password' => self::PASSWORD])->assertStatus(422);
+        $this->actingAs($this->sam)->postJson('/account/delete', ['email' => 'SAM@example.com', 'current_password' => 'wrong-pass-123'])
+            ->assertStatus(422)->assertJsonValidationErrors('current_password');
+        $this->actingAs($this->sam)->postJson('/account/delete', ['email' => 'SAM@example.com', 'current_password' => self::PASSWORD])->assertOk()
             ->assertJsonPath('purge_at', now()->addDays(AccountDeletion::GRACE_DAYS)->toIso8601String());
 
         $fresh = $this->sam->fresh();

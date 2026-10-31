@@ -56,10 +56,18 @@ class AccountDeletionTest extends TestCase
     {
         DB::table('sessions')->insert(['id' => 'marta-phone', 'user_id' => $this->marta->id, 'payload' => '', 'last_activity' => time()]);
 
-        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => 'someone@example.test'])->assertStatus(422);
+        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => 'someone@example.test', 'current_password' => self::PASSWORD])->assertStatus(422);
         $this->assertNull($this->marta->fresh()->delete_requested_at);
 
-        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => ' MARTA@example.test '])->assertOk()
+        // Taz pre-prod pass #4: the right email alone (no / wrong current password) deletes nothing.
+        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => 'marta@example.test'])
+            ->assertStatus(422)->assertJsonValidationErrors('current_password');
+        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => 'marta@example.test', 'current_password' => 'not-my-password-1'])
+            ->assertStatus(422)->assertJsonValidationErrors('current_password');
+        $this->assertNull($this->marta->fresh()->delete_requested_at);
+        $this->assertAuthenticatedAs($this->marta, 'web');
+
+        $this->actingAs($this->marta, 'web')->postJson('/account/delete', ['email' => ' MARTA@example.test ', 'current_password' => self::PASSWORD])->assertOk()
             ->assertJsonPath('purge_at', Carbon::now()->addDays(7)->toIso8601String());
 
         $this->assertTrue($this->marta->fresh()->delete_requested_at->equalTo(Carbon::now()));

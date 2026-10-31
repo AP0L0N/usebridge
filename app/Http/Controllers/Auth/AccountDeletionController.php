@@ -9,12 +9,17 @@ use App\Services\Auth\WorkspaceExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** Danger zone (docs/MULTI-USER-PLAN.md §8 account delete): request deletion (typed email), export the workspace. */
+/** Danger zone (docs/MULTI-USER-PLAN.md §8 account delete): request deletion (typed email + current password), export the workspace. */
 class AccountDeletionController extends Controller
 {
     public function request(Request $request, AccountDeletion $deletion, LoginService $login): JsonResponse
     {
-        $data = $request->validate(['email' => ['required', 'string', 'max:255']]);
+        // Typed email + the current password (Laravel's current_password rule, web guard): a hijacked session alone
+        // cannot delete the account.
+        $data = $request->validate([
+            'email' => ['required', 'string', 'max:255'],
+            'current_password' => ['required', 'string', 'current_password:web'],
+        ]);
         $user = $request->user();
         $deletion->request($user, $data['email']);
         $login->logout($request->session());

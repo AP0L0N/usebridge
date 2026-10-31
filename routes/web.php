@@ -70,7 +70,7 @@ Route::middleware(['auth', EnsureUserWorkspace::class])->prefix('account')->grou
     Route::get('/tokens', [AccountPageController::class, 'tokens'])->name('account.tokens');
     Route::post('/tokens', [TokenController::class, 'store'])->middleware(RequireVerifiedEmail::class)->name('account.tokens.store');
     Route::delete('/tokens/{id}', [TokenController::class, 'destroy'])->whereNumber('id')->name('account.tokens.destroy');
-    Route::post('/delete', [AccountDeletionController::class, 'request'])->name('account.delete');
+    Route::post('/delete', [AccountDeletionController::class, 'request'])->middleware('throttle:account-update')->name('account.delete');
     Route::get('/export', [AccountDeletionController::class, 'export'])->middleware('throttle:6,1')->name('account.export');
 });
 
