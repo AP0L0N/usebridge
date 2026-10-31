@@ -121,6 +121,11 @@ class McpToolsTest extends TestCase
         $this->assertSame(['waiting', 'Needs the budget', self::JANICE], [$set['current']['status'], $set['current']['note'], $set['current']['set_by']]);
         $this->bearer($this->read, 'GET', '/api/projects/'.self::CA.'/status')
             ->assertJsonPath('data.current.status', 'waiting')->assertJsonPath('data.current.set_by', self::JANICE);
+        // MCP writes record source 'mcp' (Portfolio shows "via MCP"); the REST route keeps 'api'.
+        $this->assertSame('mcp', $set['event']['source']);
+        $this->assertSame('mcp', \App\Models\ProjectStatusEvent::query()->latest('created_at')->latest('id')->value('source'));
+        $rest = $this->bearer($this->janice, 'PATCH', '/api/projects/'.self::CA.'/status', ['status' => 'smooth']);
+        $rest->assertOk()->assertJsonPath('data.event.source', 'api');
         // Same authorization as PATCH /api/projects/{id}/status: Janice is not Merkwell's PM, only Captain archives.
         $this->assertStringContainsString("Only the project's PM", $this->toolError($this->janice, 'set_project_status', ['project' => self::MW, 'status' => 'waiting']));
         $this->assertStringContainsString('Only Captain', $this->toolError($this->janice, 'set_project_status', ['project' => self::CA, 'status' => 'archived']));

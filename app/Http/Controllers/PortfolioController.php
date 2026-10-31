@@ -17,7 +17,7 @@ class PortfolioController extends Controller
         $projects = Project::query()
             ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at'])])
             ->get();
-        // Where the current status came from: the latest status event's source (api = an agent token over MCP/REST, ui = the web app).
+        // Where the current status came from: the latest status event's source (api = REST agent token, mcp = the MCP server, ui = the web app).
         $sources = ProjectStatusEvent::query()->whereIn('project_id', $projects->modelKeys())
             ->orderByDesc('created_at')->orderByDesc('id')->get(['project_id', 'source'])
             ->unique('project_id')->pluck('source', 'project_id');

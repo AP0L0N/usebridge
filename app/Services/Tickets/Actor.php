@@ -25,7 +25,7 @@ final class Actor
     public function __construct(
         public readonly string $id,
         public readonly string $type, // agent|human|system
-        public readonly string $source, // api|ui
+        public readonly string $source, // api|ui|mcp
     ) {}
 
     public static function tilen(): self
@@ -36,6 +36,12 @@ final class Actor
     public static function migration(): self
     {
         return new self(self::MIGRATION, 'system', 'api');
+    }
+
+    /** The same actor writing through the MCP server (status events record source 'mcp'; REST stays 'api'). */
+    public function viaMcp(): self
+    {
+        return new self($this->id, $this->type, 'mcp');
     }
 
     public function isTilen(): bool

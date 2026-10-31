@@ -137,7 +137,7 @@ export interface PortfolioProject {
   pmName: string | null;
   pmAgentId: string | null;
   /** Where the current status was set: 'api' (an agent token over MCP/REST), 'ui' (the web app), null = unknown/never set. */
-  pmStatusSource?: 'api' | 'ui' | null;
+  pmStatusSource?: 'api' | 'ui' | 'mcp' | null;
   ticketCounts: Record<ColumnKey, number>;
   /** The project's own column names ({key: label}); keys it does not name use the defaults. */
   columnLabels?: Partial<Record<ColumnKey, string>>;
