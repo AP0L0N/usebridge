@@ -110,9 +110,11 @@ return [
     |
     */
 
+    // Bridge: sender from MAIL_FROM_ADDRESS / MAIL_FROM_NAME (mail domain pending, docs/MULTI-USER-PLAN.md §0); an
+    // empty value falls back to a non-routable placeholder / "Bridge". Verification and reset mails use this sender.
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'address' => env('MAIL_FROM_ADDRESS') ?: 'bridge@localhost',
+        'name' => env('MAIL_FROM_NAME') ?: 'Bridge',
     ],
 
 ];
