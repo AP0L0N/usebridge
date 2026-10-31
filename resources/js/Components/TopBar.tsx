@@ -4,8 +4,11 @@ import { t } from '../lib/strings';
 const NAV = [
   { href: '/', label: 'Portfolio' },
   { href: '/usage', label: 'Usage' },
-  { href: '/polymarket', label: 'Polymarket' },
-];
+  { href: '/polymarket', label: 'Polymarket', feature: 'polymarket' },
+] as const;
+
+/** Shared by HandleInertiaRequests: per-workspace switches (Polymarket only in Tilen's workspace). */
+type Shared = { features?: { polymarket?: boolean } };
 
 const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
 
@@ -13,9 +16,11 @@ const under = (url: string, base: string) => url === base || url.startsWith(`${b
 const activeHref = (url: string) => (under(url, '/usage') ? '/usage' : under(url, '/polymarket') ? '/polymarket' : '/');
 
 export function TopBar({ nav = true }: { nav?: boolean } = {}) {
-  const active = activeHref(usePage().url);
-  const current = NAV.find((n) => n.href === active) ?? NAV[0];
-  const items = NAV.map((n) => (
+  const page = usePage<Shared>();
+  const active = activeHref(page.url);
+  const links = NAV.filter((n) => !('feature' in n) || page.props.features?.[n.feature] === true);
+  const current = links.find((n) => n.href === active) ?? links[0];
+  const items = links.map((n) => (
     <Link key={n.href} href={n.href} aria-current={n.href === active ? 'page' : undefined}>{n.label}</Link>
   ));
 

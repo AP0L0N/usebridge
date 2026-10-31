@@ -19,7 +19,9 @@ use App\Http\Middleware\EnsureTokenAbility;
 use App\Http\Middleware\GuardPolymarketUpload;
 use App\Http\Middleware\GuardUsageUpload;
 use App\Http\Middleware\LegacyReadOnly;
+use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Http\Middleware\ResolveTokenWorkspace;
+use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 
 // Every route: the token's workspace (ResolveTokenWorkspace) and the ability its route needs (EnsureTokenAbility).
@@ -84,8 +86,9 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, EnsureTokenAbil
         ->name('api.usage.days.store');
 
     // Polymarket desk: {snapshot: feed.json, series: book_series.json} (raw JSON body, <= 1 MB), posted by Captain.
+    // Only workspaces with the polymarket feature (Tilen's): 404 elsewhere, before the body is looked at.
     Route::post('polymarket/feed', [PolymarketFeedController::class, 'store'])
-        ->middleware(GuardPolymarketUpload::class)
+        ->middleware([RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET, GuardPolymarketUpload::class])
         ->name('api.polymarket.feed.store');
 
     // r0 CEO queue, kept for agents: items become Required inputs (see CeoQueueCompatController).

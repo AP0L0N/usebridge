@@ -9,6 +9,8 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UsageController;
 use App\Http\Middleware\EnsureWorkspaceGate;
 use App\Http\Middleware\LegacyReadOnly;
+use App\Http\Middleware\RequireWorkspaceFeature;
+use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
@@ -41,7 +43,9 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')
         ->name('usage.agent');
-    Route::get('/polymarket', [PolymarketController::class, 'index'])->name('polymarket');
+    // Polymarket desk: only workspaces with the polymarket feature (Tilen's); 404 elsewhere.
+    Route::get('/polymarket', [PolymarketController::class, 'index'])
+        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET)->name('polymarket');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/agents', '/');

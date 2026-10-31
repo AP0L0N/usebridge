@@ -1,0 +1,82 @@
+<?php
+
+namespace Tests\Feature\MultiUser;
+
+use App\Models\PolymarketSnapshot;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Support\Workspaces\CurrentWorkspace;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
+use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Feature\PolymarketFeedTest;
+use Tests\TestCase;
+
+/** Polymarket is a per-workspace feature: on for Tilen's workspace (backfill), hidden (404, no nav) everywhere else. */
+class PolymarketGateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function ingest(string $token): TestResponse
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->call('POST', '/api/polymarket/feed', [], [], [], [
+            'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer '.$token,
+        ], PolymarketFeedTest::body());
+    }
+
+    private function otherWorkspaceToken(array $features = []): string
+    {
+        $owner = User::factory()->create();
+        Workspace::query()->create(['slug' => 'grok', 'name' => 'Grok', 'owner_user_id' => $owner->id, 'features' => $features]);
+
+        return $owner->createToken('grok', ['*'])->plainTextToken;
+    }
+
+    #[Test]
+    public function tilens_workspace_keeps_the_desk_the_nav_item_and_the_ingest(): void
+    {
+        $this->ingest($this->workspaceUser()->createToken('captain', ['ceo'])->plainTextToken)->assertCreated();
+
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')->assertOk()
+            ->assertInertia(fn (Assert $p) => $p->component('Polymarket/Desk')->where('features.polymarket', true));
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/usage')
+            ->assertInertia(fn (Assert $p) => $p->where('features.polymarket', true));
+    }
+
+    #[Test]
+    public function another_workspace_gets_404_on_the_ingest_and_writes_nothing(): void
+    {
+        $this->ingest($this->otherWorkspaceToken())->assertNotFound();
+        $this->assertSame(0, PolymarketSnapshot::query()->count());
+    }
+
+    #[Test]
+    public function with_the_feature_on_another_workspace_only_ever_sees_its_own_desk(): void
+    {
+        $this->ingest($this->otherWorkspaceToken(['polymarket' => true]))->assertCreated();
+
+        $this->assertSame(0, PolymarketSnapshot::query()->where('workspace_id', app(CurrentWorkspace::class)->default()->id)->count());
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')
+            ->assertInertia(fn (Assert $p) => $p->where('feed', null));
+    }
+
+    #[Test]
+    public function switching_the_feature_off_hides_page_and_nav_for_the_gate_session(): void
+    {
+        $tilen = app(CurrentWorkspace::class)->default();
+        $tilen->forceFill(['features' => ['polymarket' => false]])->save();
+
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')->assertNotFound();
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/usage')
+            ->assertInertia(fn (Assert $p) => $p->where('features.polymarket', false));
+    }
+
+    #[Test]
+    public function the_gate_page_shares_no_features(): void
+    {
+        $this->get('/gate')->assertInertia(fn (Assert $p) => $p->component('Gate')->where('features.polymarket', false));
+    }
+}
