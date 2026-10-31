@@ -26,7 +26,13 @@ use Illuminate\Validation\ValidationException;
  */
 final class TicketService
 {
-    public const ASK_REQUIRED = 'Moving into Waiting on Tilen needs an ask: what do you need from Tilen?';
+    /** 422 on `ask`: names the waiting_tilen column as this project's board shows it (project label, else workspace default). */
+    public static function askRequired(?Project $project): string
+    {
+        $column = BoardColumns::labelFor(BoardColumns::WAITING_TILEN, $project?->column_labels, $project?->workspace);
+
+        return "Moving into {$column} needs an ask: what do you need answered?";
+    }
 
     /** Validation rules for the editable ticket fields (create: title required). */
     public static function rules(bool $create): array
@@ -99,7 +105,7 @@ final class TicketService
             $status = $data['status'] ?? BoardColumns::TODO;
             $ask = $this->askFields($data);
             if ($status === BoardColumns::WAITING_TILEN && blank($ask['ask'] ?? null)) {
-                throw ValidationException::withMessages(['ask' => self::ASK_REQUIRED]);
+                throw ValidationException::withMessages(['ask' => self::askRequired($project)]);
             }
             [$assigneeType, $assigneeId] = $this->assignee($data) ?? [null, null];
             $now = Carbon::now();
@@ -361,7 +367,7 @@ final class TicketService
     private function checkAsk(Ticket $ticket): void
     {
         if ($ticket->status === BoardColumns::WAITING_TILEN && blank($ticket->ask)) {
-            throw ValidationException::withMessages(['ask' => self::ASK_REQUIRED]);
+            throw ValidationException::withMessages(['ask' => self::askRequired($ticket->project)]);
         }
     }
 

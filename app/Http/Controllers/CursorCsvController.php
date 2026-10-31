@@ -6,6 +6,7 @@ use App\Models\CliUsageImport;
 use App\Models\User;
 use App\Services\Usage\CursorCsvImporter;
 use App\Services\Usage\InvalidUsageDay;
+use App\Support\WorkspaceGate;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,7 @@ class CursorCsvController extends Controller
             return $workspace->users()->whereKey($user->id)->wherePivot('role', 'owner')->exists();
         }
 
-        return $request->session()->get('bridge_gate_unlocked') === true;
+        return WorkspaceGate::unlocked($request);
     }
 
     /** ISO time of the last Cursor import in the current workspace, null when none. */

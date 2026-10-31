@@ -4,6 +4,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Auth\AccountDeletion;
+use App\Services\Auth\AccountPurge;
 use App\Services\BridgeRoster;
 use App\Services\Ops\CopiedTokenRotation;
 use App\Services\Ops\StagingOnlyGuard;
@@ -23,6 +24,7 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
@@ -233,6 +235,35 @@ Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be 
 
     return 0;
 })->purpose('Soft-delete accounts whose deletion grace (7 days) is over; nothing is purged');
+
+// Hard purge (docs/MULTI-USER-PLAN.md §2), only with BRIDGE_ACCOUNT_PURGE_ENABLED=true (default off): soft-deleted users
+// whose delete request is 7 + bridge.account_purge_after_days (37) days old lose their user row and every row of the
+// workspaces they solely own (AccountPurge). Admins, the default workspace and shared workspaces are skipped. Prints and
+// logs ids and row counts only.
+Artisan::command('bridge:accounts-purge {--dry-run : Show what would be purged, change nothing}', function (AccountPurge $purge) {
+    if (! AccountPurge::enabled()) {
+        $this->info('Account purge is disabled (BRIDGE_ACCOUNT_PURGE_ENABLED=false); nothing purged.');
+
+        return 0;
+    }
+    $dry = (bool) $this->option('dry-run');
+    $results = $purge->run($dry);
+    foreach ($results as $id => $r) {
+        if ($r['status'] === 'skipped') {
+            $this->warn("user #$id skipped: {$r['reason']}");
+
+            continue;
+        }
+        $this->line("user #$id {$r['status']}: ".(implode(', ', array_map(fn ($t, $n) => "$t=$n", array_keys($r['counts']), $r['counts'])) ?: 'no rows'));
+    }
+    $done = count(array_filter($results, fn ($r) => $r['status'] !== 'skipped'));
+    $skipped = count($results) - $done;
+    $this->info(($dry ? 'Dry run, nothing changed: would purge ' : 'Purged ')."$done user(s), skipped $skipped.");
+
+    return 0;
+})->purpose('Hard-delete accounts 30 days after the deletion grace (only when BRIDGE_ACCOUNT_PURGE_ENABLED=true)');
+
+Schedule::command('bridge:accounts-purge')->daily()->when(fn () => AccountPurge::enabled());
 
 // Ops (docs/MULTI-USER-PLAN.md §11): make a user the owner of a workspace, e.g. Tilen on a copy migrated before
 // BRIDGE_OWNER_EMAIL was required. Idempotent, transactional, nothing deleted; prints ids only, never a password or link.

@@ -200,7 +200,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     }
   };
 
-  /** Every UI move goes through here: entering Waiting on Tilen without an ask asks first. */
+  /** Every UI move goes through here: entering the waiting column without an ask asks first. */
   const requestMove = (pending: Pending) => {
     const { t, to, index, via } = pending;
     if (to === t.status && via !== 'drag' && via !== 'key') return;
@@ -587,7 +587,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           }} />
       )}
       {askFor && (
-        <AskPrompt t={askFor.t} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
+        <AskPrompt t={askFor.t} column={cols.find((c) => c.key === WAITING)?.label ?? ''} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
           restoreFocus={askFor.via === 'drag' || askFor.via === 'key' ? () => document.querySelector<HTMLElement>(`.board [data-key="${askFor.t.key}"] .tkl`) : undefined}
           onSubmit={(ask) => {
             const a = askFor;

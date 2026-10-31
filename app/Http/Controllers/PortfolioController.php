@@ -8,6 +8,7 @@ use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Support\Onboarding\ReadyBanner;
 use Illuminate\Http\Request;
+use App\Support\BoardColumns;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,6 +34,8 @@ class PortfolioController extends Controller
             'now' => now()->toIso8601String(),
             // ?ready={slug} after onboarding: banner + connect card (null otherwise).
             'welcome' => ReadyBanner::props($request),
+            // The workspace's default column names (each card prefers its project's own columnLabels).
+            'columns' => array_map(fn (array $c) => ['key' => $c['key'], 'label' => $c['label']], BoardColumns::all()),
         ]);
     }
 

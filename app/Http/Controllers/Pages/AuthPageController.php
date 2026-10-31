@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\AccountService;
 use App\Services\Auth\SignupBotCheck;
+use App\Support\WorkspaceGate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,7 @@ class AuthPageController extends Controller
 
         return Inertia::render('Auth/Login', [
             // AUTH-1 stays usable for the existing workspace until Tilen retires it ("Workspace password" link).
-            'gateAvailable' => (string) config('bridge.gate_password') !== '',
+            'gateAvailable' => WorkspaceGate::configured(),
             'copy' => self::copy(),
         ]);
     }

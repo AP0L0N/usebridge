@@ -55,6 +55,25 @@ privately; this plan covers product decisions, architecture, API and the securit
 7. **Turnstile is the bot check**; keys pending (Cloudflare).
 8. **Backfilled workspace name and slug from config**: `BRIDGE_WORKSPACE_NAME` (default "My workspace") and
    `BRIDGE_WORKSPACE_SLUG` (default `main`); an already-migrated database sets the slug it was migrated with.
+9. **The AUTH-1 gate fails closed** (31 Oct, his call; done §11): `bridge.gate_password` = `BRIDGE_GATE_PASSWORD` with
+   no default; unset or empty → the gate rejects every password (constant-time compare against a non-empty configured
+   value only; the gate page says "not configured", with no hint of a default). New flag `BRIDGE_GATE_ENABLED`
+   (default true); false → `/gate` 404s and gate sessions unlock nothing, including sessions unlocked before (they go
+   to the login screen). API tokens are unaffected. The old hard-coded literal is gone from the working tree
+   (`.env.example` empty, `phpunit.xml` a synthetic test value, browser scripts read `BRIDGE_GATE_PASSWORD` from the
+   environment). **The shared gate is retired when multi-user launches in production (`BRIDGE_GATE_ENABLED=false`).**
+   **Deploy prerequisite:** staging and production `.env` must set `BRIDGE_GATE_PASSWORD` explicitly before this
+   ships, or the gate locks everyone out (logins and API tokens keep working).
+10. **The `waiting_tilen` column is "Waiting on you" for new workspaces** (31 Oct, his call; done §11). The key
+    `waiting_tilen` is unchanged in the API. Verified: labels are derived in code (`BoardColumns`), no table stores
+    the label text (tickets store the key; `projects.column_labels` only holds a project's own names), so no row is
+    rewritten. Approach taken: a workspace-level setting, not the slug — additive `workspaces.settings` (JSON, null)
+    with `waiting_label`; migration `2026_10_31_160000` fills it for every workspace existing at migration time with
+    `BRIDGE_OWNER_WAITING_LABEL`, or, when that is empty, "Waiting on " + the first name of the default workspace's
+    owner (what they showed before). The existing workspace keeps its old label everywhere (web, portfolio, REST
+    `status_label`, `GET /api/board-columns`, MCP, the "needs an ask" errors); new workspaces have no setting and show
+    `BoardColumns`' default. A project's own `column_labels` still win on its board and in its errors. Deploy: set
+    `BRIDGE_OWNER_WAITING_LABEL` to the exact current label before migrating to make the backfill explicit.
 
 Still open: SMTP + SPF/DKIM/DMARC for `usebridge.si` (The Many). Until it is set, and until The Many has created the
 Turnstile keys, config decides:
@@ -96,7 +115,7 @@ Turnstile keys, config decides:
 
 ## 1. Data model
 
-Done (§11): `workspaces` (`slug`, `name`, `owner_user_id`, `features` json), `workspace_user` (`role`
+Done (§11): `workspaces` (`slug`, `name`, `owner_user_id`, `features` json, `settings` json — e.g. `waiting_label`, §0 decision 10), `workspace_user` (`role`
 owner/admin/member), `users.is_admin`, nullable indexed `workspace_id` on 18 owned tables + `personal_access_tokens`,
 per-workspace keys on `usage_days`, `cli_usage_days`, `polymarket_series_points`, `labels`. Not owned: `users`,
 `password_reset_tokens`, `sessions`, cache/jobs. `projects.slug`, `ticket_prefix`, `tickets.key` and string PKs stay
@@ -112,7 +131,7 @@ globally unique for now (a second user cannot have `CA-1`).
 | `users` | `timezone` (default `Europe/Ljubljana`) | account profile; display only in v1 (usage days stay Ljubljana) |
 | `users` | `delete_requested_at` ts, `deleted_at` ts (SoftDeletes) | account delete with grace |
 | `personal_access_tokens` | `token_suffix` char(4) (non-secret, last 4 of plaintext) | masked list `brg_live_••••3f9a` |
-| `projects` | `column_labels` json null (rename/hide per fixed key) | onboarding step 2 (columns are fixed in `BoardColumns`, incl. "Waiting on Tilen") |
+| `projects` | `column_labels` json null (rename/hide per fixed key) | onboarding step 2 (columns are fixed in `BoardColumns`, incl. `waiting_tilen`: "Waiting on you", or the workspace's `settings.waiting_label`) |
 | `cli_usage_imports` | `workspace_id`, `date`, `tool`, `rows`, `imported_at`; unique (ws, date, tool) | "no file" vs zero (§7) |
 | `cli_usage_days` | `cost_cents` decimal(12,4) null, `max_mode_calls` int null | Cursor (§7) |
 | `ticket/project_read_states` | `user` = user id instead of `'tilen'` | with login |
@@ -141,12 +160,14 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
   is usually a temporary measure. A `web` middleware also logs out a disabled user mid-session.
 - **Delete**: typed-email confirm → `delete_requested_at = now`, user logged out everywhere, tokens blocked like
   disabled; within 7 days, logging in offers "cancel deletion". After 7 days a command soft-deletes (`deleted_at`) the
-  user and marks the workspace; **no purge** of rows without Tilen's explicit OK. Export first: a JSON download of the
+  user and marks the workspace. Hard purge (37 days after the request) exists behind a flag that is **off** until
+  Tilen decides (§13). Export first: a JSON download of the
   workspace (projects, tickets, comments, statuses, usage) from the Danger zone.
 - Password reset: built-in broker, 60 min, 60 s throttle (done in `AccountService`). CSRF, `same_site=lax`,
   `SESSION_SECURE_COOKIE=true` on live. Transition: the login screen is now the entry for guests (§11 UI); the AUTH-1
-  gate keeps working for the existing workspace ("Workspace password" link on `/login`) **until Tilen retires it**;
-  then the gate routes are removed and gate sessions invalidated.
+  gate keeps working for the existing workspace ("Workspace password" link on `/login`) **until it is retired**:
+  `BRIDGE_GATE_ENABLED=false` (at the production multi-user launch, §0 decision 9) → `/gate` 404s and every gate
+  session, unlocked or not, unlocks nothing. It fails closed: no `BRIDGE_GATE_PASSWORD` → every password is rejected.
 
 ## 3. Migrating current data
 
@@ -371,6 +392,8 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Admin: `GET /admin/users` → `[id, name, email, created_at, last_login_at, status]` only; `POST /admin/users/{id}/disable\|enable` (not self; disable deletes sessions); 404 unless logged-in `is_admin` | `AdminUsers`, `Admin\UserController`, `RequireAdmin` |
 | Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
+| Gate fails closed (CoS decision 9): no default password, `BRIDGE_GATE_ENABLED`, every gate-session reader through one helper; tests `GateFailsClosedTest` | `App\Support\WorkspaceGate`, `GateController`, `EnsureWorkspaceGate`, `config/bridge.php` |
+| Waiting column label (CoS decision 10): `BoardColumns` default "Waiting on you", `workspaces.settings.waiting_label` per workspace (backfilled for existing ones), project `column_labels` win; portfolio gets the workspace defaults, the ask dialog the board's label; tests `WaitingColumnLabelTest` | `BoardColumns::defaults()`, `Workspace::waitingLabel()`, `TicketService::askRequired()`, `2026_10_31_160000_workspace_settings` |
 | Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
 | Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner or gate, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
@@ -442,8 +465,45 @@ otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with
 | `BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` | `main` / "My workspace" | backfilled workspace (gate sessions and console writes act in it); a migrated database must keep its slug |
 | `BRIDGE_PUBLIC_URL` | `APP_URL` | base for ticket links in API payloads |
 | `BRIDGE_LIVE_HOST` | empty (no host check) | the live host `bridge:rotate-copied-tokens` refuses |
-| `BRIDGE_GATE_PASSWORD` | empty (gate off) | transitional AUTH-1 workspace password |
+| `BRIDGE_GATE_PASSWORD` | none — **set explicitly** (unset/empty = the gate rejects everyone) | transitional AUTH-1 workspace password (§0 decision 9) |
+| `BRIDGE_GATE_ENABLED` | `true` | `false` = gate retired: `/gate` 404s, gate sessions unlock nothing (production multi-user launch) |
+| `BRIDGE_OWNER_WAITING_LABEL` | empty ("Waiting on " + default workspace owner's first name) | `waiting_tilen` label stored on workspaces existing at migration `2026_10_31_160000` (§0 decision 10) |
+| `BRIDGE_LEGAL_ENTITY` | "Your company" | operator name in the footer © line (`:entity`) |
+| `BRIDGE_TERMS_VERSION` | `2026-10-draft` | stored as `users.terms_version` at sign-up |
+| `BRIDGE_LEGAL_DIR` | empty (placeholders in `resources/legal`) | directory with the final legal texts, outside the repo |
+| `BRIDGE_SOURCE_URL` / `BRIDGE_DEPLOYED_SHA` | the public repo / empty (else `.bridge-deploy-sha`) | AGPL §13 "Source code" link, `/tree/<sha>` when known |
+| `BRIDGE_ACCOUNT_PURGE_ENABLED` | `false` | the only switch for `bridge:accounts-purge` (§13) |
+| `BRIDGE_SUPPORT_EMAIL_RETENTION_DAYS` | `365` | config only; support mailbox clean-up is manual |
+| `LOG_CHANNEL` / `LOG_STACK` / `LOG_DAILY_DAYS` | `daily` / `daily` / `14` | daily log files kept 14 days |
 | `BRIDGE_ROSTER_PATH` | empty (empty roster) | JSON file outside the repo: `{"agents": {"agent-id": ["Name", "Role"]}, "pms": {"project-id": "agent-id"}, "ticket_prefixes": {"project-id": "PREFIX"}}` (`ticket_prefixes` optional); used by the 2026_10_29 roster migration, `bridge:set-pms` and fixed ticket prefixes. Missing / unreadable / invalid → empty roster and one warning log line (no contents), nothing changes |
+
+## 13. Legal, retention and purge (31 Oct)
+
+- **(a) Legal pages + footer.** Public `/terms`, `/privacy`, `/imprint` and `/sl/pogoji`, `/sl/zasebnost`, `/sl/impresum`
+  (no login, no gate); placeholder text until the final texts drop into `BRIDGE_LEGAL_DIR` (markdown, rendered with
+  HTML stripped). Each page shows "For users in Slovenia, the Slovenian version prevails" and an EN | SL switch (legal
+  pages only; the app stays English). One footer on every page (`SiteFooter`, nav landmark): Imprint · Terms · Privacy
+  · Source code (AGPL-3.0-or-later), and the © line with `:entity` and the source link (deployed commit when known).
+  Copy in `lang/{en,sl}/legal.php`, tested character for character against the legal UI copy.
+- **(b) Sign-up acceptance.** One required, unticked checkbox (18+, Terms, Privacy), button disabled until ticked,
+  sensitive-data small print; server requires `accept_terms`; `users.terms_accepted_at`, `age_confirmed_at`,
+  `terms_version` (additive; existing users stay null). Turnstile loads only when the form is submitted (execute mode,
+  interaction-only); the widget's Pre-clearance setting must stay off (no `cf_clearance` cookie).
+- **(c) Hard purge.** `bridge:accounts-purge [--dry-run]`, scheduled daily, does nothing unless
+  `BRIDGE_ACCOUNT_PURGE_ENABLED=true`. Due: soft-deleted users whose request is 7 + 30 = 37 days old. In one
+  transaction per user it deletes the workspaces they solely own and every row that references them or the user —
+  tables are found from the schema (`workspace_id`, `user_id`, foreign keys, `<name>_id`, token morphs, password
+  resets), children first — then the user row (anonymised instead if a constraint still holds it). Skipped and
+  reported: admins, the default workspace, workspaces with other members. Logs one line per user: id + row counts per
+  table, never email or name. A test proves no row in any table still references the purged user or workspace and
+  that every other row is byte-identical. The soft-delete command is unchanged.
+- **(d) Logs.** Default channel `daily`, kept 14 days (`LOG_DAILY_DAYS`).
+- **Licence / CLA.** AGPL-3.0-or-later (LICENSE, NOTICE, CLA.md, CONTRIBUTING.md); CLA Assistant Lite workflow
+  (`.github/workflows/cla.yml`, signatures on the `cla-signatures` branch, which must be created before the first PR).
+
+**Open:** (1) the purge flag: conflicts with the standing "nothing hard-deleted" rule; stays off until Tilen decides.
+(2) Final legal texts (EN + SL) and the operator name (`BRIDGE_LEGAL_ENTITY`), then a real `BRIDGE_TERMS_VERSION`.
+(3) Create the `cla-signatures` branch and enable Actions on the public repo (not done here).
 
 ## 12. Open questions for Tilen
 

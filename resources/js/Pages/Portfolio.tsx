@@ -11,7 +11,7 @@ import { ago } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 import { ageAria, t, type StrKey } from '../lib/strings';
 
-type Props = { projects: PortfolioProject[]; now: string; welcome?: Welcome };
+type Props = { projects: PortfolioProject[]; now: string; welcome?: Welcome; columns?: { key: ColumnKey; label: string }[] };
 
 const COLS: [ColumnKey, StrKey][] = [
   ['backlog', 'portfolio.col.backlog'], ['todo', 'portfolio.col.todo'], ['in_progress', 'portfolio.col.in_progress'],
@@ -64,11 +64,13 @@ function BotLine({ p, now }: { p: PortfolioProject; now: string }) {
   );
 }
 
-function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
+function Card({ p, q, now, columns }: { p: PortfolioProject; q: string; now: string; columns?: Props['columns'] }) {
   // The project's own column names (Column labels on the board) over the defaults; Done counts the last 7 days.
   const cols = COLS.map(([k, key]) => {
     const own = p.columnLabels?.[k];
-    return { k, label: own ? `${own}${k === 'done' ? ' (7 days)' : ''}` : t(key), n: p.ticketCounts?.[k] ?? 0 };
+    // The waiting column's default name is per workspace (server prop); the others come from the strings.
+    const ws = k === 'waiting_tilen' ? columns?.find((c) => c.key === k)?.label : undefined;
+    return { k, label: own ? `${own}${k === 'done' ? ' (7 days)' : ''}` : ws ?? t(key), n: p.ticketCounts?.[k] ?? 0 };
   });
   const total = cols.reduce((s, c) => s + c.n, 0);
   const archived = isArch(p);
@@ -177,7 +179,7 @@ function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
   );
 }
 
-export default function Portfolio({ projects, now, welcome }: Props) {
+export default function Portfolio({ projects, now, welcome, columns }: Props) {
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
@@ -257,11 +259,11 @@ export default function Portfolio({ projects, now, welcome }: Props) {
           </div>
         ) : (
           <>
-            {active.length > 0 && <div className="pf-grid">{active.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>}
+            {active.length > 0 && <div className="pf-grid">{active.map((p) => <Card key={p.id} p={p} q={query} now={now} columns={columns} />)}</div>}
             {archived.length > 0 && (
               <section className="pf-archived">
                 <h2 className="pf-sect"><span>{t('dash.archived.heading')}</span><span className="pf-count pf-mono">{archived.length}</span></h2>
-                <div className="pf-grid">{archived.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>
+                <div className="pf-grid">{archived.map((p) => <Card key={p.id} p={p} q={query} now={now} columns={columns} />)}</div>
               </section>
             )}
           </>

@@ -160,4 +160,34 @@ class LegalPagesTest extends TestCase
         // A file missing from the dir falls back to the placeholder.
         $this->assertStringContainsString('Placeholder — the final text is being prepared.', $this->get('/privacy')->inertiaProps('html'));
     }
+
+    /** The footer as SiteFooter.tsx renders it: links joined by " · ", then " · EN | SL" on legal pages; the © line with the link text. */
+    private function renderedFooter(array $f): array
+    {
+        $line = implode(' · ', [...array_column($f['links'], 'label'), $f['source']['label']]).($f['switch'] ? ' · EN | SL' : '');
+
+        return [$line, str_replace(':link', $f['getSource'], $f['copyright'])];
+    }
+
+    #[Test]
+    public function the_rendered_footer_lines_match_ui_copy_exactly_with_only_entity_as_placeholder(): void
+    {
+        config(['bridge.legal_entity' => ':entity']);
+        // UI-COPY.md (v3), with the operator name replaced by :entity and the source URL left to the href.
+        $this->assertSame([
+            'Imprint · Terms · Privacy · Source code (AGPL-3.0-or-later) · EN | SL',
+            '© :entity · Bridge is free software under AGPL-3.0-or-later. Get the source code.',
+        ], $this->renderedFooter($this->get('/terms')->inertiaProps('footer')));
+        $this->assertSame([
+            'Impresum · Pogoji · Zasebnost · Izvorna koda (AGPL-3.0-or-later) · EN | SL',
+            '© :entity · Bridge je prosto programje pod licenco AGPL-3.0-or-later. Prenesite izvorno kodo.',
+        ], $this->renderedFooter($this->get('/sl/pogoji')->inertiaProps('footer')));
+        // Other pages: same line without the switch.
+        $this->assertSame('Imprint · Terms · Privacy · Source code (AGPL-3.0-or-later)', $this->renderedFooter($this->get('/signup')->inertiaProps('footer'))[0]);
+
+        // The component joins with exactly these separators.
+        $tsx = File::get(resource_path('js/Components/SiteFooter.tsx'));
+        $this->assertStringContainsString('aria-hidden="true"> · </span>', $tsx);
+        $this->assertStringContainsString('<span aria-hidden="true"> | </span>', $tsx);
+    }
 }
