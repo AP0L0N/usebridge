@@ -47,8 +47,7 @@ source, publish the version that includes your merged Contribution under an open
 AGPL-3.0-or-later) as well as under any other terms it chooses.
 
 ## 6. Personal data
-To record that you agreed, LANTIS stores, through the CLA Assistant service (cla-assistant.io), your GitHub username, the date and the version of this agreement you accepted,
-and keeps this for as long as your Contribution is part of Bridge (Art. 6(1)(b) and (f) GDPR). Contact:
+To record that you agreed, LANTIS stores, in the `cla-signatures` branch of the Bridge repository on GitHub (through the CLA Assistant Lite GitHub Action), your GitHub username, the date, the pull request and the version of this agreement you accepted. The record is public, like the rest of the repository. We keep it for as long as your Contribution is part of Bridge (Art. 6(1)(b) and (f) GDPR). Contact:
 support@usebridge.si.
 
 ## 7. Law

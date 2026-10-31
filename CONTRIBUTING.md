@@ -9,9 +9,13 @@ Thank you for helping. Bridge is published under the AGPL-3.0-or-later (see [LIC
 LANTIS (Tilen Poje s.p.) a licence to use your contribution and to license Bridge under other terms
 in the future.
 
-How to agree: when you open your first pull request, a bot asks you to confirm the CLA. Reply with
-the sentence it shows. [TO FILL: CLA Assistant or another tool – Tilen/dev picks; the bot records
-your GitHub username, the date and the CLA version.] We cannot merge pull requests until the CLA is
+How to agree: when you open your first pull request, our CLA bot (CLA Assistant Lite, a GitHub Action)
+posts a comment. You sign by replying with this exact comment:
+
+    I have read the CLA Document and I hereby sign the CLA
+
+The bot records your GitHub username, the date and the pull request in the `cla-signatures` branch of
+this repository. The CLA version you signed is the one linked in the bot's comment. We cannot merge pull requests until the CLA is
 confirmed. If you contribute on behalf of your employer, make sure your employer allows it (see CLA
 section 4).
 
