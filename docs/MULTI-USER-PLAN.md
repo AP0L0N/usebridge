@@ -19,6 +19,15 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 2. **Owner admin = user list + disable/enable ONLY.** Tilen cannot see other users' boards, tickets, statuses, usage or
    any data; no impersonation. Enforced in API + query layer (§5).
 
+**Relayed decisions (via CoS, 31 Oct 08:49)** — Tilen's answers, relayed by the Chief of Staff:
+
+1. **Owner login email: `poje.tilen@gmail.com`** (`BRIDGE_OWNER_EMAIL` on staging/live).
+2. **Cursor is on an individual plan** → no Admin API. Usage comes from the **Cursor dashboard CSV export**, attributed
+   to **one account shown as "Cursor (all agents)"**; never a faked per-agent split (§7).
+3. **Mail domain pending**: `MAIL_MAILER=log` stays; sender address and name come from `MAIL_FROM_ADDRESS` /
+   `MAIL_FROM_NAME` (§11).
+4. **Turnstile keys will be created by The Many**; config-driven (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`).
+
 **Decisions by the Chief of Staff (Captain W. Diego), 31 Oct** — his calls, not Tilen's:
 
 1. **MCP uses `laravel/mcp`** (runtime dependency, `Mcp::web`, streamable HTTP; §6).
@@ -32,11 +41,12 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 7. **Turnstile is the bot check**; keys pending (Cloudflare).
 8. **Workspace `LANTIS`, slug `tilen`.**
 
-Still open with Tilen: Cursor plan type, mail provider and sender, Cloudflare access (Turnstile keys), owner login
-email (`BRIDGE_OWNER_EMAIL`). Until they are answered, config decides:
+Still open with Tilen: the mail domain / provider. Until it is set, and until The Many has created the Turnstile keys,
+config decides:
 - no `TURNSTILE_*` keys → sign-up bot check is honeypot + minimum fill time only;
-- `MAIL_MAILER=log` → verification / reset links are written to the log, not sent;
-- owner email comes from `BRIDGE_OWNER_EMAIL`; the backfill migration refuses to run without it.
+- `MAIL_MAILER=log` → verification / reset links are written to the mail log only, not sent;
+- owner email comes from `BRIDGE_OWNER_EMAIL` (`poje.tilen@gmail.com`, 08:49 decision 1); the backfill migration
+  refuses to run without it.
 
 **Working defaults (CoS, 31 Oct; confirmed by the CoS, decision 6 above)** — we build to these; each is cheap to change:
 
@@ -58,8 +68,8 @@ email (`BRIDGE_OWNER_EMAIL`). Until they are answered, config decides:
 
 | # | Question | Answer | Status |
 |---|---|---|---|
-| 1 | Cursor data source | Admin API `filtered-usage-events` via Captain; CSV fallback (§7) | working default; Cursor plan open |
-| 2 | Cursor agent attribution | `serviceAccountId`/`userEmail` → agent map kept by Captain; else *Unattributed* | working default |
+| 1 | Cursor data source | Dashboard CSV export, uploaded (`POST /usage/cursor-csv`) or `bridge:cursor-csv-import` (§7) | **decided** (relayed 08:49: individual plan) |
+| 2 | Cursor agent attribution | none: one account, "Cursor (all agents)"; no per-agent split | **decided** (relayed 08:49) |
 | 3 | Scopes, expiry | read / read&write; 30/90/365/none; per-project v2 | default confirmed (CoS) |
 | 4 | MCP endpoint | `/mcp`, streamable HTTP, Bearer, per-token limit, tools §6; `laravel/mcp` | **decided** (CoS) |
 | 5 | Email verification | before tokens/MCP, not before use | relayed (1) + default |
@@ -206,42 +216,66 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 
 ## 7. Cursor usage
 
-**Feasibility.** Admin API: yes, needs a Cursor **Team** plan admin key (Basic auth). `POST
-https://api.cursor.com/teams/filtered-usage-events` (`startDate`/`endDate` epoch ms, `email?`, `page`, `pageSize`) returns
-per event: `timestamp`, `userEmail`, `serviceAccountId/Name`, `cloudAgentId`, `automationId`, `conversationId`,
-`model`, `kind`, `maxMode`, `requestsCosts`, `isTokenBasedCall`, `isChargeable`, `isHeadless`, `tokenUsage
-{inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens, totalCents}`, `chargedCents`, `cursorTokenFee`.
-`/teams/daily-usage-data` has no per-model tokens → not enough. Limits: ≤ 30-day ranges, 20 req/min, poll ≤ hourly.
-CSV: dashboard export (Date, Kind, Model, Max Mode, Input w/ and w/o Cache Write, Cache Read, Output, Total, Cost)
-works on individual plans but is manual, one account per file, no attribution beyond the account.
+**Source (Tilen, relayed by the CoS 31 Oct 08:49): LANTIS is on a Cursor _individual_ plan.** That plan has no Admin
+API, so Bridge imports the **dashboard CSV export**. Everything is attributed to **one account, shown as
+"Cursor (all agents)"** (`agent_id` `cursor`). The export has no per-agent attribution, and Bridge never fakes a split.
 
-**Recommendation**: Admin API, pulled by **Captain** (Bridge never stores a Cursor key), aggregated per
-Europe/Ljubljana day × agent × model; attribution via `serviceAccountId`/`userEmail` → Bridge `agent_id` map kept by
-Captain, unmapped → `unattributed`. CSV (converted by Captain into the same rows) if LANTIS is not on a Team plan.
-Row (extends `cli_usage`; replaces the earlier `cost_usd`/`requests` proposal — "Requests" in the UI = `calls`):
+**Getting the file (Tilen or whoever holds the Cursor login):**
+1. Open `https://cursor.com/dashboard` and sign in.
+2. Go to **Usage**.
+3. Pick the date range (e.g. the last 7 or 30 days; overlapping earlier uploads is fine).
+4. Click **Export CSV**.
+5. Upload the file: `POST /usage/cursor-csv` (multipart `file`; the Usage page gets an upload control in the UI run),
+   or on the box `php artisan bridge:cursor-csv-import <file.csv> [--workspace=tilen] [--dry-run]`.
 
-```json
-{"tool": "cursor", "agent_id": "agent-erin", "name": "Erin Bloome", "model": "claude-4.5-sonnet",
- "input": 120000, "output": 8000, "cache_read": 900000, "cache_creation": 0, "calls": 42,
- "cost_cents": 312.5, "max_mode_calls": 3}
-```
+**Required columns** (matched by name: case-insensitive, trimmed, any order, UTF-8 BOM allowed): `Date`, `Model`,
+`Input (w/o Cache Write)`, `Input (w/ Cache Write)`, `Cache Read`, `Output Tokens`. Optional: `Cost`, `Max Mode`.
+Everything else is ignored (`Kind`, `Total Tokens`, `Cost to you`, `Cloud Agent ID`, `Automation ID`, `User` on team
+exports). Known header versions: v1 `Date,Model,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output
+Tokens,Total Tokens,Cost,Cost to you`; v2 `Date,Kind,Model,Max Mode,Input (w/ Cache Write),Input (w/o Cache
+Write),Cache Read,Output Tokens,Total Tokens,Cost`; v3 = v2 + `Cloud Agent ID,Automation ID`. A missing required
+column → 422 naming the missing and the found headers.
 
-`input` = inputTokens, `cache_creation` = cacheWriteTokens, `calls` = event count, `cost_cents` = Σ chargedCents
-(optional), `max_mode_calls` (optional). `CliUsageDay::TOOLS += 'cursor'`.
+**Mapping** (`App\Services\Usage\CursorCsvImporter`), one row per Europe/Ljubljana day × model:
 
-**Ingest change (done, branch `wip/usage-per-tool`)**: `CliUsageImporter` used to delete **all** cli rows of the date
-before inserting, so a separate Cursor POST would have wiped that day's Claude Code/Kimi/OpenCode rows. Now it
-**replaces per (workspace, date, tool)** for the tools the file covers, in one transaction. A collector object takes an
-optional top-level **`covered_tools: [...]`** (distinct `CliUsageDay::TOOLS`, max 10; not `tools`, which is the rows
-key) = "this file is authoritative for these tools on this date, even with zero rows"; a row whose tool is not listed →
-422. Without it the covered set is the tools in the rows, plus `CliUsageDay::LEGACY_COLLECTOR_TOOLS` (claude_code,
-kimi_code, opencode_go) when no row is `cursor`, so today's `cli_usage.py` files (empty ones too) behave exactly as
-before. Captain's Cursor file should send `"covered_tools": ["cursor"]`. Rows may carry `cost_cents` (number 0–1e12)
-and `max_mode_calls` (int 0–`calls`), stored in nullable `cli_usage_days` columns. Each covered (workspace, date, tool)
-upserts a `cli_usage_imports` marker (`rows`, `total`, `imported_at`; backfilled from existing rows): marker + no rows
-= zero, no marker = "no file for that day". The Usage page props carry `cli.importedTools` (date → covered tools); the
-Cursor tile shows up once Cursor has rows in the range (no other UI yet). Cadence: nightly for yesterday + re-POST of the
-last 2 days (late events).
+| Bridge (`cli_usage_days`) | CSV |
+|---|---|
+| `input_tokens` | `Input (w/o Cache Write)` |
+| `cache_creation_tokens` | `Input (w/ Cache Write)` (the cache-write count on its own) |
+| `cache_read_tokens` | `Cache Read` |
+| `output_tokens` | `Output Tokens` |
+| `calls` | number of rows |
+| `max_mode_calls` | rows with `Max Mode` yes/true (null when the column is absent, v1) |
+| `cost_cents` | Σ `Cost` in dollars × 100 (`$0.11`, `0.11`, `1,234.5`); `-`, `Free`, `Included`, empty = 0; null when no row of the file has a numeric cost |
+| `date` | `Date` (UTC ISO, `Z`) → calendar day in Europe/Ljubljana (`OrgDate`), DST-aware |
+
+Numbers may be quoted and carry thousands separators. Rows of every `Kind` count, also "Errored, No Charge" /
+"Aborted, Not Charged": Cursor processed those tokens (they cost nothing, which `Cost` already shows).
+
+**Import rules.** Each day from the file's first to its last day goes through `CliUsageImporter` with
+`covered_tools: ["cursor"]` and `coverage_from` = first day. Only Cursor rows of those days are replaced (Claude Code /
+Kimi / OpenCode rows and markers are never touched), and every day in between gets a marker, zero days included. The
+first and last day are likely partial (the export window cuts them). Such an edge day replaces the stored day only when
+that day has no Cursor marker yet or the new day has ≥ the stored calls; otherwise it is reported as "kept (partial
+edge day)". Re-uploading the same file is idempotent. Limits: 10 MB, 200,000 rows. A malformed row → 422 with its line
+number (at most 20 errors), and nothing is written (one transaction). The result reports days imported / zero / kept,
+rows, total tokens and the date range (`--dry-run` reports the same and writes nothing).
+
+**Who may upload.** `POST /usage/cursor-csv`: the owner of the current workspace (`workspace_user.role = owner`) or
+the AUTH-1 gate session (acts in Tilen's workspace); everyone else 404; 10 uploads per hour per user (gate: per IP).
+The Usage page props carry `cli.cursorUpload: {allowed, lastImportAt}`. Cursor rows show through `UsageReport` like
+the other tools (tool "Cursor", agent "Cursor (all agents)").
+
+**Storage (unchanged).** `CliUsageImporter` replaces per (workspace, date, tool) for the tools a file covers, upserts
+a `cli_usage_imports` marker per covered tool (marker + no rows = zero, no marker = no file), and stores the optional
+`cost_cents` (decimal) / `max_mode_calls` columns. `CliUsageDay::TOOLS` includes `cursor`.
+
+**If LANTIS moves to a Team plan** (not the case today): the Admin API (`POST
+https://api.cursor.com/teams/filtered-usage-events`, admin key with Basic auth, ≤ 30-day ranges, 20 req/min) returns
+per event `userEmail`, `serviceAccountId`, `model`, `maxMode`, `tokenUsage {inputTokens, outputTokens,
+cacheWriteTokens, cacheReadTokens}`, `chargedCents`. Captain would pull it (Bridge never stores a Cursor key) and POST
+collector files with `covered_tools: ["cursor"]`, attributing via a `serviceAccountId`/`userEmail` → agent map (unmapped
+→ `unattributed`). `/teams/daily-usage-data` has no per-model tokens and is not enough.
 
 ## 8. Screens → backend
 
@@ -263,7 +297,7 @@ last 2 days (late events).
 | onboarding step2 | `PATCH /projects/{slug}/columns` → `column_labels` (rename/hide v1; add/reorder later) |
 | onboarding step3 / done | link to tokens; checklist state derived (has project, has columns saved, has token) — no new column; example project = step 1's project |
 | usage 7d / yesterday / 30d | existing `/usage` per range, scoped (only own agents) |
-| usage Cursor section / cursor-empty | `cli_usage_days` where tool=cursor: per model {requests, input, output, cache_read, total}, per agent with model rows; empty = no cursor marker in range |
+| usage Cursor section / cursor-empty | `cli_usage_days` where tool=cursor: per model {requests, input, output, cache_read, total} for the one "Cursor (all agents)" account (no per-agent rows); empty = no cursor marker in range; upload control from `cli.cursorUpload {allowed, lastImportAt}` → `POST /usage/cursor-csv` (§7) |
 | shell | shared props `user {name, initials, email}`, `is_owner`, `features.polymarket`, `features.admin`; non-owner → 404 |
 | shell admin | `GET /admin/users` → [{id, name, email, created_at, last_login_at, status}]; disable/enable. "View as" = prototype only |
 
@@ -274,7 +308,7 @@ backend auth, breached-password check and the MCP endpoint (§11). Next, each wi
 1. ~~Backend auth~~ — done (§11, JSON only). Left from it for later steps: `PATCH /account` + email change
    (`pending_email` columns exist, flow not built), `GET /reset-password/{token}` screen, sessions list device parsing.
 2. ~~MCP endpoint~~ — done (§6, §11).
-3. Cursor ingest: scoped replace + markers, `cursor` tool, new columns.
+3. ~~Cursor ingest~~ — done: scoped replace + markers, `cursor` tool, new columns; CSV import (§7).
 4. UI from the prototypes: login/signup (Turnstile) / reset / account / tokens / onboarding / admin / usage Cursor;
    then remove the gate, read states per user.
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
@@ -312,6 +346,8 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
 | Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
+| Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner or gate, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
+| Mail: sender from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` (empty → `bridge@localhost` / "Bridge"), `.env.example` `MAIL_MAILER=log`; verification / reset links only in the mail log | `config/mail.php`, `tests/Feature/MultiUser/MailConfigTest.php` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
 Step 1 notes: all routes are JSON in the `web` group (CSRF applies; screens come in step 4); the AUTH-1 gate still
@@ -323,31 +359,31 @@ token, so this device's "keep me logged in" cookie ends too (its session continu
 backfill throws and `migrate` stops (it never picks the token owner or first user); (2) `SELECT id, name, abilities FROM
 personal_access_tokens` — each needs `*`/`ceo` or the abilities it uses; (3) rehearse on a dump copy incl.
 `migrate:rollback --step=4`; (4) after: counts + smoke tests; (5) `SESSION_DRIVER=database` (sessions / disable / log
-out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification); (7) optional `TURNSTILE_*`; (8) daily cron
+out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification; until the domain is decided `MAIL_MAILER=log`, set
+`MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` when it is); (7) `TURNSTILE_*` once The Many has created the keys; (7b) PHP
+`upload_max_filesize` / `post_max_size` ≥ 10 MB for `POST /usage/cursor-csv`; (8) daily cron
 `php artisan bridge:accounts-delete-expired`; (9) `laravel/mcp` is a runtime dependency now: the deploy runs
 `composer install --no-dev --optimize-autoloader` (vendor must contain it, else every request fails at boot);
 (10) `BRIDGE_HIBP_ENABLED` stays unset (on) — the box needs outbound HTTPS to `api.pwnedpasswords.com` (fail-open
 otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with a verified user's token.
 
 **Staging (`bridge_staging`, migrated before (1) was enforced: Captain's API user is owner + admin, no Tilen user):**
-1. `php artisan bridge:set-owner --email=<Tilen's email> --name=Tilen --dry-run`, then without `--dry-run`. Tilen is
+1. `php artisan bridge:set-owner --email=poje.tilen@gmail.com --name=Tilen --dry-run`, then without `--dry-run`. Tilen is
    created (verified, admin, unusable password) and becomes owner; Captain becomes member, not admin; tokens untouched.
    Tilen sets a password via `/forgot-password` (with `MAIL_MAILER=log` the mail is in the log; never paste the link).
 2. `php artisan bridge:rotate-copied-tokens --out=<new file>` (`APP_ENV=staging`, or `--force-env=staging` on a
    non-production env; refuses the live `APP_URL`). Every copied live token gets a new plaintext in place; the new
    `NAME=id|token` lines (`BRIDGE_API_TOKEN` for `ceo`) are only in that 0600 file. Live tokens then answer 401 there.
 
-**Prod:** set `BRIDGE_OWNER_EMAIL` before `migrate` (step (1) above); no set-owner / rotation needed.
+**Prod:** set `BRIDGE_OWNER_EMAIL=poje.tilen@gmail.com` before `migrate` (step (1) above); no set-owner / rotation needed.
 
 ## 12. Open questions for Tilen
 
 Answered by the Chief of Staff on 31 Oct (§0): MCP → `laravel/mcp`; staging on xerxes (`bridge-staging.tilenpoje.eu`);
 HIBP breached check, fail-open; per-project scopes v2; working defaults confirmed; Turnstile; workspace `LANTIS` / slug
-`tilen`. Still open:
+`tilen`. Answered by Tilen (relayed by the CoS, 31 Oct 08:49, §0): owner email `poje.tilen@gmail.com`; Cursor
+individual plan → CSV import, one "Cursor (all agents)" account; mail stays on `log` with an env-configured sender;
+Turnstile keys created by The Many. Still open:
 
-1. Cursor: which plan is LANTIS on — Team (admin API key, held by Captain) or individual (CSV)?
-2. Mail provider and sender (e.g. `bridge@tilenpoje.eu`, SPF/DKIM); who holds the credentials (The Many)? Until then
+1. Mail domain and provider (e.g. `bridge@tilenpoje.eu`, SPF/DKIM) and who holds the credentials. Until then
    `MAIL_MAILER=log`.
-3. Cloudflare access for the Turnstile keys (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`). Until then honeypot +
-   minimum fill time only.
-4. Owner login email for `BRIDGE_OWNER_EMAIL` (the backfill refuses without it).
