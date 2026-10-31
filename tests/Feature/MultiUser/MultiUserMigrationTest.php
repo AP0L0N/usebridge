@@ -47,7 +47,8 @@ class MultiUserMigrationTest extends TestCase
         $ws = DB::table('workspaces')->where('slug', 'tilen')->first();
         $this->assertNotNull($ws);
         $this->assertSame('LANTIS', $ws->name);
-        $this->assertSame(['polymarket' => true], json_decode($ws->features, true));
+        // usage_upload: added by 2026_10_31_130000_multi_user_auth (read & write tokens get usage:write there).
+        $this->assertSame(['polymarket' => true, 'usage_upload' => true], json_decode($ws->features, true));
         $owner = User::query()->find($ws->owner_user_id);
         $this->assertTrue((bool) $owner->is_admin);
         $this->assertSame('owner', DB::table('workspace_user')->where(['workspace_id' => $ws->id, 'user_id' => $owner->id])->value('role'));
