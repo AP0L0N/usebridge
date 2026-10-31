@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\PolymarketController;
@@ -29,6 +30,8 @@ Route::post('/gate/lock', [GateController::class, 'lock'])->name('gate.lock');
 
 // Accounts (docs/MULTI-USER-PLAN.md §2, §8): JSON for the screens to come. The AUTH-1 gate keeps working beside them;
 // a logged-in user acts in their own workspace (EnsureWorkspaceGate).
+Route::get('/signup/form', [SignupController::class, 'form'])->name('signup.form');
+Route::post('/signup', [SignupController::class, 'store'])->middleware('throttle:signup')->name('signup');
 Route::post('/login', [LoginController::class, 'login'])->name('login');
 Route::post('/login/cancel-deletion', [LoginController::class, 'cancelDeletion'])->name('login.cancel-deletion');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');

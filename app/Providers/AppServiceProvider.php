@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
 
             return route('gate.show');
         });
+
+        // Open sign-up: 5 per IP and hour (relayed decision 1).
+        RateLimiter::for('signup', fn (Request $request) => Limit::perHour(5)->by('signup:'.$request->ip())
+            ->response(fn () => response()->json(['message' => 'Too many sign-ups from this network. Try again later.'], 429)));
 
         // Reset link for the (future) reset screen; built here so no route has to exist yet (docs/MULTI-USER-PLAN.md §2).
         ResetPassword::createUrlUsing(fn ($user, string $token) => rtrim((string) config('app.url'), '/')
