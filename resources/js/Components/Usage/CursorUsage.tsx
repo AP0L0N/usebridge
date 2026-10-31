@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { t } from '../../lib/strings-usage';
 import { count, CURSOR, dayState, fmt, money, pct, rangeWords, spanLabel, type CliBlock, type CliModelRow, type OverviewDay, type Range, type Series } from '../../lib/usage';
 import { ChartLegend } from './ChartLegend';
 import { ModelName, ToolDayTable } from './CliUsage';
@@ -25,6 +26,7 @@ type Props = { cli: CliBlock; range: Range; fromLabel: string; toLabel: string; 
 export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Props) {
   const [isolated, setIsolated] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const span = spanLabel(fromLabel, toLabel);
   const tool = cli.tools.find((t) => t.tool === CURSOR) ?? null;
   const upload = cli.cursorUpload;
@@ -48,23 +50,35 @@ export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }:
 
   return (
     <>
-      <h2 className="sect" id="h-cur">
-        Cursor models <span style={{ textTransform: 'none', letterSpacing: 0 }}>· measured requests &amp; tokens · {span}</span>
-      </h2>
-      <section className="card" aria-labelledby="h-cur" aria-busy={loading}>
-        <div className="chead">
-          <MeasuredBadge />
-          <span className="sub">Imported from the Cursor dashboard CSV export, not scaled. One account: <b>Cursor (all agents)</b>.</span>
+      <section className="card" id="cursor" aria-labelledby="h-cur" aria-busy={loading}>
+        <div className="chead cur-head">
+          <div className="cur-title">
+            <h2 id="h-cur">{t('usage.cursor.title')}</h2>
+            <span className="sub">{t('usage.cursor.sub')}</span>
+          </div>
+          <div className="right">
+            <span className="chip soon"><i aria-hidden="true" />{t('usage.cursor.soon')}</span>
+            {upload?.allowed && !empty && (
+              <button type="button" className="bbtn" aria-expanded={importOpen} aria-controls="cur-import" onClick={() => setImportOpen((v) => !v)}>{t('usage.cursor.import')}</button>
+            )}
+          </div>
         </div>
+        {!empty && <div className="cur-badges"><MeasuredBadge /></div>}
 
         {empty ? (
           <div className="cur-empty">
-            <div className="eico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15v-3M12 15V9M16 15v-5" /></svg></div>
-            <h3>{upload?.lastImportAt ? `No Cursor file covers the ${range === 'yesterday' ? 'day' : rangeWords(range)}` : 'No Cursor usage imported yet'}</h3>
+            <div className="eico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 19V6M7 11l5-5 5 5M5 21h14" /></svg></div>
+            <h3>{upload?.lastImportAt ? t('usage.cursor.empty.range', { range: range === 'yesterday' ? 'the day' : `the ${rangeWords(range)}` }) : t('usage.cursor.empty.title')}</h3>
             <p>
-              Bridge shows Cursor requests and tokens per model once a usage export is imported.
-              {upload?.allowed ? ' Export it from the Cursor dashboard and upload it below.' : ' The workspace owner uploads the export.'}
+              {t('usage.cursor.empty.none')}{' '}
+              {upload?.allowed ? t('usage.cursor.empty.owner') : t('usage.cursor.empty.member')}
             </p>
+            {upload?.allowed && (
+              <div className="actions">
+                <button type="button" className="bbtn primary" aria-expanded={importOpen} aria-controls="cur-import" onClick={() => setImportOpen((v) => !v)}>{t('usage.cursor.import')}</button>
+                <button type="button" className="bbtn ghost" aria-expanded={importOpen} aria-controls="cur-import" onClick={() => setImportOpen(true)}>{t('usage.cursor.importHow')}</button>
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -116,11 +130,11 @@ export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }:
             <div className="cur-split">
               <div>
                 <div className="chead">
-                  <h3>Daily Cursor tokens by model</h3>
+                  <h3>{t('usage.cursor.byModel')}</h3>
                   {!narrow && (
                     <div className="right">
                       {missing > 0 && <span className="hscale"><MissingKey />No file for that day ({missing}) · not the same as zero</span>}
-                      <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? 'Show as chart' : 'Show as table'}</button>
+                      <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? t('usage.showChart') : t('usage.showTable')}</button>
                     </div>
                   )}
                 </div>
@@ -136,7 +150,7 @@ export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }:
                 )}
               </div>
               <div>
-                <div className="chead"><h3>By account</h3></div>
+                <div className="chead"><h3>{t('usage.cursor.byAccount')}</h3></div>
                 <div className="tscroll">
                   <table className="tbl">
                     <caption className="sr">Cursor requests and tokens per account, {span}</caption>
@@ -149,7 +163,7 @@ export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }:
                     </tbody>
                   </table>
                 </div>
-                <p className="foot">The individual plan's export has no per-agent attribution, so Bridge shows Cursor as one account and never splits it by guess.</p>
+                <p className="foot">{t('usage.cursor.byAccountSub')}</p>
               </div>
             </div>
             <p className="foot">
@@ -159,7 +173,7 @@ export function CursorUsage({ cli, range, fromLabel, toLabel, narrow, loading }:
           </>
         )}
 
-        {upload?.allowed && <CursorUpload lastImportAt={upload.lastImportAt} />}
+        {upload?.allowed && importOpen && <div id="cur-import"><CursorUpload lastImportAt={upload.lastImportAt} /></div>}
       </section>
     </>
   );

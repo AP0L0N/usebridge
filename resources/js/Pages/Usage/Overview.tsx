@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import '../../../css/usage-redesign.css';
 import type { Shared } from '../../lib/account';
 import { TopBar } from '../../Components/TopBar';
 import { ChartLegend } from '../../Components/Usage/ChartLegend';
@@ -13,7 +14,8 @@ import { RangeSeg } from '../../Components/Usage/RangeSeg';
 import { RankList } from '../../Components/Usage/RankList';
 import { DailyTable, StackedDailyChart } from '../../Components/Usage/StackedDailyChart';
 import { UsageTable } from '../../Components/Usage/UsageTable';
-import { count, inRange, initials, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
+import { t } from '../../lib/strings-usage';
+import { count, initials, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
 
 function ChartSkeleton() {
   return (
@@ -68,6 +70,7 @@ export default function Overview(p: OverviewProps) {
   const [isolated, setIsolated] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [howOpen, setHowOpen] = useState(false);
   const missing = p.days.length - p.daysWithFile;
   const rangeTxt = rangeWords(p.range);
   const span = spanLabel(p.fromLabel, p.toLabel);
@@ -81,39 +84,45 @@ export default function Overview(p: OverviewProps) {
     });
   };
   const clearDay = withQuery('/usage', { range: rangeParam(p.range) });
-  const t = p.table;
+  const tb = p.table;
   const yesterday = p.range === 'yesterday';
   // Yesterday range: the table is scoped to that day by the range itself (no "only" notice).
-  const tableByRange = yesterday && t.day === p.to;
-  const clearDayText = yesterday ? 'Show yesterday' : 'Show the last 7 days';
+  const tableByRange = yesterday && tb.day === p.to;
+  const clearDayText = yesterday ? t('usage.all.clearYesterday') : t('usage.all.clear7');
+
+  const names = p.table.rows.map((r) => r.name);
+  const mineNames = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? '';
 
   return (
     <>
-      <Head title="Usage" />
+      <Head title={t('usage.title')} />
       <TopBar />
+      <div className="bu">
       <main className="wrap">
         <div className="dhead">
           <div>
-            <h1>Usage</h1>
+            <div className="titleline"><h1>{t('usage.title')}</h1></div>
             <p className="summary">
               {p.empty
-                ? <>No usage files · {span}</>
-                : <><b><Est value={p.rangeTotal} /></b> tokens{narrow ? '' : ` across ${p.agentCount} agents`} · {span}</>}
-              {p.range === 30 && !p.empty && <> · <b>{p.daysWithFile} of {p.days.length} days have a file</b></>}
+                ? t('usage.summary.empty', { span })
+                : <><b><Est value={p.rangeTotal} /></b> {narrow ? t('usage.summary.totalShort', { span }) : t('usage.summary.total', { n: p.agentCount, span })}</>}
+              {p.range === 30 && !p.empty && <> · <b>{t('usage.summary.days', { n: p.daysWithFile, m: p.days.length })}</b></>}
             </p>
-            {signedIn && <p className="mine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>Only your workspace's agents and tools are counted here.</p>}
+            {signedIn && <p className="mine">{mineNames ? t('usage.mine', { names: mineNames }) : t('usage.mine.none')}</p>}
           </div>
           <div className="tools"><RangeSeg range={p.range} onLoading={setLoading} /></div>
         </div>
 
-        <EstNote updatedAt={p.updatedAt} day={yesterday ? 'yesterday' : 'today'} />
+        {!p.empty && <EstNote updatedAt={p.updatedAt} day={yesterday ? 'yesterday' : 'today'} />}
 
         {p.empty && !loading ? (
           <section className="card">
-            <div className="empty" style={{ margin: 0, padding: '48px 24px' }}>
+            <div className="empty" style={{ margin: 0, padding: '72px 24px', border: 0 }}>
               <div className="eico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></div>
-              <h2>No usage estimates yet</h2>
-              <p>The estimator writes one file per day. None found {yesterday ? 'for yesterday' : `for the ${rangeTxt}`}, so there is nothing to chart. Settings → Usage still has the real total.</p>
+              <h2>{t('usage.empty.title')}</h2>
+              <p>{t('usage.empty.body')}</p>
+              <button type="button" className="bbtn" aria-expanded={howOpen} onClick={() => setHowOpen((v) => !v)}>{t('usage.empty.cta')}</button>
+              {howOpen && <p style={{ marginTop: 16 }}>{p.method ?? t('usage.note.body')}</p>}
             </div>
             <InfoLines unreadable={p.unreadable} />
           </section>
@@ -122,14 +131,14 @@ export default function Overview(p: OverviewProps) {
             <div className="ugrid">
               <section className="card" style={{ position: 'relative' }} aria-labelledby="h-daily" aria-busy={loading}>
                 <div className="chead">
-                  <h2 id="h-daily">{narrow ? 'Daily estimate' : 'Daily estimate by agent'}</h2>
+                  <h2 id="h-daily">{narrow ? t('usage.daily.titleShort') : t('usage.daily.title')}</h2>
                   {loading
-                    ? <span className="sub" role="status">Loading usage files…</span>
-                    : <span className="sub">{narrow ? 'total only' : 'Stacked by agent'}</span>}
+                    ? <span className="sub" role="status">{t('usage.loading')}</span>
+                    : <span className="sub">{narrow ? t('usage.daily.subShort') : t('usage.daily.sub')}</span>}
                   {!narrow && !loading && (
                     <div className="right">
-                      {missing > 0 && <span className="hscale"><MissingKey />No file for that day ({missing}) · not the same as zero</span>}
-                      <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? 'Show as chart' : 'Show as table'}</button>
+                      {missing > 0 && <span className="hscale"><MissingKey />{t('usage.missing.key', { n: missing })}</span>}
+                      <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? t('usage.showChart') : t('usage.showTable')}</button>
                     </div>
                   )}
                 </div>
@@ -148,7 +157,7 @@ export default function Overview(p: OverviewProps) {
 
               <div className="side">
                 <section className="card" aria-labelledby="h-ta">
-                  <div className="chead"><h2 id="h-ta">Top agents</h2><span className="sub">{rangeTxt}</span></div>
+                  <div className="chead"><h2 id="h-ta">{t('usage.agents.title')}</h2><span className="sub">{t('usage.agents.sub', { range: rangeTxt })}</span></div>
                   {narrow ? (
                     <ul className="ntop">
                       {p.topAgents.map((a) => (
@@ -166,8 +175,8 @@ export default function Overview(p: OverviewProps) {
                   )}
                 </section>
                 <section className="card" aria-labelledby="h-tr">
-                  <div className="chead"><h2 id="h-tr">Top routines</h2><span className="sub">{rangeTxt}</span></div>
-                  {p.topRoutines.length === 0 && <p className="foot">No routine runs matched {inRange(p.range)}.</p>}
+                  <div className="chead"><h2 id="h-tr">{t('usage.routines.title')}</h2><span className="sub">{t('usage.routines.sub')}</span></div>
+                  {p.topRoutines.length === 0 && <p className="foot">{t('usage.routines.none', { range: rangeTxt })}</p>}
                   <RankList label="Top routines" items={p.topRoutines.map((r) => ({
                     key: `${r.agentId}-${r.routineId}`, name: r.name, value: r.tokens,
                     meta: (
@@ -184,25 +193,27 @@ export default function Overview(p: OverviewProps) {
               </div>
             </div>
 
-            <h2 className="sect" id="h-all">
-              All agents <span className="cnt">{t.rows.length}</span>{' '}
-              <span style={{ textTransform: 'none', letterSpacing: 0 }}>
-                · {tableByRange ? 'yesterday' : t.day ? t.dayLabel : 'last 7 days'} · select a name for hours and routines
-              </span>
-            </h2>
-            {t.day && !tableByRange && t.dayMissing && (
-              <p className="notice" role="status">No usage file for {t.dayLabel}. <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
+            <section className="card" aria-labelledby="h-all">
+              <div className="chead">
+                <h2 id="h-all">{t('usage.all.title')} <span className="cnt">{tb.rows.length}</span></h2>
+                <span className="sub">{t('usage.all.sub', { range: tableByRange ? 'yesterday' : tb.day ? tb.dayLabel ?? '' : rangeTxt })}</span>
+              </div>
+              {tb.day && !tableByRange && tb.dayMissing && (
+              <p className="notice" role="status">{t('usage.all.noFile', { day: tb.dayLabel ?? '' })} <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
             )}
-            {t.day && !tableByRange && !t.dayMissing && (
-              <p className="dayf">Showing {t.dayLabel} only. <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
+            {tb.day && !tableByRange && !tb.dayMissing && (
+              <p className="dayf">{t('usage.all.dayOnly', { day: tb.dayLabel ?? '' })} <Link href={clearDay} preserveScroll>{clearDayText}</Link></p>
             )}
-            {t.rows.length > 0 && <section className="card"><UsageTable table={t} range={p.range} narrow={narrow} /></section>}
+            {tb.rows.length > 0 && <UsageTable table={tb} range={p.range} narrow={narrow} />}
+            </section>
+
           </>
         )}
 
         <CliUsage cli={p.cli} range={p.range} fromLabel={p.fromLabel} toLabel={p.toLabel} narrow={narrow} loading={loading} />
         <CursorUsage cli={p.cli} range={p.range} fromLabel={p.fromLabel} toLabel={p.toLabel} narrow={narrow} loading={loading} />
       </main>
+      </div>
     </>
   );
 }
