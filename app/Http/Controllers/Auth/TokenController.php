@@ -8,7 +8,7 @@ use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** The logged-in user's API tokens (docs/MULTI-USER-PLAN.md §8 tokens): create (verified only), revoke. The list is GET /account/tokens (Pages\\AccountPageController). */
+/** The logged-in user's API tokens (docs/MULTI-USER-PLAN.md §8 tokens): create (verified only), revoke. The list is GET /account/tokens (Pages\AccountPageController). */
 class TokenController extends Controller
 {
     public function __construct(private readonly ApiTokens $tokens) {}
