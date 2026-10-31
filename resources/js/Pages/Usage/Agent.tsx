@@ -1,5 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
+import '../../../css/usage-redesign.css';
+import { t } from '../../lib/strings-usage';
 import { TopBar } from '../../Components/TopBar';
 import { EstNote } from '../../Components/Usage/EstNote';
 import { Est } from '../../Components/Usage/Est';
@@ -79,18 +81,28 @@ export default function Agent(p: AgentProps) {
   const rangeTxt = rangeWords(p.range);
   const busiest = Math.max(0, ...p.heat.flatMap((r) => r.hours ?? []));
   const hourScope = p.range === 7 ? '' : p.range === 'yesterday' ? `yesterday (${p.toLabel}) · ` : `last 7 days (${p.hoursFromLabel} – ${p.toLabel}) · `;
-  const K = Math.round(agent.K);
 
+  const total = stats.matchedRuns + stats.unmatchedRuns;
   return (
     <>
-      <Head title={`${agent.name} · Usage`} />
+      <Head title={`${agent.name} · ${t('usage.title')}`} />
       <TopBar />
+      <div className="bu">
       <main className="wrap">
-        <Link className="crumb" href={withQuery('/usage', { range: rangeParam(p.range) })}>← Usage</Link>
+        <Link className="crumb" href={withQuery('/usage', { range: rangeParam(p.range) })}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+          {t('usage.back')}
+        </Link>
         <div className="ahead">
-          <h1>{agent.name}</h1>
-          <span className="badge b-arch">{agent.rank !== null ? `#${agent.rank} of ${agent.of} · ${rangeTxt}` : `No usage · ${rangeTxt}`}</span>
-          <FactorBadge factor={agent.factor} />
+          <div>
+            <div className="titleline">
+              <span className="dot" style={{ background: agent.color }} aria-hidden="true" />
+              <h1>{agent.name}</h1>
+              <FactorBadge factor={agent.factor} k={Math.round(agent.K)} />
+              <span className="chip">{agent.rank !== null ? t('agent.badge.rank', { rank: agent.rank, of: agent.of, range: rangeTxt }) : t('agent.badge.none', { range: rangeTxt })}</span>
+            </div>
+            <p className="asub"><Est value={stats.tokens} /> {t('agent.sub', { range: rangeTxt })}</p>
+          </div>
           <div className="tools"><RangeSeg range={p.range} /></div>
         </div>
 
@@ -99,71 +111,75 @@ export default function Agent(p: AgentProps) {
         {p.zero ? (
           <div className="empty zero">
             <div className="eico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></div>
-            <h2>No estimated usage for this agent {inRange(p.range)}.</h2>
-            <p>It stays in the All agents table with 0. Settings → Usage still has the real total.</p>
+            <h2>{t('agent.zero.title', { range: inRange(p.range) })}</h2>
+            <p>{t('agent.zero.body')}</p>
             <InfoLines unreadable={p.unreadable} />
           </div>
         ) : (
           <>
             <div className="stats">
-              <StatTile label="Tokens (est.)" value={<Est value={stats.tokens} />} hint={`${pct(stats.share)} of all agents`} />
-              <StatTile label="Fresh text only (est.)" value={<Est value={stats.io} />} hint="without context re-reads" />
-              <StatTile label="Turns" value={count(stats.turns)} hint="counted, not estimated" />
-              <StatTile label="Unprompted wakes" value={count(stats.matchedRuns + stats.unmatchedRuns)} hint={`${count(stats.matchedRuns)} matched a routine · ${count(stats.unmatchedRuns)} no routine (ad-hoc)`} />
+              <StatTile label={t('agent.tile.tokens')} value={<Est value={stats.tokens} />} hint={t('agent.tile.tokens.hint', { share: pct(stats.share, 0), turns: count(stats.turns) })} />
+              <StatTile label={t('agent.tile.fresh')} value={<Est value={stats.io} />} hint={t('agent.tile.fresh.hint')} />
+              <StatTile label={t('agent.tile.wakes')} value={count(total)} hint={<>{t('agent.tile.wakes.hint')}<br />{t('agent.tile.wakes.split', { matched: count(stats.matchedRuns), unmatched: count(stats.unmatchedRuns) })}</>} />
             </div>
 
-            <div className="dgrid">
-              <section className="card" aria-labelledby="h-hr">
-                <div className="chead">
-                  <h2 id="h-hr">By hour</h2>
-                  <span className="sub">
-                    Europe/Ljubljana · {hourScope}{narrow ? 'hour totals' : <>shade = share of this agent's busiest hour ({estText(busiest)})</>}
-                  </span>
-                  <div className="right">
-                    <button type="button" className="tlink" aria-expanded={hoursTable} onClick={() => setHoursTable((v) => !v)}>{hoursTable ? 'Show as chart' : 'Show as table'}</button>
-                  </div>
+            <section className="card" aria-labelledby="h-hr" style={{ marginBottom: 32 }}>
+              <div className="chead">
+                <h2 id="h-hr">{t('agent.hours.title')}</h2>
+                <span className="sub">{narrow ? hourScope + 'hour totals' : t('agent.hours.sub') + (hourScope ? ` · ${hourScope.replace(/ · $/, '')}` : '')}</span>
+                <div className="right">
+                  <button type="button" className="tlink" aria-expanded={hoursTable} onClick={() => setHoursTable((v) => !v)}>{hoursTable ? t('usage.showChart') : t('usage.showTable')}</button>
                 </div>
-                {hoursTable ? (
-                  <HourTable rows={p.heat} caption={`Estimated tokens for ${agent.name} by day and hour, ${p.hoursFromLabel} – ${p.toLabel}`} />
-                ) : (
-                  <>
-                    <HourBars narrow={narrow} totals={p.hourTotals} title={`Estimated tokens for ${agent.name} by hour of day, summed over ${p.hoursFromLabel} – ${p.toLabel}. Show as table has every value.`} />
-                    {!narrow && <HourHeatmap rows={p.heat} updatedAt={p.updatedAt} />}
-                  </>
-                )}
-              </section>
+              </div>
+              {hoursTable ? (
+                <HourTable rows={p.heat} caption={`Estimated tokens for ${agent.name} by day and hour, ${p.hoursFromLabel} – ${p.toLabel}`} />
+              ) : (
+                <>
+                  {narrow && <HourBars narrow={narrow} totals={p.hourTotals} title={`Estimated tokens for ${agent.name} by hour of day, summed over ${p.hoursFromLabel} – ${p.toLabel}. Show as table has every value.`} />}
+                  {!narrow && <HourHeatmap rows={p.heat} updatedAt={p.updatedAt} />}
+                </>
+              )}
+              <p className="foot">{t('agent.hours.busiest', { value: estText(busiest) })}</p>
+            </section>
 
+            <div className="dgrid wide">
               <section className="card" aria-labelledby="h-dd">
                 <div className="chead">
-                  <h2 id="h-dd">Daily</h2>
-                  <span className="sub">{spanLabel(p.fromLabel, p.toLabel)}</span>
+                  <h2 id="h-dd">{t('agent.daily.title')}</h2>
+                  <span className="sub">{t('agent.daily.sub')} · {spanLabel(p.fromLabel, p.toLabel)}</span>
                   <div className="right">
-                    <button type="button" className="tlink" aria-expanded={dailyTable} onClick={() => setDailyTable((v) => !v)}>{dailyTable ? 'Show as chart' : 'Show as table'}</button>
+                    <button type="button" className="tlink" aria-expanded={dailyTable} onClick={() => setDailyTable((v) => !v)}>{dailyTable ? t('usage.showChart') : t('usage.showTable')}</button>
                   </div>
                 </div>
                 {dailyTable
                   ? <DailyTable days={p.days} caption={`Daily estimated tokens for ${agent.name}, ${p.fromLabel} – ${p.toLabel}`} />
                   : <AgentDailyBars narrow={narrow} days={p.days} color={agent.color} title={`Daily estimated tokens for ${agent.name}, ${p.fromLabel} to ${p.toLabel}. Show as table has every value.`} />}
-                <div className="annot" style={{ marginTop: 12 }}>
-                  <h3>Calibration</h3>
-                  {agent.factor === 'calibrated'
-                    ? <>Factor K = {K} (calibrated on this agent's transcripts). A median factor means a rougher estimate.</>
-                    : <>Factor K = {K}, the median of the calibrated agents: this agent has too little transcript history of its own, so its figures are rougher than a calibrated agent's.</>}
-                </div>
                 <InfoLines unreadable={p.unreadable} />
               </section>
+
+              <div className="stack">
+                <section className="card note-card" aria-labelledby="h-cal">
+                  <h2 id="h-cal">{t('agent.calibration.title')}</h2>
+                  <p>{t(agent.factor === 'calibrated' ? 'agent.calibration.calibrated' : 'agent.calibration.median', { k: Math.round(agent.K), name: agent.name })}</p>
+                </section>
+                <section className="card note-card" aria-labelledby="h-read">
+                  <h2 id="h-read">{t('agent.read.title')}</h2>
+                  <p>{t('agent.read.body', { name: agent.name })}</p>
+                </section>
+              </div>
             </div>
 
             <section className="card" aria-labelledby="h-rt">
               <div className="chead">
-                <h2 id="h-rt">Routines</h2>
-                <span className="sub">{rangeTxt} · runs are unprompted wakes matched to the routine's schedule</span>
+                <h2 id="h-rt">{t('agent.routines.title')}</h2>
+                <span className="sub">{t('agent.routines.sub', { name: agent.name, range: rangeTxt })}</span>
               </div>
               <RoutineTable rows={p.routines} totals={p.routineTotals} caption={`Routine breakdown for ${agent.name}, ${rangeTxt}, estimated`} />
             </section>
           </>
         )}
       </main>
+      </div>
     </>
   );
 }
