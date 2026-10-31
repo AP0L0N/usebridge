@@ -68,7 +68,7 @@ class AuthStatesTest extends TestCase
 
         $this->assertSame([
             ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved Garden planner → Doing'],
-            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'posted status · Deployed staging build'],
+            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved GP-14 → Waiting on you'],
             ['kind' => 'you', 'who' => 'you · Sam Rivera', 'what' => 'approved 2 tickets'],
         ], $stage['activity']);
         $card = json_encode($stage['activity'], JSON_UNESCAPED_UNICODE);
@@ -76,6 +76,20 @@ class AuthStatesTest extends TestCase
         // Labelled as sample data on the stage (shown uppercase: SAMPLE DATA) and on the narrow top bar.
         $this->assertSame('Activity · sample', $stage['activity_label']);
         $this->assertStringContainsString('text-transform: uppercase', (string) file_get_contents(resource_path('css/auth.css')));
+    }
+
+    #[Test]
+    public function the_stage_top_bar_and_favicon_use_the_span_brand_files(): void
+    {
+        $html = $this->get('/login')->assertOk()->getContent();
+        $this->assertStringContainsString('<link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">', $html);
+        $this->assertStringContainsString('<link rel="apple-touch-icon" href="/brand/favicon-180.png">', $html);
+        foreach (['favicon.svg', 'favicon-16.png', 'favicon-32.png', 'favicon-180.png', 'mark.svg', 'lockup-dark.svg', 'lockup-light.svg'] as $file) {
+            $this->assertFileExists(public_path("brand/$file"));
+        }
+        // The Span mark: the arc + lime dot of the brand files, in the favicon and the dark lockup (Stage + GuestTopBar).
+        $this->assertStringContainsString('#C8F135', (string) file_get_contents(public_path('brand/favicon.svg')));
+        $this->assertStringContainsString('/brand/lockup-dark.svg', (string) file_get_contents(resource_path('js/Components/Auth/Wordmark.tsx')));
     }
 
     // ---- Sign up ------------------------------------------------------------------------------------------------

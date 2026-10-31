@@ -67,7 +67,7 @@ class TicketCommentsFeedTest extends TestCase
         $first = $r->json('data.0');
         $this->assertSame([true, 'Yes', 'human', 'tilen', 'Tilen'], [$first['is_tilen_input'], $first['input_choice'], $first['author_type'], $first['author_id'], $first['author_name']]);
         $this->assertSame(['id', 'key', 'title', 'status', 'status_label', 'assignee_type', 'assignee_id', 'assignee_name', 'ask', 'needs_pm_pickup', 'url'], array_keys($first['ticket']));
-        $this->assertSame('Waiting on Tilen', $first['ticket']['status_label']);
+        $this->assertSame('Waiting on you', $first['ticket']['status_label']);
         $this->assertSame(['id', 'name', 'slug', 'pm_agent_id', 'pm_name'], array_keys($first['project']));
         $this->assertSame('merkwell', $r->json('data.1.project.slug'));
         $this->assertSame('Anatoly Korenchkin', $r->json('data.1.project.pm_name'));

@@ -14,7 +14,7 @@ return [
         'activity_label' => 'Activity · sample',
         'activity' => [
             ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved Garden planner → Doing'],
-            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'posted status · Deployed staging build'],
+            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved GP-14 → Waiting on you'],
             ['kind' => 'you', 'who' => 'you · Sam Rivera', 'what' => 'approved 2 tickets'],
         ],
         'sample' => 'Sample data',

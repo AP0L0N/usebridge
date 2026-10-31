@@ -52,7 +52,7 @@ class TicketsApiTest extends TestCase
             ['key' => 'backlog', 'label' => 'Backlog', 'order' => 0],
             ['key' => 'todo', 'label' => 'To do', 'order' => 1],
             ['key' => 'in_progress', 'label' => 'In progress', 'order' => 2],
-            ['key' => 'waiting_tilen', 'label' => 'Waiting on Tilen', 'order' => 3],
+            ['key' => 'waiting_tilen', 'label' => 'Waiting on you', 'order' => 3],
             ['key' => 'review', 'label' => 'Review / QA', 'order' => 4],
             ['key' => 'done', 'label' => 'Done', 'order' => 5],
         ]]);
