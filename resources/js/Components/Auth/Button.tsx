@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type Variant = 'primary' | 'secondary';
+type Variant = 'primary' | 'secondary' | 'ghost';
 
 /**
  * 44px button (Figma "Button"). busy: spinner + busyLabel, disabled; busyNote is the line under it while busy, in a

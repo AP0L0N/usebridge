@@ -4,13 +4,14 @@ import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { IconArchive14, IconArchive18, IconCheck14, IconClock14, IconDash14, IconInbox24, IconMore, IconSearch20, IconSearch24, IconX } from '../Components/AppIcons';
 import { Highlight } from '../Components/Highlight';
 import { ConfirmSheet, MOBILE, Sheet, refocus, useDismiss, useMedia } from '../Components/Kanban/Bits';
+import { ConnectBotCard, ReadyBanner, type Welcome } from '../Components/Onboarding/ReadyBanner';
 import { StatusForm } from '../Components/Kanban/StatusBlock';
 import type { Shared } from '../lib/account';
 import { ago } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 import { ageAria, t, type StrKey } from '../lib/strings';
 
-type Props = { projects: PortfolioProject[]; now: string };
+type Props = { projects: PortfolioProject[]; now: string; welcome?: Welcome };
 
 const COLS: [ColumnKey, StrKey][] = [
   ['backlog', 'portfolio.col.backlog'], ['todo', 'portfolio.col.todo'], ['in_progress', 'portfolio.col.in_progress'],
@@ -176,7 +177,7 @@ function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
   );
 }
 
-export default function Portfolio({ projects, now }: Props) {
+export default function Portfolio({ projects, now, welcome }: Props) {
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
@@ -244,6 +245,7 @@ export default function Portfolio({ projects, now }: Props) {
           </div>
         </div>
 
+        <ReadyBanner welcome={welcome} />
         {loading ? <SkeletonCards /> : projects.length === 0 ? (
           <div className="pf-empty"><div className="pf-eico"><IconInbox24 /></div><h2>{t('dash.empty.title')}</h2><p>{t('dash.empty.body')}</p>{signedIn && <Link className="pf-btn" href="/welcome">{t('portfolio.empty.cta')}</Link>}</div>
         ) : query && total === 0 ? (
@@ -264,6 +266,7 @@ export default function Portfolio({ projects, now }: Props) {
             )}
           </>
         )}
+        <ConnectBotCard welcome={welcome} />
       </main>
     </div>
   );
