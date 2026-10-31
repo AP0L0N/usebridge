@@ -7,8 +7,9 @@ const ASK_MAX = 280;
 
 /**
  * Mobile "Move to" sheet (SPEC §4): six 52px rows, the current one marked, the ticket goes to the top of the target
- * (Waiting on Tilen: the end, oldest first). Moving into Waiting on Tilen without an ask turns the sheet into the
- * ask step, with a back arrow to the column list (Tommy review c1).
+ * (the waiting column: the end, oldest first). Moving into the waiting column without an ask turns the sheet into the
+ * ask step, with a back arrow to the column list (Tommy review c1). Its name comes from the board's columns (workspace
+ * default or the project's own label), never hard-coded.
  */
 export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns: Column[]; onPick: (to: ColumnKey, ask?: string) => void; onClose: () => void }) {
   const [step, setStep] = useState<'list' | 'ask'>('list');
@@ -20,13 +21,14 @@ export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns:
     if (step === 'ask') askRef.current?.focus({ preventScroll: true });
     else listRef.current?.querySelector<HTMLElement>(`[data-col="${WAITING}"]`)?.focus({ preventScroll: true });
   }, [step]);
+  const waiting = columns.find((c) => c.key === WAITING)?.label ?? '';
   const pick = (to: ColumnKey) => {
     if (to === t.status) return onClose();
     if (to === WAITING && !t.ask) return setStep('ask');
     onPick(to);
   };
   return (
-    <Sheet label={step === 'ask' ? `Move ${t.key} to Waiting on Tilen` : `Move ${t.key}`} onClose={onClose} className={step === 'ask' ? 'askstep' : ''}>
+    <Sheet label={step === 'ask' ? `Move ${t.key} to ${waiting}` : `Move ${t.key}`} onClose={onClose} className={step === 'ask' ? 'askstep' : ''}>
       {step === 'list' ? (
         <>
           <h3>Move {t.key} to…</h3>
@@ -50,11 +52,11 @@ export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns:
           <div className="askh">
             <button type="button" className="ibtn" aria-label="Back to the column list" onClick={() => setStep('list')}><IcBack /></button>
             <div>
-              <h3 id="ask-h">Move {t.key} to Waiting on Tilen</h3>
+              <h3 id="ask-h">Move {t.key} to {waiting}</h3>
               <p className="asub">{t.title}</p>
             </div>
           </div>
-          <AskForm input={askRef} onSubmit={(ask) => onPick(WAITING, ask)} onCancel={onClose} stacked />
+          <AskForm column={waiting} input={askRef} onSubmit={(ask) => onPick(WAITING, ask)} onCancel={onClose} stacked />
         </div>
       )}
     </Sheet>
@@ -62,7 +64,7 @@ export function MoveSheet({ t, columns, onPick, onClose }: { t: Ticket; columns:
 }
 
 /** The ask field shared by the desktop dialog and the mobile sheet step (Tommy review c2, c3, c5). */
-function AskForm({ input, onSubmit, onCancel, stacked = false }: { input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; stacked?: boolean }) {
+function AskForm({ column, input, onSubmit, onCancel, stacked = false }: { column: string; input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; stacked?: boolean }) {
   const [ask, setAsk] = useState('');
   const [err, setErr] = useState(false);
   const submit = () => {
@@ -80,7 +82,7 @@ function AskForm({ input, onSubmit, onCancel, stacked = false }: { input: RefObj
           value={ask} onChange={(e) => { setAsk(e.target.value); setErr(false); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} />
         <p className="hint count" id="ask-keys">Enter moves it · Shift+Enter for a new line · {ask.length}/{ASK_MAX}</p>
-        {err && <p className="err-line" id="ask-err" role="alert">✕ Add the ask. Every ticket in Waiting on Tilen needs one.</p>}
+        {err && <p className="err-line" id="ask-err" role="alert">✕ Add the ask. Every ticket in {column} needs one.</p>}
       </div>
       <div className={`qact${stacked ? ' stack1' : ''}`}>
         <button className="btn" type="submit">Move</button>
@@ -91,30 +93,30 @@ function AskForm({ input, onSubmit, onCancel, stacked = false }: { input: RefObj
 }
 
 /**
- * Moving into Waiting on Tilen from the UI needs an ask (SPEC §4). Desktop: a centred dialog. Mobile (the ticket
+ * Moving into the waiting column (`column`: its label) from the UI needs an ask (SPEC §4). Desktop: a centred dialog. Mobile (the ticket
  * detail's status select; the Move sheet has its own step): a bottom sheet. `restoreFocus`: where focus goes on close
  * (the dragged card after a desktop drag, c4).
  */
-export function AskPrompt({ t, mobile, onSubmit, onCancel, restoreFocus }: {
-  t: Ticket; mobile: boolean; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+export function AskPrompt({ t, column, mobile, onSubmit, onCancel, restoreFocus }: {
+  t: Ticket; column: string; mobile: boolean; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
   if (mobile) {
     return (
-      <Sheet label={`Move ${t.key} to Waiting on Tilen`} onClose={onCancel} initialFocus={input} restoreFocus={restoreFocus} className="askstep">
+      <Sheet label={`Move ${t.key} to ${column}`} onClose={onCancel} initialFocus={input} restoreFocus={restoreFocus} className="askstep">
         <div className="askw">
-          <h3 id="ask-h">Move {t.key} to Waiting on Tilen</h3>
+          <h3 id="ask-h">Move {t.key} to {column}</h3>
           <p className="asub">{t.title}</p>
-          <AskForm input={input} onSubmit={onSubmit} onCancel={onCancel} stacked />
+          <AskForm column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} stacked />
         </div>
       </Sheet>
     );
   }
-  return <AskDialog t={t} input={input} onSubmit={onSubmit} onCancel={onCancel} restoreFocus={restoreFocus} />;
+  return <AskDialog t={t} column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} restoreFocus={restoreFocus} />;
 }
 
-function AskDialog({ t, input, onSubmit, onCancel, restoreFocus }: {
-  t: Ticket; input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+function AskDialog({ t, column, input, onSubmit, onCancel, restoreFocus }: {
+  t: Ticket; column: string; input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onCancel, input, restoreFocus);
@@ -122,9 +124,9 @@ function AskDialog({ t, input, onSubmit, onCancel, restoreFocus }: {
   return (
     <div className="ovl askov" {...scrim}>
       <div ref={ref} className="pop askbox" role="dialog" aria-modal="true" aria-labelledby="ask-h">
-        <h3 id="ask-h">Move {t.key} to Waiting on Tilen</h3>
+        <h3 id="ask-h">Move {t.key} to {column}</h3>
         <p className="asub">{t.title}</p>
-        <AskForm input={input} onSubmit={onSubmit} onCancel={onCancel} />
+        <AskForm column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} />
       </div>
     </div>
   );

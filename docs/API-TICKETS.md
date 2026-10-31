@@ -64,7 +64,7 @@ The column set is fixed and the same for every project. Read it from `GET /api/b
 | `backlog` | Backlog | 0 | |
 | `todo` | To do | 1 | |
 | `in_progress` | In progress | 2 | |
-| `waiting_tilen` | Waiting on Tilen | 3 | Needs an `ask`. Always ordered oldest `waiting_since` first; positions are ignored. |
+| `waiting_tilen` | Waiting on you | 3 | Needs an `ask`. Always ordered oldest `waiting_since` first; positions are ignored. The label is per workspace (workspaces that existed before multi-user keep their old one); always read it from this endpoint. |
 | `review` | Review / QA | 4 | |
 | `done` | Done | 5 | The board shows the last 7 days by default. |
 
@@ -103,7 +103,7 @@ creation; the generator never hands a fixed prefix out to another project. You c
 | 405 | `DELETE` on a ticket or an agent | `{"message":"…"}` |
 | 409 | write to an archived ticket (unarchive first) or to a ticket of an archived project | `{"message":"Ticket NW-3 is archived; unarchive it first."}` |
 | 410 | legacy write while the read-only switch is on | `{"message":"Superseded by tickets; see docs/API-TICKETS.md"}` |
-| 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"ask":["Moving into Waiting on Tilen needs an ask: what do you need from Tilen?"]}}` |
+| 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"ask":["Moving into Waiting on you needs an ask: what do you need answered?"]}}` (the column name as the project's board shows it) |
 
 **Warnings.** Responses to ticket writes and to `PATCH …/status` carry a `warnings` array. Your status stays the source of
 truth, but please correct it when you see one:

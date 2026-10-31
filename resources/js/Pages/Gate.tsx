@@ -2,7 +2,8 @@ import { FormEvent, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import { TopBar } from '../Components/TopBar';
 
-export default function Gate() {
+/** AUTH-1 gate. configured false: no password is set on the server, so every attempt is rejected (fails closed). */
+export default function Gate({ configured = true }: { configured?: boolean }) {
   const { data, setData, post, processing, errors, reset } = useForm({
     password: '',
   });
@@ -26,6 +27,7 @@ export default function Gate() {
         <form onSubmit={onSubmit}>
           <h1>Workspace gate</h1>
           <p>Shared workspace password.</p>
+          {!configured && <p className="err" role="status">The workspace gate is not configured. Log in with your email.</p>}
           <label htmlFor="gate-password">Password</label>
           <input
             id="gate-password"

@@ -2,10 +2,13 @@
 
 return [
     /*
-    | AUTH-1: single shared workspace gate password (transitional). Set via BRIDGE_GATE_PASSWORD; empty (the default)
-    | = the gate is off (no "Workspace password" link, nothing unlocks).
+    | AUTH-1: single shared workspace gate password (transitional, App\Support\WorkspaceGate). Fails closed (CoS
+    | decision 31 Oct): no default; unset or empty = the gate rejects every password. Set it explicitly in .env.
+    | gate_enabled false = the gate is retired: /gate 404s and gate sessions (even already unlocked ones) unlock
+    | nothing, so everyone logs in. Retired in production when multi-user launches (docs/MULTI-USER-PLAN.md).
     */
-    'gate_password' => (string) env('BRIDGE_GATE_PASSWORD', ''),
+    'gate_password' => (string) env('BRIDGE_GATE_PASSWORD'),
+    'gate_enabled' => filter_var(env('BRIDGE_GATE_ENABLED', true), FILTER_VALIDATE_BOOL),
 
     /*
     | Bridge r1 migration: carry r0 items over as open Required inputs?
@@ -45,6 +48,13 @@ return [
     'default_workspace' => (string) (env('BRIDGE_WORKSPACE_SLUG') ?: 'main'),
     'default_workspace_name' => (string) (env('BRIDGE_WORKSPACE_NAME') ?: 'My workspace'),
     'owner_email' => env('BRIDGE_OWNER_EMAIL'),
+
+    /*
+    | Label of the waiting_tilen column on workspaces that already existed when migration 2026_10_31_160000 ran (it
+    | stores it in workspaces.settings.waiting_label; read only then). Empty = "Waiting on " + the first name of the
+    | default workspace's owner (what those workspaces showed before). New workspaces show BoardColumns' default.
+    */
+    'owner_waiting_label' => trim((string) env('BRIDGE_OWNER_WAITING_LABEL')),
 
     /* Login email of the API user BridgeApiSeeder creates or reuses. */
     'api_user_email' => (string) (env('BRIDGE_API_USER_EMAIL') ?: 'captain@example.test'),

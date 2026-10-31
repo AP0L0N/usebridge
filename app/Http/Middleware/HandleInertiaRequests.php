@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Legal\LegalPages;
+use App\Support\WorkspaceGate;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +24,7 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            'gateUnlocked' => (bool) $request->session()->get('bridge_gate_unlocked', false),
+            'gateUnlocked' => WorkspaceGate::unlocked($request),
             // The logged-in user's own account for the top bar (null for guests and AUTH-1 gate sessions). Never a token.
             'auth' => fn () => ['user' => self::user()],
             // Lazy: resolved at render time, after the gate set the workspace (false on the gate page). polymarket: the

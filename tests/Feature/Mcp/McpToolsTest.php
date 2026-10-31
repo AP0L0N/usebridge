@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Mcp;
 
+use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Tickets\TicketService;
@@ -98,7 +99,7 @@ class McpToolsTest extends TestCase
         $this->tool($this->janice, 'update_ticket', ['key' => $key, 'title' => 'Draft the short brief', 'assignee' => BridgeSeeder::AGENT_TOMMY]);
         $this->assertSame(['Draft the short brief', 'Two pages', BridgeSeeder::AGENT_TOMMY], [$rest()['title'], $rest()['description'], $rest()['assignee_id']]);
 
-        $this->assertStringContainsString(TicketService::ASK_REQUIRED, ($this->toolError($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen'])));
+        $this->assertStringContainsString(TicketService::askRequired(Project::acrossWorkspaces()->findOrFail(self::BH)), ($this->toolError($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen'])));
         $this->tool($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen', 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No']]);
         $this->assertSame(['waiting_tilen', 'Approve the copy?', ['Yes', 'No']], [$rest()['status'], $rest()['ask'], $rest()['ask_options']]);
 

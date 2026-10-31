@@ -2,34 +2,39 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\WorkspaceGate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/** AUTH-1 gate (App\Support\WorkspaceGate): 404 once retired (bridge.gate_enabled false); fails closed when unset. */
 class GateController extends Controller
 {
     public function show(Request $request): Response|RedirectResponse
     {
-        if ($request->session()->get('bridge_gate_unlocked') === true) {
+        abort_unless(WorkspaceGate::enabled(), 404);
+        if (WorkspaceGate::unlocked($request)) {
             return redirect()->route('portfolio');
         }
 
-        return Inertia::render('Gate');
+        return Inertia::render('Gate', ['configured' => WorkspaceGate::configured()]);
     }
 
     public function unlock(Request $request): RedirectResponse
     {
+        abort_unless(WorkspaceGate::enabled(), 404);
         $request->validate([
             'password' => ['required', 'string'],
         ]);
 
-        $expected = (string) config('bridge.gate_password');
-        if (! hash_equals($expected, (string) $request->input('password'))) {
-            return back()->withErrors(['password' => 'Wrong password.']);
+        if (! WorkspaceGate::accepts((string) $request->input('password'))) {
+            return back()->withErrors(['password' => WorkspaceGate::configured()
+                ? 'Wrong password.'
+                : 'The workspace gate is not configured. Log in with your email.']);
         }
 
-        $request->session()->put('bridge_gate_unlocked', true);
+        $request->session()->put(WorkspaceGate::SESSION_KEY, true);
         $request->session()->regenerate();
 
         return redirect()->intended(route('portfolio'));
@@ -37,10 +42,10 @@ class GateController extends Controller
 
     public function lock(Request $request): RedirectResponse
     {
-        $request->session()->forget('bridge_gate_unlocked');
+        $request->session()->forget(WorkspaceGate::SESSION_KEY);
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('gate.show');
+        return redirect()->route(WorkspaceGate::enabled() ? 'gate.show' : 'login');
     }
 }

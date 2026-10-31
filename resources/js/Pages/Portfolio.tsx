@@ -9,11 +9,8 @@ import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 
-type Props = { projects: PortfolioProject[]; now: string };
-
-const COLS: [ColumnKey, string][] = [
-  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
-];
+/** columns: the workspace's default column names in board order (BoardColumns::all, server side). */
+type Props = { projects: PortfolioProject[]; now: string; columns: { key: ColumnKey; label: string }[] };
 
 function rule(p: PortfolioProject): string {
   if (p.archived || p.pmStatus === 'archived') return 's-arch';
@@ -27,9 +24,9 @@ function readUrl() {
   return { q: u.get('q') ?? '', archived: u.get('archived') === '1' };
 }
 
-function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
+function Card({ p, q, now, columns }: { p: PortfolioProject; q: string; now: string; columns: Props['columns'] }) {
   // The project's own column names (Column labels on the board) over the defaults; Done counts the last 7 days.
-  const counts = COLS.map(([k, label]) => ({ k, label: `${p.columnLabels?.[k] ?? label}${k === 'done' ? ' (7 days)' : ''}`, n: p.ticketCounts?.[k] ?? 0 })).filter((c) => c.n > 0);
+  const counts = columns.map(({ key: k, label }) => ({ k, label: `${p.columnLabels?.[k] ?? label}${k === 'done' ? ' (7 days)' : ''}`, n: p.ticketCounts?.[k] ?? 0 })).filter((c) => c.n > 0);
   const total = counts.reduce((s, c) => s + c.n, 0);
   const archived = p.archived || p.pmStatus === 'archived';
   return (
@@ -125,7 +122,7 @@ function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
   );
 }
 
-export default function Portfolio({ projects, now }: Props) {
+export default function Portfolio({ projects, now, columns }: Props) {
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
@@ -198,11 +195,11 @@ export default function Portfolio({ projects, now }: Props) {
           </div>
         ) : (
           <>
-            {active.length > 0 && <div className="pgrid2">{active.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>}
+            {active.length > 0 && <div className="pgrid2">{active.map((p) => <Card key={p.id} p={p} q={query} now={now} columns={columns} />)}</div>}
             {archived.length > 0 && (
               <>
                 <h2 className="sect"><span>Archived</span> <span className="cnt">{archived.length}</span></h2>
-                <div className="pgrid2">{archived.map((p) => <Card key={p.id} p={p} q={query} now={now} />)}</div>
+                <div className="pgrid2">{archived.map((p) => <Card key={p.id} p={p} q={query} now={now} columns={columns} />)}</div>
               </>
             )}
           </>

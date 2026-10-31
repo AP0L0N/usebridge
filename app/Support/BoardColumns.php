@@ -2,9 +2,14 @@
 
 namespace App\Support;
 
+use App\Models\Workspace;
+use App\Support\Workspaces\CurrentWorkspace;
+
 /**
  * The fixed Kanban column set (SPEC §1). Ticket.status is one of these keys; the order is the board order.
- * Agents read it from GET /api/board-columns, so labels are never hard-coded on their side.
+ * Agents read it from GET /api/board-columns, so labels are never hard-coded on their side. Labels are never stored:
+ * LABELS, then the workspace's own waiting_tilen name (workspaces.settings.waiting_label), then a project's own
+ * column_labels (which win).
  */
 final class BoardColumns
 {
@@ -24,7 +29,7 @@ final class BoardColumns
         self::BACKLOG => 'Backlog',
         self::TODO => 'To do',
         self::IN_PROGRESS => 'In progress',
-        self::WAITING_TILEN => 'Waiting on Tilen',
+        self::WAITING_TILEN => 'Waiting on you',
         self::REVIEW => 'Review / QA',
         self::DONE => 'Done',
     ];
@@ -35,9 +40,21 @@ final class BoardColumns
         return array_keys(self::LABELS);
     }
 
-    public static function label(string $key): string
+    /**
+     * Default labels of a workspace ($workspace, else the current one): LABELS with its own waiting_tilen name, if set.
+     *
+     * @return array<string, string>
+     */
+    public static function defaults(?Workspace $workspace = null): array
     {
-        return self::LABELS[$key] ?? $key;
+        $waiting = ($workspace ?? app(CurrentWorkspace::class)->get())?->waitingLabel();
+
+        return $waiting === null ? self::LABELS : [...self::LABELS, self::WAITING_TILEN => $waiting];
+    }
+
+    public static function label(string $key, ?Workspace $workspace = null): string
+    {
+        return self::defaults($workspace)[$key] ?? $key;
     }
 
     public static function order(string $key): int
@@ -55,17 +72,22 @@ final class BoardColumns
      * @param  array<string, string>|null  $labels
      * @return list<array{key:string,label:string,order:int}>
      */
-    public static function all(?array $labels = null): array
+    public static function all(?array $labels = null, ?Workspace $workspace = null): array
     {
-        return array_map(fn (string $k) => ['key' => $k, 'label' => self::labelFor($k, $labels), 'order' => self::order($k)], self::keys());
+        $defaults = self::defaults($workspace);
+
+        return array_map(fn (string $k) => ['key' => $k, 'label' => self::pick($labels[$k] ?? null, $defaults[$k]), 'order' => self::order($k)], self::keys());
     }
 
     /** @param  array<string, string>|null  $labels */
-    public static function labelFor(string $key, ?array $labels): string
+    public static function labelFor(string $key, ?array $labels, ?Workspace $workspace = null): string
     {
-        $own = $labels[$key] ?? null;
+        return self::pick($labels[$key] ?? null, self::label($key, $workspace));
+    }
 
-        return is_string($own) && trim($own) !== '' ? $own : self::label($key);
+    private static function pick(mixed $own, string $default): string
+    {
+        return is_string($own) && trim($own) !== '' ? $own : $default;
     }
 
     /** SQL CASE for ordering rows by column order (SQLite + MySQL). */
