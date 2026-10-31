@@ -1,221 +1,261 @@
-# Bridge multi-user plan
+# Bridge multi-user plan (v2)
 
 Tilen's initiative (31 Oct 2026, via Captain W. Diego): other people run their own projects in Bridge with their own Grok
-bots. Tommy + Marc design the screens; this plan covers the backend. Phase A = this document, Phase B = groundwork on
-`feat/multi-user` (see the last section). Public landing page: not now.
+bots. Tommy + Marc's prototypes: `bridge-design-multiuser/design/bridge-multiuser/` (DESIGN.md + 8 screens). Groundwork
+is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
+
+## 0. Decisions
+
+**Relayed decisions (via CoS, 31 Oct 07:47)** — Tilen's, relayed by the Chief of Staff:
+
+1. **Sign-up is open to anyone**, with abuse protection: email verified before creating tokens or using MCP; sign-up
+   rate-limited per IP (5/hour); a bot check on the form. Proposal: **Cloudflare Turnstile** (free, no tracking
+   cookies; server-side verify `POST https://challenges.cloudflare.com/turnstile/v0/siteverify` with the secret + the
+   form's `cf-turnstile-response` + IP; fail closed). Setup (The Many / Tilen, Cloudflare dashboard; nothing created
+   by us): `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` in `.env`. No-key fallback, always on: a hidden honeypot field
+   + minimum fill time (~3 s, signed timestamp in the form). Alternatives: hCaptcha (same flow, other vendor) or a
+   self-hosted proof-of-work widget (no third party, weaker). Disposable-email blocking: optional. Verification
+   mail needs `MAIL_*` configured on live (today `MAIL_MAILER=log`, nothing is sent).
+2. **Owner admin = user list + disable/enable ONLY.** Tilen cannot see other users' boards, tickets, statuses, usage or
+   any data; no impersonation. Enforced in API + query layer (§5).
+
+**Working defaults (CoS, 31 Oct, not confirmed by Tilen)** — we build to these; each is cheap to change:
+
+| Topic | Default |
+|---|---|
+| MCP | `/mcp`, streamable HTTP, `Authorization: Bearer`, rate limit per token |
+| Token scopes v1 | `read` / `read & write` (mapping §4); per-project scoping later |
+| Token expiry | 30 / 90 / 365 days or none |
+| Polymarket, Admin for non-owners | 404 |
+| Passwords | ≥ 10 chars, strength meter, no composition rules; breached check optional/open (code has 12 today → change to 10) |
+| Lockout | 5 failed logins → account locked 15 min |
+| 2FA | later |
+| Email verification | required before creating tokens (and MCP); not for using the boards |
+| Account delete | 7-day grace, data export first; soft delete, purge only with Tilen's OK |
+| Sessions | "Log out of all devices" in v1 (database sessions) |
+| Existing data | all projects, agents, usage → Tilen's user/workspace (the §11 backfill does this) |
+
+**DESIGN.md open questions**
+
+| # | Question | Answer | Status |
+|---|---|---|---|
+| 1 | Cursor data source | Admin API `filtered-usage-events` via Captain; CSV fallback (§7) | working default; Cursor plan open |
+| 2 | Cursor agent attribution | `serviceAccountId`/`userEmail` → agent map kept by Captain; else *Unattributed* | working default |
+| 3 | Scopes, expiry | read / read&write; 30/90/365/none; per-project later | working default |
+| 4 | MCP endpoint | `/mcp`, streamable HTTP, Bearer, per-token limit, tools §6 | working default; dependency open |
+| 5 | Email verification | before tokens/MCP, not before use | relayed (1) + default |
+| 6 | Password policy | 10 chars, meter, 5 → 15 min lock, 2FA later; breached check | default; breached open |
+| 7 | Owner admin | list + disable/enable only; no data, no delete, no impersonation; open sign-up | **decided** (relayed) |
+| 8 | Data separation | everything existing → Tilen; shared-box CLI logs stay Tilen's (other users' tools aren't on the box) | default |
+| 9 | 404 or 403 | 404 | default |
+| 10 | Account deletion | 7-day grace + export, soft delete | default |
+| 11 | Log out all devices | yes, v1 | default |
 
 ## 1. Data model
 
-- **users** += `is_admin` (bool, default false). `name`, `email` (unique), `email_verified_at`, `password` already exist.
-- **workspaces**: `id`, `slug` (unique), `name`, `owner_user_id` (FK users), `features` (json, e.g. `{"polymarket": true}`), timestamps. One workspace = one person's Bridge (projects,
-  agents, boards, usage).
-- **workspace_user**: `workspace_id`, `user_id`, `role` (`owner|admin|member`), unique (workspace_id, user_id).
-  Membership is needed already in v1: on live the Sanctum tokens belong to Captain's API user
-  (`captain@lantis.internal`, seeded by `BridgeApiSeeder`), while Tilen logs in as himself. Both must reach the same
-  workspace. Sharing a workspace with more people is then a data change, not a schema change.
-- **personal_access_tokens** += `workspace_id` (nullable FK): the workspace a token acts in.
+Done (§11): `workspaces` (`slug`, `name`, `owner_user_id`, `features` json), `workspace_user` (`role`
+owner/admin/member), `users.is_admin`, nullable indexed `workspace_id` on 18 owned tables + `personal_access_tokens`,
+per-workspace keys on `usage_days`, `cli_usage_days`, `polymarket_series_points`, `labels`. Not owned: `users`,
+`password_reset_tokens`, `sessions`, cache/jobs. `projects.slug`, `ticket_prefix`, `tickets.key` and string PKs stay
+globally unique for now (a second user cannot have `CA-1`).
 
-**Which tables get `workspace_id`.** Every table that a model queries directly gets its own column (denormalised for
-children), so one global scope (`workspace_id = ?`) covers every query, including `whereHas`, `toBase()->update()` and the
-comment feed cursor, without joins:
+**To add** (one migration per step, all nullable/defaulted, nothing dropped):
 
-| Kind | Tables |
-|---|---|
-| roots | `projects`, `agents`, `labels`, `usage_days`, `cli_usage_days`, `polymarket_snapshots`, `polymarket_series_points` |
-| children (denormalised, copied from the project/ticket on create) | `tickets`, `ticket_comments`, `ticket_events`, `ticket_read_states`, `project_read_states`, `project_status_events`, `project_pm_events`, `status_updates`, `required_inputs`, `next_steps`, `questions` |
-| inherit, no column | `ticket_label` (both ends are scoped); `legacy_r0_project_fields`, `legacy_r0_milestones`, `legacy_r0_work_items`, `legacy_r0_risks`, `legacy_r0_ops_digest_items`, `legacy_r0_ceo_queue_items` (frozen r0 archive, read by no code, all Tilen's) |
-| not owned | `users`, `password_reset_tokens`, `sessions`, `cache*`, `jobs*`, `failed_jobs`, `migrations` |
-
-Indexes: `workspace_id` alone on every table above (FK on MySQL), plus composite keys where lists are read
-(`projects (workspace_id, slug)` arrives with the unique change below).
-
-**Uniqueness that must become per-workspace.**
-
-| Key today | Target | When |
+| Table | Columns | For |
 |---|---|---|
-| `usage_days.date` | (workspace_id, date) | Phase B (a second workspace cannot post usage otherwise) |
-| `cli_usage_days (date, tool, agent_id, model)` | (workspace_id, date, tool, agent_id, model) | Phase B |
-| `polymarket_series_points.ts` | (workspace_id, ts) | Phase B |
-| `labels.name` | (workspace_id, name) | Phase B |
-| `projects.slug`, `projects.ticket_prefix`, `tickets.key` | per workspace | later (validation rules + lookups change together; until then they stay globally unique, so two users cannot both have `CA-1`; prefix generation reads all workspaces) |
-| string PKs `proj-*`, `agent-*`, `tk-*`, `lb-*`, `su-*`… | stay global PKs | later, if ever: generated ids are ULIDs; only hand-picked ids (`agent-william`) collide. Option: a new user's agents get a workspace-prefixed id. |
-| `ticket_read_states (user, ticket_id)`, `project_read_states (user, project_id)` | `user` becomes the user id instead of `'tilen'` | with the login screens |
+| `users` | `failed_logins` smallint 0, `locked_until` ts | login lockout |
+| `users` | `last_login_at` ts, `disabled_at` ts | admin list, disable |
+| `users` | `pending_email`, `pending_email_at` ts | email change (old email stays active) |
+| `users` | `timezone` (default `Europe/Ljubljana`) | account profile; display only in v1 (usage days stay Ljubljana) |
+| `users` | `delete_requested_at` ts, `deleted_at` ts (SoftDeletes) | account delete with grace |
+| `personal_access_tokens` | `token_suffix` char(4) (non-secret, last 4 of plaintext) | masked list `brg_live_••••3f9a` |
+| `projects` | `column_labels` json null (rename/hide per fixed key) | onboarding step 2 (columns are fixed in `BoardColumns`, incl. "Waiting on Tilen") |
+| `cli_usage_imports` | `workspace_id`, `date`, `tool`, `rows`, `imported_at`; unique (ws, date, tool) | "no file" vs zero (§7) |
+| `cli_usage_days` | `cost_cents` decimal(12,4) null, `max_mode_calls` int null | Cursor (§7) |
+| `ticket/project_read_states` | `user` = user id instead of `'tilen'` | with login |
 
-The `down()` of a per-workspace unique change refuses (exception, nothing deleted) when restoring the global key would
-collide; there is nothing to restore by deleting.
+Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pending email uses a temporary signed URL
+(60 min, carries a hash of `pending_email`), so no extra token table.
 
-## 2. Web auth
+## 2. Web auth and account
 
-- Laravel `session` guard (`web`), hand-rolled with framework built-ins: Fortify is not installed and this run adds no
-  dependency. Login = `Auth::attempt` + `session()->regenerate()` (fixation), logout = `Auth::logout` +
-  `invalidate()` + `regenerateToken()`. Passwords via `Hash` (bcrypt, `BCRYPT_ROUNDS=12`; argon2id is a one-line
-  `config/hashing.php` switch if the box has it — rehash on login is automatic). Min 12 characters + `Password::uncompromised()` is
-  an option (it calls the HIBP API: decide).
-- Password reset: built-in broker (`Password::sendResetLink` / `Password::reset`), table `password_reset_tokens` exists,
-  60 min expiry, 60 s throttle. Reset link = `APP_URL/reset-password/{token}?email=` (built in code, so no route is
-  needed until the screen exists).
-- **Mail**: `MAIL_MAILER` defaults to `log` (`config/mail.php`, `.env.example`): live sends nothing today. The Many
-  must set `MAIL_MAILER=smtp` (or `postmark`/`ses`), `MAIL_HOST/PORT/USERNAME/PASSWORD/SCHEME`,
-  `MAIL_FROM_ADDRESS` (e.g. `bridge@tilenpoje.eu`, SPF/DKIM on that domain) and `MAIL_FROM_NAME=Bridge` before reset
-  mail goes live.
-- Rate limits (`RateLimiter::for`): login 5/min per email+IP, reset request 3/15 min per email+IP, signup 5/hour per IP,
-  API 120/min per token, MCP the same.
-- CSRF: Laravel's `VerifyCsrfToken` + Inertia's XSRF cookie, unchanged. Session cookie `secure`, `http_only`,
-  `same_site=lax` (set `SESSION_SECURE_COOKIE=true` on live).
-- Signup: **open question** (open signup vs invite-only). Recommendation: invite-only (admin creates an invite link) until
-  abuse handling exists; `AccountService::register` serves both.
-- **Transition**: the AUTH-1 gate (`EnsureWorkspaceGate`, shared password) stays until login screens ship. A gate-unlocked
-  session acts in Tilen's workspace (`bridge.default_workspace`). Then: login replaces the gate, the gate route is
-  removed, `bridge_gate_unlocked` sessions are invalidated.
+- Session guard, hand-rolled on framework built-ins (no Fortify). Login = `Auth::attempt` (+ "Keep me logged in" →
+  `remember`) + `session()->regenerate()`; logout = `logout` + `invalidate` + `regenerateToken`. Bcrypt 12.
+- **Sessions**: `config/session.php` defaults to `database` and `.env.example` sets `SESSION_DRIVER=database`; the
+  `sessions` table exists (`user_id`, `ip_address`, `user_agent`, `last_activity`). Live's value is in its `.env`
+  (not read here) — The Many confirms it is `database` before the Sessions screen ships. Sessions list = rows for
+  `user_id`; "log out other devices" = `Auth::logoutOtherDevices($password)` + delete other rows; "all devices" =
+  delete all rows + rotate `remember_token`. Password change/reset does the same (screen copy says so).
+- **Lockout**: wrong password → `failed_logins++`; at 5 → `locked_until = now+15 min`, counter reset. Response for
+  unknown emails is identical (counter kept in `RateLimiter` keyed by email), so it never reveals that an account
+  exists. Plus 10/min per IP. Reset link works while locked; successful reset clears the lock. Risk: anyone can lock
+  a known email for 15 min (accepted; reset is the way out).
+- **Verification**: `MustVerifyEmail` + built-in notification; `verified` middleware on token creation and on `/mcp`
+  (token user unverified → 403).
+- **Disabled**: `disabled_at` set → login refused ("This account is disabled"), its `sessions` rows deleted, its
+  tokens **blocked, not revoked**: `ResolveTokenWorkspace` (and `/mcp`) return 403 when the token user has
+  `disabled_at`. Tokens stay, so enable restores the bots; revoking would force every bot to be reconfigured for what
+  is usually a temporary measure. A `web` middleware also logs out a disabled user mid-session.
+- **Delete**: typed-email confirm → `delete_requested_at = now`, user logged out everywhere, tokens blocked like
+  disabled; within 7 days, logging in offers "cancel deletion". After 7 days a command soft-deletes (`deleted_at`) the
+  user and marks the workspace; **no purge** of rows without Tilen's explicit OK. Export first: a JSON download of the
+  workspace (projects, tickets, comments, statuses, usage) from the Danger zone.
+- Password reset: built-in broker, 60 min, 60 s throttle (done in `AccountService`). CSRF, `same_site=lax`,
+  `SESSION_SECURE_COOKIE=true` on live. Transition: the AUTH-1 gate stays until login ships, then it is removed and
+  gate sessions invalidated.
 
-## 3. Migrating the current data
+## 3. Migrating current data
 
-One idempotent migration (`2026_10_31_110000_multi_user_backfill`):
-1. Owner user: `BRIDGE_OWNER_EMAIL` if set (created with an unusable random password when missing; Tilen sets his own via
-   reset), else the user that owns the Sanctum tokens (Captain's API user on live), else the first user, else a new
-   `tilen@lantis.internal`. Set `is_admin = true`.
-2. Workspace `slug=tilen`, `name=LANTIS`, owner = that user, `features={"polymarket": true}`.
-3. Memberships: owner → `owner`; every other user owning a token → `member`.
-4. `workspace_id` = that workspace on every row of every table in §1 and on every token with `workspace_id` null.
-   Tokens keep their user (`tokenable_id`), hash, name and abilities: `BRIDGE_API_TOKEN` and per-agent tokens keep working.
-5. `down()` nulls nothing it did not set: it drops the memberships/workspace it created (by slug) and clears `is_admin`;
-   the column-adding migrations' `down()` drop only the added columns.
+Done: `2026_10_31_110000_multi_user_backfill` (owner = `BRIDGE_OWNER_EMAIL`, else the token owner, …; workspace
+`tilen`/`LANTIS`, polymarket on; every row and token → that workspace; idempotent, `down()` drops only what it made).
+Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BRIDGE_API_TOKEN` lists the same projects.
 
-Verify on live (before = mysqldump taken by the deploy script; after = same queries):
-`SELECT COUNT(*) FROM projects` (and tickets, ticket_comments, ticket_events, status_updates, agents, labels,
-usage_days, cli_usage_days, polymarket_series_points, personal_access_tokens) must be equal before/after, and
-`SELECT COUNT(*) FROM <t> WHERE workspace_id IS NULL` = 0 for each. Smoke: `GET /api/projects` with `BRIDGE_API_TOKEN`
-returns the same list; portfolio, a board, `/usage`, `/polymarket` render after the gate.
+## 4. API tokens
 
-## 4. Per-user API tokens
+- Sanctum, sha256 at rest. Create (name, scope, expiry) → plaintext shown once; revoke = delete the token row (a
+  credential, not data). Rotation = create new, revoke old.
+- **Prefix**: `SANCTUM_TOKEN_PREFIX=brg_live_` (config `sanctum.token_prefix` exists). New tokens only; existing
+  tokens keep working unchanged. Sanctum's plaintext is `<id>|brg_live_<40 chars><crc32>`; the reveal shows the part
+  after `|` (Sanctum finds a token without `id|` by its hash), and `token_suffix` stores its last 4. Legacy tokens
+  show "legacy token".
+- **Scope → abilities** (abilities enforced per route today, `EnsureTokenAbility`):
+  - `read` = `["boards:read"]`
+  - `read & write` = `boards:read`, `boards:write`, `status:write`, `agents:write`, plus `usage:write` /
+    `polymarket:write` only when the workspace has that feature (Polymarket: Tilen's; usage upload: Tilen's until
+    other users have a collector).
+  - Legacy `ceo` / `*` keep meaning everything; the UI never issues them. List shows scope derived from abilities.
+- Expiry 30/90/365 days or none → `expires_at` (Sanctum rejects expired tokens). Rate limit 120/min per token (API
+  and MCP). Creation requires a verified email.
+- Workspace resolution (done): token's `workspace_id` (user must still be a member), else owned, else only
+  membership, else 403; + 403 when the user is disabled or deletion-pending.
 
-- Sanctum `personal_access_tokens` (sha256 at rest, `last_used_at` already updated). New tokens are created by the
-  owner in a Tokens screen (later): `name` (an agent id when the token is one agent's identity, see `Actor`), abilities,
-  optional `expires_at`; plaintext shown once. Revoke = delete the token row (the only deletion we allow: a credential,
-  not data; or set `expires_at = now()` if we prefer to keep the row). Rotation = create new, revoke old.
-- Abilities: `boards:read`, `boards:write`, `status:write`, `usage:write`, `polymarket:write`, `agents:write`.
-  `*` and the legacy `ceo` ability = everything. Route groups require: GET → `boards:read`; ticket/project/label/comment
-  writes → `boards:write`; status updates and project status → `status:write`; `POST /api/usage/days` → `usage:write`;
-  `POST /api/polymarket/feed` → `polymarket:write` (plus the workspace feature); agents → `agents:write`.
-- Binding: `personal_access_tokens.workspace_id` is set on create; resolution = token's `workspace_id`, else the user's
-  owned workspace, else the user's only membership, else 403. The token's user must still be a member (removing a
-  member disables their tokens).
-- Agent identity: unchanged (`Actor::fromApi`): a token named like an agent of *its* workspace is that agent;
-  otherwise body `actor` must be an agent of the workspace.
+## 5. Admin and isolation
 
-## 5. MCP server
+- `is_admin` unlocks only `/admin/users` (web) and its JSON: name, email, created, last login, status
+  (active/disabled/deletion pending) and `POST /admin/users/{id}/disable|enable`. Nothing else. Not for itself.
+- The prototype's Admin table also shows **Projects / Agents counts** per user and an "invited" state: counts are
+  data about another workspace → **dropped** (relayed decision 2); "invited" is moot with open sign-up. Tommy to update.
+- **No bypass**: `BelongsToWorkspace`/`WorkspaceScope` has no owner/admin bypass; every owned query is
+  `workspace_id = current`, fail closed when missing. `acrossWorkspaces()` exists only for global uniqueness (ticket
+  prefix/key) and parent lookups on console writes; it must never feed a response (review rule; a test greps for it).
+  Tilen's workspace is his own data only.
+- Tests: owner (is_admin) gets 404 on another user's project/board/ticket/usage via web and via API with his token;
+  admin JSON contains only the listed keys; disabled user → login refused, sessions gone, token 403, enable → token
+  works. **MCP placeholder plan** (when `/mcp` lands): owner token calling `get_board`/`list_tickets`/`get_ticket` on
+  another workspace's project → not found; `tools/list` identical for owner and user except feature tools.
 
-- Transport: MCP streamable HTTP, `POST /mcp` (JSON-RPC 2.0; `GET` → 405 since we do not stream server events),
-  `Authorization: Bearer <per-user token>`, same workspace resolution and abilities as `/api`.
-- Implementation: **decision for Tilen**. (a) `laravel/mcp` (official, new dependency: tool classes, schema, inspector);
-  (b) a small hand-rolled controller handling `initialize`, `tools/list`, `tools/call`, `ping` (~300 lines + tests, no
-  dependency). Recommendation: (a) if Tilen accepts the dependency; the tools below are the same either way.
-- Tools (thin wrappers over `TicketService`, `ProjectStatusService`, `StatusUpdateIngest`, `BoardView`, `TicketView`):
-  `list_projects {include_archived?}`, `get_board {project}`, `list_tickets {project?, status?, assignee?, label?,
-  updated_since?}`, `get_ticket {ticket}`, `create_ticket {project, title, description?, status?, priority?,
-  assignee?, labels?, due_on?}`, `update_ticket {ticket, …same fields}`, `move_ticket {ticket, status, before?, after?}`,
-  `comment_ticket {ticket, body}`, `post_status {project, body}` (status update), `set_project_status {project, status,
-  note?}`, `list_agents`, `list_labels`. Each tool declares its ability; errors map to JSON-RPC errors with the same
-  messages as the REST API.
+## 6. MCP server
 
-## 6. Polymarket gating
-
-Per-workspace feature flag `workspaces.features.polymarket` (true only for Tilen's workspace by the backfill; no UI to
-change it). Off → `GET /polymarket` 404, `POST /api/polymarket/feed` 404, nav item hidden (Inertia shared prop
-`features.polymarket`). Data is also workspace-scoped, so even with the flag on another workspace sees only its own desk.
-Tests: Tilen unchanged (page + ingest), another workspace 404 on both, nav prop false.
+`POST /mcp` (JSON-RPC 2.0, streamable HTTP; `GET` 405, no server stream), Bearer per-user token, same workspace
+resolution, abilities, verification and disabled checks as `/api`. Tools (thin wrappers over `TicketService`,
+`ProjectStatusService`, `StatusUpdateIngest`, `BoardView`, `TicketView`), each declaring its ability:
+read — `list_projects`, `get_board`, `list_tickets`, `get_ticket`, `list_agents`, `list_labels`; write —
+`create_ticket`, `update_ticket`, `move_ticket`, `comment_ticket` (`boards:write`), `post_status`,
+`set_project_status` (`status:write`). Implementation: `laravel/mcp` (new dependency, Tilen's call) or a hand-rolled
+controller (`initialize`, `tools/list`, `tools/call`, `ping`; ~300 lines, no dependency).
 
 ## 7. Cursor usage
 
-Extend the existing measured-usage ingest: `CliUsageDay::TOOLS += 'cursor'` (label "Cursor"), one row per
-(date, tool, agent_id, model), nightly via the same push (`POST /api/usage/days` with a `cli_usage` key, or
-`bridge:cli-usage-import`), per Europe/Ljubljana day, a re-POST replaces the day (unchanged semantics). Row shape:
+**Feasibility.** Admin API: yes, needs a Cursor **Team** plan admin key (Basic auth). `POST
+https://api.cursor.com/teams/filtered-usage-events` (`startDate`/`endDate` epoch ms, `email?`, `page`, `pageSize`) returns
+per event: `timestamp`, `userEmail`, `serviceAccountId/Name`, `cloudAgentId`, `automationId`, `conversationId`,
+`model`, `kind`, `maxMode`, `requestsCosts`, `isTokenBasedCall`, `isChargeable`, `isHeadless`, `tokenUsage
+{inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens, totalCents}`, `chargedCents`, `cursorTokenFee`.
+`/teams/daily-usage-data` has no per-model tokens → not enough. Limits: ≤ 30-day ranges, 20 req/min, poll ≤ hourly.
+CSV: dashboard export (Date, Kind, Model, Max Mode, Input w/ and w/o Cache Write, Cache Read, Output, Total, Cost)
+works on individual plans but is manual, one account per file, no attribution beyond the account.
+
+**Recommendation**: Admin API, pulled by **Captain** (Bridge never stores a Cursor key), aggregated per
+Europe/Ljubljana day × agent × model; attribution via `serviceAccountId`/`userEmail` → Bridge `agent_id` map kept by
+Captain, unmapped → `unattributed`. CSV (converted by Captain into the same rows) if LANTIS is not on a Team plan.
+Row (extends `cli_usage`; replaces the earlier `cost_usd`/`requests` proposal — "Requests" in the UI = `calls`):
 
 ```json
 {"tool": "cursor", "agent_id": "agent-erin", "name": "Erin Bloome", "model": "claude-4.5-sonnet",
  "input": 120000, "output": 8000, "cache_read": 900000, "cache_creation": 0, "calls": 42,
- "cost_usd": 3.12, "requests": 40}
+ "cost_cents": 312.5, "max_mode_calls": 3}
 ```
 
-`cost_usd` (number ≥ 0, 4 decimals) and `requests` (int, Cursor's billed request count) are new **optional** row keys,
-stored in two nullable columns; Cursor rows without token detail send 0s. `agent_id` = the Bridge agent id the Captain
-maps from the Cursor account/API key (same as the other tools). Rows land in the token's workspace. Captain's
-collector change is his; Bridge only needs the validator + column + label.
+`input` = inputTokens, `cache_creation` = cacheWriteTokens, `calls` = event count, `cost_cents` = Σ chargedCents
+(optional), `max_mode_calls` (optional). `CliUsageDay::TOOLS += 'cursor'`.
 
-## 8. Step order
+**Ingest change (needed)**: `CliUsageImporter` deletes **all** cli rows of the date before inserting, so a separate
+Cursor POST would wipe that day's Claude Code/Kimi/OpenCode rows. New rule: **replace per (workspace, date, tool)** for
+the tools in the file — the tools present in `rows`, plus an optional `tools: [...]` list so a file can say "Kimi ran,
+zero rows". Each imported (date, tool) writes a `cli_usage_imports` marker: marker + no rows = zero, no marker = "no
+file for that day". Cadence: nightly for yesterday + re-POST of the last 2 days (late events).
 
-1. Schema: workspaces, membership, `users.is_admin`, nullable `workspace_id` + indexes (tests: migrate/rollback on SQLite).
-2. Backfill (tests: rows/tokens get the workspace, idempotent, rollback).
-3. Scoping: `CurrentWorkspace`, `BelongsToWorkspace` trait, gate → Tilen's workspace, token → workspace; fail closed
-   (tests: two workspaces, cross access 404/empty).
-4. Polymarket gate (tests above). 5. Per-workspace unique keys for usage/labels/polymarket.
-6. Account service (register, reset, change password; tests with `Notification::fake`).
-7. Token abilities enforced per route (tests per ability). — *steps 1–7 = Phase B, done (§11).*
-8. Login/signup/reset/token screens (Tommy + Marc designs), remove the gate. 9. `workspace_id` NOT NULL. 10. Per-workspace slug/prefix/key. 11. MCP endpoint.
-12. Cursor usage. 13. Read states per user.
+## 8. Screens → backend
 
-Each step deploys on its own; 1–3 must deploy together with the code (the scope needs the columns).
+| Screen / state | Needs |
+|---|---|
+| signup default/errors/loading | `POST /signup` {name, email, password, turnstile, honeypot, ts}; 422 per field; 5/h per IP; creates user + own workspace (`AccountService::register`), sends verification |
+| signup email-taken | 422 on `email` with that message (open sign-up makes existence public here anyway; login/reset stay neutral) |
+| login wrong / locked | `POST /login`; 422 `{message, tries_left}`, 429 `{locked_until}` when locked; `failed_logins`, `locked_until`; remember me |
+| reset request/sent/set-new/expired/success | `POST /forgot-password` (neutral), `GET /reset-password/{token}`, `POST /reset-password` (INVALID_TOKEN → expired); logs out other sessions |
+| account profile / saved / error | `PATCH /account` {name, timezone, email}; email change → `pending_email` + signed link; banner props `pending_email`; `POST /account/email/resend`, `DELETE /account/email/pending` (keep old) |
+| account password | `PUT /account/password` (`AccountService::changePassword`) + drop other sessions |
+| account sessions | props: list of {id, browser/device (parsed `user_agent`), ip, last_active, current}; `DELETE /account/sessions/others`, `DELETE /account/sessions` (all) |
+| account delete | `POST /account/delete` {email confirm} → `delete_requested_at`; `GET /account/export`; modal counts = own projects/tickets/tokens |
+| tokens with-tokens / empty | props: [{id, name, suffix, scope, created_at, last_used_at, expires_at}] |
+| tokens create / reveal | `POST /account/tokens` {name, scope read\|write, expires 30\|90\|365\|null} (verified only) → plaintext once (flash) |
+| tokens revoke | `DELETE /account/tokens/{id}` (own tokens only) |
+| MCP snippet | prop `mcp_url` = `APP_URL/mcp` |
+| onboarding step1 | web `POST /projects` {name, description, pm} (today projects are created only via API) |
+| onboarding step2 | `PATCH /projects/{slug}/columns` → `column_labels` (rename/hide v1; add/reorder later) |
+| onboarding step3 / done | link to tokens; checklist state derived (has project, has columns saved, has token) — no new column; example project = step 1's project |
+| usage 7d / yesterday / 30d | existing `/usage` per range, scoped (only own agents) |
+| usage Cursor section / cursor-empty | `cli_usage_days` where tool=cursor: per model {requests, input, output, cache_read, total}, per agent with model rows; empty = no cursor marker in range |
+| shell | shared props `user {name, initials, email}`, `is_owner`, `features.polymarket`, `features.admin`; non-owner → 404 |
+| shell admin | `GET /admin/users` → [{id, name, email, created_at, last_login_at, status}]; disable/enable. "View as" = prototype only |
 
-## 9. Risks
+## 9. Step order
 
-- **No staging**: the backfill runs on live data first. Mitigation: deploy script's mysqldump; the before/after counts
-  in §3; rehearse on a copy of the dump locally (`mysql < dump` + `php artisan migrate`) before the live run.
-- A query that bypasses Eloquent (`DB::table`) is not scoped: today only `BridgeRoster::setPm` (fills `workspace_id`
-  explicitly); `exists:`/`unique:` validation rules are DB rules (made workspace-aware where they reference owned
-  tables). A grep check belongs in review of every later change.
-- Per-agent tokens created by hand on the server with abilities other than `*`/`ceo` would lose access once abilities
-  are enforced (step 7). Check first: `SELECT name, abilities FROM personal_access_tokens`.
-- Global unique slug/prefix: another user cannot pick a slug/prefix Tilen uses (also leaks that it exists) until step 10.
+Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities (§11).
+Next, each with tests, deployable alone:
+1. Backend auth: lockout, disabled (+ token block), email verification, token expiry + `brg_live_` prefix + suffix +
+   scope mapping, sessions endpoints, admin endpoints, delete request + soft delete + export, password min 10.
+2. MCP endpoint (after the dependency decision).
+3. Cursor ingest: scoped replace + markers, `cursor` tool, new columns.
+4. UI from the prototypes: login/signup (Turnstile) / reset / account / tokens / onboarding / admin / usage Cursor;
+   then remove the gate, read states per user.
+5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
+   artisan imports, first-agent creation for new workspaces (`POST /api/agents` is Captain-only today).
 
-## 10. Open questions for Tilen
+## 10. Risks
 
-1. Signup: open, or invite-only (recommended)?
-2. Workspace sharing: one person per workspace in v1, or invite members (schema supports it)?
-3. MCP: add `laravel/mcp` (dependency) or hand-roll?
-4. Mail: sender address/domain and provider; who owns the SMTP credentials (The Many)?
-5. Polymarket: per-workspace flag (implemented) vs. "Tilen only" forever?
-6. `BRIDGE_OWNER_EMAIL`: Tilen's login email, to be set on live **before** the backfill runs (otherwise Captain's API
-   user becomes the owner and Tilen gets a separate login later).
-7. Workspace name for the existing data: `LANTIS` (slug `tilen`) — ok?
-8. Staging: none exists. Recommend a second xerxes vhost (`bridge-staging.tilenpoje.eu`, own DB restored from the live
-   dump) set up by The Many before the data migration deploys; deploy owner The Many.
+- **No staging**: backfill runs on live data first → rehearse on a dump copy, counts before/after (§3).
+- Any query outside Eloquent (`DB::table`) or via `acrossWorkspaces()` is unscoped → review rule + grep test.
+- Hand-made live tokens without `*`/`ceo` lose access (abilities enforced) → check before deploy (§11).
+- Per-account lockout can be triggered by anyone knowing an email (15 min, reset unlocks).
+- Open sign-up before mail works = unverified accounts that can use boards but not tokens/MCP.
+- Global slug/prefix: another user can't reuse Tilen's and learns it exists, until per-workspace keys.
 
 ## 11. Groundwork done (branch `feat/multi-user`)
 
-Not deployed. Suite: see the last commit (all green, incl. `tests/Feature/MultiUser/*`).
+Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 
 | Piece | Where |
 |---|---|
-| Schema: `users.is_admin`, `workspaces`, `workspace_user`, nullable indexed `workspace_id` FK on the 18 owned tables + `personal_access_tokens` | `2026_10_31_100000_multi_user_schema` |
-| Backfill into workspace `tilen` / `LANTIS` (polymarket on), owner + members, all rows and tokens | `2026_10_31_110000_multi_user_backfill` |
-| Per-workspace keys: `usage_days`, `cli_usage_days`, `polymarket_series_points`, `labels` | `2026_10_31_120000_multi_user_workspace_keys` |
-| `Workspace` model; `CurrentWorkspace` (singleton; `required` in HTTP); `WorkspaceScope` + `BelongsToWorkspace` on 17 models; `MissingWorkspace` (fail closed) | `app/Models`, `app/Support/Workspaces` |
-| `WorkspaceBoundary` (first in web/api, restores state), gate → Tilen's workspace, `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `bootstrap/app.php`, `routes/api.php` |
-| Workspace-aware `exists:` rules (`WorkspaceRule::exists`); bulk inserts set `workspace_id`; prefix/key generators look across workspaces | controllers, `CliUsageImporter`, `PolymarketFeedImporter`, `BridgeRoster`, `TicketService` |
-| Polymarket feature gate (page, ingest, `features.polymarket` shared prop, TopBar) | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
-| `AccountService` (register + own workspace, reset link/complete, change password); reset URL built in `AppServiceProvider` | `app/Services/Auth` |
+| Schema, backfill, per-workspace keys | `2026_10_31_100000/110000/120000_multi_user_*` |
+| `Workspace`, `CurrentWorkspace`, `WorkspaceScope` + `BelongsToWorkspace` (17 models), `MissingWorkspace` | `app/Models`, `app/Support/Workspaces` |
+| `WorkspaceBoundary`, gate → Tilen's workspace, `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `routes/api.php` |
+| `WorkspaceRule::exists`, bulk inserts set `workspace_id` | controllers, importers, `BridgeRoster`, `TicketService` |
+| Polymarket feature gate | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
+| `AccountService` (register + workspace, reset, change password; `MIN_PASSWORD = 12`) | `app/Services/Auth` |
 
-Console / artisan commands (imports, `bridge:set-pms`, `bridge:tickets-migrate`, seeders) run unscoped and write into
-the parent's or Tilen's workspace; a `--workspace=` option comes with the first non-Tilen import.
+**Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate`, else Captain's API
+user becomes owner; (2) `SELECT id, name, abilities FROM personal_access_tokens` — each needs `*`/`ceo` or the
+abilities it uses; (3) rehearse on a dump copy incl. `migrate:rollback --step=3`; (4) after: counts + smoke tests.
 
-**Before deploying this branch (The Many):**
-1. Set `BRIDGE_OWNER_EMAIL` (Tilen's login email, open question 6) in `.env` and `php artisan config:clear` *before*
-   `migrate` (the deploy script caches config with `optimize` afterwards). Without it, Captain's API user becomes the
-   owner.
-2. `SELECT id, name, abilities, tokenable_id FROM personal_access_tokens;` — every live token must have `*` or `ceo`
-   in `abilities`, or one of the new abilities it needs; otherwise it gets 403 after the deploy (abilities are enforced
-   now). Fix before deploying (add `"*"`), not after.
-3. Rehearse on a copy of the live dump (no staging): migrate, then the §3 counts; `migrate:rollback --step=3` once
-   to prove the way back.
-4. After deploy: §3 counts and smoke tests (`BRIDGE_API_TOKEN` lists the same projects; portfolio, board, `/usage`,
-   `/polymarket` behind the gate).
+## 12. Open questions for Tilen
 
-**Left (in order):**
-- Login / logout / signup / reset / token-management screens + controllers (designs), rate limiters (§2), then remove
-  the AUTH-1 gate; read states keyed by user instead of `'tilen'`; `Actor::tilen()` becomes "the logged-in human".
-- `POST /api/agents` is Captain-only (`agent-william`, Tilen's roster): a new workspace cannot add its first agent over
-  the API. Needs a per-workspace rule (owner's token / UI) — decide with the screens.
-- `workspace_id` NOT NULL (after a release with no null rows); per-workspace slug / ticket prefix / ticket key; agent id
-  collisions between workspaces (string PKs).
-- MCP endpoint (§5, dependency decision), Cursor usage (§7), `--workspace` for artisan imports.
-- Mail transport on live (§2), staging vhost (§10.8).
+1. Cursor: which plan is LANTIS on — Team (admin API key, held by Captain) or individual (CSV)?
+2. MCP: add `laravel/mcp` or hand-roll?
+3. Mail provider and sender (e.g. `bridge@tilenpoje.eu`, SPF/DKIM); who holds the credentials (The Many)?
+4. Turnstile keys (Cloudflare dashboard) — OK to use Cloudflare?
+5. Staging: second vhost `bridge-staging.tilenpoje.eu` with a dump copy, set up by The Many?
+6. `BRIDGE_OWNER_EMAIL` (Tilen's login email) and workspace name `LANTIS` / slug `tilen`?
+7. Breached-password check (HIBP k-anonymity call on signup/reset): yes/no?
+8. Per-project token scopes: when?
+9. Confirm the working defaults in §0 (CoS, not yet confirmed by Tilen).
