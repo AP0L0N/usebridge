@@ -80,7 +80,7 @@ try {
         badgeShown: getComputedStyle(document.querySelector('.fbtn .cnt')).display !== 'none', zero: getComputedStyle(document.querySelector('#tab-backlog .cnt')).color }));
       ok(tab.sel === 'tab-in_progress', `${tag} filter change jumps to the first tab with matches (${tab.sel})`);
       ok(tab.badge === '1' && tab.badgeShown, `${tag} count badge on the icon-only filter button`);
-      ok(tab.zero === 'rgb(107, 111, 120)', `${tag} 0 counts in tabs use --ink3`);
+      ok(tab.zero === 'rgb(138, 143, 156)', `${tag} 0 counts in tabs use --ink-400`);
       const pills = await p.evaluate(() => {
         const z = document.querySelector('.ctabs .cnt.is0'), n = document.querySelector('.ctabs .cnt:not(.is0)');
         return { z: z?.getBoundingClientRect().top, n: n?.getBoundingClientRect().top, mz: z && getComputedStyle(z).marginBottom };
@@ -152,15 +152,15 @@ try {
     }
     const box = m ? '.sheet' : '.askbox';
     const txt = await p.locator(box).innerText();
-    ok(txt.includes('Move BH-131 to Waiting on Tilen') && txt.includes('Late check-out request in the Home module') && txt.includes('What’s the ask?') && txt.includes('Shown on the card and in Your input.')
+    ok(txt.includes('Move BH-131 to Waiting on you') && txt.includes('Late check-out request in the Home module') && txt.includes('What’s the ask?') && txt.includes('Shown on the card and in Your input.')
       && txt.includes('Enter moves it · Shift+Enter for a new line · 0/280'), `${tag} ask copy (heading, title, label, hints)`);
     ok((await active()).id === 'ask-in', `${tag} ask textarea has focus`);
     await p.click(`${box} .askf .btn`); await p.waitForTimeout(150);
     const askErr = await p.locator(box).innerText();
-    ok(askErr.includes('✕ Add the ask. Every ticket in Waiting on Tilen needs one.') && !HTTP_CODE.test(askErr), `${tag} empty ask error copy`);
+    ok(askErr.includes('✕ Add the ask. Every ticket in Waiting on you needs one.') && !HTTP_CODE.test(askErr), `${tag} empty ask error copy`);
     ok(await p.evaluate(() => { const t = document.querySelector('#ask-in'); const s = getComputedStyle(t);
-      return document.activeElement === t && t.getAttribute('aria-invalid') === 'true' && s.borderTopColor === 'rgb(180, 35, 24)' && s.outlineStyle !== 'none'; }),
-    `${tag} invalid textarea: red border, focused with a ring`);
+      return document.activeElement === t && t.getAttribute('aria-invalid') === 'true' && s.borderTopColor === 'rgb(229, 72, 77)' && s.boxShadow.includes('200, 241, 53'); }),
+    `${tag} invalid textarea: red border, focused with the signal ring`);
     ok(await p.evaluate(() => document.querySelector('[data-key="BH-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} card stays put until confirmed`);
     // A failed move shows the error toast without an HTTP code.
     await p.fill('#ask-in', 'Should late check-out be paid?');
@@ -197,11 +197,11 @@ try {
     ok(await p.evaluate(() => document.querySelector('[data-key="BH-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} cancelled ask leaves the card in Backlog`);
     // ---------------- (d) ticket detail: close paths, dirty guard, nested sheets
     // Opening a ticket marks it seen, so these use BH-121 (no unread, input or blocked state): BH-118 and BH-119 feed the filter checks.
-    const isOpen = async () => (await p.locator('.dlg').count()) > 0;
-    const waitClosed = () => p.waitForSelector('.dlg', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
-    const confirmShown = async () => (await p.locator('[aria-label="Discard unsaved changes?"]').count()) > 0;
-    const openTicketDirect = async (key) => { await p.goto(`${BOARD}/tickets/${key}`); await p.waitForSelector('.dlg h1'); await p.waitForTimeout(250); };
-    const scrimClick = async () => { await p.mouse.click(60, 400); await p.waitForTimeout(150); }; // desktop: the scrim left of the 1040px panel
+    const isOpen = async () => (await p.locator('.kb-drawer').count()) > 0;
+    const waitClosed = () => p.waitForSelector('.kb-drawer', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
+    const confirmShown = async () => (await p.locator('[aria-label="Discard your comment?"]').count()) > 0;
+    const openTicketDirect = async (key) => { await p.goto(`${BOARD}/tickets/${key}`); await p.waitForSelector('.kb-drawer h1'); await p.waitForTimeout(250); };
+    const scrimClick = async () => { await p.mouse.click(60, 400); await p.waitForTimeout(150); }; // desktop: the scrim left of the 800px drawer
     const typeInComposer = async (text) => { await p.click('#cmp'); await p.fill('#cmp', text); await p.waitForTimeout(100); };
     const keepFocused = () => p.evaluate(() => document.activeElement?.textContent ?? '');
     const pressButton = (name) => p.getByRole('button', { name, exact: true }).click();
@@ -222,11 +222,11 @@ try {
 
     // Clean ticket: backdrop (desktop), Esc, and a click inside the panel never closes it.
     await openTicketDirect('BH-121');
-    const title = await p.locator('.dlg h1').boundingBox();
+    const title = await p.locator('.kb-drawer h1').boundingBox();
     await p.mouse.click(title.x + 10, title.y + title.height / 2); await p.waitForTimeout(150);
     ok(await isOpen() && !(await confirmShown()), `${tag} click inside the panel does not close`);
     if (!m) {
-      const hb = await p.locator('.dlg h1').boundingBox();
+      const hb = await p.locator('.kb-drawer h1').boundingBox();
       const mid = hb.y + hb.height / 2;
       await p.mouse.move(hb.x + 4, mid); await p.mouse.down(); await p.mouse.move(60, mid, { steps: 12 }); await p.mouse.up(); await p.waitForTimeout(150);
       ok(await isOpen() && !(await confirmShown()), `${tag} drag from inside the panel released on the scrim does not close`);
@@ -268,7 +268,7 @@ try {
 
     // Esc inside a dirty description: confirm; Discard drops the edit and keeps the ticket open.
     await openTicketDirect('BH-121');
-    await p.click('#desc-h .edit'); await p.fill('#desc-in', 'Edited description text'); await p.waitForTimeout(100);
+    await p.click('#desc-h .gbtn'); await p.fill('#desc-in', 'Edited description text'); await p.waitForTimeout(100);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
     ok(await confirmShown() && (await p.inputValue('#desc-in')) === 'Edited description text', `${tag} Esc in a dirty description shows the confirm, editor kept`);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
@@ -282,7 +282,7 @@ try {
     if (!m) {
       // Labels editor (desktop side panel; on 390 the fields live in the Details sheet).
       await openTicketDirect('BH-121');
-      await p.click('.fk .edit'); await p.fill('#lb-in', 'Home, Idea, Unsaved'); await p.waitForTimeout(100);
+      await p.click('.fk .gbtn'); await p.fill('#lb-in', 'Home, Idea, Unsaved'); await p.waitForTimeout(100);
       await p.keyboard.press('Escape'); await p.waitForTimeout(150);
       ok(await confirmShown() && (await p.inputValue('#lb-in')) === 'Home, Idea, Unsaved', `${tag} Esc in a dirty label editor asks first`);
       await pressButton('Discard'); await p.waitForTimeout(150);
