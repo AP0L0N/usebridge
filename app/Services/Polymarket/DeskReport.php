@@ -461,22 +461,22 @@ final class DeskReport
         }
 
         if ($latestMissed === null) {
-            return ['state' => 'fresh', 'badge' => 'Fresh', 'banner' => null];
+            return ['state' => 'fresh', 'badge' => __('pm.fresh'), 'banner' => null];
         }
-        $key = 'Last post '.$asOf->format('D H:i');
+        $key = __('pm.last_post', ['when' => $asOf->format('D H:i')]);
         if ($missed === 1) {
             $dow = $latestMissed->format('D');
 
-            return ['state' => 'late', 'badge' => "Late · missed $dow post", 'banner' => [
-                'title' => "The $dow ~".sprintf('%02d:00', self::POST_HOUR).' post hasn’t arrived.',
-                'body' => 'Figures are from '.$asOf->format('D j M, H:i').' and may have moved.',
+            return ['state' => 'late', 'badge' => __('pm.late.badge', ['dow' => $dow]), 'banner' => [
+                'title' => __('pm.late.title', ['dow' => $dow, 'time' => sprintf('%02d:00', self::POST_HOUR)]),
+                'body' => __('pm.late.body', ['asof' => $asOf->format('D j M, H:i')]),
                 'key' => $key,
             ]];
         }
 
-        return ['state' => 'stale', 'badge' => "Stale · $missed posts missed", 'banner' => [
-            'title' => "$missed weekday posts missed.",
-            'body' => 'Book value and prices are out of date. Check Captain’s weekday desk routine.',
+        return ['state' => 'stale', 'badge' => __('pm.stale.badge', ['n' => $missed]), 'banner' => [
+            'title' => __('pm.stale.title', ['n' => $missed]),
+            'body' => __('pm.stale.body'),
             'key' => $key,
         ]];
     }
