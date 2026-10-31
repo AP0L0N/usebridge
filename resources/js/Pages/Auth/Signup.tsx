@@ -1,9 +1,10 @@
 import { Link } from '@inertiajs/react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { AuthShell } from '../../Components/Account/AuthShell';
 import { BusyButton, Callout, described, ErrorSummary, Field, PasswordInput, StrengthMeter } from '../../Components/Account/Fields';
 import { fillPlaceholders } from '../../Components/SiteFooter';
 import { fieldErrors, go, requestJson } from '../../lib/http';
+import { turnstileToken } from '../../lib/turnstile';
 
 type Acceptance = {
   checkbox: string; smallPrint: string; termsLink: string; privacyLink: string; smallPrintTermsLink: string; smallPrintPrivacyLink: string;
@@ -11,34 +12,12 @@ type Acceptance = {
 };
 type Props = { formToken: string; turnstileSiteKey: string | null; minPassword: number; acceptTerms: boolean; acceptance: Acceptance };
 
-declare global {
-  interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void; render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
-}
-
-const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-
-/** Cloudflare Turnstile, only when a site key is configured: the script loads then, and renders into .cf-turnstile. */
-function Turnstile({ siteKey }: { siteKey: string }) {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Script already loaded (an earlier visit in this tab): render explicitly; else its onload scans .cf-turnstile.
-    if (window.turnstile && el.current && el.current.childElementCount === 0) {
-      window.turnstile.render(el.current, { sitekey: siteKey, 'response-field-name': 'cf-turnstile-response' });
-      return;
-    }
-    if (document.querySelector(`script[src="${TURNSTILE_SRC}"]`)) return;
-    const s = document.createElement('script');
-    s.src = TURNSTILE_SRC;
-    s.async = true;
-    s.defer = true;
-    document.head.appendChild(s);
-  }, [siteKey]);
-  return <div ref={el} className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
-}
-
 const FIELD_IDS = { name: 'name', email: 'email', password: 'pw', accept_terms: 'accept-terms' };
 
-/** Sign up: POST /signup with the honeypot (`website`) + signed `form_token`, plus Turnstile when configured. */
+/**
+ * Sign up: POST /signup with the honeypot (`website`) + signed `form_token`, plus Turnstile when configured. Turnstile
+ * loads only on submit (lib/turnstile.ts), never on render.
+ */
 export default function Signup({ formToken, turnstileSiteKey, minPassword, acceptTerms, acceptance }: Props) {
   const [name, setName] = useState('');
   const [accepted, setAccepted] = useState(acceptTerms);
@@ -49,7 +28,7 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword, accep
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taken, setTaken] = useState<string | null>(null);
   const summary = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const tsBox = useRef<HTMLDivElement>(null);
 
   const check = (): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -70,17 +49,26 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword, accep
       return;
     }
     setBusy(true);
-    const tsResponse = formRef.current ? new FormData(formRef.current).get('cf-turnstile-response') : null;
+    let tsResponse = '';
+    if (turnstileSiteKey && tsBox.current) {
+      try {
+        tsResponse = await turnstileToken(turnstileSiteKey, tsBox.current);
+      } catch {
+        setBusy(false);
+        setErrors({ turnstile: 'The bot check failed. Please try again.' });
+        requestAnimationFrame(() => summary.current?.focus());
+        return;
+      }
+    }
     const res = await requestJson<{ redirect?: string }>('POST', '/signup', {
       name, email, password, website, form_token: formToken, accept_terms: accepted,
-      ...(turnstileSiteKey ? { 'cf-turnstile-response': tsResponse ?? '' } : {}),
+      ...(turnstileSiteKey ? { 'cf-turnstile-response': tsResponse } : {}),
     });
     if (res.ok) {
       go('/welcome');
       return;
     }
     setBusy(false);
-    window.turnstile?.reset();
     const fe = res.status === 422 ? fieldErrors(res.data.errors) : { form: res.status === 429 ? 'Too many sign-ups from this network. Try again in an hour.' : res.data.message ?? 'Something went wrong. Try again.' };
     if (fe.email && /already|taken/i.test(fe.email)) {
       setTaken(email.trim());
@@ -93,7 +81,7 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword, accep
   const summaryErrors = taken ? Object.fromEntries(Object.entries(errors).filter(([k]) => k !== 'email')) : errors;
   return (
     <AuthShell title="Create account">
-      <form className="gcard" onSubmit={submit} noValidate aria-labelledby="h-signup" ref={formRef}>
+      <form className="gcard" onSubmit={submit} noValidate aria-labelledby="h-signup">
         <h1 id="h-signup">Create your account</h1>
         <p className="lede">Track your own projects on a board, and let your Grok bot keep them up to date.</p>
 
@@ -123,7 +111,7 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword, accep
           <label htmlFor="website">Website</label>
           <input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
-        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} />}
+        {turnstileSiteKey && <div ref={tsBox} className="ts-box" />}
 
         <p className="fine">Bridge stores your projects and usage only to show them to you. You verify your email before you create API tokens for bots.</p>
         <div>

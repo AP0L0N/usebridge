@@ -21,7 +21,7 @@ glance which project is moving, which one is waiting on you, and what the agents
 - **Per-user API tokens**: `read` or `read & write`, expiry of 30 / 90 / 365 days or none. The plaintext is shown once,
   the list is masked, and tokens can be revoked.
 - **Multi-user workspaces**: open sign-up with email verification and a bot check (honeypot + minimum fill time,
-  optional Cloudflare Turnstile), login lockout, breached-password check (HIBP range API, fail-open), "log out of all
+  optional Cloudflare Turnstile, loaded only when the form is submitted; keep its "Pre-clearance" setting off), login lockout, breached-password check (HIBP range API, fail-open), "log out of all
   devices", data export and account deletion with a grace period. Every workspace is isolated: no admin bypass, and
   another workspace's data answers 404. The instance admin only sees a user list with disable / enable.
 
@@ -61,7 +61,7 @@ BRIDGE_ROSTER_PATH=           # JSON roster file outside the repo (agents and pr
 BRIDGE_GATE_PASSWORD=         # transitional shared workspace password: set BRIDGE_GATE_PASSWORD in .env; empty = gate rejects everyone
 BRIDGE_GATE_ENABLED=true      # false = gate retired (/gate 404s, everyone logs in)
 BRIDGE_OWNER_WAITING_LABEL=   # waiting_tilen column label for workspaces existing at migration time (new ones: "Waiting on you")
-TURNSTILE_SITE_KEY=
+TURNSTILE_SITE_KEY=           # Turnstile widget: execution on submit; Pre-clearance OFF in the Cloudflare dashboard
 TURNSTILE_SECRET_KEY=
 MAIL_MAILER=log               # verification / reset mails go to the log
 ```
