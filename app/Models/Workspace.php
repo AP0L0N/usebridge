@@ -16,6 +16,9 @@ class Workspace extends Model
 
     public const FEATURE_POLYMARKET = 'polymarket';
 
+    /** POST /api/usage/days from a collector (Tilen's box): read & write tokens get usage:write only with this. */
+    public const FEATURE_USAGE_UPLOAD = 'usage_upload';
+
     protected $fillable = ['slug', 'name', 'owner_user_id', 'features'];
 
     protected function casts(): array

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UsageController;
 use App\Http\Middleware\EnsureWorkspaceGate;
 use App\Http\Middleware\LegacyReadOnly;
+use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Models\Workspace;
 use Illuminate\Http\Request;
@@ -41,6 +43,9 @@ Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->grou
     Route::get('/sessions', [SessionController::class, 'index'])->name('account.sessions');
     Route::delete('/sessions/others', [SessionController::class, 'destroyOthers'])->name('account.sessions.others');
     Route::delete('/sessions', [SessionController::class, 'destroyAll'])->name('account.sessions.all');
+    Route::get('/tokens', [TokenController::class, 'index'])->name('account.tokens');
+    Route::post('/tokens', [TokenController::class, 'store'])->middleware(RequireVerifiedEmail::class)->name('account.tokens.store');
+    Route::delete('/tokens/{id}', [TokenController::class, 'destroy'])->whereNumber('id')->name('account.tokens.destroy');
 });
 
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {

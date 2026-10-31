@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'brg_live_'), // Bridge: new tokens only; existing tokens are found by hash and keep working
 
     /*
     |--------------------------------------------------------------------------
