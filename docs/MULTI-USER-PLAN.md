@@ -154,7 +154,8 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
   is usually a temporary measure. A `web` middleware also logs out a disabled user mid-session.
 - **Delete**: typed-email confirm → `delete_requested_at = now`, user logged out everywhere, tokens blocked like
   disabled; within 7 days, logging in offers "cancel deletion". After 7 days a command soft-deletes (`deleted_at`) the
-  user and marks the workspace; **no purge** of rows without Tilen's explicit OK. Export first: a JSON download of the
+  user and marks the workspace. Hard purge (37 days after the request) exists behind a flag that is **off** until
+  Tilen decides (§13). Export first: a JSON download of the
   workspace (projects, tickets, comments, statuses, usage) from the Danger zone.
 - Password reset: built-in broker, 60 min, 60 s throttle (done in `AccountService`). CSRF, `same_site=lax`,
   `SESSION_SECURE_COOKIE=true` on live. Transition: the login screen is now the entry for guests (§11 UI); the AUTH-1
@@ -461,7 +462,42 @@ otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with
 | `BRIDGE_GATE_PASSWORD` | none — **set explicitly** (unset/empty = the gate rejects everyone) | transitional AUTH-1 workspace password (§0 decision 9) |
 | `BRIDGE_GATE_ENABLED` | `true` | `false` = gate retired: `/gate` 404s, gate sessions unlock nothing (production multi-user launch) |
 | `BRIDGE_OWNER_WAITING_LABEL` | empty ("Waiting on " + default workspace owner's first name) | `waiting_tilen` label stored on workspaces existing at migration `2026_10_31_160000` (§0 decision 10) |
+| `BRIDGE_LEGAL_ENTITY` | "Your company" | operator name in the footer © line (`:entity`) |
+| `BRIDGE_TERMS_VERSION` | `2026-10-draft` | stored as `users.terms_version` at sign-up |
+| `BRIDGE_LEGAL_DIR` | empty (placeholders in `resources/legal`) | directory with the final legal texts, outside the repo |
+| `BRIDGE_SOURCE_URL` / `BRIDGE_DEPLOYED_SHA` | the public repo / empty (else `.bridge-deploy-sha`) | AGPL §13 "Source code" link, `/tree/<sha>` when known |
+| `BRIDGE_ACCOUNT_PURGE_ENABLED` | `false` | the only switch for `bridge:accounts-purge` (§13) |
+| `BRIDGE_SUPPORT_EMAIL_RETENTION_DAYS` | `365` | config only; support mailbox clean-up is manual |
+| `LOG_CHANNEL` / `LOG_STACK` / `LOG_DAILY_DAYS` | `daily` / `daily` / `14` | daily log files kept 14 days |
 | `BRIDGE_ROSTER_PATH` | empty (empty roster) | JSON file outside the repo: `{"agents": {"agent-id": ["Name", "Role"]}, "pms": {"project-id": "agent-id"}, "ticket_prefixes": {"project-id": "PREFIX"}}` (`ticket_prefixes` optional); used by the 2026_10_29 roster migration, `bridge:set-pms` and fixed ticket prefixes. Missing / unreadable / invalid → empty roster and one warning log line (no contents), nothing changes |
+
+## 13. Legal, retention and purge (31 Oct)
+
+- **(a) Legal pages + footer.** Public `/terms`, `/privacy`, `/imprint` and `/sl/pogoji`, `/sl/zasebnost`, `/sl/impresum`
+  (no login, no gate); placeholder text until the final texts drop into `BRIDGE_LEGAL_DIR` (markdown, rendered with
+  HTML stripped). Each page shows "For users in Slovenia, the Slovenian version prevails" and an EN | SL switch (legal
+  pages only; the app stays English). One footer on every page (`SiteFooter`, nav landmark): Imprint · Terms · Privacy
+  · Source code (AGPL-3.0-or-later), and the © line with `:entity` and the source link (deployed commit when known).
+  Copy in `lang/{en,sl}/legal.php`, tested character for character against the legal UI copy.
+- **(b) Sign-up acceptance.** One required, unticked checkbox (18+, Terms, Privacy), button disabled until ticked,
+  sensitive-data small print; server requires `accept_terms`; `users.terms_accepted_at`, `age_confirmed_at`,
+  `terms_version` (additive; existing users stay null). Turnstile loads only when the form is submitted (execute mode,
+  interaction-only); the widget's Pre-clearance setting must stay off (no `cf_clearance` cookie).
+- **(c) Hard purge.** `bridge:accounts-purge [--dry-run]`, scheduled daily, does nothing unless
+  `BRIDGE_ACCOUNT_PURGE_ENABLED=true`. Due: soft-deleted users whose request is 7 + 30 = 37 days old. In one
+  transaction per user it deletes the workspaces they solely own and every row that references them or the user —
+  tables are found from the schema (`workspace_id`, `user_id`, foreign keys, `<name>_id`, token morphs, password
+  resets), children first — then the user row (anonymised instead if a constraint still holds it). Skipped and
+  reported: admins, the default workspace, workspaces with other members. Logs one line per user: id + row counts per
+  table, never email or name. A test proves no row in any table still references the purged user or workspace and
+  that every other row is byte-identical. The soft-delete command is unchanged.
+- **(d) Logs.** Default channel `daily`, kept 14 days (`LOG_DAILY_DAYS`).
+- **Licence / CLA.** AGPL-3.0-or-later (LICENSE, NOTICE, CLA.md, CONTRIBUTING.md); CLA Assistant Lite workflow
+  (`.github/workflows/cla.yml`, signatures on the `cla-signatures` branch, which must be created before the first PR).
+
+**Open:** (1) the purge flag: conflicts with the standing "nothing hard-deleted" rule; stays off until Tilen decides.
+(2) Final legal texts (EN + SL) and the operator name (`BRIDGE_LEGAL_ENTITY`), then a real `BRIDGE_TERMS_VERSION`.
+(3) Create the `cla-signatures` branch and enable Actions on the public repo (not done here).
 
 ## 12. Open questions for Tilen
 
