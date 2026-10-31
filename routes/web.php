@@ -12,6 +12,7 @@ use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\Pages\AccountPageController;
 use App\Http\Controllers\Pages\AuthPageController;
+use App\Http\Controllers\Pages\LegalPageController;
 use App\Http\Controllers\Pages\OnboardingController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -26,7 +27,13 @@ use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Models\Workspace;
+use App\Support\Legal\LegalPages;
 use Illuminate\Support\Facades\Route;
+
+// Legal pages (EN + SL): public, no login and no gate; the footer on every page links to them.
+foreach (LegalPages::PAGES as $id => $page) {
+    Route::get($page['path'], LegalPageController::class)->defaults('legalPage', $id)->name('legal.'.$id);
+}
 
 Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
 Route::post('/gate', [GateController::class, 'unlock'])->name('gate.unlock');
