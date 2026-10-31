@@ -1,10 +1,11 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { Highlight } from '../Components/Highlight';
 import { IconInbox, IconSearch } from '../Components/Icons';
 import { ConfirmSheet, IcMore, IcWait, MOBILE, PmBadge, Sheet, refocus, useDismiss, useMedia } from '../Components/Kanban/Bits';
 import { StatusForm } from '../Components/Kanban/StatusBlock';
+import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 
@@ -124,6 +125,7 @@ function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
 }
 
 export default function Portfolio({ projects, now }: Props) {
+  const signedIn = usePage<Shared>().props.auth?.user != null;
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
 
@@ -181,7 +183,11 @@ export default function Portfolio({ projects, now }: Props) {
         </div>
 
         {projects.length === 0 ? (
-          <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Projects show up here once Captain creates them.</p></div>
+          signedIn ? (
+            <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Your portfolio is empty. Three steps and your first board is ready.</p><Link className="btn" href="/welcome">Get started</Link></div>
+          ) : (
+            <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Projects show up here once Captain creates them.</p></div>
+          )
         ) : query && total === 0 ? (
           <div className="empty">
             <div className="eico"><IconSearch /></div>

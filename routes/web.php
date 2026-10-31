@@ -12,6 +12,7 @@ use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\Pages\AccountPageController;
 use App\Http\Controllers\Pages\AuthPageController;
+use App\Http\Controllers\Pages\OnboardingController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
@@ -68,6 +69,8 @@ Route::middleware(RequireAdmin::class)->prefix('admin')->group(function () {
     Route::post('/users/{id}/disable', [AdminUserController::class, 'disable'])->whereNumber('id')->name('admin.users.disable');
     Route::post('/users/{id}/enable', [AdminUserController::class, 'enable'])->whereNumber('id')->name('admin.users.enable');
 });
+
+Route::get('/welcome', OnboardingController::class)->middleware(['auth', EnsureWorkspaceGate::class])->name('onboarding');
 
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/', PortfolioController::class)->name('portfolio');
