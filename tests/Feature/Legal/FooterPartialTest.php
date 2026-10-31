@@ -86,6 +86,6 @@ class FooterPartialTest extends TestCase
         $blade = (string) file_get_contents(resource_path('views/partials/footer.blade.php'));
         $this->assertStringContainsString('LegalPages::footer(', $blade);
         $this->assertStringContainsString('className="sfoot"', (string) file_get_contents(resource_path('js/Components/SiteFooter.tsx')));
-        $this->assertStringContainsString('class="sfoot"', $blade);
+        $this->assertStringContainsString('class="sfoot site-footer-legal"', $blade); // + the landing's classes
     }
 }
