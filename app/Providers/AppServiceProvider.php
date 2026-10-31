@@ -7,6 +7,7 @@ use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -36,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute(120)
             ->by('mcp-token:'.($request->user()?->currentAccessToken()?->getKey() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => 'Too many MCP requests for this token. Try again in a minute.'], 429)));
+
+        // Cursor CSV upload (POST /usage/cursor-csv): 10 per hour per user, else per IP (gate session).
+        RateLimiter::for('cursor-csv', fn (Request $request) => Limit::perHour(10)
+            ->by('cursor-csv:'.(Auth::guard('web')->id() ?? $request->ip()))
+            ->response(fn () => response()->json(['message' => 'Too many Cursor CSV uploads. Try again later.'], 429)));
 
         // Reset link for the (future) reset screen; built here so no route has to exist yet (docs/MULTI-USER-PLAN.md §2).
         ResetPassword::createUrlUsing(fn ($user, string $token) => rtrim((string) config('app.url'), '/')

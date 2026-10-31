@@ -1,0 +1,7 @@
+Date,Kind,Model,Max Mode,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost
+2026-10-24T21:59:00.000Z,Included in Pro,claude-4.5-sonnet,No,0,100,0,10,110,Included
+2026-10-24T22:30:00.000Z,Usage-based,claude-4.5-sonnet,Yes,10,200,1000,20,1230,$0.05
+2026-10-25T00:59:00.000Z,"Errored, No Charge",claude-4.5-sonnet,No,0,300,0,0,300,$0.00
+2026-10-25T01:30:00.000Z,Usage-based,claude-4.5-sonnet,true,0,400,0,40,440,0.02
+2026-10-25T22:59:00.000Z,"Aborted, Not Charged",gpt-5,No,0,500,0,0,500,Free
+2026-10-25T23:00:00.000Z,Usage-based,gpt-5,No,0,600,0,60,660,$0.06

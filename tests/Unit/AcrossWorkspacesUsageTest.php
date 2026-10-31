@@ -45,6 +45,7 @@ class AcrossWorkspacesUsageTest extends TestCase
             'app/Models/Project.php' => 1,                     // ticket_prefix: globally unique for now
             'app/Services/Tickets/TicketService.php' => 2,     // ticket_prefix + ticket key: globally unique for now
             'app/Services/Usage/CliUsageImporter.php' => 3,    // markers/rows/upsert, each filtered by the explicit current workspace_id
+            'app/Services/Usage/CursorCsvImporter.php' => 2,   // edge-day marker + stored calls, filtered by the same explicit workspace_id
         ], $this->uses('/acrossWorkspaces\s*\(/'));
     }
 

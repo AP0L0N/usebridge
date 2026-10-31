@@ -1,0 +1,4 @@
+User,Date,Cloud Agent ID,Automation ID,Kind,model, MAX MODE ,input (W/ cache write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost
+dev@example.test,2026-10-27T10:00:00.000Z,bc-123,,Included,composer-1,No,5,50,500,5,560,Included
+dev@example.test,2026-10-27T11:00:00.000Z,,auto-9,Included,composer-1,Yes,0,"1,000",0,100,"1,100",Included
+dev@example.test,2026-10-28T11:00:00.000Z,,,Included,auto,No,0,10,0,1,11,

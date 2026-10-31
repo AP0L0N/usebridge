@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Auth\TokenController;
+use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -89,6 +90,8 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')
         ->name('usage.agent');
+    // Cursor dashboard CSV export (individual plan): workspace owner or the AUTH-1 gate session; 404 for others.
+    Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
     // Polymarket desk: only workspaces with the polymarket feature (Tilen's); 404 elsewhere.
     Route::get('/polymarket', [PolymarketController::class, 'index'])
         ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET)->name('polymarket');

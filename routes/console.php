@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Models\Workspace;
 use App\Services\Auth\AccountDeletion;
 use App\Services\BridgeRoster;
 use App\Services\Ops\CopiedTokenRotation;
@@ -11,9 +12,11 @@ use App\Services\Polymarket\PolymarketFeedValidator;
 use App\Services\Tickets\LegacyCarryOver;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
+use App\Services\Usage\CursorCsvImporter;
 use App\Services\Usage\InvalidUsageDay;
 use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageDayValidator;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -97,6 +100,49 @@ Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.
 
     return $failed === 0 ? 0 : 1;
 })->purpose('Import measured Claude Code / Kimi Code usage files (strictly validated, replace by date and covered tool)');
+
+// Cursor dashboard CSV export (individual plan, one account → "Cursor (all agents)"), same importer as POST /usage/cursor-csv.
+Artisan::command('bridge:cursor-csv-import {path : CSV from cursor.com/dashboard → Usage → Export CSV} {--workspace= : Workspace slug (default: bridge.default_workspace)} {--dry-run : Validate and report, write nothing}', function (CursorCsvImporter $importer, CurrentWorkspace $current) {
+    $path = (string) $this->argument('path');
+    if (! is_file($path) || ! is_readable($path)) {
+        $this->error("$path: not a readable file");
+
+        return 1;
+    }
+    if (filesize($path) > CursorCsvImporter::MAX_BYTES) {
+        $this->error("$path: larger than 10 MB");
+
+        return 1;
+    }
+    $slug = (string) ($this->option('workspace') ?: config('bridge.default_workspace', 'tilen'));
+    $workspace = Workspace::query()->where('slug', $slug)->first();
+    if ($workspace === null) {
+        $this->error("workspace '$slug' not found");
+
+        return 1;
+    }
+    $dry = (bool) $this->option('dry-run');
+    try {
+        $r = $current->runAs($workspace, fn () => $importer->import((string) file_get_contents($path), $dry));
+    } catch (InvalidUsageDay $e) {
+        $this->error("$path: invalid, nothing imported");
+        foreach ($e->errors as $key => $messages) {
+            $this->line("  $key: ".implode(' ', $messages));
+        }
+
+        return 1;
+    }
+    foreach ($r['days'] as $d) {
+        $state = ($dry && $d['state'] !== CursorCsvImporter::STATE_KEPT ? 'would be ' : '').$d['state'];
+        $this->line(sprintf('%s  %-28s %s tokens, %d calls%s', $d['date'], $state, number_format($d['total']), $d['calls'],
+            $d['stored_calls'] === null ? '' : sprintf(' (stored %d)', $d['stored_calls'])));
+    }
+    $this->info(sprintf('%s%s: %s .. %s, %d rows, %s tokens; days imported %d, zero %d, kept %d',
+        $dry ? 'DRY RUN (nothing written) ' : '', $slug, $r['from'], $r['to'], $r['rows'], number_format($r['total_tokens']),
+        $r['days_imported'], $r['days_zero'], $r['days_kept']));
+
+    return 0;
+})->purpose('Import a Cursor dashboard usage CSV export (per day x model, "Cursor (all agents)"; only Cursor rows are replaced)');
 
 // Same validator + importer as POST /api/polymarket/feed, from two files (one-off seed / backfill on the server).
 Artisan::command('bridge:polymarket-import {snapshot : feed.json} {series : book_series.json} {--dry-run : Validate only, write nothing}', function (PolymarketFeedImporter $importer) {
