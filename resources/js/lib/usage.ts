@@ -210,3 +210,27 @@ export function useNarrow(): boolean {
   }, []);
   return narrow;
 }
+
+// Chart tokens (Figma Foundations 45:16): charts use only --chart-1..5, in series order; the values live in usage-redesign.css.
+export const chartVar = (i: number) => `var(--chart-${Math.min(Math.max(i, 0), 4) + 1})`;
+const CLI_ORDER: string[] = ['claude_code', 'kimi_code', 'opencode_go', CURSOR];
+const toolVar = (tool: string) => chartVar(Math.max(0, CLI_ORDER.indexOf(tool)));
+
+/** Agents in rank order (the overview series) get chart-1..5; unknown ids share the last. */
+export function recolorOverview(p: OverviewProps): OverviewProps {
+  const idx = new Map(p.series.map((s, i) => [s.agentId, i]));
+  const col = (id: string) => chartVar(idx.get(id) ?? 4);
+  return {
+    ...p,
+    series: p.series.map((s) => ({ ...s, color: col(s.agentId) })),
+    topAgents: p.topAgents.map((a) => ({ ...a, color: col(a.agentId) })),
+    topRoutines: p.topRoutines.map((r) => ({ ...r, color: col(r.agentId) })),
+    table: { ...p.table, rows: p.table.rows.map((r) => ({ ...r, color: col(r.agentId) })) },
+    cli: {
+      ...p.cli,
+      tools: p.cli.tools.map((t) => ({ ...t, color: toolVar(t.tool) })),
+      series: p.cli.series.map((s) => ({ ...s, color: toolVar(s.agentId) })),
+      table: p.cli.table.map((r) => ({ ...r, color: toolVar(r.tool) })),
+    },
+  };
+}

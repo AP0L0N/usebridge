@@ -96,7 +96,7 @@ export default function Agent(p: AgentProps) {
         <div className="ahead">
           <div>
             <div className="titleline">
-              <span className="dot" style={{ background: agent.color }} aria-hidden="true" />
+              <span className="dot" style={{ background: 'var(--chart-2)' }} aria-hidden="true" />
               <h1>{agent.name}</h1>
               <FactorBadge factor={agent.factor} k={Math.round(agent.K)} />
               <span className="chip">{agent.rank !== null ? t('agent.badge.rank', { rank: agent.rank, of: agent.of, range: rangeTxt }) : t('agent.badge.none', { range: rangeTxt })}</span>
@@ -153,7 +153,7 @@ export default function Agent(p: AgentProps) {
                 </div>
                 {dailyTable
                   ? <DailyTable days={p.days} caption={`Daily estimated tokens for ${agent.name}, ${p.fromLabel} – ${p.toLabel}`} />
-                  : <AgentDailyBars narrow={narrow} days={p.days} color={agent.color} title={`Daily estimated tokens for ${agent.name}, ${p.fromLabel} to ${p.toLabel}. Show as table has every value.`} />}
+                  : <AgentDailyBars narrow={narrow} days={p.days} color={'var(--chart-2)'} title={`Daily estimated tokens for ${agent.name}, ${p.fromLabel} to ${p.toLabel}. Show as table has every value.`} />}
                 <InfoLines unreadable={p.unreadable} />
               </section>
 

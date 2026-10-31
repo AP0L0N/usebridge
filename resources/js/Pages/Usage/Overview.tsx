@@ -15,7 +15,7 @@ import { RankList } from '../../Components/Usage/RankList';
 import { DailyTable, StackedDailyChart } from '../../Components/Usage/StackedDailyChart';
 import { UsageTable } from '../../Components/Usage/UsageTable';
 import { t } from '../../lib/strings-usage';
-import { count, initials, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
+import { count, initials, recolorOverview, rangeParam, rangeWords, spanLabel, useNarrow, withQuery, type OverviewDay, type OverviewProps, type Series } from '../../lib/usage';
 
 function ChartSkeleton() {
   return (
@@ -23,7 +23,7 @@ function ChartSkeleton() {
       <div style={{ display: 'flex', gap: 8, margin: '14px 0' }}>
         {[0, 1, 2, 3].map((i) => <div key={i} className="skel" style={{ height: 34, width: 120, borderRadius: 99 }} />)}
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: 230, borderBottom: '1.5px solid #CFCBC0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: 230, borderBottom: '1.5px solid var(--chart-grid)' }}>
         {[90, 140, 170, 220, 200, 40, 120].map((h, i) => <div key={i} className="skel" style={{ height: h, width: '9%' }} />)}
       </div>
       <div className="skel-lines">
@@ -39,7 +39,7 @@ function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] })
   const idx = split === 'all' ? -1 : series.findIndex((s) => s.agentId === split);
   const val = (d: OverviewDay) => (idx < 0 ? d.total ?? 0 : d.segments?.[idx] ?? 0);
   const max = Math.max(1, ...days.filter((d) => d.present).map(val));
-  const color = idx < 0 ? 'var(--accent)' : series[idx]!.color;
+  const color = idx < 0 ? 'var(--chart-1)' : series[idx]!.color;
   return (
     <>
       <ul className="hbars" aria-label="Daily estimate">
@@ -64,7 +64,8 @@ function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] })
   );
 }
 
-export default function Overview(p: OverviewProps) {
+export default function Overview(props: OverviewProps) {
+  const p = recolorOverview(props);
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const narrow = useNarrow();
   const [isolated, setIsolated] = useState<string | null>(null);

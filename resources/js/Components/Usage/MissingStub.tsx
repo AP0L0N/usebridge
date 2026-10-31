@@ -1,6 +1,6 @@
 /** No file for the day: 14px hatched stub with a dashed outline at the baseline, never a zero bar. */
 export function MissingStub({ x, width, baseline }: { x: number; width: number; baseline: number }) {
-  return <rect x={x} y={baseline - 14} width={width} height="14" fill="url(#u-hatch)" stroke="#B9B4A8" strokeDasharray="3 2" rx="2" />;
+  return <rect x={x} y={baseline - 14} width={width} height="14" fill="url(#u-hatch)" stroke="var(--chart-5)" strokeDasharray="3 2" rx="2" />;
 }
 
 /** Legend key / inline swatch. */
@@ -13,7 +13,7 @@ export function ChartPatterns() {
   return (
     <defs>
       <pattern id="u-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <rect width="6" height="6" fill="#fff" /><rect width="3" height="6" fill="#ECEAE4" />
+        <rect width="6" height="6" fill="var(--surface)" /><rect width="3" height="6" fill="var(--line)" />
       </pattern>
       <pattern id="u-today" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="6" height="6" fill="none" /><rect width="2" height="6" fill="#ffffff66" />

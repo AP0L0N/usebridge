@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { t } from '../../lib/strings-usage';
-import { count, CURSOR, dayState, fmt, money, pct, rangeWords, spanLabel, type CliBlock, type CliModelRow, type OverviewDay, type Range, type Series } from '../../lib/usage';
+import { chartVar, count, CURSOR, dayState, fmt, money, pct, rangeWords, spanLabel, type CliBlock, type CliModelRow, type OverviewDay, type Range, type Series } from '../../lib/usage';
 import { ChartLegend } from './ChartLegend';
 import { ModelName, ToolDayTable } from './CliUsage';
 import { CursorUpload } from './CursorUpload';
@@ -8,8 +8,8 @@ import { Measured, MeasuredBadge } from './Measured';
 import { MissingKey } from './MissingStub';
 import { StackedDailyChart } from './StackedDailyChart';
 
-// Model colours from the agent palette (AgentColors), in rank order; the rest share the last one.
-const MODEL_COLORS = ['#484890', '#1E8C93', '#8C79B5', '#8A6D1F', '#3E5F8A', '#B0572B'];
+// Model colours: chart tokens in rank order; the rest share the last one.
+const MODEL_COLORS = [0, 1, 2, 3, 4].map(chartVar);
 
 const MISSING = {
   short: 'no Cursor file for this day, not counted in any total',

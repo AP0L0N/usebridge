@@ -14,11 +14,14 @@
     --radius-sm: 8px; --radius-md: 12px; --radius-lg: 20px; --radius-pill: 999px; --tap-min: 44px;
     --shadow-hairline: 0 1px 2px rgb(11 12 15 / 0.06);
     --ink-100: #EFEFEA;
+    /* Chart tokens (Figma Foundations 45:16): the only colours a chart may use. */
+    --chart-1: var(--ink-800); --chart-2: var(--violet); --chart-3: var(--ok); --chart-4: var(--warn); --chart-5: var(--ink-400);
+    --chart-grid: var(--line);
     /* local overrides of the legacy usage.css variables, so reused components pick up the new look */
     --ink: var(--ink-950); --ink2: var(--ink-600); --ink3: var(--ink-400); --card: var(--surface);
     --accent: var(--ink-950); --sel: var(--paper); --arch-bg: var(--ink-100); --arch: var(--ink-600);
     --ok-bg: #E4F4EA; --r: var(--radius-lg);
-    --h0: #F7F5FF; --h1: #E4DDFF; --h2: #CFC3FF; --h3: #B3A1FF; --h4: #9378FF; --h5: #7C5CFF;
+    --h0: color-mix(in srgb, var(--chart-2) 6%, white); --h1: color-mix(in srgb, var(--chart-2) 22%, white); --h2: color-mix(in srgb, var(--chart-2) 40%, white); --h3: color-mix(in srgb, var(--chart-2) 60%, white); --h4: color-mix(in srgb, var(--chart-2) 80%, white); --h5: var(--chart-2);
     background: var(--paper); color: var(--ink-950); font-family: var(--font-ui); font-size: 14px; line-height: 1.45;
     min-height: calc(100vh - 64px); padding-bottom: 64px; letter-spacing: -0.005em;
 }
@@ -85,8 +88,8 @@
 .bu .chart .xl { fill: var(--ink-600); font-size: 11px; }
 .bu .chart .xl.b { fill: var(--ink-950); font-weight: 600; }
 .bu .chart .vl { fill: var(--ink-950); font-size: 11px; font-weight: 500; }
-.bu .chart .grid { stroke: var(--line); }
-.bu .chart .base { stroke: var(--line); stroke-width: 1.5; }
+.bu .chart .grid { stroke: var(--chart-grid); }
+.bu .chart .base { stroke: var(--chart-grid); stroke-width: 1.5; }
 .bu .miss { border-color: var(--ink-400); background: transparent; border-radius: var(--radius-sm); }
 .bu .hscale { color: var(--ink-600); font-size: 12px; margin-top: 0; }
 .bu .tip { background: var(--ink-950); border-radius: var(--radius-md); font-size: 12px; }
@@ -171,7 +174,7 @@
 .bu .hm .hl { font-family: var(--font-mono); font-size: 11px; color: var(--ink-400); }
 .bu .hm .c { height: 28px; border-radius: 4px; box-shadow: none; }
 .bu .hm .c.sel, .bu .hm:focus-within .c.sel { outline: 2px solid var(--ink-950); outline-offset: 0; }
-.bu .hm .c.miss { background: transparent; box-shadow: none; border: 1px dashed var(--ink-400); }
+.bu .hm .c.miss { background: transparent; box-shadow: none; border: 1px dashed var(--chart-5); }
 .bu .hm .c.nr { background: var(--h0); }
 .bu .annot { border: 0; background: transparent; padding: 0; font-size: 14px; color: var(--ink-600); line-height: 1.6; }
 .bu .note-card h2 { margin-bottom: 12px; }
@@ -232,3 +235,7 @@
 .bu .daydetail summary { cursor: pointer; font-weight: 500; min-height: var(--tap-min); display: flex; align-items: center; }
 .bu .daydetail summary:focus-visible { outline: 2px solid var(--ink-950); outline-offset: 2px; }
 .bu .share b { display: none; }
+
+/* Generic table rows: column count comes from the content (3-7 columns); `.mono` on the table makes the first column mono. */
+.bu .tbl.mono tbody th, .bu .tbl.mono td:first-child { font-family: var(--font-mono); font-size: 12px; }
+.bu .chart .seg-hit, .bu .tip li i { outline-color: var(--chart-grid); }
