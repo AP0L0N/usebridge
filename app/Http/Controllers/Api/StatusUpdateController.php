@@ -31,8 +31,7 @@ class StatusUpdateController extends Controller
             'id' => ['nullable', 'string', 'max:64', 'unique:status_updates,id'],
             'project_id' => ['required', 'string', 'exists:projects,id'],
             'agent_id' => ['required', 'string', 'exists:agents,id'],
-            'body' => ['required', 'string', 'max:5000'],
-            ...StatusUpdateIngest::extraRules(),
+            ...StatusUpdateIngest::rules(),
         ]);
 
         $result = $ingest->handle(

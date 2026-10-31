@@ -77,6 +77,12 @@ class StatusUpdateIngest
         });
     }
 
+    /** Body + extras (POST /api/status-updates and MCP post_status). */
+    public static function rules(): array
+    {
+        return ['body' => ['required', 'string', 'max:5000'], ...self::extraRules()];
+    }
+
     /** Validation rules for the r1 extras (all optional => r0 payloads still valid). */
     public static function extraRules(): array
     {
