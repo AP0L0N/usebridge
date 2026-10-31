@@ -95,6 +95,7 @@ export const S = {
   'portfolio.setBy.via': 'via {source}',
   'portfolio.source.api': 'API',
   'portfolio.source.ui': 'web',
+  'portfolio.source.mcp': 'MCP',
   'portfolio.age.lt1': '<1d',
   'portfolio.archivedCount': 'Archived',
   'portfolio.noStatus': 'The PM hasn’t set a status yet',
@@ -125,6 +126,15 @@ export const S = {
   'portfolio.time.month.many': 'months',
   'account.menu.aria': 'Account menu for {name}',
   'account.menu.ariaOwner': 'Account menu for {name}, owner',
+  'shell.home': 'Bridge home',
+  'shell.owner': 'Owner',
+  'shell.menu.open': 'Open menu',
+  'shell.menu.close': 'Close menu',
+  'shell.nav.menu': 'Main menu',
+  'shell.account': 'Account',
+  'shell.tokens': 'API tokens & MCP',
+  'shell.logout': 'Log out',
+  'shell.loggingOut': 'Logging out…',
 } as const;
 
 export type StrKey = keyof typeof S;

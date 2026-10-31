@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import { Modal, useToasts } from '../../Components/Account/Overlay';
-import { TopBar } from '../../Components/TopBar';
+import { AppTopBar } from '../../Components/Shell/AppTopBar';
 import { initials, type AdminUser } from '../../lib/account';
 import { longDate, updateTime } from '../../lib/dates';
 import { requestJson } from '../../lib/http';
@@ -45,7 +45,7 @@ export default function Users({ users: initial, meId }: Props) {
   return (
     <>
       <Head title="Admin · Users" />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <div className="dhead">
           <div>

@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppTopBar } from '../Components/AppTopBar';
+import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { IconArchive14, IconArchive18, IconCheck14, IconClock14, IconDash14, IconInbox24, IconMore, IconSearch20, IconSearch24, IconX } from '../Components/AppIcons';
 import { Highlight } from '../Components/Highlight';
 import { ConfirmSheet, MOBILE, Sheet, refocus, useDismiss, useMedia } from '../Components/Kanban/Bits';
@@ -51,7 +51,7 @@ function Badge({ p }: { p: PortfolioProject }) {
 function BotLine({ p, now }: { p: PortfolioProject; now: string }) {
   if (!p.pmStatus || !p.pmStatusSetAt) return <p className="pf-nostatus">{t('portfolio.noStatus')}</p>;
   const name = p.pmStatusSetBy === p.pmAgentId ? firstName(p.pmStatusSetByName) : p.pmStatusSetByName;
-  const via = p.pmStatusSource === 'api' ? t('portfolio.source.api') : p.pmStatusSource === 'ui' ? t('portfolio.source.ui') : null;
+  const via = p.pmStatusSource ? t(`portfolio.source.${p.pmStatusSource}`) : null;
   return (
     <div className="pf-bot">
       <div className="pf-botline">

@@ -2,7 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Shared } from '../../lib/account';
 import { requestJson } from '../../lib/http';
-import { TopBar } from '../TopBar';
+import { AppTopBar } from '../Shell/AppTopBar';
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile' },
@@ -38,7 +38,7 @@ export function SettingsLayout({ page, title, toasts, children }: { page: 'accou
   return (
     <>
       <Head title={title} />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <div className="sethead">
           <h1>Account</h1>
