@@ -28,4 +28,13 @@ return [
     'public_url' => env('BRIDGE_PUBLIC_URL', 'https://bridge.tilenpoje.eu'),
 
     'org_timezone' => 'Europe/Ljubljana',
+
+    /*
+    | Multi-user (docs/MULTI-USER-PLAN.md). default_workspace: slug of Tilen's workspace, created by the backfill
+    | migration; AUTH-1 gate sessions and console writes without a workspace act in it (transitional).
+    | owner_email: Tilen's login email; read once by the backfill migration to pick/create the owner user.
+    */
+    'default_workspace' => env('BRIDGE_DEFAULT_WORKSPACE', 'tilen'),
+    'default_workspace_name' => env('BRIDGE_DEFAULT_WORKSPACE_NAME', 'LANTIS'),
+    'owner_email' => env('BRIDGE_OWNER_EMAIL'),
 ];
