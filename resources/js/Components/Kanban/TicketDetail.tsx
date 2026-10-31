@@ -2,10 +2,12 @@ import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, u
 import type { ReactNode } from 'react';
 import { MarkdownBody } from '../MarkdownBody';
 import {
-  Avatar, IcApi, IcBack, IcCal, IcChev, IcClock, IcFlag, IcMore, IcMove, IcOk, IcX, LabelChip, Sheet, WaitAge,
+  Avatar, IcBack, IcClock, IcEdit, IcMore, IcOk, IcX, LabelChip, Sheet, WaitAge,
   personType, useDismiss, useFocusTrap, useScrimDismiss, useToasts,
 } from './Bits';
-import { updateTime } from '../../lib/dates';
+import { IconCal16, IconChev } from '../AppIcons';
+import { ago, updateTime } from '../../lib/dates';
+import { t as tr } from '../../lib/strings';
 import {
   ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl,
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
@@ -51,26 +53,28 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
   }
 }
 
-const actorShort = (e: { actor_id: string | null; actor_name: string | null }) => (e.actor_id === 'tilen' ? 'You' : firstName(e.actor_name) || e.actor_id || '');
+const actorShort = (e: { actor_id: string | null; actor_name: string | null }) => (e.actor_id === 'tilen' ? tr('ticket.role.you') : firstName(e.actor_name) || e.actor_id || '');
 
-/** Native <select> laid over the mock's .sel button look (accessible, works on touch). */
-function SelectField({ id, label, value, options, onChange, wt = false, dot, plain = '' }: {
-  id: string; label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; wt?: boolean; dot?: string; plain?: string;
+/** Native <select> laid over the mock's select look (accessible, works on touch). */
+function SelectField({ id, label, value, options, onChange, dot, lead }: {
+  id: string; label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; dot?: string; lead?: ReactNode;
 }) {
   const cur = options.find((o) => o.value === value);
   return (
-    <div className={`${plain ? `plain ${plain}` : 'sel'} selw${wt ? ' wt' : ''}`}>
-      <span className="l">{dot && <span className={`dot c-${dot}`} aria-hidden="true" />}{cur?.label ?? '—'}</span><IcChev />
+    <span className="selw">
+      <span className="l">{lead}{dot && <span className={`dotk c-${dot}`} aria-hidden="true" />}{cur?.label ?? '—'}</span>
+      <IconChev />
       <select id={id} aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
-    </div>
+    </span>
   );
 }
 
 /**
- * Unsaved text in the ticket's fields. Fields report their dirty state (`useDirty`); closing the ticket asks first
- * when any field is dirty, and an Esc inside a dirty field asks before dropping that field's edit.
+ * Unsaved text in the ticket's fields. Fields report their dirty state (`useDirty`); closing the drawer asks first
+ * when any field is dirty (the discard dialog names the draft), and an Esc inside a dirty field asks before dropping
+ * that field's edit.
  */
 type Dirty = { report: (field: string, dirty: boolean) => void; askDiscard: (discard: () => void) => void };
 const DirtyCtx = createContext<Dirty>({ report: () => {}, askDiscard: (discard) => discard() });
@@ -82,6 +86,9 @@ function useDirty(field: string, dirty: boolean) {
     return () => report(field, false);
   }, [report, field, dirty]);
 }
+
+/** Which draft the discard dialog talks about. */
+const DISCARD_COPY: Record<string, 'note' | 'comment' | 'desc'> = { reply: 'note', composer: 'comment', description: 'desc', labels: 'desc' };
 
 export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived }: Props) {
   const t: Ticket = detail ?? fallback;
@@ -97,7 +104,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const dirtyFields = useRef(new Map<string, boolean>());
   const report = useCallback((field: string, dirty: boolean) => { if (dirty) dirtyFields.current.set(field, true); else dirtyFields.current.delete(field); }, []);
   const [ask, setAsk] = useState<{ discard: () => void } | null>(null);
-  const lastFocus = useRef<HTMLElement | null>(null); // last focused element inside the panel: focus returns here after the confirm
+  const lastFocus = useRef<HTMLElement | null>(null); // last focused element inside the drawer: focus returns here after the dialog
   const keepRef = useRef<HTMLButtonElement>(null);
   const askDiscard = useCallback((discard: () => void) => setAsk({ discard }), []);
   const requestClose = useCallback(() => { if (dirtyFields.current.size) askDiscard(onClose); else onClose(); }, [askDiscard, onClose]);
@@ -107,7 +114,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const scrim = useScrimDismiss(ref, requestClose);
   useFocusTrap(ref, requestClose, titleRef);
 
-  // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under Tilen's eyes.
+  // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under your eyes.
   // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
   const [seenAt, setSeenAt] = useState<string | null | undefined>(() => (detail ? detail.tilen_last_seen_at : undefined));
   useEffect(() => { if (seenAt === undefined && detail) setSeenAt(detail.tilen_last_seen_at); }, [detail, seenAt]);
@@ -128,7 +135,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const copyLink = async () => {
     setMenu(false);
     const url = window.location.origin + ticketUrl(project.slug, t.key);
-    try { await navigator.clipboard.writeText(url); toasts.push({ body: <p>Link to {t.key} copied</p>, ms: 3000 }); }
+    try { await navigator.clipboard.writeText(url); toasts.push({ body: <p>{tr('toast.link', { key: t.key })}</p>, ms: 3000 }); }
     catch { toasts.push({ body: <p>Copy this link: {url}</p> }); }
   };
   const archiveTicket = async () => {
@@ -153,124 +160,142 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const statusSelect = (id: string, hint: boolean) => (
     <>
       <SelectField id={id} label={`Status: ${columns.find((c) => c.key === t.status)?.label ?? t.status_label}. Move to another column`} value={t.status} options={statusOptions}
-        wt={t.status === WAITING} dot={t.status} onChange={(v) => onStatus(t, v as ColumnKey)} />
-      {hint && <p className="sm only-d">Drag the card, or pick a column here.</p>}
+        dot={t.status} onChange={(v) => onStatus(t, v as ColumnKey)} />
+      {hint && <p className="sm">{tr('ticket.status.hint')}</p>}
     </>
   );
 
   const events = (detail?.events ?? []).filter((e) => e.type !== 'commented');
   const sideFields = (inSheet: boolean) => (
     <>
-      {inSheet && <div className="fld"><p className="k" id="k-st-m">Status</p>{statusSelect('st-sheet', false)}</div>}
+      {inSheet && <div className="fld"><p className="k" id="k-st-m">{tr('ticket.status')}</p>{statusSelect('st-sheet', false)}</div>}
       <div className="fld">
-        <p className="k"><label htmlFor={`as-${inSheet}`}>Assignee</label></p>
-        <div className="v fsel">
+        <p className="k"><label htmlFor={`as-${inSheet}`}>{tr('board.filter.assignee')}</label></p>
+        <div className="v">
           <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
-          <SelectField id={`as-${inSheet}`} label="Assignee" plain="pv" value={t.assignee_id ?? ''} options={assigneeOptions}
+          <SelectField id={`as-${inSheet}`} label={tr('board.filter.assignee')} value={t.assignee_id ?? ''} options={assigneeOptions}
             onChange={(v) => patch(v ? { assignee: v } : { assignee_type: null, assignee_id: null })} />
         </div>
-        {t.assignee_id && <p className="sm">{t.assignee_type === 'agent' ? `Agent · ${roleTag(t.assignee_id, project.pm_agent_id, people) || 'Agent'}` : t.assignee_id === 'tilen' ? 'You' : 'Person'}</p>}
+        {t.assignee_id && <p className="sm">{t.assignee_type === 'agent' ? `Agent · ${roleTag(t.assignee_id, project.pm_agent_id, people) || 'Agent'}` : t.assignee_id === 'tilen' ? tr('ticket.role.you') : 'Person'}</p>}
       </div>
       <div className="fld">
-        <p className="k"><label htmlFor={`pr-${inSheet}`}>Priority</label></p>
-        <div className="v fsel">
-          {t.priority !== 'p3' && <span className={`pri ${t.priority}`} aria-hidden="true"><IcFlag /></span>}
-          <SelectField id={`pr-${inSheet}`} label="Priority" plain={`pri ${t.priority}`} value={t.priority} options={prOptions} onChange={(v) => patch({ priority: v })} />
+        <p className="k"><label htmlFor={`pr-${inSheet}`}>{tr('board.filter.priority')}</label></p>
+        <div className="v">
+          <SelectField id={`pr-${inSheet}`} label={tr('board.filter.priority')} value={t.priority} options={prOptions}
+            dot={t.priority === 'p3' ? undefined : `pri-${t.priority}`} lead={t.priority === 'p3' ? <span className="pri-dot p3" aria-hidden="true" /> : undefined}
+            onChange={(v) => patch({ priority: v })} />
         </div>
       </div>
       <DueField t={t} now={now} id={`due-${inSheet}`} onSave={(v) => patch({ due_on: v })} />
       <LabelsField t={t} labels={labels} onSave={(names) => patch({ labels: names })} />
       <div className="fld">
-        <p className="k">Created</p>
-        <div className="v small">{t.created_by_name ?? 'Unknown'} · {updateTime(t.created_at, now)}</div>
-        <p className="apistamp">{t.created_by_type === 'agent' ? <><IcApi />via API</> : 'via Bridge'} · updated {updateTime(t.updated_at, now)}</p>
+        <p className="k">{tr('ticket.created')}</p>
+        <p className="sm2">{t.created_by_name ?? 'Unknown'} · {t.created_by_type === 'agent' ? 'via API' : 'via Bridge'} · {updateTime(t.created_at, now)}</p>
+        <p className="sm">Updated {ago(t.updated_at, now)}</p>
       </div>
       <HistoryField events={events} columns={columns} people={people} now={now} />
     </>
   );
 
+  const dsum = mobile && (
+    <button className="dsum" type="button" aria-haspopup="dialog" onClick={() => setDetails(true)}>
+      {tr('ticket.details')}
+      <span className={`dotk c-${t.status}`} aria-hidden="true" />
+      <span className="sum">{columns.find((c) => c.key === t.status)?.label}{t.assignee_name ? ` · ${t.assignee_name}` : ''}{t.priority !== 'p3' ? ` · ${t.priority.toUpperCase()}` : ''}</span>
+      <IconChev />
+    </button>
+  );
+
   return (
     <DirtyCtx.Provider value={dirtyApi}>
-      <div className="ovl dlgov" {...scrim}>
-        <div className="dlgw">
-          <div ref={ref} className="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-t" onFocus={(e) => { lastFocus.current = e.target as HTMLElement; }}>
-            <div className="dlgh">
-              <button className="ibtn only-m" type="button" aria-label="Back to board" onClick={requestClose}><IcBack /></button>
-              <span className="crumb">{project.name} / <b>{t.key}</b></span>
-              <div className="pwrap mright" ref={menuRef}>
-                <button className="ibtn" type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IcMore /></button>
-                {menu && (
-                  <div className="pop menu amenu" role="menu">
-                    <button type="button" role="menuitem" onClick={copyLink}>Copy link</button>
-                    <button type="button" role="menuitem" onClick={archive}>Archive ticket</button>
-                  </div>
-                )}
-              </div>
-              <button className="ibtn only-d" type="button" aria-label="Close" onClick={requestClose}><IcX /></button>
+      <div className="ovl kb-ovl" {...scrim}>
+        <div ref={ref} className="kb-drawer" role="dialog" aria-modal="true" aria-labelledby="dlg-t" onFocus={(e) => { lastFocus.current = e.target as HTMLElement; }}>
+          <div className="kb-dh">
+            <button className="gbtn only-m" type="button" onClick={requestClose}><IcBack />{tr('ticket.back')}</button>
+            <span className="kb-crumb only-d">{project.name}&nbsp;/&nbsp;<b>{t.key}</b></span>
+            <span className="spacer" />
+            <div className="pwrap" ref={menuRef}>
+              <button className="ibtn" type="button" aria-label={tr('ticket.menu.aria')} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IcMore /></button>
+              {menu && (
+                <div className="pop amenu" role="menu">
+                  <button type="button" role="menuitem" onClick={copyLink}>{tr('ticket.menu.copy')}</button>
+                  <button type="button" role="menuitem" onClick={archive}>{tr('ticket.menu.archive')}</button>
+                </div>
+              )}
             </div>
-            <div className="dlgb">
-              <div className="main">
-                {t.labels.length > 0 && <div className="tlbs tl0">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
+            <button className="ibtn only-d" type="button" aria-label={tr('ticket.close')} onClick={requestClose}><IcX /></button>
+          </div>
+          <div className="kb-db">
+            <div className="kb-main">
+              {t.labels.length > 0 && <div className="kb-tl"><div className="lbs">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div></div>}
+              <div className="kb-tl">
                 <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
-                {mobile && (
-                  <div className="mf">
-                    {statusSelect('st-m', false)}
-                    <p className="mfr">
-                      <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
-                      <span>{t.assignee_name ? `${t.assignee_name}${t.assignee_id === project.pm_agent_id ? ' · PM' : ''}` : 'Unassigned'}</span>
-                      {t.priority !== 'p3' && <span className={`pri ${t.priority}`}><IcFlag />{t.priority.toUpperCase()}</span>}
-                      {t.due_on && <span className={`due${dueSoon(t.due_on, now) ? ' soon' : ''}`}><IcCal />{dueLabel(t.due_on)}</span>}
-                    </p>
-                    <button className="lnk sm" type="button" aria-haspopup="dialog" onClick={() => setDetails(true)}>Details &amp; history</button>
-                  </div>
-                )}
-                {t.blocked_reason && <p className="blk dblk"><span>Blocked · {t.blocked_reason}</span></p>}
-                {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
-                <Description t={t} onSave={(d) => patch({ description: d })} />
-                <section className="dsec" aria-labelledby="th-h">
-                  <h2 id="th-h">Comments &amp; activity <span className="cnt">{t.comment_count}</span></h2>
-                  {detail
-                    ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt ?? null} unread={unreadAtOpen} />
-                    : <p className="hint" role="status">Loading comments…</p>}
-                  <Composer t={t} slug={project.slug} pmFirst={pmFirst} onSent={onChanged} />
-                </section>
               </div>
-              {!mobile && <aside className="side" aria-label="Ticket fields"><div className="fld"><p className="k" id="k-st">Status</p>{statusSelect('st-d', true)}</div>{sideFields(false)}</aside>}
+              {mobile && <div className="mf">{dsum}</div>}
+              {t.blocked_reason && <p className="blk"><span className="pri-dot" aria-hidden="true" /><span>{tr('board.card.blocked', { reason: t.blocked_reason })}</span></p>}
+              {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
+              <Description t={t} onSave={(d) => patch({ description: d })} />
+              <hr className="kb-div" />
+              <section aria-labelledby="th-h">
+                <h2 className="kb-sect" id="th-h">{tr('ticket.comments')} <span className="cnt">{t.comment_count}</span></h2>
+                {detail
+                  ? <Thread d={detail} project={project} people={people} columns={columns} now={now} seenAt={seenAt ?? null} unread={unreadAtOpen} />
+                  : <p className="hint" role="status">{tr('ticket.comments.loading')}</p>}
+                <Composer t={t} slug={project.slug} pmFirst={pmFirst} onSent={onChanged} />
+              </section>
             </div>
+            {!mobile && <aside className="kb-side" aria-label={tr('ticket.fields')}><div className="flds"><p className="fh">{tr('ticket.fields')}</p>{sideFields(false)}</div></aside>}
           </div>
         </div>
         {details && mobile && (
-          <Sheet label="Details & history" onClose={() => setDetails(false)} className="dsheet">
-            <h3>Details &amp; history</h3>
+          <Sheet label={tr('ticket.details')} onClose={() => setDetails(false)} className="dsheet">
+            <h3>{tr('ticket.details')}</h3>
             <div className="sheetb side">{sideFields(true)}</div>
           </Sheet>
         )}
         {ask && (
-          <Sheet label="Discard unsaved changes?" onClose={keepEditing} initialFocus={keepRef} restoreFocus={() => lastFocus.current} className="confirm">
-            <h3>Discard unsaved changes?</h3>
-            <div className="qact">
-              <button ref={keepRef} className="btn" type="button" onClick={keepEditing}>Keep editing</button>
-              <button className="abtn dng" type="button" onClick={discard}>Discard</button>
-            </div>
-          </Sheet>
+          <DiscardDialog kind={DISCARD_COPY[[...dirtyFields.current.keys()].find((f) => DISCARD_COPY[f]) ?? 'composer'] ?? 'comment'} pm={pmFirst}
+            onKeep={keepEditing} onDiscard={discard} restoreFocus={() => lastFocus.current} />
         )}
       </div>
     </DirtyCtx.Provider>
   );
 }
 
+/** The discard unsaved-changes dialog (screen 2): names the draft (note / comment / edits). Esc/scrim = keep editing. */
+function DiscardDialog({ kind, pm, onKeep, onDiscard, restoreFocus }: {
+  kind: 'note' | 'comment' | 'desc'; pm: string; onKeep: () => void; onDiscard: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+}) {
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const title = tr(kind === 'note' ? 'discard.note.title' : kind === 'comment' ? 'discard.comment.title' : 'discard.desc.title');
+  const body = tr(kind === 'note' ? 'discard.note.body' : kind === 'comment' ? 'discard.comment.body' : 'discard.desc.body', { name: pm });
+  return (
+    <Sheet label={title} onClose={onKeep} initialFocus={keepRef} restoreFocus={restoreFocus}>
+      <div className="discard">
+        <h3>{title}</h3>
+        <p>{body}</p>
+        <div className="qact">
+          <button ref={keepRef} className="abtn" type="button" onClick={onKeep}>{tr('discard.keep')}</button>
+          <button className="dngbtn" type="button" onClick={onDiscard}>{tr('discard.discard')}</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
 function DueField({ t, now, id, onSave }: { t: Ticket; now: string; id: string; onSave: (v: string | null) => void }) {
   return (
     <div className="fld">
-      <p className="k"><label htmlFor={id}>Due</label></p>
+      <p className="k"><label htmlFor={id}>{tr('ticket.due')}</label></p>
       <div className="v">
-        <span className={`plain selw due${t.due_on && dueSoon(t.due_on, now) ? ' soon' : ''}`}>
-          <span className="l"><IcCal />{t.due_on ? dueLabel(t.due_on) : 'No due date'}</span>
+        <span className="selw">
+          <span className="l"><IconCal16 /><span className={t.due_on ? '' : 'due-none'}>{t.due_on ? dueLabel(t.due_on) : tr('ticket.due.none')}</span></span>
+          <IconChev />
           <input id={id} type="date" value={t.due_on ?? ''} aria-label={`Due date${t.due_on ? `: ${dueLabel(t.due_on)}` : ''}`}
             onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not supported */ } }}
             onChange={(e) => onSave(e.target.value || null)} />
         </span>
-        {t.due_on && <button type="button" className="edit" onClick={() => onSave(null)}>Clear</button>}
+        {t.due_on && <button type="button" className="gbtn ed" onClick={() => onSave(null)}>{tr('ticket.due.clear')}</button>}
       </div>
     </div>
   );
@@ -289,17 +314,17 @@ function LabelsField({ t, labels, onSave }: { t: Ticket; labels: Label[]; onSave
   const save = () => { onSave(val.split(',').map((s) => s.trim()).filter(Boolean)); setEdit(false); };
   return (
     <div className="fld">
-      <p className="k fk">Labels {!edit && <button type="button" className="edit" onClick={start}>Edit</button>}</p>
+      <p className="k fk"><span>{tr('board.filter.label')}</span>{!edit && <button type="button" className="gbtn ed" onClick={start}>{tr('ticket.labels.edit')}</button>}</p>
       {edit ? (
         <form onSubmit={(e) => { e.preventDefault(); save(); }}>
           <label className="sr-only" htmlFor="lb-in">Labels, separated by commas</label>
           <input id="lb-in" className="qin" list="lb-list" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); leave(); } }} />
           <datalist id="lb-list">{labels.map((l) => <option key={l.id} value={l.name} />)}</datalist>
-          <p className="sm">Separate with commas. New names are created in grey.</p>
-          <div className="qact"><button className="btn" type="submit">Save</button><button className="abtn" type="button" onClick={() => setEdit(false)}>Cancel</button></div>
+          <p className="sm">{tr('ticket.labels.hint')}</p>
+          <div className="qact"><button className="btn" type="submit">{tr('ticket.labels.save')}</button><button className="gbtn" type="button" onClick={() => setEdit(false)}>{tr('cancel')}</button></div>
         </form>
       ) : (
-        <div className="v">{t.labels.length ? t.labels.map((l) => <LabelChip key={l.id} label={l} />) : <span className="sm">None</span>}</div>
+        <div className="v">{t.labels.length ? t.labels.map((l) => <LabelChip key={l.id} label={l} />) : <span className="sm">{tr('ticket.labels.none')}</span>}</div>
       )}
     </div>
   );
@@ -311,13 +336,13 @@ function HistoryField({ events, columns, people, now }: { events: TicketEvent[];
   const shown = all ? rows : rows.slice(0, 3);
   return (
     <div className="fld">
-      <p className="k">History</p>
-      {rows.length === 0 ? <p className="sm">Nothing yet.</p> : (
+      <p className="k">{tr('ticket.history')}</p>
+      {rows.length === 0 ? <p className="sm">{tr('ticket.history.empty')}</p> : (
         <ul className="mini">
           {shown.map(({ e, txt }) => <li key={e.id}>{txt}<time dateTime={e.created_at ?? undefined}>{actorShort(e)} · {updateTime(e.created_at, now)}</time></li>)}
         </ul>
       )}
-      {rows.length > 3 && <button className="lnk sm" type="button" onClick={() => setAll((v) => !v)}>{all ? 'Show fewer' : `Show all ${rows.length}`}</button>}
+      {rows.length > 3 && <button className="gbtn" type="button" style={{ alignSelf: 'flex-start' }} onClick={() => setAll((v) => !v)}>{all ? tr('ticket.history.less') : tr('ticket.history.more', { n: rows.length })}</button>}
     </div>
   );
 }
@@ -334,15 +359,17 @@ function Description({ t, onSave }: { t: Ticket; onSave: (d: string | null) => v
   const start = () => { const text = t.description ?? ''; setVal(text); setBase(text); setEdit(true); };
   return (
     <section className="dsec" aria-labelledby="desc-h">
-      <h2 id="desc-h">Description {!edit && <button className="edit" type="button" onClick={start}>Edit</button>}</h2>
+      <h2 className="kb-sect" id="desc-h">{tr('ticket.description')} {!edit && <button className="gbtn" type="button" onClick={start}><IcEdit />{tr('ticket.labels.edit')}</button>}</h2>
       {edit ? (
-        <form className="desc" onSubmit={(e) => { e.preventDefault(); onSave(val.trim() ? val : null); setEdit(false); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave(val.trim() ? val : null); setEdit(false); }}>
           <label className="sr-only" htmlFor="desc-in">Description (Markdown)</label>
-          <textarea id="desc-in" className="qta" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); leave(); } }} />
-          <div className="qact"><button className="btn" type="submit">Save</button><button className="abtn" type="button" onClick={() => setEdit(false)}>Cancel</button></div>
+          <div className="qwrap">
+            <textarea id="desc-in" className="qta" value={val} autoFocus onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); leave(); } }} />
+          </div>
+          <div className="qact" style={{ marginTop: 8 }}><button className="btn" type="submit">{tr('ticket.description.save')}</button><button className="gbtn" type="button" onClick={() => setEdit(false)}>{tr('cancel')}</button></div>
         </form>
       ) : (
-        <div className="desc">{t.description?.trim() ? <MarkdownBody content={t.description} /> : <p className="hint">No description yet.</p>}</div>
+        <div className="desc">{t.description?.trim() ? <MarkdownBody content={t.description} /> : <p className="hint">{tr('ticket.description.empty')}</p>}</div>
       )}
     </section>
   );
@@ -356,7 +383,7 @@ const answeredAt = (iso: string | null, now: string): string => {
   return `on ${s}`;
 };
 
-/** The latest input comment of Tilen's on this ticket (for the SENT state). */
+/** The latest input comment of yours on this ticket (for the SENT state). */
 const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_tilen_input && !c.retracted);
 
 function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Detail | null; pm: string | null; slug: string; now: string; onSent: () => void }) {
@@ -381,15 +408,15 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   };
 
   const submit = async () => {
-    if (opts.length && !choice) { setErr('Pick an answer first.'); setState('err'); return; }
-    if (noteRequired && !note.trim()) { setErr(choice === 'other' ? 'Add a note for “Something else”.' : 'Write your answer.'); setState('err'); return; }
+    if (opts.length && !choice) { setErr(tr('ticket.input.pickErr')); setState('err'); return; }
+    if (noteRequired && !note.trim()) { setErr(tr(choice === 'other' ? 'ticket.input.noteErrOther' : 'ticket.input.noteErr')); setState('err'); return; }
     setState('busy');
     try {
       await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body: note.trim() || null, is_tilen_input: true, input_choice: opts.length ? choice : null });
       setState('idle'); setChanging(false); setNote(''); setBase(''); setChoice(null);
       onSent();
     } catch (e) {
-      setErr(e instanceof ApiError && e.status !== 0 ? e.message : 'Couldn’t send. Your text is kept. Try again.');
+      setErr(e instanceof ApiError && e.status !== 0 ? e.message : tr('ticket.input.sendErr'));
       setState('err');
     }
   };
@@ -398,9 +425,9 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
     const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (last.body ?? '').split('\n')[0];
     return (
       <section className="tin sent" aria-labelledby="tin-h">
-        <div className="tih"><span className="tag">Sent</span><h2 id="tin-h">Your input is with {pmFirst}</h2></div>
-        <p className="askc sentl" role="status">You answered <b>{answer}</b> · {updateTime(last.created_at, now)}. It stays here until {pmFirst} picks it up.</p>
-        <div className="qact"><button className="abtn" type="button" onClick={startChange}>Change answer</button></div>
+        <div className="tih"><span className="tag">{tr('ticket.input.sent.tag')}</span><h2 id="tin-h">{tr('ticket.input.sent.title', { name: pmFirst })}</h2></div>
+        <p className="askc" role="status">{tr('ticket.input.sent.body', { answer, when: updateTime(last.created_at, now), name: pmFirst })}</p>
+        <div className="qact"><button className="gbtn" type="button" onClick={startChange}>{tr('ticket.input.change')}</button></div>
       </section>
     );
   }
@@ -409,9 +436,9 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
     const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (last.body ?? '').split('\n')[0];
     return (
       <section className="tin sent" aria-labelledby="tin-h">
-        <div className="tih"><span className="tag">Answered</span><h2 id="tin-h">You answered {answeredAt(last.created_at, now)}</h2></div>
-        <p className="askc sentl" role="status">Your answer: <b>{answer}</b>.{t.tilen_input_ack_at ? <> Picked up by {pmFirst} · {updateTime(t.tilen_input_ack_at, now)}.</> : null} You don’t need to answer again unless {pmFirst} asks something new.</p>
-        <div className="qact"><button className="abtn" type="button" onClick={startChange}>Answer again</button></div>
+        <div className="tih"><span className="tag">{tr('ticket.input.answered.tag')}</span><h2 id="tin-h">{tr('ticket.input.answered.title', { when: answeredAt(last.created_at, now) })}</h2></div>
+        <p className="askc" role="status">{tr('ticket.input.answered.body', { answer })}{t.tilen_input_ack_at ? <> {tr('ticket.input.answered.ack', { name: pmFirst, when: updateTime(t.tilen_input_ack_at, now) })}</> : null} </p>
+        <div className="qact"><button className="gbtn" type="button" onClick={startChange}>{tr('ticket.input.again')}</button></div>
       </section>
     );
   }
@@ -420,8 +447,8 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   return (
     <section className="tin" aria-labelledby="tin-h">
       <div className="tih">
-        <span className="tag">Your input</span><h2 id="tin-h">{pmFirst} needs your input</h2>
-        {t.waiting_level && <WaitAge level={t.waiting_level} days={days} long />}
+        <span className="tag">{tr('ticket.input.tag')}</span><h2 id="tin-h">{tr('ticket.input.needs', { name: pmFirst })}</h2>
+        {t.waiting_level && <WaitAge level={t.waiting_level} days={days} />}
       </div>
       <p className="askq" id="tin-q">{t.ask}</p>
       {t.ask_context && <p className="askc" id="tin-c">{t.ask_context}</p>}
@@ -431,23 +458,25 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
             <legend className="sr-only">{t.ask}</legend>
             <div className="opts">
               {[...opts, 'other'].map((o) => (
-                <label key={o} className="opt">
+                <label key={o} className="optc">
                   <input type="radio" name={`tin-${t.key}`} checked={choice === o} onChange={() => { setChoice(o); if (state === 'err') setState('idle'); }} />
-                  {o === 'other' ? 'Something else' : o}
+                  {o === 'other' ? tr('ticket.input.other') : o}
                 </label>
               ))}
             </div>
           </fieldset>
         )}
         <div className="other">
-          <label className="flabel" htmlFor="tin-t">{noteRequired ? `Note for ${pmFirst}` : `Note for ${pmFirst} (optional)`}</label>
-          <textarea className="qta" id="tin-t" aria-describedby={t.ask_context ? 'tin-q tin-c' : 'tin-q'} aria-required={noteRequired}
-            value={note} onChange={(e) => { setNote(e.target.value); if (state === 'err') setState('idle'); }} />
+          <label className="flabel" htmlFor="tin-t">{noteRequired ? tr('ticket.input.noteRequired', { name: pmFirst }) : tr('ticket.input.noteOptional', { name: pmFirst })}</label>
+          <div className="qwrap">
+            <textarea className="qta" id="tin-t" placeholder={tr('ticket.input.placeholder')} aria-describedby={t.ask_context ? 'tin-q tin-c' : 'tin-q'} aria-required={noteRequired}
+              value={note} onChange={(e) => { setNote(e.target.value); if (state === 'err') setState('idle'); }} />
+          </div>
         </div>
         <div className="qact">
-          <button className="btn" type="submit" disabled={state === 'busy'}>{state === 'busy' ? <><span className="spin" />Sending…</> : `Send to ${pmFirst}`}</button>
-          {changing && <button className="abtn" type="button" onClick={() => setChanging(false)}>Cancel</button>}
-          <p className="hint">Posts as a comment marked “Tilen’s input”. {pmFirst} moves the ticket on.</p>
+          <button className="btn" type="submit" disabled={state === 'busy'}>{state === 'busy' ? <><span className="spin" />{tr('ticket.input.sending')}</> : tr('ticket.input.send', { name: pmFirst })}</button>
+          {changing && <button className="gbtn" type="button" onClick={() => setChanging(false)}>{tr('cancel')}</button>}
+          <p className="hint">{tr('ticket.input.hint')}</p>
         </div>
         {state === 'err' && <p className="err-line" role="alert">✕ {err}</p>}
       </form>
@@ -468,11 +497,11 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
     for (const e of d.events) {
       if (e.type !== 'moved' && e.type !== 'assigned') continue;
       if (e.type === 'moved' && (e.from?.status === e.to?.status || !e.from)) continue;
-      const who = e.actor_id === 'tilen' ? 'You' : firstName(e.actor_name) || e.actor_id;
+      const who = e.actor_id === 'tilen' ? tr('ticket.role.you') : firstName(e.actor_name) || e.actor_id;
       const what = e.type === 'moved'
         ? <>moved this <span className="st">{COLNAME(columns, e.from?.status)} → {COLNAME(columns, e.to?.status)}</span></>
         : e.to?.id ? <>assigned this to <b>{people.find((p) => p.id === e.to?.id)?.name ?? String(e.to.id)}</b></> : <>unassigned this</>;
-      out.push({ at: Date.parse(e.created_at ?? ''), key: `e${e.id}`, node: () => <li className="ev"><IcMove /><span><b>{who}</b> {what} · {updateTime(e.created_at, now)}</span></li> });
+      out.push({ at: Date.parse(e.created_at ?? ''), key: `e${e.id}`, node: () => <li className="ev"><span className="agentdot" aria-hidden="true" /><span><b>{who}</b> {what}</span><time>{updateTime(e.created_at, now)}</time></li> });
     }
     return out.sort((a, b) => a.at - b.at);
   }, [d, project.pm_agent_id, pmFirst, people, columns, now]);
@@ -480,12 +509,12 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
   const seen = seenAt ? Date.parse(seenAt) : 0;
   const isNew = (i: Item) => unread && !!i.agent && i.at > seen;
   const firstNew = items.findIndex(isNew);
-  if (!items.length) return <p className="hint">No comments yet.</p>;
+  if (!items.length) return <p className="hint">{tr('ticket.comments.empty')}</p>;
   return (
     <ol className="thread">
       {items.map((i, n) => (
         <Fragment key={i.key}>
-          {n === firstNew && <li className="newsep" role="separator" aria-label="New since you last opened this ticket">New</li>}
+          {n === firstNew && <li className="newsep" role="separator" aria-label={tr('ticket.newSince')}>{tr('ticket.newSince')}</li>}
           {i.node(isNew(i))}
         </Fragment>
       ))}
@@ -495,23 +524,28 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
 
 function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: string | null; pmFirst: string; people: Person[]; now: string; isNew: boolean }) {
   const tl = c.is_tilen_input;
-  const role = tl ? 'Tilen’s input' : roleTag(c.author_id, pm, people);
+  const role = tl ? tr('ticket.input.tag') : roleTag(c.author_id, pm, people);
   const choice = c.input_choice && c.input_choice !== 'other' ? c.input_choice : null;
   const rest = choice && c.body === choice ? '' : c.body ?? '';
   return (
     <li className={`cm${tl ? ' tl' : ''}${isNew ? ' new' : ''}`}>
       <Avatar id={c.author_id} name={c.author_name} type={c.author_type} lg />
       <div className="bub">
-        <header><b>{c.author_name ?? c.author_id}</b>{role && <span className="role">{role}</span>}<time dateTime={c.created_at ?? undefined}>{updateTime(c.created_at, now)}</time></header>
-        {c.retracted ? <p className="hint">Comment removed</p> : (
+        <header>
+          <b>{c.author_name ?? c.author_id}</b>
+          {role && <span className="role">{role}</span>}
+          {c.author_type === 'agent' && <span className="via"><span className="agentdot" aria-hidden="true" />{tr('ticket.via.mcp')}</span>}
+          <time dateTime={c.created_at ?? undefined}>{updateTime(c.created_at, now)}</time>
+        </header>
+        {c.retracted ? <p className="hint">{tr('ticket.removed')}</p> : (
           <>
             {choice && <p className="choice"><b>{choice}.</b></p>}
             {rest && <MarkdownBody content={rest} />}
           </>
         )}
         {tl && (c.picked_up_at
-          ? <p className="ack ok"><IcOk />Picked up by {pmFirst} · {updateTime(c.picked_up_at, now)}</p>
-          : <p className="ack pend"><IcClock />Sent to {pmFirst} · not picked up yet</p>)}
+          ? <p className="ack ok"><IcOk />{tr('ticket.input.pickedUp', { name: pmFirst, when: updateTime(c.picked_up_at, now) })}</p>
+          : <p className="ack"><IcClock />{tr('ticket.input.pending', { name: pmFirst })}</p>)}
       </div>
     </li>
   );
@@ -536,19 +570,18 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
   };
   return (
     <form className="compose" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-      <Avatar id="tilen" name="Tilen" type="human" lg />
-      <div className="box">
-        <label className="sr-only" htmlFor="cmp">Write a comment</label>
-        <textarea id="cmp" placeholder="Write a comment… (Markdown)" value={body} onChange={(e) => setBody(e.target.value)}
+      <div className="qwrap">
+        <label className="sr-only" htmlFor="cmp">{tr('ticket.composer.placeholder')}</label>
+        <textarea id="cmp" className="qta" placeholder={tr('ticket.composer.placeholder')} value={body} onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }} />
-        <div className="row">
-          <label className="chkl"><input type="checkbox" checked={asInput} onChange={(e) => setAsInput(e.target.checked)} />Mark as my input for the PM</label>
-          <button className="btn" type="submit" disabled={state === 'busy'}>{state === 'busy' ? <><span className="spin" />Sending…</> : 'Comment'}</button>
-        </div>
+      </div>
+      <div className="row">
+        <label className="chkl"><input type="checkbox" checked={asInput} onChange={(e) => setAsInput(e.target.checked)} />{tr('ticket.composer.markInput')}</label>
+        <button className="btn" type="submit" disabled={state === 'busy' || !body.trim()}>{state === 'busy' ? <><span className="spin" />{tr('ticket.composer.sending')}</> : tr('ticket.composer.send')}</button>
       </div>
       <div className="cstat">
-        {state === 'ok' && <p className="ok-line" role="status"><IcOk />Sent · {pmFirst} gets it on their next run</p>}
-        {state === 'err' && <p className="err-line" role="alert">✕ Couldn’t send. Your text is kept. <button className="lnk" type="button" onClick={submit}>Try again</button></p>}
+        {state === 'ok' && <p className="ok-line" role="status"><IcOk />{tr('ticket.composer.sent', { name: pmFirst })}</p>}
+        {state === 'err' && <p className="err-line" role="alert">{tr('ticket.composer.err')} <button className="lnk" type="button" onClick={submit}>{tr('ticket.composer.retry')}</button></p>}
       </div>
     </form>
   );
