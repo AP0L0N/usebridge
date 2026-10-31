@@ -109,7 +109,7 @@ return [
         'cancel_deletion' => 'Cancel deletion and log in',
         'deletion_cancelled' => 'Deletion cancelled',
         'cancel_failed' => 'The deletion could not be cancelled.',
-        'gate' => 'Team workspace?',
+        'gate' => 'Shared team access?',
         'gate_link' => 'Workspace password',
         'status' => [
             'deletion-requested' => 'Your account will be deleted in 7 days. Log in before then to cancel.',
