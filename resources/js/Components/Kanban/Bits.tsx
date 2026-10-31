@@ -7,7 +7,7 @@ import { ago } from '../../lib/dates';
 import { initial, type Label, type PmStatus, type Person } from '../../lib/kanban';
 
 // Icons from the mock (build.py `I`), geometry matched to the Figma icon components.
-const svg16 = (d: ReactNode) => <svg viewBox="0 0 16 16" aria-hidden="true">{d}</svg>;
+const svg16 = (d: ReactNode) => <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{d}</svg>; // sized: unsized SVGs grow to 300px in flex rows
 const st = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 export const IcComment = IconMsg12;
 export const IcCal = IconCal16;

@@ -80,12 +80,15 @@
   .optc:has(input:focus-visible){outline:2px solid var(--a-focus);outline-offset:2px}
 
   /* ================= board page ================= */
-  .kb{display:flex;flex-direction:column;gap:20px;padding:24px 32px 48px;min-height:calc(100vh - 64px)}
+  /* usage.css' legacy global .kb (the factor badge) also matches this <main class="kb">: undo its nowrap/12px/700/pill,
+     which made every text on the board refuse to wrap and pushed the page sideways on phones. */
+  .kb{display:flex;flex-direction:column;gap:20px;padding:24px 32px 48px;min-height:calc(100vh - 64px);min-width:0;max-width:100%;white-space:normal;font-size:inherit;font-weight:inherit;border-radius:0}
+  .kb>*{min-width:0;max-width:100%}
   .kb-back{display:inline-flex;align-items:center;gap:6px;height:44px;color:var(--a-ink-600);text-decoration:none;font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;align-self:flex-start;margin:-12px 0 -4px}
   .kb-back:hover{color:var(--a-ink)}
   .kb-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 32px;flex-wrap:wrap}
   .kb-title{display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap}
-  .kb-title h1{margin:0;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink)}
+  .kb-title h1{margin:0;min-width:0;overflow-wrap:anywhere;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink)}
   .kb-sample{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px dashed var(--a-ink-400);border-radius:6px;color:var(--a-ink-600);font:500 12px/1.35 var(--font-mono);letter-spacing:0;white-space:nowrap}
   .kb-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .kb-search{display:flex;align-items:center;gap:8px;width:280px;height:44px;padding:0 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);color:var(--a-ink-400)}
@@ -119,6 +122,7 @@
   .b-ok .pips i{background:var(--a-ok)}
   .b-ok .pips i.off{background:color-mix(in srgb,var(--a-ok) 30%,transparent)}
   .pstat .txt{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+  .pstat>*{min-width:0}
   .sset{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
   .sset b{font-weight:500;color:var(--a-ink-800)}
   .sset .via{display:inline-flex;align-items:center;gap:6px;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
@@ -126,7 +130,7 @@
   .pstat .hist{margin-left:auto;flex:none}
   /* meta row */
   .bsum{display:flex;gap:8px 20px;flex-wrap:wrap;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600);align-items:center}
-  .bsum .mi{display:inline-flex;align-items:center;gap:4px}
+  .bsum .mi{display:inline-flex;align-items:center;gap:4px;min-width:0;overflow-wrap:anywhere}
   .bsum b{font:400 14px/1.45 var(--font-mono);color:var(--a-ink)}
   .bsum .lnk{min-height:24px;padding:0;font-size:13px}
   /* columns */
@@ -139,7 +143,8 @@
   .col.wt .colh .cnt{display:inline-grid;place-items:center;height:20px;padding:0 7px;border-radius:10px;background:var(--a-signal);color:var(--a-ink)}
   .colsub{margin:-2px 4px 0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
   /* ticket card */
-  .tk{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);box-shadow:var(--a-shadow-xs);padding:12px;display:flex;flex-direction:column;gap:10px;position:relative;color:inherit;cursor:grab}
+  .tk{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);box-shadow:var(--a-shadow-xs);padding:12px;display:flex;flex-direction:column;gap:10px;position:relative;color:inherit;cursor:grab;min-width:0}
+  .tk>*{min-width:0}
   .tk:hover{border-color:var(--a-ink-400)}
   .tk:has(.tkl:focus-visible){outline:2px solid var(--a-focus);outline-offset:2px}
   .lbs{display:flex;flex-wrap:wrap;gap:4px}
@@ -170,6 +175,7 @@
   .tmeta .wage .dotk{background:var(--a-ink)}
   .tmeta .av{margin-left:auto}
   .tkmv{display:none}
+  .tkmv svg{width:16px;height:16px;flex:none}
   .colmore{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:0;border-radius:var(--radius-md);background:none;color:var(--a-ink);font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;cursor:pointer}
   .colmore:hover{background:rgb(11 12 15 / 0.04)}
   .cempty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 12px;text-align:center;color:var(--a-ink-600)}
@@ -223,8 +229,13 @@
   .mvl .dotk{width:8px;height:8px}
   .mvl .pos{margin-left:auto;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-400)}
   .mvl li[aria-current] button{background:var(--a-paper)}
-  .mvl li[aria-current] .cur{margin-left:auto;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
-  .sheet .mvl{margin-left:-20px;margin-right:-20px}
+  .mvl li[aria-current] .cur{margin-left:auto;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--a-surface);color:var(--a-ink);font:400 13px/1.4 var(--font-ui)}
+  .mvl li button{min-width:0}
+  /* Move sheet (Marc, frame 30:718): rows inset 16px, chevron right-aligned and pointing right, current row = paper + line */
+  .sheet .mvl{margin:8px 16px 0}
+  .sheet .mvl li button{padding:0 16px}
+  .sheet .mvl li[aria-current] button{box-shadow:inset 0 0 0 1px var(--a-line)}
+  .mvl li button>svg:last-child{margin-left:auto;flex:none;transform:rotate(-90deg);color:var(--a-ink-600)}
   /* ask (desktop dialog + sheet step) */
   .askbox{width:min(480px,calc(100vw - 32px));background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-lg);box-shadow:var(--a-shadow-pop);padding:24px}
   .askbox h3{margin:0 0 4px;font:600 20px/1.25 var(--font-ui);letter-spacing:-0.02em}
@@ -401,24 +412,32 @@
     .kb-searchrow input{flex:1;min-width:0;height:100%;border:0;background:none;outline:0;padding:0;font:400 15px/1.5 var(--font-ui);color:var(--a-ink)}
     .kb-searchrow .clr{display:grid;place-items:center;width:32px;height:32px;border:0;background:none;border-radius:var(--radius-sm);color:var(--a-ink-600);cursor:pointer;flex:none}
     .kb-tools .fbtn{padding:0 12px}
-    .kb-tools .grow{justify-content:center}
+    .kb-tools .grow{justify-content:center;min-width:0}
+    .kb-tools>*{min-width:0}
     .pstat{flex-wrap:wrap;padding:14px 16px;gap:10px 12px}
     .pstat .txt{flex:1 1 100%;order:3}
-    .pstat .hist{margin-left:auto}
+    /* Marc, frame 27:17215: the PM quote wraps, clamped to 3 lines; History sits below it */
+    .pstat .snote{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    .pstat .hist{order:4;flex:1 1 100%;margin:-4px 0 -6px -8px}
+    .pstat .hist>.gbtn{min-height:44px}
     .bsum .hide-m{display:none}
-    .ctabs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:none;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none}
+    .ctabs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none;max-width:none;min-width:0;width:auto}
+    .ctabs::-webkit-scrollbar{display:none}
     .ctabs button{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-ink);border-radius:999px;padding:0 14px;cursor:pointer}
-    .ctabs button .cnt{font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
+    /* count chips (Marc, frame 27:17215): inactive = paper fill + ink text, active (ink pill) = surface fill + ink text.
+       Every property is set here so the legacy global .cnt in bridge.css can't leak its grey fill in. */
+    .ctabs button .cnt{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--a-paper);color:var(--a-ink);font:500 12px/1.35 var(--font-mono);letter-spacing:0}
     .ctabs button[aria-selected=true]{background:var(--a-ink);border-color:var(--a-ink);color:#fff}
-    .ctabs button[aria-selected=true] .cnt{color:#ffffffb3}
-    .ctabs button .cnt.is0{color:var(--a-ink-400)}
-    .board{display:block;overflow:visible}
+    .ctabs button[aria-selected=true] .cnt{background:var(--a-surface);color:var(--a-ink)}
+    .ctabs button[aria-selected=true] .c-in_progress{background:var(--a-surface)} /* ink dot would vanish on the ink pill */
+    .board{display:block;overflow:visible;min-width:0}
     .board .col{display:none;border:0}
     .board .col.on{display:flex;min-width:0;flex:none}
     .col{padding:8px}
     .colh{display:none}
     .colsub{margin:0 4px 4px}
-    .tk{cursor:default}
+    .tk{cursor:default;padding:14px 16px}
+    .tk h3{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
     .tkmv{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--a-line);border-radius:var(--radius-md);background:var(--a-surface);color:var(--a-ink);font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;cursor:pointer}
     .tkmv:hover{border-color:var(--a-ink-400)}
     .tmeta .av{margin-left:0}
@@ -436,6 +455,10 @@
     .compose .qact .btn{width:auto}
     .toasts{bottom:16px}
     .sheet{max-width:none}
+  }
+  /* 320-359px: 'Add ticket' takes its own full-width row under search + filter */
+  @media (max-width:359px){
+    .kb-tools .grow{grid-column:1/-1}
   }
 }
 @media (prefers-reduced-motion:reduce){.kanban .tk.flash{animation:none}.kanban .tk.picked{transform:none}}
