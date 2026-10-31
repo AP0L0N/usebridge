@@ -33,11 +33,7 @@ class EmailVerificationController extends Controller
                 return redirect()->route('portfolio');
             }
 
-            return Inertia::render('Auth/VerifyEmail', [
-                'email' => $user->email,
-                'resendUrl' => route('verification.send', absolute: false),
-                'copy' => AuthPageController::copy(),
-            ]);
+            return $this->noticePage($user);
         }
 
         return response()->json([
@@ -47,13 +43,11 @@ class EmailVerificationController extends Controller
     }
 
     /** JSON for JSON clients; a browser following the mail link lands on API tokens (or login) with a flash. */
-    public function verify(Request $request, string $id, string $hash): JsonResponse|RedirectResponse
+    public function verify(Request $request, string $id, string $hash): JsonResponse|RedirectResponse|Response
     {
-        $user = User::query()->find($id);
+        $user = $request->hasValidSignature() ? User::query()->find($id) : null;
         if ($user === null || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            return $request->wantsJson()
-                ? response()->json(['message' => 'This verification link is invalid.'], 403)
-                : redirect()->route('login')->with('error', 'This verification link is invalid.');
+            return $this->invalidLink($request);
         }
         if (! $user->hasVerifiedEmail() && $user->markEmailAsVerified()) {
             event(new Verified($user));
@@ -64,6 +58,40 @@ class EmailVerificationController extends Controller
 
         return redirect()->route($request->user()?->is($user) ? 'account.tokens' : 'login')
             ->with('success', 'Email verified. You can create API tokens now.');
+    }
+
+    /**
+     * S5: tampered, expired or someone else's link. JSON keeps the 403; a browser of a logged-in, unverified user gets
+     * the verify page with the message and its resend button; a verified user goes to the boards; a guest goes to login
+     * (with the message) and from there lands on the verify page after logging in.
+     */
+    private function invalidLink(Request $request): JsonResponse|RedirectResponse|Response
+    {
+        $copy = AuthPageController::copy()['verify'];
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'This verification link is invalid or has expired.', 'expired' => true], 403);
+        }
+        $current = $request->user();
+        if ($current === null) {
+            $request->session()->put('url.intended', route('verification.notice'));
+
+            return redirect()->route('login')->with('error', $copy['link_invalid_guest']);
+        }
+        if ($current->hasVerifiedEmail()) {
+            return redirect()->route('portfolio');
+        }
+
+        return $this->noticePage($current, $copy['link_invalid']);
+    }
+
+    private function noticePage(User $user, ?string $linkError = null): Response
+    {
+        return Inertia::render('Auth/VerifyEmail', [
+            'email' => $user->email,
+            'resendUrl' => route('verification.send', absolute: false),
+            'linkError' => $linkError,
+            'copy' => AuthPageController::copy(),
+        ]);
     }
 
     public function resend(Request $request): JsonResponse

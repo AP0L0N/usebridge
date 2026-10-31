@@ -153,7 +153,7 @@ return [
         'expired_action' => 'Send a new link',
         'success_title' => 'Password updated',
         'success_heading' => 'Password updated',
-        'success_body' => 'Use your new password to log in. Other devices have been logged out.',
+        'success_body' => 'Use your new password to log in. Other devices have been logged out and your API tokens revoked.',
         'success_action' => 'Log in',
     ],
 
@@ -170,5 +170,7 @@ return [
         'help' => 'No email after a few minutes? Check spam first.',
         'continue' => 'Continue to Bridge',
         'logout' => 'Log out',
+        'link_invalid' => 'This verification link is invalid or has expired. Links work for 60 minutes; send yourself a new one below.',
+        'link_invalid_guest' => 'This verification link is invalid or has expired. Log in and send yourself a new one.',
     ],
 ];

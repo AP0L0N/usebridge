@@ -50,8 +50,9 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/forgot-password', [PasswordController::class, 'forgot'])->middleware('throttle:6,1')->name('password.email');
 Route::post('/reset-password', [PasswordController::class, 'reset'])->middleware('throttle:6,1')->name('password.update');
 Route::get('/email/verify', [EmailVerificationController::class, 'notice'])->name('verification.notice');
+// Signed, checked in the controller (S5) so an invalid / expired link gets a page with a resend, not a bare 403.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+    ->middleware('throttle:6,1')->name('verification.verify');
 Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
     ->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 // Email change link (mail to the new address): signed, checked in the controller so an expired link gets a message.

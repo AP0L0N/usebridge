@@ -6,13 +6,13 @@ import { Notice, StateIcon } from '../../Components/Auth/TextField';
 import { t } from '../../lib/authCopy';
 import { go, requestJson } from '../../lib/http';
 
-type Props = AuthPageProps & { email: string; resendUrl: string };
+type Props = AuthPageProps & { email: string; resendUrl: string; linkError?: string | null };
 
 /**
- * GET /email/verify for a logged-in, unverified user (after login): resend the link (POST, 6 per minute) or go on to the
+ * GET /email/verify for a logged-in, unverified user (after login, or after an invalid / expired link: linkError): resend the link (POST, 6 per minute) or go on to the
  * boards, which work without verifying; API tokens and MCP need the verified email.
  */
-export default function VerifyEmail({ email, resendUrl, copy }: Props) {
+export default function VerifyEmail({ email, resendUrl, linkError, copy }: Props) {
   const c = copy.verify;
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -39,6 +39,7 @@ export default function VerifyEmail({ email, resendUrl, copy }: Props) {
           <h1 id="h-verify">{c.heading}</h1>
           <p className="auth-lede auth-lede--sm">{t(c.body!, { email })}</p>
         </div>
+        {linkError && !result && <Notice kind="risk" role="alert">{linkError}</Notice>}
         <Notice kind="info">{c.tokens_note}</Notice>
         {result && <Notice kind={result.ok ? 'ok' : 'risk'} role={result.ok ? 'status' : 'alert'}>{result.text}</Notice>}
         <div className="auth-state-actions">
