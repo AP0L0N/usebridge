@@ -5,6 +5,6 @@
             <a class="btn btn--lg btn--inverted" href="{{ route('signup.show') }}">Create a free account</a>
             <a class="link" href="{{ route('signup.show') }}">Connect your bot</a>
         </div>
-        <p class="trust">{{ __('landing.trust_line') }}</p>
+        <p class="trust">@include('landing.trust')</p>
     </div>
 </section>

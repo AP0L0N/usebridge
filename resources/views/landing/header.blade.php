@@ -32,7 +32,7 @@
         <div class="menu-actions">
             <a class="btn btn--inverted btn--lg btn--block" href="{{ route('signup.show') }}">Sign up free</a>
             <a class="signin" href="{{ route('login.show') }}">Sign in</a>
-            <p class="mono">{{ __('landing.trust_line') }}</p>
+            <p class="mono">@include('landing.trust')</p>
         </div>
     </div>
 </header>

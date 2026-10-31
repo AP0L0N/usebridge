@@ -7,7 +7,7 @@
                 <a class="btn btn--lg btn--signal" href="{{ route('signup.show') }}">Create a free account</a>
                 <a class="link" href="#connect">See how bots connect <img src="/landing/img/icon-down-surface.svg" alt="" width="16" height="16"></a>
             </div>
-            <p class="trust">{{ __('landing.trust_line') }}</p>
+            <p class="trust">@include('landing.trust')</p>
         </div>
 
         {{-- Hero animation slot: Tommy's hero component (public/landing/hero/, self-contained HTML/CSS/JS from

@@ -118,7 +118,12 @@ class LandingPageTest extends TestCase
         $html = $this->html();
 
         $this->assertSame(__('landing.trust_line'), self::TRUST);
-        $this->assertSame(2, preg_match_all('#<p class="trust">'.preg_quote(self::TRUST, '#').'</p>#u', $html));
+        preg_match_all('#<p class="trust">(.*?)</p>#su', $html, $m);
+        $this->assertCount(2, $m[1]);
+        foreach ($m[1] as $line) {
+            $this->assertSame(self::TRUST, trim(strip_tags($line)));
+            $this->assertStringNotContainsString('<a ', $line);
+        }
         $this->assertStringNotContainsString('on GitHub</p>', $html);
         $this->assertStringNotContainsString('Changelog', $html);
     }
@@ -137,7 +142,7 @@ class LandingPageTest extends TestCase
 
         // Copy block comes before the slot inside the same grid (copy left, stage right).
         $this->assertLessThan(strpos($html, 'id="hero-animation"'), strpos($html, 'id="hero-title"'));
-        $this->assertStringContainsString('grid-template-columns: minmax(0, 4.6fr) minmax(0, 7.4fr)', file_get_contents(resource_path('css/landing.css')));
+        $this->assertStringContainsString('grid-template-columns: minmax(0, 472fr) minmax(0, 592fr)', file_get_contents(resource_path('css/landing.css')));
     }
 
     #[Test]
