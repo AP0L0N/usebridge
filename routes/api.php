@@ -15,12 +15,15 @@ use App\Http\Controllers\Api\StatusUpdateController;
 use App\Http\Controllers\Api\TicketCommentController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\UsageDayController;
+use App\Http\Middleware\EnsureTokenAbility;
 use App\Http\Middleware\GuardPolymarketUpload;
 use App\Http\Middleware\GuardUsageUpload;
 use App\Http\Middleware\LegacyReadOnly;
+use App\Http\Middleware\ResolveTokenWorkspace;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth:sanctum')->group(function () {
+// Every route: the token's workspace (ResolveTokenWorkspace) and the ability its route needs (EnsureTokenAbility).
+Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, EnsureTokenAbility::class])->group(function () {
     Route::apiResource('projects', ProjectController::class)->names('api.projects');
     Route::post('projects/{id}/archive', [ProjectController::class, 'archive'])->name('api.projects.archive');
     Route::post('projects/{id}/unarchive', [ProjectController::class, 'unarchive'])->name('api.projects.unarchive');

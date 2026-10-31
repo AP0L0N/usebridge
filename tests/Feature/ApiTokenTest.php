@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -28,7 +27,7 @@ class ApiTokenTest extends TestCase
     #[Test]
     public function sanctum_token_can_list_and_create_status_update(): void
     {
-        $user = User::factory()->create([
+        $user = $this->workspaceUser([
             'email' => 'captain@lantis.internal',
             'name' => 'Captain William Diego',
         ]);

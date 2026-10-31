@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Project;
 use App\Models\RequiredInput;
-use App\Models\User;
 use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,7 +22,7 @@ class BridgeR1Test extends TestCase
         parent::setUp();
         Carbon::setTestNow('2026-10-12 20:00:00');
         $this->seed(BridgeSeeder::class);
-        Sanctum::actingAs(User::factory()->create(), ['ceo']);
+        Sanctum::actingAs($this->workspaceUser(), ['ceo']);
     }
 
     protected function tearDown(): void

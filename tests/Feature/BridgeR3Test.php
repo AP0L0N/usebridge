@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\NextStep;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
-use App\Models\User;
 use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +33,7 @@ class BridgeR3Test extends TestCase
 
     private function api(): void
     {
-        Sanctum::actingAs(User::factory()->create(), ['*']);
+        Sanctum::actingAs($this->workspaceUser(), ['*']);
     }
 
     #[Test]

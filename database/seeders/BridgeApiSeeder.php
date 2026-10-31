@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -25,7 +26,17 @@ class BridgeApiSeeder extends Seeder
         // Revoke prior CEO tokens so re-seed is deterministic for local use.
         $user->tokens()->where('name', 'ceo')->delete();
 
-        $token = $user->createToken('ceo', ['ceo'])->plainTextToken;
+        $new = $user->createToken('ceo', ['ceo']);
+        $token = $new->plainTextToken;
+
+        // Multi-user: Captain's API user is a member of Tilen's workspace and the token acts there.
+        $workspace = app(CurrentWorkspace::class)->default();
+        if ($workspace !== null) {
+            if (! $workspace->hasMember($user)) {
+                $workspace->users()->attach($user->id, ['role' => 'member']);
+            }
+            $new->accessToken->forceFill(['workspace_id' => $workspace->id])->save();
+        }
 
         $path = base_path('.bridge-deploy-secrets');
         $existing = is_file($path) ? file_get_contents($path) : '';

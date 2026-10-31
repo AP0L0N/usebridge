@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\RequiredInput;
 use App\Services\InputResolution;
 use App\Services\ProjectStatus;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -49,11 +50,11 @@ class RequiredInputController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'project_id' => ['required', 'string', 'exists:projects,id'],
+            'project_id' => ['required', 'string', WorkspaceRule::exists('projects', 'id')],
             'text' => ['required', 'string', 'max:500'],
             'waiting_on' => ['required', 'string', 'max:120'],
             'since' => ['nullable', 'date'],
-            'status_update_id' => ['nullable', 'string', 'exists:status_updates,id'],
+            'status_update_id' => ['nullable', 'string', WorkspaceRule::exists('status_updates', 'id')],
         ]);
         $input = RequiredInput::create([
             ...$data,

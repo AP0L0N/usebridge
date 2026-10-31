@@ -2,7 +2,6 @@
 
 namespace Tests\Concerns;
 
-use App\Models\User;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Testing\TestResponse;
@@ -29,7 +28,7 @@ trait TicketHelpers
 
     protected function api(): static
     {
-        Sanctum::actingAs(User::factory()->create(), ['*']);
+        Sanctum::actingAs($this->workspaceUser(), ['*']);
 
         return $this;
     }

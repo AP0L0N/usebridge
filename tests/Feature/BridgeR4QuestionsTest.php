@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Question;
 use App\Models\RequiredInput;
-use App\Models\User;
 use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,7 +34,7 @@ class BridgeR4QuestionsTest extends TestCase
 
     private function api(): void
     {
-        Sanctum::actingAs(User::factory()->create(), ['*']);
+        Sanctum::actingAs($this->workspaceUser(), ['*']);
     }
 
     private function gate(): void

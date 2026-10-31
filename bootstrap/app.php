@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\WorkspaceBoundary;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,9 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
+        $middleware->web(prepend: [WorkspaceBoundary::class], append: [
             HandleInertiaRequests::class,
         ]);
+        $middleware->api(prepend: [WorkspaceBoundary::class]);
         // The usage and Polymarket uploads are decoded only by their validators, after the size/type guard.
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
         $middleware->trimStrings(except: [$usageUpload]);

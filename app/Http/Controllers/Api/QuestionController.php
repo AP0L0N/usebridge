@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\Question;
 use App\Services\QuestionAnswer;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -37,7 +38,7 @@ class QuestionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'project_id' => ['required', 'string', 'exists:projects,id'],
+            'project_id' => ['required', 'string', WorkspaceRule::exists('projects', 'id')],
             ...self::createRules(),
         ]);
 

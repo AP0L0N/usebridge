@@ -10,6 +10,7 @@ use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\ProjectStatusService;
 use App\Support\TicketPrefix;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -48,7 +49,7 @@ class ProjectController extends Controller
             'id' => ['nullable', 'string', 'max:64', 'unique:projects,id'],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:projects,slug'],
-            'owner_agent_id' => ['required', 'string', 'exists:agents,id'],
+            'owner_agent_id' => ['required', 'string', WorkspaceRule::exists('agents', 'id')],
             'ticket_prefix' => ['nullable', 'string', 'regex:'.TicketPrefix::PATTERN, 'unique:projects,ticket_prefix'],
             ...array_fill_keys(self::LEGACY_FIELDS, ['nullable']),
         ]);
@@ -73,10 +74,10 @@ class ProjectController extends Controller
             throw ValidationException::withMessages(['pm_agent_id' => 'Send pm_agent_id or owner_agent_id (same field), not two different values.']);
         }
         $data = $request->validate([
-            'pm_agent_id' => ['sometimes', 'string', 'exists:agents,id'],
+            'pm_agent_id' => ['sometimes', 'string', WorkspaceRule::exists('agents', 'id')],
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => ['sometimes', 'string', 'max:255', 'unique:projects,slug,'.$project->id.',id'],
-            'owner_agent_id' => ['sometimes', 'string', 'exists:agents,id'],
+            'owner_agent_id' => ['sometimes', 'string', WorkspaceRule::exists('agents', 'id')],
             'archived' => ['sometimes', 'boolean'],
             'ticket_prefix' => ['sometimes', 'string', 'regex:'.TicketPrefix::PATTERN, 'unique:projects,ticket_prefix,'.$project->id.',id'],
             ...array_fill_keys(self::LEGACY_FIELDS, ['nullable']),

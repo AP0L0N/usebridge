@@ -7,7 +7,6 @@ use App\Models\Project;
 use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
-use App\Models\User;
 use App\Support\TicketPrefix;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -178,7 +177,7 @@ class TicketsApiTest extends TestCase
     #[Test]
     public function a_token_named_after_an_agent_is_the_actor(): void
     {
-        $plain = User::factory()->create()->createToken(self::JANICE)->plainTextToken;
+        $plain = $this->workspaceUser()->createToken(self::JANICE)->plainTextToken;
         $h = ['Authorization' => 'Bearer '.$plain];
 
         $t = $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'No actor needed'])
@@ -190,7 +189,7 @@ class TicketsApiTest extends TestCase
         $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable();
 
         // A token whose name is not an agent (the shared CEO token) still needs the body actor.
-        $ceo = User::factory()->create()->createToken('ceo', ['ceo'])->plainTextToken;
+        $ceo = $this->workspaceUser()->createToken('ceo', ['ceo'])->plainTextToken;
         $this->app['auth']->forgetGuards();
         $this->withHeaders(['Authorization' => 'Bearer '.$ceo])->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x'])
             ->assertUnprocessable()->assertJsonValidationErrors('actor');

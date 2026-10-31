@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\UsageDay;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,7 +19,7 @@ class UsageImportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->token = User::factory()->create()->createToken('bridge-api')->plainTextToken;
+        $this->token = $this->workspaceUser()->createToken('bridge-api')->plainTextToken;
     }
 
     public static function fixture(string $date = '2026-10-19'): string

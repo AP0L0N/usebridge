@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Services\StatusUpdateIngest;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,7 @@ class StatusUpdateController extends Controller
 
         $data = $request->validate([
             'body' => ['required', 'string', 'max:5000'],
-            'agent_id' => ['required', 'string', 'exists:agents,id'],
+            'agent_id' => ['required', 'string', WorkspaceRule::exists('agents', 'id')],
             ...StatusUpdateIngest::extraRules(),
         ]);
 

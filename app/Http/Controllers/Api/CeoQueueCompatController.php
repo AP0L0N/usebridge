@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\RequiredInput;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -61,11 +62,11 @@ class CeoQueueCompatController extends Controller
             'id' => ['nullable', 'string', 'max:58'],
             'reason' => ['required', 'string'],
             'suggested_action' => ['required', 'string'],
-            'project_id' => ['required', 'string', 'exists:projects,id'],
+            'project_id' => ['required', 'string', WorkspaceRule::exists('projects', 'id')],
             'chip_label' => ['nullable', 'string'],
             'status' => ['sometimes', 'in:open,assigned,dismissed'],
             'surfaced_at' => ['nullable', 'date'],
-            'assigned_agent_id' => ['nullable', 'string', 'exists:agents,id'],
+            'assigned_agent_id' => ['nullable', 'string', WorkspaceRule::exists('agents', 'id')],
         ], ['project_id.required' => 'Bridge r1 shows queue items as Required inputs on a project; project_id is required.']);
 
         $ceoId = $data['id'] ?? 'ceo-'.Str::lower((string) Str::ulid());
@@ -94,7 +95,7 @@ class CeoQueueCompatController extends Controller
 
     public function assign(Request $request, string $id): JsonResponse
     {
-        $data = $request->validate(['agent_id' => ['required', 'string', 'exists:agents,id']]);
+        $data = $request->validate(['agent_id' => ['required', 'string', WorkspaceRule::exists('agents', 'id')]]);
         $i = $this->find($id);
         $i->update(['waiting_on' => Agent::query()->whereKey($data['agent_id'])->value('name') ?? $data['agent_id'], 'resolved_at' => null, 'resolved_by' => null]);
 

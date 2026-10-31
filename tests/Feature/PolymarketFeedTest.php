@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\PolymarketSeriesPoint;
 use App\Models\PolymarketSnapshot;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Testing\PendingCommand;
@@ -25,7 +24,7 @@ class PolymarketFeedTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->token = User::factory()->create()->createToken('bridge-api')->plainTextToken;
+        $this->token = $this->workspaceUser()->createToken('bridge-api')->plainTextToken;
     }
 
     protected function tearDown(): void

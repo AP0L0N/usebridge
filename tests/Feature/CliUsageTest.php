@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\CliUsageDay;
 use App\Models\UsageDay;
-use App\Models\User;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
@@ -281,7 +280,7 @@ class CliUsageTest extends TestCase
 
     private function postDay(string $body): TestResponse
     {
-        $token = User::factory()->create()->createToken('bridge-api')->plainTextToken;
+        $token = $this->workspaceUser()->createToken('bridge-api')->plainTextToken;
 
         return $this->call('POST', '/api/usage/days', [], [], [], [
             'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer '.$token,

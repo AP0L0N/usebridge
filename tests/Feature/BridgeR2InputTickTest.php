@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Project;
 use App\Models\RequiredInput;
-use App\Models\User;
 use App\Services\ProjectStatus;
 use Database\Seeders\BridgeSeeder;
 use Illuminate\Contracts\Http\Kernel;
@@ -112,7 +111,7 @@ class BridgeR2InputTickTest extends TestCase
     #[Test]
     public function api_resolves_with_token_or_agent_name_and_filters(): void
     {
-        $user = User::factory()->create();
+        $user = $this->workspaceUser();
         $token = $user->createToken('william-bot');
         $h = ['Authorization' => 'Bearer '.$token->plainTextToken];
 
