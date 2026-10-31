@@ -21,7 +21,7 @@ class StatusUpdateController extends Controller
             ...StatusUpdateIngest::extraRules(),
         ]);
 
-        $ingest->handle($project, $data['agent_id'], $data['body'], null, $data['inputs'] ?? [], $data['resolved_inputs'] ?? []);
+        $ingest->handle($project, $data['agent_id'], $data['body'], null, $data['inputs'] ?? [], $data['resolved_inputs'] ?? [], 'ui');
 
         return back()->with('success', 'Status update added.');
     }

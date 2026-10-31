@@ -168,7 +168,9 @@ class TilenProjectControlsTest extends TestCase
     {
         $this->api();
         $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'smooth', 'actor' => 'tilen'])->assertUnprocessable();
-        $this->patchJson('/api/projects/'.self::BH, ['archived' => true, 'actor' => 'tilen'])->assertOk();
+        $this->patchJson('/api/projects/'.self::BH, ['archived' => true, 'actor' => 'tilen'])->assertUnprocessable()->assertJsonValidationErrors('actor');
+        $this->postJson('/api/projects/'.self::BH.'/archive', ['actor' => 'tilen'])->assertUnprocessable();
+        $this->assertNull(Project::find(self::BH)->archived_at);
         $this->assertNotContains('tilen', array_map(fn ($e) => $e->set_by, $this->events()));
     }
 

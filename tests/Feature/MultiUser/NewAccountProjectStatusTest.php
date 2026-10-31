@@ -188,4 +188,82 @@ class NewAccountProjectStatusTest extends TestCase
         $this->bearer($plain, 'PATCH', "/api/projects/$bh/status", ['status' => 'smooth', 'actor' => BridgeSeeder::AGENT_JANICE])->assertOk();
         $this->bearer($plain, 'PATCH', "/api/projects/$bh/status", ['status' => 'archived', 'actor' => BridgeSeeder::AGENT_WILLIAM])->assertOk();
     }
+
+    #[Test]
+    public function archive_and_unarchive_validate_the_actor_and_always_log_a_status_event(): void
+    {
+        $a = $this->newAccount('Sam Rivera', 'sam@example.test', 'Garden Planner', 'GP', 'Garden bot');
+        $b = $this->newAccount('Kim Lee', 'kim@example.test', 'Bake Shop', 'BS', 'Bake bot');
+        $events = fn () => $this->bearer($a['token'], 'GET', "/api/projects/{$a['project']}/status")->assertOk()->json('data.history');
+
+        // Made-up or foreign actor: 422 "Unknown actor" on every archive route, nothing changes, nothing is logged.
+        foreach (['agent-nope', $b['agent']] as $bad) {
+            foreach (['archive', 'unarchive'] as $route) {
+                $this->bearer($a['token'], 'POST', "/api/projects/{$a['project']}/$route", ['actor' => $bad])
+                    ->assertUnprocessable()->assertJsonValidationErrors('actor')->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, 'Unknown actor'));
+            }
+            $this->bearer($a['token'], 'PATCH', "/api/projects/{$a['project']}", ['archived' => true, 'actor' => $bad])->assertUnprocessable();
+        }
+        $this->assertSame([], $events());
+        $this->assertNull(Project::withoutGlobalScopes()->findOrFail($a['project'])->archived_at);
+
+        // No actor: the token's own agent archives and reopens; both are status events with set_by + source.
+        $this->bearer($a['token'], 'POST', "/api/projects/{$a['project']}/archive")->assertOk()->assertJsonPath('data.status', 'archived');
+        $p = Project::withoutGlobalScopes()->findOrFail($a['project']);
+        $this->assertSame(['archived', $a['agent']], [$p->status, $p->status_set_by]);
+        $this->assertNotNull($p->archived_at);
+        $this->travel(1)->minutes();
+        $row = collect($this->bearer($a['token'], 'POST', "/api/projects/{$a['project']}/unarchive")->assertOk()->json('data'));
+        $this->assertSame('pm', $row['status_source']);
+        $h = $events();
+        $this->assertSame(['smooth', 'archived'], array_column($h, 'to_status'));
+        $this->assertSame([$a['agent'], $a['agent']], array_column($h, 'set_by'));
+        $this->assertSame(['api', 'api'], array_column($h, 'source'));
+        $this->assertNull(Project::withoutGlobalScopes()->findOrFail($a['project'])->archived_at);
+
+        // Its own agent named explicitly works too; B's project stays 404.
+        $this->bearer($a['token'], 'POST', "/api/projects/{$a['project']}/archive", ['actor' => $a['agent']])->assertOk();
+        $this->bearer($a['token'], 'POST', "/api/projects/{$b['project']}/archive")->assertNotFound();
+        $this->assertNull(Project::withoutGlobalScopes()->findOrFail($b['project'])->archived_at);
+    }
+
+    #[Test]
+    public function the_legacy_workspace_keeps_the_captain_rule_for_archive_routes(): void
+    {
+        $this->seed(BridgeSeeder::class);
+        $plain = $this->scopedToken($this->workspaceOwner(), app(CurrentWorkspace::class)->default(), 'write', 'Owner laptop');
+        $bh = BridgeSeeder::PROJ_BLUE_HARBOR;
+
+        $this->bearer($plain, 'POST', "/api/projects/$bh/archive")->assertForbidden();
+        $this->bearer($plain, 'POST', "/api/projects/$bh/archive", ['actor' => BridgeSeeder::AGENT_JANICE])->assertForbidden(); // PM
+        $this->bearer($plain, 'POST', "/api/projects/$bh/archive", ['actor' => 'agent-nope'])->assertUnprocessable();
+        $this->assertNull(Project::query()->findOrFail($bh)->archived_at);
+        $this->bearer($plain, 'POST', "/api/projects/$bh/archive", ['actor' => BridgeSeeder::AGENT_WILLIAM])->assertOk();
+        $this->bearer($plain, 'POST', "/api/projects/$bh/unarchive", ['actor' => BridgeSeeder::AGENT_JANICE])->assertForbidden();
+        $this->bearer($plain, 'POST', "/api/projects/$bh/unarchive", ['actor' => BridgeSeeder::AGENT_WILLIAM])->assertOk();
+    }
+
+    #[Test]
+    public function status_updates_and_web_writes_carry_their_source(): void
+    {
+        $a = $this->newAccount('Sam Rivera', 'sam@example.test', 'Garden Planner', 'GP', 'Garden bot');
+        $this->bearer($a['token'], 'POST', '/api/status-updates', ['project_id' => $a['project'], 'body' => 'Via REST.'])
+            ->assertCreated()->assertJsonPath('data.source', 'api');
+        $this->assertSame('api', $this->board($a['user'], 'garden-planner')['latestUpdate']['source']);
+
+        $this->travel(1)->minutes();
+        $this->tool($a['token'], 'post_status', ['project' => $a['project'], 'body' => 'Via MCP.']);
+        $this->assertSame('mcp', $this->board($a['user'], 'garden-planner')['latestUpdate']['source']);
+
+        $this->travel(1)->minutes();
+        $this->post('/projects/garden-planner/status-updates', ['body' => 'Via the web.', 'agent_id' => $a['agent']])->assertRedirect();
+        $b = $this->board($a['user'], 'garden-planner');
+        $this->assertSame(['Via the web.', 'ui', 3], [$b['latestUpdate']['body'], $b['latestUpdate']['source'], $b['latestUpdate']['count']]);
+        $this->bearer($a['token'], 'GET', '/api/status-updates')->assertOk()->assertJsonPath('data.0.source', 'ui');
+
+        // A web status change is a ui event (the status block reads "via Bridge").
+        $this->actingAs($a['user'], 'web');
+        $this->patchJson('/projects/garden-planner/status', ['status' => 'smooth'])->assertSuccessful();
+        $this->assertSame('ui', $this->board($a['user'], 'garden-planner')['statusHistory'][0]['source']);
+    }
 }

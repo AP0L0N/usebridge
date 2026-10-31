@@ -36,7 +36,7 @@ class PostStatus extends BridgeTool
         $project = $this->project($request);
         $actor = $this->actor($request);
         $data = $request->validate(StatusUpdateIngest::rules());
-        $result = $this->ingest->handle($project, $actor->id, $data['body'], null, $data['inputs'] ?? [], $data['resolved_inputs'] ?? []);
+        $result = $this->ingest->handle($project, $actor->id, $data['body'], null, $data['inputs'] ?? [], $data['resolved_inputs'] ?? [], 'mcp');
 
         return [
             'data' => $result['update'],

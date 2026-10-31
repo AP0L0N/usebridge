@@ -538,7 +538,7 @@ function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: s
         <header>
           <b>{c.author_name ?? c.author_id}</b>
           {role && <span className="role">{role}</span>}
-          {c.author_type === 'agent' && <span className="via"><span className="agentdot" aria-hidden="true" />{viaLabel(c.source, true)}</span>}
+          <span className="via">{c.author_type === 'agent' && <span className="agentdot" aria-hidden="true" />}{viaLabel(c.source, c.author_type === 'agent')}</span>
           <time dateTime={c.created_at ?? undefined}>{updateTime(c.created_at, now)}</time>
         </header>
         {c.retracted ? <p className="hint">{tr('ticket.removed')}</p> : (

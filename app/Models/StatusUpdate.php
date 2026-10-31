@@ -15,7 +15,7 @@ class StatusUpdate extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'project_id', 'agent_id', 'body', 'created_at'];
+    protected $fillable = ['id', 'project_id', 'agent_id', 'body', 'source', 'created_at'];
 
     protected function casts(): array
     {

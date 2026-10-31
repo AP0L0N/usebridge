@@ -135,6 +135,7 @@
   .plu-by{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
   .plu-by b{font-weight:500;color:var(--a-ink-800)}
   .plu-n{font:500 12px/1.35 var(--font-mono)}
+  .plu-via{font:500 12px/1.35 var(--font-mono)}
   .plu-b{max-height:4.5em;overflow:hidden;color:var(--a-ink);font-size:15px;line-height:1.5;letter-spacing:-0.005em;overflow-wrap:anywhere}
   .plu-b.open{max-height:none}
   .plu-b .md>:first-child{margin-top:0}

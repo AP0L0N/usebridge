@@ -109,7 +109,7 @@ class BridgeR1Test extends TestCase
         $this->assertFalse(ProjectStatus::isReopened(Project::find('proj-northwind')), 'manual unarchive is not "Reopened"');
 
         // API archive, then a new update auto-unarchives and sets Reopened.
-        $this->postJson('/api/projects/proj-northwind/archive')->assertOk()->assertJsonPath('data.status', 'archived');
+        $this->postJson('/api/projects/proj-northwind/archive', ['actor' => 'agent-william'])->assertOk()->assertJsonPath('data.status', 'archived');
         $this->post_update()->assertCreated()->assertJsonPath('unarchived', true);
         $p = Project::find('proj-northwind');
         $this->assertNull($p->archived_at);

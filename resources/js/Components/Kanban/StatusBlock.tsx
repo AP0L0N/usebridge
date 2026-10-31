@@ -106,7 +106,7 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
           <>
             <p className="sset">
               <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id, me)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
-              {viaAgent && <span className="via"><span className="agentdot" aria-hidden="true" />{viaLabel(history[0]?.source, true)} · {firstName(p.status_set_by_name)}</span>}
+              <span className="via">{viaAgent && <span className="agentdot" aria-hidden="true" />}{viaLabel(history[0]?.source, viaAgent)}</span>
             </p>
             {p.status_note && <p className="snote">“{p.status_note}”</p>}
           </>

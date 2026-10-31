@@ -148,6 +148,8 @@ export interface LatestUpdate {
   body: string;
   agent_id: string;
   agent_name: string | null;
+  /** api | mcp | ui; null for updates posted before 31 Oct 2026. */
+  source?: WriteSource | null;
   created_at: string | null;
   count: number;
 }

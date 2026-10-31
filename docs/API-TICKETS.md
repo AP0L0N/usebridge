@@ -452,7 +452,8 @@ appear in the history with `set_by: "tilen"`, `set_by_type: "human"`, `source: "
 31 Oct 2026 were recorded as `api`.
 
 Status updates (`POST /api/status-updates {project_id, body, agent_id?}`, MCP `post_status`): without `agent_id` the
-update is posted as your token's own agent. The newest one is shown on the project board under the status.
+update is posted as your token's own agent. The newest one is shown on the project board under the status. Status
+updates carry `source` too (`api`, `mcp`, `ui`; `null` for updates posted before 31 Oct 2026).
 
 ### GET /api/projects · PATCH /api/projects/{id} (PM)
 
@@ -490,8 +491,11 @@ login; the token API never accepts `actor: "tilen"` (422). Every one of them is 
 - Archive: `to_status: "archived"` (`archived_at` is set, `status` is `archived`). Unarchive: back to the status the
   project had before it was archived (`smooth` if unknown), `archived_at` cleared. Both are no-ops when already in
   that state. Nothing is ever deleted (projects, tickets, comments and events stay).
-- `PATCH /api/projects/{id}` with `archived` keeps `archived_at` and `status` in step too, and is logged when an
-  `actor` is known (token name or body `actor`).
+- `PATCH /api/projects/{id}` with `archived`, `POST /api/projects/{id}/archive` and `/unarchive` keep `archived_at` and
+  `status` in step too and are always logged as a status event (`set_by`, `source`). They check the actor like every
+  other write (an `actor` that is not an agent of your workspace is a **422** "Unknown actor"; none = your token's own
+  agent) and follow the same rule as `PATCH …/status` (legacy workspace: Captain only, **403** otherwise; any other
+  workspace: its own agents).
 - Archived projects stay in the portfolio under "Archived" (switch "Show archived") and their board still opens
   with an **Unarchive** button.
 

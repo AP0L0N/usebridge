@@ -52,6 +52,7 @@ class StatusUpdateController extends Controller
             $data['id'] ?? null,
             $data['inputs'] ?? [],
             $data['resolved_inputs'] ?? [],
+            'api',
         );
 
         return response()->json([

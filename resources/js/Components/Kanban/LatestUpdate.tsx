@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownBody } from '../MarkdownBody';
 import { updateTime } from '../../lib/dates';
-import type { LatestUpdate as Update } from '../../lib/kanban';
+import { viaLabel, type LatestUpdate as Update } from '../../lib/kanban';
 
 /**
  * Go-live N1: the newest status update an agent posted (POST /api/status-updates, MCP post_status), under the
@@ -22,6 +22,7 @@ export function LatestUpdate({ update: u, now }: { update: Update | null; now: s
       <p className="plu-h">
         <span className="plu-k">Latest update</span>
         <span className="plu-by"><span className="agentdot" aria-hidden="true" /><b>{who}</b></span>
+        {u.source && <span className="plu-via">{viaLabel(u.source, u.source !== 'ui')}</span>}
         {u.created_at && <time dateTime={u.created_at}>{updateTime(u.created_at, now)}</time>}
         {u.count > 1 && <span className="plu-n">{u.count} updates</span>}
       </p>

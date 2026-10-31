@@ -53,7 +53,7 @@ class ProjectController extends Controller
         ]);
     }
 
-    /** @return array{id:string,body:string,agent_id:string,agent_name:?string,created_at:?string,count:int}|null */
+    /** @return array{id:string,body:string,agent_id:string,agent_name:?string,source:?string,created_at:?string,count:int}|null */
     public static function latestUpdate(Project $project, TicketView $view): ?array
     {
         $q = StatusUpdate::query()->where('project_id', $project->id);
@@ -64,6 +64,7 @@ class ProjectController extends Controller
             'body' => $u->body,
             'agent_id' => $u->agent_id,
             'agent_name' => $view->name($u->agent_id),
+            'source' => $u->source,
             'created_at' => $u->created_at?->toIso8601String(),
             'count' => $q->count(),
         ];

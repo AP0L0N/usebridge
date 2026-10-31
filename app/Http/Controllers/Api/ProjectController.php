@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\TransientToken;
 
 class ProjectController extends Controller
 {
@@ -92,20 +93,14 @@ class ProjectController extends Controller
             throw ValidationException::withMessages(['ticket_prefix' => 'The ticket prefix can only change while the project has no tickets.']);
         }
         if (array_key_exists('archived', $data)) {
-            // Keep archived_at and the status column in step; logged when the actor is known (token name or body actor).
-            $archiveActor = null;
-            try {
-                $archiveActor = Actor::fromApi($request);
-            } catch (ValidationException) {
-            }
-            if ($archiveActor !== null) {
-                $svc = new ProjectStatusService;
-                $data['archived'] ? $svc->archive($project, $archiveActor) : $svc->unarchive($project, $archiveActor);
-            } elseif ($data['archived']) {
-                $project->forceFill(['archived_at' => $project->archived_at ?? Carbon::now(), 'status' => 'archived', 'reopened_at' => null])->save();
-            } elseif ($project->archived_at !== null) {
-                $project->forceFill(['archived_at' => null, 'status' => (new ProjectStatusService)->statusBeforeArchive($project), 'reopened_at' => null])->save();
-            }
+            // Go-live N4: validated like every other write (unknown/foreign actor 422, none = the token's own agent),
+            // the same permission rule as PATCH …/status, and always logged as a status event (set_by, source).
+            $svc = new ProjectStatusService;
+            $archiveActor = self::archiveActor($request);
+            $to = $data['archived'] ? 'archived' : $svc->statusBeforeArchive($project);
+            $denied = $svc->canSet($project, $to, $archiveActor);
+            abort_if($denied !== null, 403, (string) $denied);
+            $data['archived'] ? $svc->archive($project, $archiveActor) : $svc->unarchive($project, $archiveActor);
         }
         // The PM (pm_agent_id, stored as owner_agent_id) is Captain-only and logged in project_pm_events.
         $pm = $data['pm_agent_id'] ?? $data['owner_agent_id'] ?? null;
@@ -131,6 +126,20 @@ class ProjectController extends Controller
     public function unarchive(Request $request, string $id): JsonResponse
     {
         return $this->update($request->duplicate(array_intersect_key($request->all(), array_flip(['actor', 'author'])) + ['archived' => false]), $id);
+    }
+
+    /**
+     * The actor of an API archive/unarchive: Actor::fromApi (explicit actor must be an agent of this workspace; none =
+     * the token's own agent). A first-party web session (Sanctum TransientToken) with no actor acts as the signed-in user.
+     */
+    private static function archiveActor(Request $request): Actor
+    {
+        $user = $request->user();
+        if ($request->input('actor', $request->input('author')) === null && $user?->currentAccessToken() instanceof TransientToken) {
+            return Actor::forUser($user);
+        }
+
+        return Actor::fromApi($request);
     }
 
     public function destroy(string $id): JsonResponse

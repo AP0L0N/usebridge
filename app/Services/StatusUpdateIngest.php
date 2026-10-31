@@ -24,15 +24,16 @@ class StatusUpdateIngest
      * @param  array<int, string|array{id:string, resolved_by?:string|null, done_by?:string|null}>  $resolved
      * @return array{update: StatusUpdate, inputs: array<int, RequiredInput>, resolved: array<int, RequiredInput>, unarchived: bool}
      */
-    public function handle(Project $project, string $agentId, string $body, ?string $id = null, array $inputs = [], array $resolved = []): array
+    public function handle(Project $project, string $agentId, string $body, ?string $id = null, array $inputs = [], array $resolved = [], ?string $source = null): array
     {
-        return DB::transaction(function () use ($project, $agentId, $body, $id, $inputs, $resolved) {
+        return DB::transaction(function () use ($project, $agentId, $body, $id, $inputs, $resolved, $source) {
             $now = Carbon::now();
             $update = StatusUpdate::create([
                 'id' => $id ?? 'su-'.Str::lower((string) Str::ulid()),
                 'project_id' => $project->id,
                 'agent_id' => $agentId,
                 'body' => $body,
+                'source' => $source, // api|mcp|ui (null = before 31 Oct 2026)
                 'created_at' => $now,
             ]);
 
