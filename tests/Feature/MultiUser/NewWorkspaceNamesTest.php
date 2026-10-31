@@ -121,6 +121,10 @@ class NewWorkspaceNamesTest extends TestCase
         $this->travelMinutes(5);
         $this->bearer($token, 'POST', "/api/tickets/$key/comments", ['body' => 'Green it is.', 'actor' => 'agent-ava'])->assertCreated();
         $this->bearer($token, 'POST', "/api/tickets/$key/ack-input", ['actor' => 'agent-ava'])->assertOk();
+        // And the token's own agent (B3: no actor), over REST and MCP.
+        $this->bearer($token, 'POST', "/api/tickets/$key/comments", ['body' => 'Noted by the bot.'])->assertCreated()
+            ->assertJsonPath('data.author_name', 'grok');
+        $this->tool($token, 'comment_ticket', ['key' => $key, 'body' => 'Also via MCP.']);
 
         $api = [
             'GET /api/projects' => '/api/projects',
@@ -142,7 +146,7 @@ class NewWorkspaceNamesTest extends TestCase
         }
         $ticket = $this->bearer($token, 'GET', "/api/tickets/$key")->json('data');
         $this->assertSame('Sam Rivera', $ticket['created_by_name']);
-        $this->assertSame(['Sam Rivera', 'Sam Rivera', 'Ava Builder'], array_column($ticket['comments'], 'author_name'));
+        $this->assertSame(['Sam Rivera', 'Sam Rivera', 'Ava Builder', 'grok', 'grok'], array_column($ticket['comments'], 'author_name'));
         $this->assertSame($ticket['tilen_input_at'], $ticket['owner_input_at']);
         $this->assertNotNull($ticket['owner_input_at']);
         $this->assertSame('human', $this->bearer($token, 'GET', "/api/projects/$projectId")->json('data.status_source'));
