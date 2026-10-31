@@ -42,6 +42,8 @@ export interface Ticket {
   labels: Label[];
   comment_count: number;
   last_comment_at: string | null;
+  /** Newest live comment (card "via MCP" line); null when no comments. */
+  latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human'; created_at: string | null } | null;
   unread_for_tilen: boolean;
   latest_unread_author: { id: string; name: string | null } | null;
   created_by: string | null;

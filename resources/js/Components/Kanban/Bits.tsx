@@ -1,44 +1,47 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from 'react';
-import { StatusBadge } from '../StatusBadge';
-import { IconArch, IconOk, IconWait } from '../Icons';
+import { IconArchive14, IconCal16, IconChev, IconClock14, IconFilter16, IconHist16, IconLeft16, IconMore16, IconMsg12, IconPlus16, IconSearch16, IconX16 } from '../AppIcons';
+import { IconOk, IconWait } from '../Icons';
+import { ageAria, t } from '../../lib/strings';
+import { ago } from '../../lib/dates';
 import { initial, type Label, type PmStatus, type Person } from '../../lib/kanban';
 
-// Icons from the mock (build.py `I`).
+// Icons from the mock (build.py `I`), geometry matched to the Figma icon components.
 const svg16 = (d: ReactNode) => <svg viewBox="0 0 16 16" aria-hidden="true">{d}</svg>;
 const st = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
-export const IcComment = () => svg16(<path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" {...st} strokeWidth="1.6" />);
-export const IcCal = () => svg16(<><rect x="2" y="3" width="12" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" {...st} strokeWidth="1.6" /></>);
-export const IcFlag = () => svg16(<path d="M3.5 14V2.5M3.5 2.5h8l-1.8 3 1.8 3h-8" {...st} strokeWidth="1.7" />);
-export const IcPlus = () => svg16(<path d="M8 3v10M3 8h10" {...st} strokeWidth="2" />);
-export const IcFilter = () => svg16(<path d="M2 3.5h12M4.5 8h7M7 12.5h2" {...st} strokeWidth="1.8" />);
-export const IcChev = () => svg16(<path d="M4 6l4 4 4-4" {...st} strokeWidth="1.8" />);
-export const IcMove = () => svg16(<path d="M2.5 8h10M9 4.5L12.5 8 9 11.5" {...st} strokeWidth="1.8" />);
-export const IcHist = () => svg16(<path d="M2.5 8a5.5 5.5 0 101.6-3.9M2.5 2.5v2.6h2.6M8 5v3.2l2.2 1.4" {...st} strokeWidth="1.6" />);
-export const IcBlock = () => svg16(<><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M3.8 12.2l8.4-8.4" stroke="currentColor" strokeWidth="1.7" /></>);
-export const IcClock = () => svg16(<><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.7" /><path d="M8 4.6V8l2.3 1.5" {...st} strokeWidth="1.7" /></>);
+export const IcComment = IconMsg12;
+export const IcCal = IconCal16;
+export const IcFlag = () => <span className="pri-dot" aria-hidden="true" />;
+export const IcPlus = IconPlus16;
+export const IcFilter = IconFilter16;
+export const IcChev = IconChev;
+export const IcMove = () => svg16(<path d="M8.66667 10.6667L11.3333 13.3333L14 10.6667M11.3333 13.3333V2.66667M7.33333 5.33333L4.66667 2.66667L2 5.33333M4.66667 2.66667V13.3333" {...st} strokeWidth="1.33333" />);
+export const IcHist = IconHist16;
+export const IcSearch = IconSearch16;
+export const IcBack = IconLeft16;
+export const IcX = IconX16;
+export const IcMore = IconMore16;
+export const IcEdit = () => svg16(<path d="M8 13.3333H14M11 2.33333C11.2652 2.06812 11.6249 1.91912 12 1.91912C12.3751 1.91912 12.7348 2.06812 13 2.33333C13.2652 2.59855 13.4142 2.95826 13.4142 3.33333C13.4142 3.70841 13.2652 4.06812 13 4.33333L4.66667 12.6667L2 13.3333L2.66667 10.6667L11 2.33333Z" {...st} strokeWidth="1.33333" />);
+export const IcClock = IconClock14;
 export const IcApi = () => svg16(<path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4" {...st} strokeWidth="1.7" />);
 export const IcReply = () => svg16(<path d="M6.5 4L2.5 7.5 6.5 11M2.5 7.5H10a3.5 3.5 0 013.5 3.5v1" {...st} strokeWidth="1.7" />);
-export const IcX = () => <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>;
-export const IcBack = () => <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5L7 10l5.5 5.5" {...st} strokeWidth="2" /></svg>;
-export const IcMore = () => <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4.5" cy="10" r="1.6" fill="currentColor" /><circle cx="10" cy="10" r="1.6" fill="currentColor" /><circle cx="15.5" cy="10" r="1.6" fill="currentColor" /></svg>;
-export { IconOk as IcOk, IconWait as IcWait };
+export { IconOk as IcOk, IconWait as IcWait, IconArchive14 as IcArch };
 
 export function Pips({ level }: { level: number }) {
-  return <span className="pips" aria-hidden="true">{[0, 1, 2].map((i) => <i key={i} className={i < level ? 'on' : ''} />)}</span>;
+  return <span className="pips" aria-hidden="true">{[0, 1, 2].map((i) => <i key={i} className={i < level ? '' : 'off'} />)}</span>;
 }
 
-/** Waiting-age pill on cards: pips + "1d" (text, so colour is never the only signal). */
+/** Waiting-age pill (cards, the Your input box): warn pill, dot + "<1d"/"2d" (text, so colour is never the only signal). */
 export function WaitAge({ level, days, long = false }: { level: number; days: number; long?: boolean }) {
   const txt = long ? `Waiting ${days < 1 ? 'less than 1 day' : `${days} ${days === 1 ? 'day' : 'days'}`}` : days < 1 ? '<1d' : `${days}d`;
-  return <span className={`wage w${level}`}><Pips level={level} />{txt}{!long && <span className="sr-only"> waiting</span>}</span>;
+  return <span className={`wage w${level}`}><span className="dotk" aria-hidden="true" />{txt}{!long && <span className="sr-only"> waiting</span>}</span>;
 }
 
 export function LabelChip({ label }: { label: Label }) {
-  return <span className={`lb l-${label.color}`}>{label.name}</span>;
+  return <span className="lb">{label.name}</span>;
 }
 
-/** 22px avatar: agents navy with an initial, humans (Tilen) ink, unassigned a dashed circle. */
+/** 24px radius-12 avatar: agents violet with an initial, humans ink, unassigned a dashed circle. */
 export function Avatar({ id, name, type, lg = false }: { id: string | null; name: string | null; type: 'agent' | 'human' | null; lg?: boolean }) {
   if (!id) return <i className={`av none${lg ? ' lg' : ''}`} title="Unassigned" aria-hidden="true">?</i>;
   return <i className={`av${type === 'human' ? ' h' : ''}${lg ? ' lg' : ''}`} title={name ?? id} aria-hidden="true">{initial(name ?? id)}</i>;
@@ -47,18 +50,29 @@ export function Avatar({ id, name, type, lg = false }: { id: string | null; name
 export const personType = (id: string | null, people: Person[]): 'agent' | 'human' | null =>
   id ? (people.find((p) => p.id === id)?.type ?? 'human') : null;
 
-/** PM-set project status badge: the existing StatusBadge, plus grey "Status not set" for null. */
+/** Project-status badge (the PM's status): waiting = warn tint with dot + pips + age; smooth = ok tint. */
 export function PmBadge({ status, level, ageDays }: { status: PmStatus | null; level?: number | null; ageDays?: number | null }) {
-  if (!status) return <span className="badge b-arch" aria-label="Status not set"><span>Status not set</span></span>;
-  return <StatusBadge status={status} level={level} ageDays={ageDays} />;
+  if (status === 'smooth') return <span className="badge b-ok"><span className="bdot" aria-hidden="true" /><span>{t('status.smooth')}</span></span>;
+  if (status === 'archived') return <span className="badge b-arch"><span className="bdot" aria-hidden="true" /><IconArchive14 /><span>{t('status.archived')}</span></span>;
+  if (!status) return <span className="badge b-arch"><span className="bdot" aria-hidden="true" /><span>{t('portfolio.status.none')}</span></span>;
+  const days = ageDays ?? 0;
+  const lvl = level ?? 1;
+  return (
+    <span className="badge" aria-label={ageAria(days)} title={ageAria(days)}>
+      <span className="bdot" aria-hidden="true" />
+      <span aria-hidden="true">{t('status.waiting')}</span>
+      <Pips level={lvl} />
+      <span className="bage" aria-hidden="true">{days < 1 ? t('portfolio.age.lt1') : t('status.waiting.age', { n: days })}</span>
+    </span>
+  );
 }
 
-/** History rows: badge without the age (the age belongs to the current status only). */
+/** History rows: the badge without the age (the age belongs to the current status only). */
 export function PlainBadge({ status }: { status: PmStatus | null }) {
-  if (status === 'smooth') return <span className="badge b-ok"><IconOk /><span>Smooth sailing</span></span>;
-  if (status === 'archived') return <span className="badge b-arch"><IconArch /><span>Archived</span></span>;
-  if (status === 'waiting') return <span className="badge b-w1"><IconWait /><span>Waiting input</span></span>;
-  return <span className="badge b-arch"><span>Status not set</span></span>;
+  if (status === 'smooth') return <span className="badge b-ok"><span className="bdot" aria-hidden="true" /><span>{t('status.smooth')}</span></span>;
+  if (status === 'archived') return <span className="badge b-arch"><span className="bdot" aria-hidden="true" /><IconArchive14 /><span>{t('status.archived')}</span></span>;
+  if (status === 'waiting') return <span className="badge"><span className="bdot" aria-hidden="true" /><span>{t('status.waiting')}</span></span>;
+  return <span className="badge b-arch"><span className="bdot" aria-hidden="true" /><span>{t('portfolio.status.none')}</span></span>;
 }
 
 export function useMedia(query: string): boolean {
@@ -196,14 +210,13 @@ export function ConfirmSheet({ message, confirmLabel, busy = false, error, onCon
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   return (
-    // Same look as the ticket drawer's "Discard unsaved changes?" confirm: safe action (.btn) first, then the red one.
-    <Sheet label={message} className="confirm cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
+    <Sheet label={message} className="cfm" onClose={onCancel} initialFocus={cancelRef} restoreFocus={restoreFocus}>
       <h3>{message}</h3>
-      <div className="qact">
-        <button ref={cancelRef} className="btn" type="button" onClick={onCancel}>Cancel</button>
-        <button className="abtn dng" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />Working…</> : confirmLabel}</button>
+      <div className="qact sheetb">
+        <button ref={cancelRef} className="btn" type="button" onClick={onCancel}>{t('cancel')}</button>
+        <button className="abtn dng" type="button" disabled={busy} onClick={onConfirm}>{busy ? <><span className="spin" />{t('q.saving')}</> : confirmLabel}</button>
       </div>
-      {error && <p className="err-line" role="alert">✕ {error}</p>}
+      {error && <p className="err-line sheetb" role="alert">{error}</p>}
     </Sheet>
   );
 }
@@ -233,11 +246,16 @@ export function ToastHost({ children }: { children: ReactNode }) {
           <div key={t.id} className={`toast${t.tone === 'err' ? ' err' : ''}`} role={t.tone === 'err' ? 'alert' : 'status'}>
             {t.icon}
             <div className="tbody">{t.body}</div>
-            {t.action && <button type="button" className="lnk" onClick={() => { t.action!.run(); dismiss(t.id); }}>{t.action.label}</button>}
-            <button type="button" className="tx" aria-label="Dismiss" onClick={() => dismiss(t.id)}><IcX /></button>
+            {t.action && <button type="button" className="tundo" onClick={() => { t.action!.run(); dismiss(t.id); }}>{t.action.label}</button>}
+            <button type="button" className="tx" aria-label="Dismiss" onClick={() => dismiss(t.id)}><IconX16 /></button>
           </div>
         ))}
       </div>
     </ToastCtx.Provider>
   );
+}
+
+/** "via MCP · Builder · 12m" card line (agent-authored latest comment). */
+export function ViaLine({ name, at, now }: { name: string; at: string | null; now: string }) {
+  return <span className="via"><span className="agentdot" aria-hidden="true" />{t('board.card.via')} · {name}{at ? <> · {ago(at, now)}</> : null}</span>;
 }

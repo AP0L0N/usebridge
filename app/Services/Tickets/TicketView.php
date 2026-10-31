@@ -90,6 +90,13 @@ final class TicketView
             'labels' => $t->labels->map->toView()->values()->all(),
             'comment_count' => $live->count(),
             'last_comment_at' => $live->max('created_at')?->toIso8601String(),
+            // Card "via MCP · Builder · 12m": the newest live comment's author and time (null when no comments).
+            'latest_comment' => ($latest = $live->sortBy('created_at')->last()) ? [
+                'author_id' => $latest->author_id,
+                'author_name' => $this->name($latest->author_id),
+                'author_type' => $latest->author_type,
+                'created_at' => $latest->created_at?->toIso8601String(),
+            ] : null,
             'unread_for_tilen' => $unread->isNotEmpty(),
             'latest_unread_author' => $latestUnread ? ['id' => $latestUnread->author_id, 'name' => $this->name($latestUnread->author_id)] : null,
             'created_by' => $t->created_by,

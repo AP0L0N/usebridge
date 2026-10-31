@@ -26,7 +26,7 @@ use Illuminate\Validation\ValidationException;
  */
 final class TicketService
 {
-    public const ASK_REQUIRED = 'Moving into Waiting on Tilen needs an ask: what do you need from Tilen?';
+    public const ASK_REQUIRED = 'Moving into Waiting on you needs an ask: what’s needed from you?';
 
     /** Validation rules for the editable ticket fields (create: title required). */
     public static function rules(bool $create): array
