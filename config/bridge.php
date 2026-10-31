@@ -37,4 +37,11 @@ return [
     'default_workspace' => env('BRIDGE_DEFAULT_WORKSPACE', 'tilen'),
     'default_workspace_name' => env('BRIDGE_DEFAULT_WORKSPACE_NAME', 'LANTIS'),
     'owner_email' => env('BRIDGE_OWNER_EMAIL'),
+
+    /*
+    | Breached-password check on sign-up, reset and change (HIBP k-anonymity range API, CoS decision 31 Oct). Fail-open:
+    | HIBP down or slower than hibp_timeout seconds = password allowed (warning logged). Off in phpunit.xml.
+    */
+    'hibp_enabled' => filter_var(env('BRIDGE_HIBP_ENABLED', true), FILTER_VALIDATE_BOOL),
+    'hibp_timeout' => 3,
 ];

@@ -35,5 +35,6 @@
         <env name="BRIDGE_GATE_PASSWORD" value="lantis-internal"/>
         <env name="BRIDGE_OWNER_EMAIL" value="owner@example.test"/>
         <env name="APP_TIMEZONE" value="Europe/Ljubljana"/>
+        <env name="BRIDGE_HIBP_ENABLED" value="false"/>
     </php>
 </phpunit>

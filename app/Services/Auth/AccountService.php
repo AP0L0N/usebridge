@@ -4,6 +4,7 @@ namespace App\Services\Auth;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Rules\NotBreachedPassword;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -24,9 +25,15 @@ final class AccountService
 
     public function __construct(private readonly DeviceSessions $sessions) {}
 
-    public static function passwordRule(): PasswordRule
+    /**
+     * Sign-up, reset and change: length first (bail), then the breached check (HIBP, fail-open), so a short password
+     * never costs an HTTP call.
+     *
+     * @return list<mixed>
+     */
+    public static function passwordRules(): array
     {
-        return PasswordRule::min(self::MIN_PASSWORD);
+        return ['bail', 'required', 'string', PasswordRule::min(self::MIN_PASSWORD), new NotBreachedPassword];
     }
 
     /**
@@ -42,7 +49,7 @@ final class AccountService
             [
                 'name' => ['required', 'string', 'max:120'],
                 'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-                'password' => ['required', 'string', self::passwordRule()],
+                'password' => self::passwordRules(),
                 'workspace' => ['required', 'string', 'max:120'],
             ],
         )->validate();
@@ -81,7 +88,7 @@ final class AccountService
      */
     public function resetPassword(string $email, string $token, string $password): string
     {
-        Validator::make(['password' => $password], ['password' => ['required', 'string', self::passwordRule()]])->validate();
+        Validator::make(['password' => $password], ['password' => self::passwordRules()])->validate();
 
         return Password::broker()->reset(
             ['email' => Str::lower(trim($email)), 'token' => $token, 'password' => $password],
@@ -104,7 +111,7 @@ final class AccountService
         if (! Hash::check($current, $user->password)) {
             throw ValidationException::withMessages(['current_password' => 'The current password is wrong.']);
         }
-        Validator::make(['password' => $new], ['password' => ['required', 'string', self::passwordRule()]])->validate();
+        Validator::make(['password' => $new], ['password' => self::passwordRules()])->validate();
         $user->forceFill(['password' => $new, 'remember_token' => Str::random(60)])->save();
         $this->sessions->logoutOthers($user, $currentSessionId);
     }
