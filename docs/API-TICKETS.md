@@ -64,7 +64,7 @@ The column set is fixed and the same for every project. Read it from `GET /api/b
 | `backlog` | Backlog | 0 | |
 | `todo` | To do | 1 | |
 | `in_progress` | In progress | 2 | |
-| `waiting_tilen` | Waiting on Tilen | 3 | Needs an `ask`. Always ordered oldest `waiting_since` first; positions are ignored. |
+| `waiting_tilen` | Waiting on you | 3 | Needs an `ask`. Always ordered oldest `waiting_since` first; positions are ignored. |
 | `review` | Review / QA | 4 | |
 | `done` | Done | 5 | The board shows the last 7 days by default. |
 
@@ -118,7 +118,7 @@ truth, but please correct it when you see one:
 {
   "id": "tk-01jbc3x9…", "key": "CA-12", "project_id": "proj-concierge-avant", "pm_agent_id": "agent-janice",
   "title": "Approve staging", "description": "Markdown…",
-  "status": "waiting_tilen", "status_label": "Waiting on Tilen", "position": 0,
+  "status": "waiting_tilen", "status_label": "Waiting on you", "position": 0,
   "assignee_type": "agent", "assignee_id": "agent-janice", "assignee_name": "Dr. Janice Polito",
   "priority": "p1", "due_on": "2026-11-02",
   "blocked": false, "blocked_reason": null,

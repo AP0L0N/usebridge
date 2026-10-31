@@ -24,7 +24,7 @@ final class BoardColumns
         self::BACKLOG => 'Backlog',
         self::TODO => 'To do',
         self::IN_PROGRESS => 'In progress',
-        self::WAITING_TILEN => 'Waiting on Tilen',
+        self::WAITING_TILEN => 'Waiting on you',
         self::REVIEW => 'Review / QA',
         self::DONE => 'Done',
     ];

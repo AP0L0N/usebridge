@@ -1,3 +1,4 @@
+import { t } from './strings';
 const TZ = 'Europe/Ljubljana';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -76,4 +77,19 @@ export function daysUntil(iso: string, nowIso: string): number {
 export function clockTime(iso: string): string {
   const p = parts(new Date(iso));
   return `${p.hh}:${p.mm}`;
+}
+
+/** Relative age for the redesigned cards: just now · 40 min ago · 2h ago · yesterday (opt-in) · 5d ago · 3 weeks ago · 2 months ago. */
+export function ago(iso: string | null | undefined, nowIso: string, opts: { yesterday?: boolean } = {}): string {
+  if (!iso) return '';
+  const mins = Math.max(0, Math.floor((new Date(nowIso).getTime() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return t('portfolio.time.now');
+  if (mins < 60) return t('portfolio.time.min', { n: mins });
+  if (mins < 1440) return t('portfolio.time.hour', { n: Math.floor(mins / 60) });
+  const days = Math.floor(mins / 1440);
+  if (days === 1 && opts.yesterday) return t('portfolio.time.yesterday');
+  if (days < 14) return t('portfolio.time.day', { n: days });
+  if (days < 60) { const n = Math.floor(days / 7); return t('portfolio.time.week', { n, weeks: t('portfolio.time.week.many') }); }
+  const n = Math.floor(days / 30);
+  return t('portfolio.time.month', { n, months: t('portfolio.time.month.many') });
 }
