@@ -68,6 +68,18 @@ return [
     ],
 
     /*
+    | Hard purge of deleted accounts (App\Services\Auth\AccountPurge, `bridge:accounts-purge`, daily). OFF by default:
+    | it conflicts with the standing "nothing hard-deleted" rule until Tilen decides; BRIDGE_ACCOUNT_PURGE_ENABLED is the
+    | only switch. Decided timing (31 Oct): permanent deletion account_purge_after_days after the 7-day grace (soft delete),
+    | i.e. 37 days after the delete request. Not env-switchable.
+    | support_email_retention_days: how long support emails are kept after the matter closes (config only; the mailbox
+    | clean-up is manual, nothing in the app deletes them).
+    */
+    'account_purge_enabled' => filter_var(env('BRIDGE_ACCOUNT_PURGE_ENABLED', false), FILTER_VALIDATE_BOOL),
+    'account_purge_after_days' => 30,
+    'support_email_retention_days' => (int) env('BRIDGE_SUPPORT_EMAIL_RETENTION_DAYS', 365),
+
+    /*
     | Breached-password check on sign-up, reset and change (HIBP k-anonymity range API, CoS decision 31 Oct). Fail-open:
     | HIBP down or slower than hibp_timeout seconds = password allowed (warning logged). Off in phpunit.xml.
     */

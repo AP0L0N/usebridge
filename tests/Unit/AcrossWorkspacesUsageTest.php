@@ -61,6 +61,7 @@ class AcrossWorkspacesUsageTest extends TestCase
     public function raw_table_queries_touch_only_unowned_tables_or_write_an_explicit_workspace(): void
     {
         $this->assertSame([
+            'app/Services/Auth/AccountPurge.php' => 7,   // console purge: rows of the purged user's own workspaces only, never a response
             'app/Services/Auth/DeviceSessions.php' => 3, // sessions (not workspace-owned)
             'app/Services/BridgeRoster.php' => 1,        // project_pm_events insert, workspace_id = the project's
         ], $this->uses('/DB::(table|select|update|delete|insert|statement)\s*\(/'));
