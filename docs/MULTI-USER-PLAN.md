@@ -4,6 +4,9 @@ Tilen's initiative (31 Oct 2026, via Captain W. Diego): other people run their o
 bots. Tommy + Marc's prototypes: `bridge-design-multiuser/design/bridge-multiuser/` (DESIGN.md + 8 screens). Groundwork
 is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 
+Ops details (hosts, server paths, database names, backups, owner email, deploy sequences, client names) are kept
+privately; this plan covers product decisions, architecture, API and the security model.
+
 ## 0. Decisions
 
 **Relayed decisions (via CoS, 31 Oct 07:47)** — Tilen's, relayed by the Chief of Staff:
@@ -21,7 +24,7 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 
 **Relayed decisions (via CoS, 31 Oct 08:49)** — Tilen's answers, relayed by the Chief of Staff:
 
-1. **Owner login email: `poje.tilen@gmail.com`** (`BRIDGE_OWNER_EMAIL` on staging/live).
+1. **Owner login email** comes from `BRIDGE_OWNER_EMAIL` on staging/live (value kept privately).
 2. **Cursor is on an individual plan** → no Admin API. Usage comes from the **Cursor dashboard CSV export**, attributed
    to **one account shown as "Cursor (all agents)"**; never a faked per-agent split (§7).
 3. **Mail domain pending**: `MAIL_MAILER=log` stays; sender address and name come from `MAIL_FROM_ADDRESS` /
@@ -37,22 +40,21 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 **Decisions by the Chief of Staff (Captain W. Diego), 31 Oct** — his calls, not Tilen's:
 
 1. **MCP uses `laravel/mcp`** (runtime dependency, `Mcp::web`, streamable HTTP; §6).
-2. **Staging first**: The Many runs a Bridge staging site on xerxes (`bridge-staging.tilenpoje.eu`, its own DB copy);
-   all multi-user work goes there first.
+2. **Staging first**: The Many runs a Bridge staging site (its own DB copy); all multi-user work goes there first.
 3. **Production only after a migration rehearsal** on a copy of the live DB, with row counts compared before/after.
 4. **Breached passwords**: checked against the HIBP k-anonymity range API (sign-up, reset, change); **fail-open** when
    HIBP is down or slow.
 5. **Per-project token scopes are v2.**
 6. **His working defaults (table below) are confirmed** (by him; still cheap to change).
 7. **Turnstile is the bot check**; keys pending (Cloudflare).
-8. **Workspace `LANTIS`, slug `tilen`.**
+8. **Backfilled workspace name and slug from config**: `BRIDGE_WORKSPACE_NAME` (default "My workspace") and
+   `BRIDGE_WORKSPACE_SLUG` (default `main`); an already-migrated database sets the slug it was migrated with.
 
 Still open: SMTP + SPF/DKIM/DMARC for `usebridge.si` (The Many). Until it is set, and until The Many has created the
 Turnstile keys, config decides:
 - no `TURNSTILE_*` keys → sign-up bot check is honeypot + minimum fill time only;
 - `MAIL_MAILER=log` → verification / reset links are written to the mail log only, not sent;
-- owner email comes from `BRIDGE_OWNER_EMAIL` (`poje.tilen@gmail.com`, 08:49 decision 1); the backfill migration
-  refuses to run without it.
+- owner email comes from `BRIDGE_OWNER_EMAIL` (08:49 decision 1); the backfill migration refuses to run without it.
 
 **Working defaults (CoS, 31 Oct; confirmed by the CoS, decision 6 above)** — we build to these; each is cheap to change:
 
@@ -143,7 +145,7 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
 ## 3. Migrating current data
 
 Done: `2026_10_31_110000_multi_user_backfill` (owner = `BRIDGE_OWNER_EMAIL` only, `migrate` refuses without it; workspace
-`tilen`/`LANTIS`, polymarket on; every row and token → that workspace; idempotent, `down()` drops only what it made).
+`BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` (config `bridge.default_workspace` / `bridge.default_workspace_name`), polymarket on; every row and token → that workspace; idempotent, `down()` drops only what it made).
 Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BRIDGE_API_TOKEN` lists the same projects.
 
 ## 4. API tokens
@@ -223,7 +225,7 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 
 ## 7. Cursor usage
 
-**Source (Tilen, relayed by the CoS 31 Oct 08:49): LANTIS is on a Cursor _individual_ plan.** That plan has no Admin
+**Source (Tilen, relayed by the CoS 31 Oct 08:49): the team is on a Cursor _individual_ plan.** That plan has no Admin
 API, so Bridge imports the **dashboard CSV export**. Everything is attributed to **one account, shown as
 "Cursor (all agents)"** (`agent_id` `cursor`). The export has no per-agent attribution, and Bridge never fakes a split.
 
@@ -233,7 +235,7 @@ API, so Bridge imports the **dashboard CSV export**. Everything is attributed to
 3. Pick the date range (e.g. the last 7 or 30 days; overlapping earlier uploads is fine).
 4. Click **Export CSV**.
 5. Upload the file: `POST /usage/cursor-csv` (multipart `file`; the Usage page gets an upload control in the UI run),
-   or on the box `php artisan bridge:cursor-csv-import <file.csv> [--workspace=tilen] [--dry-run]`.
+   or on the box `php artisan bridge:cursor-csv-import <file.csv> [--workspace=<slug>] [--dry-run]`.
 
 **Required columns** (matched by name: case-insensitive, trimmed, any order, UTF-8 BOM allowed): `Date`, `Model`,
 `Input (w/o Cache Write)`, `Input (w/ Cache Write)`, `Cache Read`, `Output Tokens`. Optional: `Cost`, `Max Mode`.
@@ -277,7 +279,7 @@ the other tools (tool "Cursor", agent "Cursor (all agents)").
 a `cli_usage_imports` marker per covered tool (marker + no rows = zero, no marker = no file), and stores the optional
 `cost_cents` (decimal) / `max_mode_calls` columns. `CliUsageDay::TOOLS` includes `cursor`.
 
-**If LANTIS moves to a Team plan** (not the case today): the Admin API (`POST
+**If the team moves to a Team plan** (not the case today): the Admin API (`POST
 https://api.cursor.com/teams/filtered-usage-events`, admin key with Basic auth, ≤ 30-day ranges, 20 req/min) returns
 per event `userEmail`, `serviceAccountId`, `model`, `maxMode`, `tokenUsage {inputTokens, outputTokens,
 cacheWriteTokens, cacheReadTokens}`, `chargedCents`. Captain would pull it (Bridge never stores a Cursor key) and POST
@@ -413,22 +415,35 @@ out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification; unt
 (10) `BRIDGE_HIBP_ENABLED` stays unset (on) — the box needs outbound HTTPS to `api.pwnedpasswords.com` (fail-open
 otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with a verified user's token.
 
-**Staging (`bridge_staging`, migrated before (1) was enforced: Captain's API user is owner + admin, no Tilen user):**
-1. `php artisan bridge:set-owner --email=poje.tilen@gmail.com --name=Tilen --dry-run`, then without `--dry-run`. Tilen is
-   created (verified, admin, unusable password) and becomes owner; Captain becomes member, not admin; tokens untouched.
-   Tilen sets a password via `/forgot-password` (with `MAIL_MAILER=log` the mail is in the log; never paste the link).
+**Staging (a copy migrated before (1) was enforced: Captain's API user is owner + admin, no owner user):**
+1. `php artisan bridge:set-owner --email=<owner email> --name=<name> --dry-run` (`--workspace` defaults to
+   `bridge.default_workspace`), then without `--dry-run`. The owner is created (verified, admin, unusable password) and
+   becomes owner; Captain becomes member, not admin; tokens untouched. The owner sets a password via `/forgot-password`
+   (with `MAIL_MAILER=log` the mail is in the log; never paste the link).
 2. `php artisan bridge:rotate-copied-tokens --out=<new file>` (`APP_ENV=staging`, or `--force-env=staging` on a
-   non-production env; refuses the live `APP_URL`). Every copied live token gets a new plaintext in place; the new
-   `NAME=id|token` lines (`BRIDGE_API_TOKEN` for `ceo`) are only in that 0600 file. Live tokens then answer 401 there.
+   non-production env; refuses when `APP_URL` is `BRIDGE_LIVE_HOST`). Every copied live token gets a new plaintext in
+   place; the new `NAME=id|token` lines (`BRIDGE_API_TOKEN` for `ceo`) are only in that 0600 file. Live tokens then
+   answer 401 there.
 
-**Prod:** set `BRIDGE_OWNER_EMAIL=poje.tilen@gmail.com` before `migrate` (step (1) above); no set-owner / rotation needed.
+**Prod:** set `BRIDGE_OWNER_EMAIL` (and the workspace slug/name the database was migrated with) before `migrate`
+(step (1) above); no set-owner / rotation needed. The exact sequences and values are kept privately.
+
+**Configuration (env, all optional unless noted):**
+
+| Env | Default | Meaning |
+|---|---|---|
+| `BRIDGE_OWNER_EMAIL` | – (required before the backfill migration) | owner of the backfilled workspace |
+| `BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` | `main` / "My workspace" | backfilled workspace (gate sessions and console writes act in it); a migrated database must keep its slug |
+| `BRIDGE_PUBLIC_URL` | `APP_URL` | base for ticket links in API payloads |
+| `BRIDGE_LIVE_HOST` | empty (no host check) | the live host `bridge:rotate-copied-tokens` refuses |
+| `BRIDGE_GATE_PASSWORD` | empty (gate off) | transitional AUTH-1 workspace password |
+| `BRIDGE_ROSTER_PATH` | empty (empty roster) | JSON file outside the repo: `{"agents": {"agent-id": ["Name", "Role"]}, "pms": {"project-id": "agent-id"}, "ticket_prefixes": {"project-id": "PREFIX"}}` (`ticket_prefixes` optional); used by the 2026_10_29 roster migration, `bridge:set-pms` and fixed ticket prefixes. Missing / unreadable / invalid → empty roster and one warning log line (no contents), nothing changes |
 
 ## 12. Open questions for Tilen
 
-Answered by the Chief of Staff on 31 Oct (§0): MCP → `laravel/mcp`; staging on xerxes (`bridge-staging.tilenpoje.eu`);
-HIBP breached check, fail-open; per-project scopes v2; working defaults confirmed; Turnstile; workspace `LANTIS` / slug
-`tilen`. Answered by Tilen (relayed by the CoS, 31 Oct 08:49, §0): owner email `poje.tilen@gmail.com`; Cursor
-individual plan → CSV import, one "Cursor (all agents)" account; mail stays on `log` with an env-configured sender;
-Turnstile keys created by The Many. Still open:
+Answered by the Chief of Staff on 31 Oct (§0): MCP → `laravel/mcp`; staging first; HIBP breached check, fail-open;
+per-project scopes v2; working defaults confirmed; Turnstile; workspace name/slug from config. Answered by Tilen
+(relayed by the CoS, 31 Oct 08:49, §0): owner email (env); Cursor individual plan → CSV import, one "Cursor (all
+agents)" account; mail stays on `log` with an env-configured sender; Turnstile keys created by The Many. Still open:
 
 1. SMTP + SPF/DKIM/DMARC for `usebridge.si`, The Many (domain decided 31 Oct 09:36). Until then `MAIL_MAILER=log`.

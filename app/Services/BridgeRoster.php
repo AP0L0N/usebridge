@@ -5,40 +5,84 @@ namespace App\Services;
 use App\Models\Agent;
 use App\Models\Project;
 use App\Services\Tickets\Actor;
+use App\Support\TicketPrefix;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
- * Captain's roster (29 Oct 2026): agent rows that must exist and the real PM of every active project.
+ * Roster: agent rows that must exist and the PM of every active project, loaded from the JSON file at
+ * BRIDGE_ROSTER_PATH (config bridge.roster.path, kept outside the repo):
+ *   {"agents": {"agent-id": ["Name", "Role"]}, "pms": {"project-id": "agent-id"}, "ticket_prefixes": {"project-id": "AB"}}
+ * ("ticket_prefixes" is optional, see TicketPrefix). Missing, unreadable or invalid file = empty roster (nothing
+ * changes) and one warning log line without the file's contents.
  * Idempotent and additive: missing agents are inserted (existing rows are never modified), and only
  * projects.owner_agent_id (the PM, "pm_agent_id" in the API) changes. Nothing is deleted.
  * Applied by the 2026_10_29_120000 migration on deploy and by `php artisan bridge:set-pms [--dry-run]`.
  */
 final class BridgeRoster
 {
-    /** id => [name, role_label] */
-    public const AGENTS = [
-        'agent-enrique' => ['Enrique Cortez', 'PM · AdriaEdition'],
-        'agent-erin' => ['Erin Bloome', 'Developer'],
-        'agent-marc' => ['Marc Miller', 'Agent'],
-        'agent-the-many' => ['The Many', 'Deploy'],
-        'agent-constance' => ['Constance Sanger', 'QA'],
-        'agent-taz' => ['Taz Amanpour', 'Agent'],
-        'agent-anatoly' => ['Anatoly Korenchkin', 'Sales owner · Merkwell'],
-    ];
+    /** @var array<string, array{agents: array<string, array{0: string, 1: string}>, pms: array<string, string>, ticket_prefixes: array<string, string>}> */
+    private static array $loaded = [];
 
-    /** project id => PM agent id */
-    public const PMS = [
-        'proj-chipolo' => 'agent-angela',                     // Chipolo CraftCMS
-        'proj-01m4rs9vazyhx6xz37hfmjwea7' => 'agent-watts',   // Chipolo Shopify
-        'proj-01m4rs1yd40cnfn1c681sw3ght' => 'agent-enrique', // AdriaEdition
-        'proj-concierge-avant' => 'agent-janice',             // Concierge
-        'proj-merkwell' => 'agent-anatoly',                   // Merkwell
-        'proj-chatpulse' => 'agent-alice',                    // ChatPulse
-    ];
+    /**
+     * @return array{agents: array<string, array{0: string, 1: string}>, pms: array<string, string>, ticket_prefixes: array<string, string>}
+     */
+    public static function load(): array
+    {
+        $empty = ['agents' => [], 'pms' => [], 'ticket_prefixes' => []];
+        $path = config('bridge.roster.path');
+        if (! is_string($path) || $path === '') {
+            return $empty;
+        }
+        clearstatcache(true, $path);
+        $key = $path.'|'.@filemtime($path).'|'.@filesize($path);
+        if (isset(self::$loaded[$key])) {
+            return self::$loaded[$key];
+        }
+        $raw = is_file($path) && is_readable($path) ? @file_get_contents($path) : false;
+        $data = is_string($raw) ? json_decode($raw, true) : null;
+        $roster = is_array($data) ? self::validated($data) : null;
+        if ($roster === null) {
+            Log::warning('Bridge roster: BRIDGE_ROSTER_PATH is missing, unreadable or invalid; using an empty roster.');
+
+            return self::$loaded[$key] = $empty;
+        }
+
+        return self::$loaded[$key] = $roster;
+    }
+
+    /** @return array{agents: array<string, array{0: string, 1: string}>, pms: array<string, string>, ticket_prefixes: array<string, string>}|null */
+    private static function validated(array $data): ?array
+    {
+        $agents = $data['agents'] ?? [];
+        $pms = $data['pms'] ?? [];
+        $prefixes = $data['ticket_prefixes'] ?? [];
+        if (! is_array($agents) || ! is_array($pms) || ! is_array($prefixes)) {
+            return null;
+        }
+        foreach ($agents as $id => $row) {
+            if (! is_string($id) || $id === '' || ! is_array($row) || ! array_is_list($row) || count($row) !== 2
+                || ! is_string($row[0]) || $row[0] === '' || ! is_string($row[1])) {
+                return null;
+            }
+        }
+        foreach ($pms as $project => $agent) {
+            if (! is_string($project) || $project === '' || ! is_string($agent) || $agent === '') {
+                return null;
+            }
+        }
+        foreach ($prefixes as $project => $prefix) {
+            if (! is_string($project) || $project === '' || ! is_string($prefix) || ! preg_match(TicketPrefix::PATTERN, $prefix)) {
+                return null;
+            }
+        }
+
+        return ['agents' => $agents, 'pms' => $pms, 'ticket_prefixes' => $prefixes];
+    }
 
     /**
      * @return array{agents_created: list<string>, agents_kept: list<string>, pms: list<array{project:string,from:?string,to:string,changed:bool}>, missing_projects: list<string>, missing_agents: list<string>}
@@ -47,9 +91,10 @@ final class BridgeRoster
     {
         $out = ['agents_created' => [], 'agents_kept' => [], 'pms' => [], 'missing_projects' => [], 'missing_agents' => []];
 
-        $run = function () use ($dryRun, &$out) {
+        $roster = self::load();
+        $run = function () use ($dryRun, &$out, $roster) {
             $now = Carbon::now();
-            foreach (self::AGENTS as $id => [$name, $role]) {
+            foreach ($roster['agents'] as $id => [$name, $role]) {
                 if (Agent::query()->whereKey($id)->exists()) {
                     $out['agents_kept'][] = $id;
 
@@ -60,7 +105,7 @@ final class BridgeRoster
                     Agent::query()->insert(['id' => $id, 'name' => $name, 'role_label' => $role, 'created_at' => $now, 'updated_at' => $now, ...self::workspace('agents')]);
                 }
             }
-            foreach (self::PMS as $projectId => $pm) {
+            foreach ($roster['pms'] as $projectId => $pm) {
                 $project = Project::query()->find($projectId);
                 if (! $project) {
                     $out['missing_projects'][] = $projectId;

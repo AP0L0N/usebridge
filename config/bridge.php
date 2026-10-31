@@ -2,10 +2,10 @@
 
 return [
     /*
-    | AUTH-1: single shared workspace gate password (Captain-approved).
-    | Override via BRIDGE_GATE_PASSWORD. Default remains lantis-internal.
+    | AUTH-1: single shared workspace gate password (transitional). Set via BRIDGE_GATE_PASSWORD; empty (the default)
+    | = the gate is off (no "Workspace password" link, nothing unlocks).
     */
-    'gate_password' => env('BRIDGE_GATE_PASSWORD', 'lantis-internal'),
+    'gate_password' => (string) env('BRIDGE_GATE_PASSWORD', ''),
 
     /*
     | Bridge r1 migration: carry r0 items over as open Required inputs?
@@ -24,22 +24,38 @@ return [
     */
     'legacy_read_only' => filter_var(env('BRIDGE_LEGACY_READ_ONLY', false), FILTER_VALIDATE_BOOL),
 
-    /* Public Bridge URL, used for ticket links in API payloads (answers relay). */
-    // The live Bridge host: the staging-only ops commands refuse to run when APP_URL is this host.
-    'live_host' => strtolower((string) env('BRIDGE_LIVE_HOST', '')),
+    /* Public Bridge URL, used for ticket links in API payloads (answers relay). Defaults to APP_URL. */
+    'public_url' => env('BRIDGE_PUBLIC_URL') ?: env('APP_URL', 'http://localhost'),
 
-    'public_url' => env('BRIDGE_PUBLIC_URL', 'https://bridge.tilenpoje.eu'),
+    /*
+    | Host of the live Bridge: `bridge:rotate-copied-tokens` refuses to run when APP_URL has this host (set it on
+    | staging copies of the live database). Empty = no host check (the APP_ENV checks still apply).
+    */
+    'live_host' => strtolower((string) env('BRIDGE_LIVE_HOST', '')),
 
     'org_timezone' => 'Europe/Ljubljana',
 
     /*
-    | Multi-user (docs/MULTI-USER-PLAN.md). default_workspace: slug of Tilen's workspace, created by the backfill
-    | migration; AUTH-1 gate sessions and console writes without a workspace act in it (transitional).
-    | owner_email: Tilen's login email; read once by the backfill migration to pick/create the owner user.
+    | Multi-user (docs/MULTI-USER-PLAN.md). default_workspace: slug of the owner's workspace (BRIDGE_WORKSPACE_SLUG),
+    | created by the backfill migration with the name BRIDGE_WORKSPACE_NAME; AUTH-1 gate sessions and console writes
+    | without a workspace act in it (transitional). An already migrated database must keep the slug it was created
+    | with: set BRIDGE_WORKSPACE_SLUG to it.
+    | owner_email: the owner's login email; read once by the backfill migration to pick/create the owner user.
     */
-    'default_workspace' => env('BRIDGE_DEFAULT_WORKSPACE', 'tilen'),
-    'default_workspace_name' => env('BRIDGE_DEFAULT_WORKSPACE_NAME', 'LANTIS'),
+    'default_workspace' => (string) (env('BRIDGE_WORKSPACE_SLUG') ?: 'main'),
+    'default_workspace_name' => (string) (env('BRIDGE_WORKSPACE_NAME') ?: 'My workspace'),
     'owner_email' => env('BRIDGE_OWNER_EMAIL'),
+
+    /* Login email of the API user BridgeApiSeeder creates or reuses. */
+    'api_user_email' => (string) (env('BRIDGE_API_USER_EMAIL') ?: 'captain@example.test'),
+
+    /*
+    | Roster (App\Services\BridgeRoster): JSON file outside the repo with the agents that must exist, each project's
+    | PM and optional fixed ticket prefixes. Empty / missing / invalid = empty roster (one warning log line).
+    */
+    'roster' => [
+        'path' => env('BRIDGE_ROSTER_PATH'),
+    ],
 
     /*
     | Breached-password check on sign-up, reset and change (HIBP k-anonymity range API, CoS decision 31 Oct). Fail-open:

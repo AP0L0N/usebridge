@@ -50,16 +50,16 @@ class WorkspaceScopeTest extends TestCase
 
         $this->current()->runAs($other, function () use ($other) {
             $this->assertSame(0, Project::query()->count());
-            $this->assertNull(Project::query()->find(BridgeSeeder::PROJ_MERKWELL));
+            $this->assertNull(Project::query()->find(BridgeSeeder::PROJ_NORTHWIND));
             Agent::query()->create(['id' => 'agent-grok', 'name' => 'Grok', 'role_label' => 'Bot']);
-            $p = Project::query()->create(['id' => 'proj-grok', 'name' => 'Merkwell Two', 'slug' => 'grok', 'owner_agent_id' => 'agent-grok']);
+            $p = Project::query()->create(['id' => 'proj-grok', 'name' => 'Northwind', 'slug' => 'grok', 'owner_agent_id' => 'agent-grok']);
             $this->assertSame($other->id, $p->workspace_id);
-            $this->assertNotSame('MW', $p->ticket_prefix, 'prefixes stay globally unique');
+            $this->assertSame('NOR', $p->ticket_prefix, 'prefixes stay globally unique (NO is the seeded Northwind\'s)');
             $this->assertSame(['proj-grok'], Project::query()->pluck('id')->all());
         });
 
         $this->current()->runAs($this->current()->default(), function () {
-            $this->assertEqualsCanonicalizing([BridgeSeeder::PROJ_MERKWELL, BridgeSeeder::PROJ_CONCIERGE], Project::query()->pluck('id')->all());
+            $this->assertEqualsCanonicalizing([BridgeSeeder::PROJ_NORTHWIND, BridgeSeeder::PROJ_BLUE_HARBOR], Project::query()->pluck('id')->all());
             $this->assertNull(Agent::query()->find('agent-grok'));
         });
     }

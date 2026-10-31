@@ -126,23 +126,23 @@ class McpServerTest extends TestCase
     public function a_read_only_token_reads_but_cannot_call_write_tools(): void
     {
         $writer = $this->scopedToken($this->tilen, $this->workspace, 'write');
-        $key = $this->tool($writer, 'create_ticket', ['project' => self::CA, 'title' => 'Draft the brief', 'actor' => self::JANICE])['data']['key'];
+        $key = $this->tool($writer, 'create_ticket', ['project' => self::BH, 'title' => 'Draft the brief', 'actor' => self::JANICE])['data']['key'];
         $read = $this->scopedToken($this->tilen, $this->workspace, 'read');
-        $statuses = count($this->bearer($read, 'GET', '/api/status-updates?project_id='.self::CA)->json('data'));
-        $projectStatus = $this->bearer($read, 'GET', '/api/projects/'.self::CA.'/status')->json('data.current');
+        $statuses = count($this->bearer($read, 'GET', '/api/status-updates?project_id='.self::BH)->json('data'));
+        $projectStatus = $this->bearer($read, 'GET', '/api/projects/'.self::BH.'/status')->json('data.current');
 
-        foreach (['list_projects' => [], 'get_board' => ['project' => self::CA], 'list_tickets' => [], 'get_ticket' => ['key' => $key],
+        foreach (['list_projects' => [], 'get_board' => ['project' => self::BH], 'list_tickets' => [], 'get_ticket' => ['key' => $key],
             'list_agents' => [], 'list_labels' => []] as $name => $args) {
             $this->tool($read, $name, $args);
         }
 
         foreach ([
-            'create_ticket' => [['project' => self::CA, 'title' => 'Sneaky'], 'boards:write'],
+            'create_ticket' => [['project' => self::BH, 'title' => 'Sneaky'], 'boards:write'],
             'update_ticket' => [['key' => $key, 'title' => 'Sneaky'], 'boards:write'],
             'move_ticket' => [['key' => $key, 'status' => 'done'], 'boards:write'],
             'comment_ticket' => [['key' => $key, 'body' => 'Sneaky'], 'boards:write'],
-            'post_status' => [['project' => self::CA, 'body' => 'Sneaky'], 'status:write'],
-            'set_project_status' => [['project' => self::CA, 'status' => 'waiting'], 'status:write'],
+            'post_status' => [['project' => self::BH, 'body' => 'Sneaky'], 'status:write'],
+            'set_project_status' => [['project' => self::BH, 'status' => 'waiting'], 'status:write'],
         ] as $name => [$args, $ability]) {
             $message = $this->toolError($read, $name, [...$args, 'actor' => self::JANICE]);
             $this->assertSame("This token lacks the '$ability' ability.", $message);
@@ -151,8 +151,8 @@ class McpServerTest extends TestCase
         $ticket = $this->bearer($read, 'GET', "/api/tickets/$key")->assertOk();
         $ticket->assertJsonPath('data.title', 'Draft the brief')->assertJsonPath('data.status', 'todo')->assertJsonCount(0, 'data.comments');
         $this->bearer($read, 'GET', '/api/tickets?q=Sneaky')->assertOk()->assertJsonCount(0, 'data');
-        $this->bearer($read, 'GET', '/api/status-updates?project_id='.self::CA)->assertJsonCount($statuses, 'data');
-        $this->bearer($read, 'GET', '/api/projects/'.self::CA.'/status')->assertJsonPath('data.current', $projectStatus);
+        $this->bearer($read, 'GET', '/api/status-updates?project_id='.self::BH)->assertJsonCount($statuses, 'data');
+        $this->bearer($read, 'GET', '/api/projects/'.self::BH.'/status')->assertJsonPath('data.current', $projectStatus);
     }
 
     #[Test]
@@ -161,8 +161,8 @@ class McpServerTest extends TestCase
         foreach (['ceo', '*'] as $ability) {
             $token = $this->tilen->createToken("legacy-$ability", [$ability])->plainTextToken;
             $this->tool($token, 'list_projects');
-            $this->tool($token, 'post_status', ['project' => self::CA, 'body' => "via $ability", 'actor' => self::CAPTAIN]);
-            $this->tool($token, 'create_ticket', ['project' => self::CA, 'title' => "via $ability", 'actor' => self::CAPTAIN]);
+            $this->tool($token, 'post_status', ['project' => self::BH, 'body' => "via $ability", 'actor' => self::CAPTAIN]);
+            $this->tool($token, 'create_ticket', ['project' => self::BH, 'title' => "via $ability", 'actor' => self::CAPTAIN]);
         }
     }
 }

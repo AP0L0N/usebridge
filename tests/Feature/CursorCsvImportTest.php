@@ -376,12 +376,12 @@ class CursorCsvImportTest extends TestCase
         $path = base_path('tests/fixtures/cursor/v2.csv');
 
         $this->artisan('bridge:cursor-csv-import', ['path' => $path, '--dry-run' => true])
-            ->expectsOutputToContain('DRY RUN (nothing written) tilen: 2026-10-24 .. 2026-10-26, 6 rows, 3,240 tokens')
+            ->expectsOutputToContain('DRY RUN (nothing written) '.config('bridge.default_workspace').': 2026-10-24 .. 2026-10-26, 6 rows, 3,240 tokens')
             ->assertExitCode(0);
         $this->assertSame(0, CliUsageDay::acrossWorkspaces()->count());
         $this->assertSame(0, CliUsageImport::acrossWorkspaces()->count());
 
-        $this->artisan('bridge:cursor-csv-import', ['path' => $path, '--workspace' => 'tilen'])
+        $this->artisan('bridge:cursor-csv-import', ['path' => $path, '--workspace' => config('bridge.default_workspace')])
             ->expectsOutputToContain('days imported 3, zero 0, kept 0')->assertExitCode(0);
         $this->assertSame(3, CliUsageImport::acrossWorkspaces()->where('workspace_id', $this->tilen()->id)->count());
     }

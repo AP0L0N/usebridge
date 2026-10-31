@@ -1,9 +1,9 @@
 // Kanban screenshots against the LOCAL server (sqlite in /tmp). Gate password read from .env, never printed.
 // Usage: node tests/browser/shoot-kanban.mjs [name-prefix …]   (writes shots/kanban/*.png; prints the per-shot checks)
-import { chromium } from '/home/box/pwcheck/node_modules/playwright-core/index.mjs';
+const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-const REPO = '/workspace/bridge-tickets/repo', BASE = 'http://127.0.0.1:8792', OUT = REPO + '/shots/kanban/';
+const REPO = process.cwd(), BASE = 'http://127.0.0.1:8792', OUT = process.env.SHOTS_DIR ?? REPO + '/shots/kanban/';
 const PW = readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)[1].trim().replace(/^"|"$/g, '');
 const only = process.argv.slice(2);
 const reseed = () => execSync('php artisan db:seed --class=KanbanSampleSeeder --force -q', { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
@@ -55,23 +55,23 @@ for (const [w, h] of SIZES) {
   const { ctx, p } = await ctxFor(w, h);
   if (want('portfolio')) { await p.goto(BASE + '/?archived=1'); await shot(p, `portfolio-${w}`); }
   // First board open: the PM status changed since Tilen's last visit -> toast once.
-  await p.goto(BASE + '/projects/concierge-avant'); await p.waitForSelector('.toast');
+  await p.goto(BASE + '/projects/blue-harbor'); await p.waitForSelector('.toast');
   if (want('states-toast')) await shot(p, `states-toast-${w}`, { full: false });
   if (want('states-history')) {
     await p.click('.pstat .hist .lnk'); await p.waitForSelector(m ? '.sheet' : '.hpop');
     await shot(p, `states-history-${w}`, { full: false }); await p.keyboard.press('Escape');
   }
-  await p.goto(BASE + '/projects/concierge-avant'); await p.waitForTimeout(300);
+  await p.goto(BASE + '/projects/blue-harbor'); await p.waitForTimeout(300);
   if (want('board')) await shot(p, `board-${w}`);
   // ---- Tommy review 29 Oct: status menu (a), filters (b), the ask (c)
   if (want('states-status')) {
     await p.click('.bbtn'); await p.waitForSelector(m ? '.sheet .sform' : '.smenu');
     await shot(p, `states-status-menu-${w}`, { full: false });
     await p.getByLabel('Smooth sailing').check(); await p.fill('#pst-note', 'Cart sign-off is in; nothing waiting on Tilen.');
-    await p.route('**/projects/concierge-avant/status', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
+    await p.route('**/projects/blue-harbor/status', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
     await p.click('.sform button[type=submit]'); await p.waitForSelector('.sform .err-line');
     await shot(p, `states-status-error-${w}`, { full: false });
-    await p.unroute('**/projects/concierge-avant/status');
+    await p.unroute('**/projects/blue-harbor/status');
     await p.click('.sform .abtn'); await p.waitForTimeout(200);
   }
   if (want('states-filter')) {
@@ -84,11 +84,11 @@ for (const [w, h] of SIZES) {
   }
   if (m && (want('states-move') || want('states-ask'))) {
     await p.click('#tab-todo'); await p.waitForTimeout(400);
-    await p.click('[data-key="CA-124"] .tkmv'); await p.waitForSelector('.sheet');
+    await p.click('[data-key="BH-124"] .tkmv'); await p.waitForSelector('.sheet');
     if (want('states-move')) await shot(p, `states-move-sheet-${w}`, { full: false });
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     await p.click('#tab-backlog'); await p.waitForTimeout(400);
-    await p.click('[data-key="CA-131"] .tkmv'); await p.waitForSelector('.sheet');
+    await p.click('[data-key="BH-131"] .tkmv'); await p.waitForSelector('.sheet');
     await p.click('.mvl [data-col="waiting_tilen"]'); await p.waitForSelector('.sheet .askf');
     if (want('states-ask')) {
       await shot(p, `states-ask-${w}`, { full: false });
@@ -98,7 +98,7 @@ for (const [w, h] of SIZES) {
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
   }
   if (!m && want('states-ask')) {
-    const card = await p.locator('[data-key="CA-131"]').boundingBox();
+    const card = await p.locator('[data-key="BH-131"]').boundingBox();
     const target = await p.locator('#col-waiting_tilen .colsub').boundingBox();
     await p.mouse.move(card.x + 60, card.y + 30); await p.mouse.down();
     await p.mouse.move(card.x + 80, card.y + 40, { steps: 3 });
@@ -112,7 +112,7 @@ for (const [w, h] of SIZES) {
   if (!m && want('states-move-error')) {
     // A move whose request fails (500 injected): the card is back in Backlog, error toast without an HTTP code.
     await p.route('**/move', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
-    await p.focus('[data-key="CA-133"] .tkl'); await p.keyboard.press('Space'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('Space');
+    await p.focus('[data-key="BH-133"] .tkl'); await p.keyboard.press('Space'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('Space');
     await p.waitForSelector('.toast.err'); await p.evaluate(() => document.activeElement?.blur());
     await shot(p, `states-move-error-${w}`, { full: false });
     await p.unroute('**/move');
@@ -120,14 +120,14 @@ for (const [w, h] of SIZES) {
   }
   if (m && want('states-move-undo')) {
     await p.click('#tab-todo'); await p.waitForTimeout(300);
-    await p.click('[data-key="CA-124"] .tkmv'); await p.click('.mvl [data-col="review"]');
+    await p.click('[data-key="BH-124"] .tkmv'); await p.click('.mvl [data-col="review"]');
     await p.waitForSelector('.toast .lnk'); await p.waitForTimeout(800);
     await shot(p, `states-move-undo-${w}`, { full: false });
     await p.click('.toast .lnk'); await p.waitForTimeout(1200);
   }
   if (!m && want('states-drag')) {
-    const card = await p.locator('[data-key="CA-124"]').boundingBox();
-    const target = await p.locator('#col-in_progress [data-key="CA-121"]').boundingBox();
+    const card = await p.locator('[data-key="BH-124"]').boundingBox();
+    const target = await p.locator('#col-in_progress [data-key="BH-121"]').boundingBox();
     await p.mouse.move(card.x + 60, card.y + 30); await p.mouse.down();
     await p.mouse.move(card.x + 80, card.y + 40, { steps: 3 });
     await p.mouse.move(target.x + 60, target.y + 20, { steps: 8 });
@@ -136,11 +136,11 @@ for (const [w, h] of SIZES) {
     await p.reload();
   }
   if (!m && want('states-keyboard')) {
-    await p.focus('[data-key="CA-129"] .tkl'); await p.keyboard.press('Space'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowUp');
+    await p.focus('[data-key="BH-129"] .tkl'); await p.keyboard.press('Space'); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowUp');
     await shot(p, `states-keyboard-${w}`, { full: false }); await p.keyboard.press('Escape');
   }
   if (want('ticket')) {
-    await p.goto(BASE + '/projects/concierge-avant/tickets/CA-115'); await p.waitForSelector('.dlg .thread');
+    await p.goto(BASE + '/projects/blue-harbor/tickets/BH-115'); await p.waitForSelector('.dlg .thread');
     // match the mock: first option picked, note typed
     await p.click('.tin .opt >> nth=0'); await p.fill('#tin-t', 'Keep the current rule for launch. Revisit after the first 50 group stays.');
     await p.evaluate(() => { document.activeElement?.blur(); document.querySelector('.dlgov').scrollTop = 0; });
@@ -151,7 +151,7 @@ for (const [w, h] of SIZES) {
       await p.waitForSelector('.cm.tl'); await p.evaluate(() => document.activeElement?.blur());
       await shot(p, `states-input-sent-${w}`, { dialog: true });
       // QA M1: the PM acks while the ticket stays in Waiting on Tilen -> "You answered at …", not a blank form.
-      execSync(`php artisan tinker --execute="app(App\\Services\\Tickets\\TicketService::class)->ackInput(App\\Models\\Ticket::where('key','CA-115')->firstOrFail(), new App\\Services\\Tickets\\Actor('agent-janice','agent','api'));"`,
+      execSync(`php artisan tinker --execute="app(App\\Services\\Tickets\\TicketService::class)->ackInput(App\\Models\\Ticket::where('key','BH-115')->firstOrFail(), new App\\Services\\Tickets\\Actor('agent-janice','agent','api'));"`,
         { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
       await p.reload(); await p.waitForSelector('.dlg .thread'); await p.waitForSelector('.tin.sent');
       await p.evaluate(() => { document.activeElement?.blur(); document.querySelector('.dlgov').scrollTop = 0; });
@@ -160,9 +160,9 @@ for (const [w, h] of SIZES) {
   }
   if (want('states-open')) {
     // open from the board by click: modal over the board, URL updates, Back closes
-    await p.goto(BASE + '/projects/concierge-avant'); await p.waitForTimeout(300);
+    await p.goto(BASE + '/projects/blue-harbor'); await p.waitForTimeout(300);
     if (m) { await p.click('#tab-in_progress'); await p.waitForTimeout(300); }
-    await p.click('[data-key="CA-118"] .tkl'); await p.waitForSelector('.dlg .thread');
+    await p.click('[data-key="BH-118"] .tkl'); await p.waitForSelector('.dlg .thread');
     const url1 = p.url(); await shot(p, `states-new-divider-${w}`, { full: false });
     await p.goBack(); await p.waitForTimeout(500);
     const closed = await p.evaluate(() => !document.querySelector('.dlg'));

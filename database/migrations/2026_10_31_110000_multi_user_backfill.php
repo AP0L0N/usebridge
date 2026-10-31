@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  *   missing; is_admin = true. Never picked automatically: while the workspace does not exist yet, an unset or invalid
  *   owner email throws and `migrate` stops before changing anything (a token owner or the first user, e.g. Captain's
  *   API user, must not become owner + admin). A database migrated earlier is fixed with `bridge:set-owner`.
- * - Workspace slug bridge.default_workspace ('tilen'), name 'LANTIS', features {"polymarket": true}; memberships:
+ * - Workspace slug bridge.default_workspace (BRIDGE_WORKSPACE_SLUG, default 'main'), name bridge.default_workspace_name, features {"polymarket": true}; memberships:
  *   owner -> owner, every other token-owning user -> member.
  * - workspace_id := that workspace on every row of every owned table and every token where it is still null. Tokens
  *   keep their user, hash, name and abilities, so BRIDGE_API_TOKEN and per-agent tokens keep working.
@@ -44,7 +44,7 @@ return new class extends Migration
             if ($workspace === null) {
                 $workspaceId = DB::table('workspaces')->insertGetId([
                     'slug' => $slug,
-                    'name' => (string) (config('bridge.default_workspace_name') ?? 'LANTIS'),
+                    'name' => (string) (config('bridge.default_workspace_name') ?: 'My workspace'),
                     'owner_user_id' => $ownerId,
                     'features' => json_encode(['polymarket' => true]),
                     'created_at' => $now,
@@ -90,7 +90,7 @@ return new class extends Migration
 
     private function slug(): string
     {
-        return (string) (config('bridge.default_workspace') ?? 'tilen');
+        return (string) (config('bridge.default_workspace') ?: 'main');
     }
 
     private function ownerId(Carbon $now): int

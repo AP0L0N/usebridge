@@ -44,7 +44,7 @@ class McpIsolationTest extends TestCase
         $this->tilen = $tilens->owner;
         $this->assertTrue($this->tilen->is_admin);
         $this->tilenToken = $this->scopedToken($this->tilen, $tilens, 'write', 'tilen-laptop');
-        $this->tilenKey = $this->tool($this->tilenToken, 'create_ticket', ['project' => self::CA, 'title' => 'Tilen secret ticket', 'actor' => self::JANICE])['data']['key'];
+        $this->tilenKey = $this->tool($this->tilenToken, 'create_ticket', ['project' => self::BH, 'title' => 'Tilen secret ticket', 'actor' => self::JANICE])['data']['key'];
 
         $this->marta = app(AccountService::class)->register('Marta', 'marta@example.test', 'correct horse battery', 'Marta Labs');
         $this->marta->markEmailAsVerified();
@@ -103,7 +103,7 @@ class McpIsolationTest extends TestCase
         $this->assertNotFoundEverywhere($this->tilenToken, 'proj-marta', $this->martaKey, self::JANICE);
         $this->assertNotFoundEverywhere($this->tilenToken, 'marta-lab', $this->martaKey, self::CAPTAIN);
         // Another workspace's agent is not an actor here either.
-        $this->assertStringContainsString("Unknown actor 'agent-marta'", $this->toolError($this->tilenToken, 'create_ticket', ['project' => self::CA, 'title' => 'x', 'actor' => 'agent-marta']));
+        $this->assertStringContainsString("Unknown actor 'agent-marta'", $this->toolError($this->tilenToken, 'create_ticket', ['project' => self::BH, 'title' => 'x', 'actor' => 'agent-marta']));
 
         $this->assertSame($before, $this->snapshot($this->martaToken, 'proj-marta', $this->martaKey));
         $this->assertListsHideOtherWorkspace($this->tilenToken, ['proj-marta', 'marta-lab', 'Marta', $this->martaKey, 'marta-label', 'agent-marta']);
@@ -112,13 +112,13 @@ class McpIsolationTest extends TestCase
     #[Test]
     public function another_user_cannot_reach_tilens_workspace(): void
     {
-        $before = $this->snapshot($this->tilenToken, self::CA, $this->tilenKey);
+        $before = $this->snapshot($this->tilenToken, self::BH, $this->tilenKey);
 
-        $this->assertNotFoundEverywhere($this->martaToken, self::CA, $this->tilenKey, 'agent-marta');
-        $this->assertNotFoundEverywhere($this->martaToken, 'concierge-avant', $this->tilenKey, 'agent-marta');
+        $this->assertNotFoundEverywhere($this->martaToken, self::BH, $this->tilenKey, 'agent-marta');
+        $this->assertNotFoundEverywhere($this->martaToken, 'blue-harbor', $this->tilenKey, 'agent-marta');
 
-        $this->assertSame($before, $this->snapshot($this->tilenToken, self::CA, $this->tilenKey));
-        $this->assertListsHideOtherWorkspace($this->martaToken, [self::CA, self::MW, 'Concierge', 'Merkwell', $this->tilenKey, 'Tilen secret', self::JANICE, 'Janice']);
+        $this->assertSame($before, $this->snapshot($this->tilenToken, self::BH, $this->tilenKey));
+        $this->assertListsHideOtherWorkspace($this->martaToken, [self::BH, self::NW, 'Harbor', 'Northwind', $this->tilenKey, 'Tilen secret', self::JANICE, 'Janice']);
 
         // Her own workspace works, and what she writes stays there.
         $this->assertSame(['proj-marta'], array_column($this->tool($this->martaToken, 'list_projects')['data'], 'id'));
@@ -132,7 +132,7 @@ class McpIsolationTest extends TestCase
         $tilens = $this->mcp($this->tilenToken, 'tools/list')->assertOk();
         $martas = $this->mcp($this->martaToken, 'tools/list')->assertOk();
         $this->assertSame($tilens->json('result.tools'), $martas->json('result.tools'));
-        foreach (['Marta', 'proj-marta', 'Concierge', 'Merkwell', self::CA, self::JANICE, "\"{$this->martaKey}\"", "\"{$this->tilenKey}\""] as $secret) {
+        foreach (['Marta', 'proj-marta', 'Harbor', 'Northwind', self::BH, self::JANICE, "\"{$this->martaKey}\"", "\"{$this->tilenKey}\""] as $secret) {
             $this->assertStringNotContainsString($secret, $tilens->getContent());
         }
     }

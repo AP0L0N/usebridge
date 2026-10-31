@@ -41,9 +41,9 @@ class BridgeR3Test extends TestCase
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
         RequiredInput::query()->delete();
-        RequiredInput::create(['id' => 'x', 'project_id' => 'proj-merkwell', 'text' => 'x', 'waiting_on' => 'D', 'since' => now()->subDays(4)]);
+        RequiredInput::create(['id' => 'x', 'project_id' => 'proj-northwind', 'text' => 'x', 'waiting_on' => 'D', 'since' => now()->subDays(4)]);
         $this->get('/')->assertInertia(fn (Assert $p) => $p->component('Portfolio')
-            ->where('projects', fn ($ps) => collect($ps)->firstWhere('id', 'proj-merkwell')['level'] === 2));
+            ->where('projects', fn ($ps) => collect($ps)->firstWhere('id', 'proj-northwind')['level'] === 2));
     }
 
     #[Test]
@@ -51,28 +51,28 @@ class BridgeR3Test extends TestCase
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
         foreach ([['recent', 47], ['edge', 48], ['old', 49]] as [$id, $h]) {
-            RequiredInput::create(['id' => $id, 'project_id' => 'proj-merkwell', 'text' => $id, 'waiting_on' => 'D',
+            RequiredInput::create(['id' => $id, 'project_id' => 'proj-northwind', 'text' => $id, 'waiting_on' => 'D',
                 'since' => now()->subDays(5), 'resolved_at' => now()->subHours($h), 'resolved_by' => 'tilen']);
         }
         // Kanban: the 2-day rule still holds in the service; the board no longer shows inputs.
-        $done = ProjectStatus::recentlyDone(RequiredInput::query()->where('project_id', 'proj-merkwell')->get(), 'resolved_at');
+        $done = ProjectStatus::recentlyDone(RequiredInput::query()->where('project_id', 'proj-northwind')->get(), 'resolved_at');
         $this->assertSame(['recent', 'edge'], $done->pluck('id')->all());
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('doneInputs'));
+        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('doneInputs'));
     }
 
     #[Test]
     public function timeline_pages_in_seven_day_steps(): void
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
-        StatusUpdate::query()->where('project_id', 'proj-merkwell')->delete();
+        StatusUpdate::query()->where('project_id', 'proj-northwind')->delete();
         foreach ([1, 6, 8, 13, 20] as $d) {
-            StatusUpdate::create(['id' => "u$d", 'project_id' => 'proj-merkwell', 'agent_id' => StatusUpdate::first()?->agent_id ?? 'agent-anatoly', 'body' => "d$d", 'created_at' => now()->subDays($d)]);
+            StatusUpdate::create(['id' => "u$d", 'project_id' => 'proj-northwind', 'agent_id' => StatusUpdate::first()?->agent_id ?? 'agent-anatoly', 'body' => "d$d", 'created_at' => now()->subDays($d)]);
         }
         // Kanban: the status-update feed is gone from the project page; ?days is ignored and the rows stay.
         foreach (['', '?days=14', '?days=-3'] as $qs) {
-            $this->get('/projects/merkwell'.$qs)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->missing('statusUpdates')->missing('timeline'));
+            $this->get('/projects/northwind'.$qs)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->missing('statusUpdates')->missing('timeline'));
         }
-        $this->assertSame(5, StatusUpdate::query()->where('project_id', 'proj-merkwell')->count());
+        $this->assertSame(5, StatusUpdate::query()->where('project_id', 'proj-northwind')->count());
     }
 
     #[Test]
@@ -97,16 +97,16 @@ class BridgeR3Test extends TestCase
     public function captain_can_post_patch_and_list_next_steps(): void
     {
         $this->api();
-        $r = $this->postJson('/api/next-steps', ['project_id' => 'proj-merkwell', 'kind' => 'in_progress', 'text' => 'Build r3', 'owner' => 'Xerxes'])
+        $r = $this->postJson('/api/next-steps', ['project_id' => 'proj-northwind', 'kind' => 'in_progress', 'text' => 'Build r3', 'owner' => 'Xavier'])
             ->assertCreated()
-            ->assertJsonPath('data.kind', 'in_progress')->assertJsonPath('data.done', false)->assertJsonPath('data.owner', 'Xerxes');
+            ->assertJsonPath('data.kind', 'in_progress')->assertJsonPath('data.done', false)->assertJsonPath('data.owner', 'Xavier');
         $id = $r->json('data.id');
         $this->assertStringStartsWith('ns-', $id);
-        $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-merkwell', 'kind' => 'blocker', 'text' => 'Waiting on DNS'])->assertCreated();
-        $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-merkwell', 'kind' => 'blocker', 'text' => 'dup'])->assertStatus(422);
+        $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-northwind', 'kind' => 'blocker', 'text' => 'Waiting on DNS'])->assertCreated();
+        $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-northwind', 'kind' => 'blocker', 'text' => 'dup'])->assertStatus(422);
 
         $this->withSession(['bridge_gate_unlocked' => true]);
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('nextSteps'));
+        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('nextSteps'));
 
         $this->patchJson('/api/next-steps/ns-block-1', ['kind' => 'in_progress', 'text' => 'DNS done, verifying'])
             ->assertOk()->assertJsonPath('data.kind', 'in_progress')->assertJsonPath('data.text', 'DNS done, verifying');
@@ -114,8 +114,8 @@ class BridgeR3Test extends TestCase
             ->assertOk()->assertJsonPath('data.done', true)->assertJsonPath('data.done_by', 'captain');
         $this->assertNotNull(NextStep::find($id)->done_at);
 
-        $this->getJson('/api/next-steps?project_id=proj-merkwell')->assertOk()->assertJsonCount(1, 'data');
-        $this->getJson('/api/next-steps?project_id=proj-merkwell&state=all')->assertJsonCount(2, 'data');
+        $this->getJson('/api/next-steps?project_id=proj-northwind')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/next-steps?project_id=proj-northwind&state=all')->assertJsonCount(2, 'data');
         $this->getJson('/api/next-steps?state=done')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $id);
 
         $this->patchJson("/api/next-steps/$id", ['done' => false])->assertJsonPath('data.done', false)->assertJsonPath('data.done_by', null);
