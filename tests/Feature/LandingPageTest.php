@@ -58,6 +58,35 @@ class LandingPageTest extends TestCase
     }
 
     #[Test]
+    public function the_hero_trust_line_is_final_and_unlinked(): void
+    {
+        $html = $this->get('/')->getContent();
+
+        $this->assertSame(2, substr_count($html, 'Free · No card needed · Open source (AGPL-3.0)'));
+        $this->assertStringNotContainsString('on GitHub</p>', $html);
+        $this->assertMatchesRegularExpression('#<p class="microcopy">Free · No card needed · Open source \(AGPL-3\.0\)</p>#u', $html);
+        $this->assertSame('Free · No card needed · Open source (AGPL-3.0)', __('landing.trust_line'));
+    }
+
+    #[Test]
+    public function the_hero_animation_is_mounted_and_loaded_from_our_own_origin(): void
+    {
+        $html = $this->get('/')->getContent();
+
+        $this->assertStringContainsString('data-bridge-hero', $html);
+        $this->assertStringContainsString('href="/landing/hero/bridge-hero.css"', $html);
+        $this->assertStringContainsString('src="/landing/hero/bridge-hero.js"', $html);
+        $this->assertFileExists(public_path('landing/hero/bridge-hero.js'));
+        $this->assertFileDoesNotExist(public_path('landing/hero/bridge-hero.html'));
+
+        preg_match_all('/\b(?:src|href)=["\']?(https?:)?\/\/([^\/"\'\s>]+)/i', $html, $m);
+        foreach ($m[2] as $host) {
+            $this->assertContains($host, ['github.com', parse_url(url('/'), PHP_URL_HOST).(parse_url(url('/'), PHP_URL_PORT) ? ':'.parse_url(url('/'), PHP_URL_PORT) : '')], 'external reference to '.$host);
+        }
+        $this->assertStringNotContainsString('@font-face', file_get_contents(public_path('landing/hero/bridge-hero.css')));
+    }
+
+    #[Test]
     public function every_placeholder_is_marked(): void
     {
         $html = $this->get('/')->getContent();

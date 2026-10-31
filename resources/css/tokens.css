@@ -68,6 +68,30 @@
     --shadow-card: 0 1px 2px rgb(11 12 15 / 0.05), 0 8px 24px rgb(11 12 15 / 0.06);
     --shadow-float: 0 24px 60px rgb(0 0 0 / 0.35);
 
+
+    /* Hero animation component (public/landing/hero/bridge-hero.css): --bh-* tokens, mapped to ours where they coincide */
+    --bh-stage-950: #08090B;
+    --bh-ink-950: var(--ink);
+    --bh-ink-800: var(--ink-2);
+    --bh-ink-600: #4A4F5C;
+    --bh-ink-400: #8A8F9C;
+    --bh-line: #E6E6E1;
+    --bh-paper: #F6F6F3;
+    --bh-surface: var(--card);
+    --bh-lime: var(--lime);
+    --bh-violet: var(--violet);
+    --bh-ok: #1F9D55;
+    --bh-warn: #D98A00;
+    --bh-risk: #E5484D;
+    --bh-r-sm: var(--radius-sm);
+    --bh-r-md: var(--radius-md);
+    --bh-r-lg: var(--radius-lg);
+    --bh-shadow-card: 0 1px 2px rgba(11, 12, 15, .06), 0 1px 1px rgba(11, 12, 15, .03);
+    --bh-shadow-lift: 0 14px 28px -10px rgba(11, 12, 15, .28), 0 4px 10px -4px rgba(11, 12, 15, .14);
+    --bh-shadow-board: 0 40px 90px -30px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
+    --bh-font: var(--font-ui);
+    --bh-mono: var(--font-mono);
+
     /* Motion */
     --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
     --dur: 180ms;

@@ -80,8 +80,8 @@ html { scroll-behavior: smooth; scroll-padding-top: calc(var(--tap-min) + var(--
 /* Hero */
 .hero { background: var(--ink); color: var(--text-on-ink); padding-block: var(--space-16) var(--space-24); position: relative; overflow: hidden; }
 .hero::before { content: ''; position: absolute; inset: auto -10% -60% 30%; height: 80%; background: radial-gradient(closest-side, rgb(124 92 255 / 0.28), transparent); pointer-events: none; }
-.hero .wrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--space-12); align-items: center; position: relative; }
-.hero .h1 { max-width: 14ch; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.3fr); gap: var(--space-12); align-items: center; position: relative; }
+.hero .h1 { max-width: 16ch; }
 .hero .lede { margin-top: var(--space-6); color: var(--text-muted-on-ink); }
 .hero .hero-link { color: var(--text-on-ink); }
 .hero-slot { position: relative; }
@@ -102,7 +102,6 @@ html { scroll-behavior: smooth; scroll-padding-top: calc(var(--tap-min) + var(--
 .agent-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--space-2); font-family: var(--font-mono); font-size: 0.6875rem; color: var(--violet-text); background: var(--violet-tint); border-radius: var(--radius-pill); padding: 3px 8px 3px 4px; line-height: 1.2; }
 .agent-badge::before { content: ''; width: 14px; height: 14px; border-radius: var(--radius-pill); background: var(--violet); flex: none; }
 .ask { margin-top: var(--space-2); padding: var(--space-2); background: var(--paper); border-radius: var(--radius-sm); font-size: var(--fs-xs); color: var(--text-muted); }
-.hero-slot .mini-col { min-height: 220px; }
 .moved-note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--ink); color: var(--text-on-ink); font-size: var(--fs-xs); }
 .moved-note::before { content: ''; width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--lime); flex: none; }
 
@@ -233,6 +232,10 @@ html { scroll-behavior: smooth; scroll-padding-top: calc(var(--tap-min) + var(--
 .sticky-cta { display: none; }
 
 /* Responsive */
+@media (max-width: 1100px) {
+    .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+    .hero .h1 { max-width: 18ch; }
+}
 @media (max-width: 960px) {
     .hero .wrap, .connect-grid, .split { grid-template-columns: minmax(0, 1fr); }
     .hero { padding-block: var(--space-12) var(--space-16); }

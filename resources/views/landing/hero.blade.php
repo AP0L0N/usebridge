@@ -7,31 +7,13 @@
                 <a class="btn btn-primary" href="{{ route('signup.show') }}">Create a free account</a>
                 <a class="link hero-link" href="#connect">See how bots connect ↓</a>
             </div>
-            <p class="microcopy">Free · No card · Open source on GitHub</p>
+            <p class="microcopy">{{ __('landing.trust_line') }}</p>
         </div>
 
-        {{-- Hero animation slot. Tommy's hero component (self-contained HTML/CSS/JS from /workspace/bridge-hero/) mounts
-             inside #hero-animation and replaces the static placeholder below. --}}
+        {{-- Hero animation slot: Tommy's hero component (public/landing/hero/, self-contained HTML/CSS/JS from
+             /workspace/bridge-hero/) is mounted here. Its markup is in landing/hero-animation.blade.php. --}}
         <div class="hero-slot" id="hero-animation" data-slot="hero-animation">
-            <div class="mock" role="img" aria-label="Sample board: a bot moved the ticket Which pricing option should I ship to Waiting on you">
-                <div class="mock-bar"><span>Sample project</span><span class="sample-tag">Sample data</span></div>
-                <div class="mini-board">
-                    <div class="mini-col"><h4>In progress <span>2</span></h4>
-                        <div class="ticket"><span class="tid">DOC-12</span>Draft the install guide</div>
-                        <div class="ticket"><span class="tid">DOC-14</span>Fix broken sidebar links</div>
-                    </div>
-                    <div class="mini-col is-waiting"><h4>Waiting on you <span>1</span></h4>
-                        <div class="ticket is-ask"><span class="tid">PRC-7</span>Which pricing option should I ship?
-                            <span class="agent-badge">Pricing bot</span>
-                            <div class="ask">Option A or option B for the pricing page?</div>
-                        </div>
-                    </div>
-                    <div class="mini-col"><h4>Done <span>1</span></h4>
-                        <div class="ticket"><span class="tid">DOC-9</span>Publish the changelog page</div>
-                    </div>
-                </div>
-                <div class="moved-note">Moved to Waiting on you</div>
-            </div>
+            @include('landing.hero-animation')
         </div>
     </div>
 </section>

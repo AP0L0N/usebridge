@@ -21,6 +21,8 @@
     <link rel="preload" href="/fonts/GeistMono-latin.woff2" as="font" type="font/woff2" crossorigin>
     <script>document.documentElement.classList.add('js')</script>
     @vite(['resources/css/landing.css', 'resources/js/landing.ts'])
+    <link rel="stylesheet" href="/landing/hero/bridge-hero.css">
+    <script src="/landing/hero/bridge-hero.js" defer></script>
 </head>
 <body class="landing">
     <a class="skip-link" href="#main">Skip to content</a>
