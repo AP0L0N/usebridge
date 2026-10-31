@@ -90,7 +90,9 @@ requests per minute per token.
 
 ## Contributing
 
-Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Before opening a PR:
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Contributions need the
+[Contributor Licence Agreement](CLA.md): on your first pull request the CLA Assistant check asks you to sign it by
+commenting `I have read the CLA Document and I hereby sign the CLA` (once; it covers later PRs). Before opening a PR:
 
 - keep `php artisan test` green and `npx tsc --noEmit` clean, and add tests for new behaviour;
 - use made-up data only: fixtures, seeders, docs and screenshots must not contain real client names, people, emails,
