@@ -9,7 +9,7 @@ import { IconCal16, IconChev } from '../AppIcons';
 import { ago, updateTime } from '../../lib/dates';
 import { t as tr } from '../../lib/strings';
 import {
-  ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe,
+  ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe, viaLabel,
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
   type TicketDetail as Detail, type TicketEvent,
 } from '../../lib/kanban';
@@ -192,7 +192,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
       <LabelsField t={t} labels={labels} onSave={(names) => patch({ labels: names })} />
       <div className="fld">
         <p className="k">{tr('ticket.created')}</p>
-        <p className="sm2">{t.created_by_name ?? 'Unknown'} · {t.created_by_type === 'agent' ? 'via API' : 'via Bridge'} · {updateTime(t.created_at, now)}</p>
+        <p className="sm2">{t.created_by_name ?? 'Unknown'} · {viaLabel(detail?.created_source, t.created_by_type === 'agent')} · {updateTime(t.created_at, now)}</p>
         <p className="sm">Updated {ago(t.updated_at, now)}</p>
       </div>
       <HistoryField events={events} columns={columns} people={people} now={now} />
@@ -538,7 +538,7 @@ function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: s
         <header>
           <b>{c.author_name ?? c.author_id}</b>
           {role && <span className="role">{role}</span>}
-          {c.author_type === 'agent' && <span className="via"><span className="agentdot" aria-hidden="true" />{tr('ticket.via.mcp')}</span>}
+          {c.author_type === 'agent' && <span className="via"><span className="agentdot" aria-hidden="true" />{viaLabel(c.source, true)}</span>}
           <time dateTime={c.created_at ?? undefined}>{updateTime(c.created_at, now)}</time>
         </header>
         {c.retracted ? <p className="hint">{tr('ticket.removed')}</p> : (

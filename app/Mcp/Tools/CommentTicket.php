@@ -30,7 +30,7 @@ class CommentTicket extends BridgeTool
     {
         $request->validate(['key' => ['required', 'string', 'max:64']]);
         $ticket = $this->ticket((string) $request->get('key'));
-        $actor = $this->actor($request);
+        $actor = $this->actor($request)->viaMcp();
         $comment = $this->tickets->comment($ticket, $actor, $request->validate(TicketService::commentRules())['body']);
 
         return ['data' => (new TicketView)->comment($comment->fresh(), $ticket->fresh())];

@@ -60,6 +60,7 @@ final class BoardView
         }
         $tickets = $q->where(fn ($w) => $w->where('status', '!=', BoardColumns::DONE)->orWhere('done_at', '>=', $doneSince))
             ->orderBy('position')->orderBy('key')->get();
+        $this->view->preloadCommentSources($tickets->filter(fn (Ticket $t) => $t->comments->isNotEmpty())->modelKeys());
         $doneOlder = Ticket::query()->where('project_id', $p->id)->where('status', BoardColumns::DONE)
             ->when(! $includeArchived, fn ($w) => $w->whereNull('archived_at'))
             ->where(fn ($w) => $w->whereNull('done_at')->orWhere('done_at', '<', $doneSince))->count();

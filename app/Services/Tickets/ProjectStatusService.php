@@ -2,8 +2,10 @@
 
 namespace App\Services\Tickets;
 
+use App\Models\Agent;
 use App\Models\Project;
 use App\Models\ProjectStatusEvent;
+use App\Models\Workspace;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,7 +14,8 @@ use Illuminate\Validation\Rule;
 /**
  * PM-set project status (SPEC §3). Every write — also a note-only update — appends a project_status_events row.
  * `archived` (and reopening an archived project) is Captain (agent-william) via API or a person in the UI only;
- * the project's PM may set smooth|waiting. archived_at follows the status so the old archive logic keeps working.
+ * the project's PM may set smooth|waiting. Outside the legacy workspace, any agent of the project's workspace may set
+ * every status (go-live N1). archived_at follows the status so the old archive logic keeps working.
  */
 final class ProjectStatusService
 {
@@ -30,6 +33,12 @@ final class ProjectStatusService
         if ($actor->isHuman() || $actor->isCaptain()) {
             return null;
         }
+        // Go-live N1: outside the legacy (LANTIS) workspace there is no Captain and a new project has no PM, so the
+        // workspace's own agents (the token agents of its owner and members, and agents the owner added) may set any
+        // status, archive included. The legacy workspace keeps the PM/Captain rule below.
+        if ($this->isOwnWorkspaceAgent($project, $actor)) {
+            return null;
+        }
         if ($to === 'archived' || $project->isArchived()) {
             return 'Only Captain (agent-william) or a person in the Bridge UI can archive or reopen a project.';
         }
@@ -38,6 +47,21 @@ final class ProjectStatusService
         }
 
         return null;
+    }
+
+    /** An agent of the project's own workspace, when that workspace is not the legacy (LANTIS) one. */
+    private function isOwnWorkspaceAgent(Project $project, Actor $actor): bool
+    {
+        if ($actor->type !== 'agent' || $project->workspace_id === null) {
+            return false;
+        }
+        $workspace = Workspace::query()->find($project->workspace_id);
+        if ($workspace === null || HumanActors::isLegacyWorkspace($workspace)) {
+            return false;
+        }
+
+        // Scoped query (the request's workspace) plus the project's workspace: both must match.
+        return Agent::query()->whereKey($actor->id)->where('workspace_id', $project->workspace_id)->exists();
     }
 
     public function set(Project $project, string $to, ?string $note, Actor $actor): ProjectStatusEvent

@@ -48,7 +48,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
           onKeyDown={onKeyDown ? (e) => onKeyDown(e, t) : undefined}
         >{t.title}</a>
       </h3>
-      {via && <ViaLine name={firstName(via.author_name) || via.author_id} at={via.created_at} now={now} />}
+      {via && <ViaLine name={firstName(via.author_name) || via.author_id} at={via.created_at} now={now} source={via.source} />}
       {strips}
       <div className="tmeta">
         <span className="id">{t.key}</span>

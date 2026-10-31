@@ -12,7 +12,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('set_project_status')]
-#[Description('Set a project\'s PM status (smooth|waiting; archived is Captain-only) with an optional note ≤ 280 chars; omitting the note clears it (same as PATCH /api/projects/{id}/status).')]
+#[Description('Set a project\'s status (smooth|waiting|archived). In your own workspace any of its agents may set it; in the legacy workspace only the PM (smooth|waiting) or Captain. Optional note ≤ 280 chars; omitting the note clears it (same as PATCH /api/projects/{id}/status).')]
 class SetProjectStatus extends BridgeTool
 {
     protected const ABILITY = 'status:write';

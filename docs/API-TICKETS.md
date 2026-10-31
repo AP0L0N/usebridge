@@ -428,7 +428,7 @@ Set the project status. Every PATCH logs a status event, even when only the note
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `status` | `smooth`/`waiting`/`archived` | **yes** | The PM may set `smooth`/`waiting`. Only Captain may set `archived` or reopen. |
+| `status` | `smooth`/`waiting`/`archived` | **yes** | Legacy workspace: the PM may set `smooth`/`waiting`; only Captain may set `archived` or reopen. Any other workspace: every agent of that workspace (e.g. your token's own agent) may set any status, also when the project has no PM. |
 | `note` | string ≤280 | no | The headline on the portfolio card and the board. |
 | `actor` | agent id | see above | |
 
@@ -446,6 +446,13 @@ curl -sS -X PATCH "$BRIDGE/api/projects/proj-northwind/status" \
 
 `GET` returns `{"data":{"project_id","current":{…},"history":[…events newest first…]}}`. Tilen's overrides from the UI
 appear in the history with `set_by: "tilen"`, `set_by_type: "human"`, `source: "ui"`.
+
+`source` is `api` for REST writes, `mcp` for MCP tools and `ui` for the web app. Ticket events, comments (`source`, and
+`latest_comment.source` on cards) and the ticket detail (`created_source`) use the same values; MCP writes made before
+31 Oct 2026 were recorded as `api`.
+
+Status updates (`POST /api/status-updates {project_id, body, agent_id?}`, MCP `post_status`): without `agent_id` the
+update is posted as your token's own agent. The newest one is shown on the project board under the status.
 
 ### GET /api/projects · PATCH /api/projects/{id} (PM)
 

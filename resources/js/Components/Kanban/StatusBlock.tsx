@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmSheet, IcChev, IcHist, PmBadge, PlainBadge, Sheet, refocus, useDismiss } from './Bits';
 import { updateTime } from '../../lib/dates';
-import { STATUS_LABEL, archiveMessage, firstName, send, useMe, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
+import { STATUS_LABEL, archiveMessage, firstName, send, useMe, viaLabel, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
 import { t } from '../../lib/strings';
 
 /** "Janice (PM)", "Sam Rivera", "Captain William Diego (CEO)"; "You" when $me (the signed-in user's actor id) set it. */
@@ -27,7 +27,7 @@ export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId
         <li key={e.id}>
           <PlainBadge status={e.to_status} />
           <p className="n">{e.note ? `“${e.note}”` : <span className="dim2">{t('ticket.history.empty')}</span>}</p>
-          <p>{setByLabel(e.set_by, e.set_by_name, pmId, me)} · {updateTime(e.created_at, now)} · {e.source === 'api' ? 'via API' : 'via Bridge'}</p>
+          <p>{setByLabel(e.set_by, e.set_by_name, pmId, me)} · {updateTime(e.created_at, now)} · {viaLabel(e.source, e.set_by_type === 'agent')}</p>
         </li>
       ))}
     </ol>
@@ -106,7 +106,7 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
           <>
             <p className="sset">
               <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id, me)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
-              {viaAgent && <span className="via"><span className="agentdot" aria-hidden="true" />via MCP · {firstName(p.status_set_by_name)}</span>}
+              {viaAgent && <span className="via"><span className="agentdot" aria-hidden="true" />{viaLabel(history[0]?.source, true)} · {firstName(p.status_set_by_name)}</span>}
             </p>
             {p.status_note && <p className="snote">“{p.status_note}”</p>}
           </>

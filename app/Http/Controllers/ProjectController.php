@@ -7,6 +7,7 @@ use App\Models\Label;
 use App\Models\Project;
 use App\Models\Question;
 use App\Models\RequiredInput;
+use App\Models\StatusUpdate;
 use App\Models\Ticket;
 use App\Services\InputResolution;
 use App\Services\QuestionAnswer;
@@ -39,6 +40,8 @@ class ProjectController extends Controller
         return Inertia::render('Board', [
             'board' => fn () => (new BoardView($view))->build($project, $doneSince),
             'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
+            // Go-live N1: the newest posted status update (POST /api/status-updates, MCP post_status), shown under the status.
+            'latestUpdate' => fn () => self::latestUpdate($project, $view),
             'people' => fn () => self::people(HumanActors::viewerId()),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,
@@ -48,6 +51,22 @@ class ProjectController extends Controller
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
             'now' => now()->toIso8601String(),
         ]);
+    }
+
+    /** @return array{id:string,body:string,agent_id:string,agent_name:?string,created_at:?string,count:int}|null */
+    public static function latestUpdate(Project $project, TicketView $view): ?array
+    {
+        $q = StatusUpdate::query()->where('project_id', $project->id);
+        $u = (clone $q)->orderByDesc('created_at')->orderByDesc('id')->first();
+
+        return $u === null ? null : [
+            'id' => $u->id,
+            'body' => $u->body,
+            'agent_id' => $u->agent_id,
+            'agent_name' => $view->name($u->agent_id),
+            'created_at' => $u->created_at?->toIso8601String(),
+            'count' => $q->count(),
+        ];
     }
 
     /** Ticket detail for the modal: detail() plus when the signed-in user last opened it (the thread's "New" divider). */

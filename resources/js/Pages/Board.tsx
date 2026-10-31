@@ -6,6 +6,7 @@ import { IconChev, IconInbox20, IconSearch16, IconX16 } from '../Components/AppI
 import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { TicketCard } from '../Components/Kanban/TicketCard';
 import { StatusBlock, setByLabel } from '../Components/Kanban/StatusBlock';
+import { LatestUpdate } from '../Components/Kanban/LatestUpdate';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
 import { TicketDetail } from '../Components/Kanban/TicketDetail';
 import { ColumnLabelsSheet, type ColumnDef } from '../Components/Kanban/ColumnLabels';
@@ -14,12 +15,14 @@ import { updateTime } from '../lib/dates';
 import { t as tr } from '../lib/strings';
 import {
   ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl, useMe,
-  type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type StatusEvent, type Ticket, type TicketDetail as Detail,
+  type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type LatestUpdate as LatestUpdateData, type StatusEvent, type Ticket, type TicketDetail as Detail,
 } from '../lib/kanban';
 
 type Props = {
   board: BoardData;
   statusHistory: StatusEvent[];
+  /** Newest posted status update (go-live N1); null when none. */
+  latestUpdate?: LatestUpdateData | null;
   people: Person[];
   labels: Label[];
   doneAll: boolean;
@@ -47,7 +50,7 @@ type Pending = { t: Ticket; to: ColumnKey; index: number; via: 'drag' | 'key' | 
 type Drag = { key: string; from: ColumnKey; x: number; y: number; offX: number; offY: number; w: number; over: ColumnKey | null; index: number };
 type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
 
-function Board({ board, statusHistory, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns }: Props) {
+function Board({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns }: Props) {
   const p = board.project;
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
@@ -98,7 +101,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   const filtering = q.trim() !== '' || nFilters > 0;
 
   // ------------------------------------------------------------ reloads + poll
-  const reload = useCallback((only: string[] = ['board', 'statusHistory']) => {
+  const reload = useCallback((only: string[] = ['board', 'statusHistory', 'latestUpdate']) => {
     router.reload({ only, async: true } as never);
   }, []);
   const ticketOpen = ticket !== null;
@@ -106,7 +109,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.visibilityState !== 'visible' || dragging.current || busy.current) return;
-      reload(ticketOpen ? ['board', 'statusHistory', 'ticket'] : ['board', 'statusHistory']);
+      reload(ticketOpen ? ['board', 'statusHistory', 'latestUpdate', 'ticket'] : ['board', 'statusHistory', 'latestUpdate']);
     }, POLL_MS);
     return () => window.clearInterval(id);
   }, [reload, ticketOpen]);
@@ -533,6 +536,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
         </div>
         <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
           onChanged={() => reload(['board', 'statusHistory'])} />
+        <LatestUpdate update={latestUpdate} now={now} />
         <p className="bsum">
           <span className="mi"><b>{open}</b> {tr('board.open', { n: open })}</span>
           <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { column: lcFirst(colLabel(WAITING)) })}</span>

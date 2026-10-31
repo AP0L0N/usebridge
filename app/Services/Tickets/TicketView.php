@@ -108,6 +108,8 @@ final class TicketView
                 'author_id' => $latest->author_id,
                 'author_name' => $this->name($latest->author_id),
                 'author_type' => $latest->author_type,
+                // api (REST token) | mcp | ui (web); go-live N2. Older MCP comments were recorded as api.
+                'source' => $this->commentSource($t->id, $latest->id),
                 'created_at' => $latest->created_at?->toIso8601String(),
             ] : null,
             'unread_for_tilen' => $unread->isNotEmpty(),
@@ -152,6 +154,7 @@ final class TicketView
 
         return [
             ...$this->ticket($t),
+            'created_source' => $this->createdSource($t),
             'comments' => $comments->map(fn ($c) => $this->comment($c, $t))->all(),
             'events' => $events->map(fn ($e) => $this->event($e))->all(),
         ];
@@ -170,6 +173,7 @@ final class TicketView
             'author_type' => $c->author_type,
             'author_id' => $c->author_id,
             'author_name' => $this->name($c->author_id),
+            'source' => $this->commentSource($c->ticket_id, $c->id),
             'body' => $retracted ? null : $c->body,
             'retracted' => $retracted,
             'retracted_at' => $c->retracted_at?->toIso8601String(),
@@ -181,6 +185,47 @@ final class TicketView
             'edited_at' => $c->edited_at?->toIso8601String(),
             'created_at' => $c->created_at?->toIso8601String(),
         ];
+    }
+
+    /** @var array<string, array<int, string>> ticket id => [comment id => source] */
+    private array $commentSources = [];
+
+    /** One query for the comment sources of many tickets (board cards); tickets without comments cache []. */
+    public function preloadCommentSources(array $ticketIds): void
+    {
+        $ticketIds = array_values(array_diff($ticketIds, array_keys($this->commentSources)));
+        if ($ticketIds === []) {
+            return;
+        }
+        foreach ($ticketIds as $id) {
+            $this->commentSources[$id] = [];
+        }
+        foreach (array_chunk($ticketIds, 500) as $chunk) {
+            TicketEvent::query()->whereIn('ticket_id', $chunk)->where('type', 'commented')->orderBy('id')
+                ->get(['ticket_id', 'to', 'source'])
+                ->each(function (TicketEvent $e) {
+                    if (isset($e->to['comment_id'])) {
+                        $this->commentSources[$e->ticket_id][(int) $e->to['comment_id']] = (string) $e->source;
+                    }
+                });
+        }
+    }
+
+    /** Where a comment was written: the source of its 'commented' event (api|mcp|ui), null when unknown. */
+    private function commentSource(string $ticketId, int|string $commentId): ?string
+    {
+        $this->commentSources[$ticketId] ??= TicketEvent::query()->where('ticket_id', $ticketId)->where('type', 'commented')
+            ->orderBy('id')->get(['to', 'source'])
+            ->filter(fn (TicketEvent $e) => isset($e->to['comment_id']))
+            ->mapWithKeys(fn (TicketEvent $e) => [(int) $e->to['comment_id'] => (string) $e->source])->all();
+
+        return $this->commentSources[$ticketId][(int) $commentId] ?? null;
+    }
+
+    /** Where the ticket was created: the source of its 'created' event (api|mcp|ui), null when unknown. */
+    private function createdSource(Ticket $t): ?string
+    {
+        return TicketEvent::query()->where('ticket_id', $t->id)->where('type', 'created')->orderBy('id')->value('source');
     }
 
     public function event(TicketEvent $e): array

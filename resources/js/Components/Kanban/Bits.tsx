@@ -4,7 +4,7 @@ import { IconArchive14, IconCal16, IconChev, IconClock14, IconFilter16, IconHist
 import { IconOk, IconWait } from '../Icons';
 import { ageAria, t } from '../../lib/strings';
 import { ago } from '../../lib/dates';
-import { initial, type Label, type PmStatus, type Person } from '../../lib/kanban';
+import { initial, viaLabel, type Label, type PmStatus, type Person, type WriteSource } from '../../lib/kanban';
 
 // Icons from the mock (build.py `I`), geometry matched to the Figma icon components.
 const svg16 = (d: ReactNode) => <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">{d}</svg>; // sized: unsized SVGs grow to 300px in flex rows
@@ -255,7 +255,7 @@ export function ToastHost({ children }: { children: ReactNode }) {
   );
 }
 
-/** "via MCP · Builder · 12m" card line (agent-authored latest comment). */
-export function ViaLine({ name, at, now }: { name: string; at: string | null; now: string }) {
-  return <span className="via"><span className="agentdot" aria-hidden="true" />{t('board.card.via')} · {name}{at ? <> · {ago(at, now)}</> : null}</span>;
+/** "via MCP · Builder · 12m" / "via API · …" card line (agent-authored latest comment). */
+export function ViaLine({ name, at, now, source }: { name: string; at: string | null; now: string; source?: WriteSource | null }) {
+  return <span className="via"><span className="agentdot" aria-hidden="true" />{viaLabel(source, true)} · {name}{at ? <> · {ago(at, now)}</> : null}</span>;
 }

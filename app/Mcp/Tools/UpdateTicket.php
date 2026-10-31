@@ -31,7 +31,7 @@ class UpdateTicket extends BridgeTool
     {
         $request->validate(['key' => ['required', 'string', 'max:64']]);
         $ticket = $this->ticket((string) $request->get('key'));
-        $actor = $this->actor($request);
+        $actor = $this->actor($request)->viaMcp();
         $ticket = $this->tickets->update($ticket, $request->validate(TicketService::rules(false)), $actor);
 
         return ['data' => (new TicketView)->ticket($ticket->fresh()), 'warnings' => TicketService::warnings($ticket->project)];

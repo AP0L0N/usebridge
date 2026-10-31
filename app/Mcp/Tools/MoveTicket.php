@@ -37,7 +37,7 @@ class MoveTicket extends BridgeTool
     {
         $request->validate(['key' => ['required', 'string', 'max:64']]);
         $ticket = $this->ticket((string) $request->get('key'));
-        $actor = $this->actor($request);
+        $actor = $this->actor($request)->viaMcp();
         $ticket = $this->tickets->move($ticket, $request->validate(TicketService::moveRules()), $actor);
 
         return ['data' => (new TicketView)->ticket($ticket->fresh()), 'warnings' => TicketService::warnings($ticket->project)];

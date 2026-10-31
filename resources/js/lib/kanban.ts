@@ -45,8 +45,8 @@ export interface Ticket {
   labels: Label[];
   comment_count: number;
   last_comment_at: string | null;
-  /** Newest live comment (card "via MCP" line); null when no comments. */
-  latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human'; created_at: string | null } | null;
+  /** Newest live comment (card "via API|MCP" line); null when no comments. */
+  latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human'; source?: WriteSource | null; created_at: string | null } | null;
   /** New agent replies for the signed-in user. */
   unread_for_me: boolean;
   latest_unread_author: { id: string; name: string | null } | null;
@@ -64,6 +64,8 @@ export interface Comment {
   author_type: 'agent' | 'human';
   author_id: string;
   author_name: string | null;
+  /** api (REST token) | mcp | ui (web); null when unknown. */
+  source?: WriteSource | null;
   body: string | null;
   retracted: boolean;
   is_owner_input: boolean;
@@ -79,11 +81,12 @@ export interface TicketEvent {
   to: Record<string, unknown> | null;
   actor_id: string | null;
   actor_name: string | null;
-  source: 'api' | 'ui';
+  source: WriteSource;
   created_at: string | null;
 }
 
 export interface TicketDetail extends Ticket {
+  created_source?: WriteSource | null;
   comments: Comment[];
   events: TicketEvent[];
   /** When the signed-in user last opened the ticket. */
@@ -125,8 +128,28 @@ export interface StatusEvent {
   set_by: string;
   set_by_name: string | null;
   set_by_type: 'agent' | 'human';
-  source: 'api' | 'ui';
+  source: WriteSource;
   created_at: string | null;
+}
+
+/** Where a write came from: a REST token, the MCP server, or the web app. */
+export type WriteSource = 'api' | 'mcp' | 'ui';
+
+/** Agent writes: "via MCP" or "via API" (older MCP writes were recorded as api); people: "via Bridge". */
+export function viaLabel(source: WriteSource | null | undefined, agent: boolean): string {
+  if (source === 'mcp') return 'via MCP';
+  if (source === 'api' || (agent && source !== 'ui')) return 'via API';
+  return 'via Bridge';
+}
+
+/** The newest posted status update of a project (Board prop latestUpdate); count = all updates of the project. */
+export interface LatestUpdate {
+  id: string;
+  body: string;
+  agent_id: string;
+  agent_name: string | null;
+  created_at: string | null;
+  count: number;
 }
 
 export interface Person { id: string; name: string; role: string; type: 'agent' | 'human' }

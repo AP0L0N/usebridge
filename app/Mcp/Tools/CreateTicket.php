@@ -30,7 +30,7 @@ class CreateTicket extends BridgeTool
     protected function run(Request $request): array
     {
         $project = $this->project($request);
-        $actor = $this->actor($request);
+        $actor = $this->actor($request)->viaMcp();
         $ticket = $this->tickets->create($project, $request->validate(TicketService::rules(true)), $actor);
 
         return ['data' => (new TicketView)->ticket($ticket->fresh()), 'warnings' => TicketService::warnings($project)];
