@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UsageController;
 use App\Http\Middleware\EnsureWorkspaceGate;
 use App\Http\Middleware\LegacyReadOnly;
+use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Models\Workspace;
@@ -46,6 +48,13 @@ Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->grou
     Route::get('/tokens', [TokenController::class, 'index'])->name('account.tokens');
     Route::post('/tokens', [TokenController::class, 'store'])->middleware(RequireVerifiedEmail::class)->name('account.tokens.store');
     Route::delete('/tokens/{id}', [TokenController::class, 'destroy'])->whereNumber('id')->name('account.tokens.destroy');
+});
+
+// Owner admin: user list + disable/enable only (docs/MULTI-USER-PLAN.md §5); 404 unless a logged-in is_admin user.
+Route::middleware(RequireAdmin::class)->prefix('admin')->group(function () {
+    Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users');
+    Route::post('/users/{id}/disable', [AdminUserController::class, 'disable'])->whereNumber('id')->name('admin.users.disable');
+    Route::post('/users/{id}/enable', [AdminUserController::class, 'enable'])->whereNumber('id')->name('admin.users.enable');
 });
 
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
