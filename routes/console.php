@@ -228,7 +228,13 @@ Artisan::command('bridge:set-pms {--dry-run : Show what would change, write noth
 
 // Account deletion (docs/MULTI-USER-PLAN.md §2): users whose 7-day grace is over are soft-deleted (deleted_at). Their
 // workspace rows are kept: no purge without Tilen's explicit OK. Safe to run daily.
+// Runs daily (schedule below) but is a no-op unless BRIDGE_ACCOUNT_PURGE_ENABLED=true (default off), like the purge.
 Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be soft-deleted, change nothing}', function (AccountDeletion $deletion) {
+    if (! AccountPurge::enabled()) {
+        $this->info('Account deletion is disabled (BRIDGE_ACCOUNT_PURGE_ENABLED=false); nothing deleted.');
+
+        return 0;
+    }
     $dry = (bool) $this->option('dry-run');
     $ids = $deletion->deleteExpired($dry);
     $this->info(($dry ? 'Would soft-delete' : 'Soft-deleted').' '.count($ids).' user(s)'.($ids ? ': '.implode(', ', $ids) : '').'.');
@@ -263,6 +269,7 @@ Artisan::command('bridge:accounts-purge {--dry-run : Show what would be purged, 
     return 0;
 })->purpose('Hard-delete accounts 30 days after the deletion grace (only when BRIDGE_ACCOUNT_PURGE_ENABLED=true)');
 
+Schedule::command('bridge:accounts-delete-expired')->daily()->when(fn () => AccountPurge::enabled());
 Schedule::command('bridge:accounts-purge')->daily()->when(fn () => AccountPurge::enabled());
 
 // Ops (docs/MULTI-USER-PLAN.md §11): make a user the owner of a workspace, e.g. Tilen on a copy migrated before

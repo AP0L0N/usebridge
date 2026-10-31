@@ -420,7 +420,7 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Tokens: `ApiTokens` (read/write → abilities, usage/polymarket by feature; 30/90/365/none; `brg_live_` default via `SANCTUM_TOKEN_PREFIX`; `token_suffix`; bound to the workspace; masked list, legacy = no suffix; revoke own), `GET/POST/DELETE /account/tokens` | `ApiTokens`, `Auth\TokenController`, `config/sanctum.php` |
 | Disabled / deletion pending: `ResolveTokenWorkspace` 403 (tokens blocked, not revoked), `LogoutBlockedUser` (web), logged-in web users act in their own workspace (`User::homeWorkspace`) | `app/Http/Middleware` |
 | Admin: `GET /admin/users` → `[id, name, email, created_at, last_login_at, status]` only; `POST /admin/users/{id}/disable\|enable` (not self; disable deletes sessions); 404 unless logged-in `is_admin` | `AdminUsers`, `Admin\UserController`, `RequireAdmin` |
-| Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
+| Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept; scheduled daily, a no-op unless `BRIDGE_ACCOUNT_PURGE_ENABLED=true`), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
 | Shared AUTH-1 password removed (decision 9): login only, a stale gate flag gets nothing; tests `WebAccessAndPagesTest` | `EnsureUserWorkspace`, `routes/web.php` |
 | Waiting column label (CoS decision 10): `BoardColumns` default "Waiting on you", `workspaces.settings.waiting_label` per workspace (backfilled for existing ones), project `column_labels` win; portfolio gets the workspace defaults, the ask dialog the board's label; tests `WaitingColumnLabelTest` | `BoardColumns::defaults()`, `Workspace::waitingLabel()`, `TicketService::askRequired()`, `2026_10_31_160000_workspace_settings` |
@@ -489,8 +489,9 @@ personal_access_tokens` — each needs `*`/`ceo` or the abilities it uses; (3) r
 `migrate:rollback --step=4`; (4) after: counts + smoke tests; (5) `SESSION_DRIVER=database` (sessions / disable / log
 out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification; until the domain is decided `MAIL_MAILER=log`, set
 `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` when it is); (7) `TURNSTILE_*` once The Many has created the keys; (7b) PHP
-`upload_max_filesize` / `post_max_size` ≥ 10 MB for `POST /usage/cursor-csv`; (8) daily cron
-`php artisan bridge:accounts-delete-expired`; (9) `laravel/mcp` is a runtime dependency now: the deploy runs
+`upload_max_filesize` / `post_max_size` ≥ 10 MB for `POST /usage/cursor-csv`; (8) the Laravel scheduler cron
+(`* * * * * php artisan schedule:run`), which runs `bridge:accounts-delete-expired` and `bridge:accounts-purge` daily;
+both are no-ops while `BRIDGE_ACCOUNT_PURGE_ENABLED=false`; (9) `laravel/mcp` is a runtime dependency now: the deploy runs
 `composer install --no-dev --optimize-autoloader` (vendor must contain it, else every request fails at boot);
 (10) `BRIDGE_HIBP_ENABLED` stays unset (on) — the box needs outbound HTTPS to `api.pwnedpasswords.com` (fail-open
 otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with a verified user's token.

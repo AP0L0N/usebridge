@@ -86,8 +86,35 @@ class AccountDeletionTest extends TestCase
     }
 
     #[Test]
+    public function the_command_is_a_no_op_while_the_purge_flag_is_off(): void
+    {
+        config(['bridge.account_purge_enabled' => false]);
+        $this->marta->forceFill(['delete_requested_at' => Carbon::now()])->save();
+        $this->travelTo(Carbon::now()->addDays(30));
+        $before = User::withTrashed()->whereNotNull('deleted_at')->count();
+
+        $this->artisan('bridge:accounts-delete-expired')->expectsOutputToContain('disabled')->assertSuccessful();
+
+        $this->assertFalse($this->marta->fresh()->trashed());
+        $this->assertSame($before, User::withTrashed()->whereNotNull('deleted_at')->count());
+    }
+
+    #[Test]
+    public function the_command_is_scheduled_daily(): void
+    {
+        $this->artisan('schedule:list')->expectsOutputToContain('bridge:accounts-delete-expired')->assertSuccessful();
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->filter(fn ($e) => str_contains((string) $e->command, 'bridge:accounts-delete-expired'));
+        $this->assertCount(1, $events);
+        $this->assertSame('0 0 * * *', $events->first()->expression);
+        config(['bridge.account_purge_enabled' => false]);
+        $this->assertFalse($events->first()->filtersPass($this->app), 'skipped while the flag is off');
+    }
+
+    #[Test]
     public function the_command_soft_deletes_after_seven_days_and_keeps_every_row(): void
     {
+        config(['bridge.account_purge_enabled' => true]);
         $this->marta->forceFill(['delete_requested_at' => Carbon::now()])->save();
         $early = User::factory()->create(['delete_requested_at' => Carbon::now()->addDays(3)]);
         $this->travelTo(Carbon::now()->addDays(7)->addMinute());
