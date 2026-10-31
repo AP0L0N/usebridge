@@ -130,8 +130,9 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
   user and marks the workspace; **no purge** of rows without Tilen's explicit OK. Export first: a JSON download of the
   workspace (projects, tickets, comments, statuses, usage) from the Danger zone.
 - Password reset: built-in broker, 60 min, 60 s throttle (done in `AccountService`). CSRF, `same_site=lax`,
-  `SESSION_SECURE_COOKIE=true` on live. Transition: the AUTH-1 gate stays until login ships, then it is removed and
-  gate sessions invalidated.
+  `SESSION_SECURE_COOKIE=true` on live. Transition: the login screen is now the entry for guests (§11 UI); the AUTH-1
+  gate keeps working for the existing workspace ("Workspace password" link on `/login`) **until Tilen retires it**;
+  then the gate routes are removed and gate sessions invalidated.
 
 ## 3. Migrating current data
 
@@ -304,13 +305,24 @@ collector files with `covered_tools: ["cursor"]`, attributing via a `serviceAcco
 ## 9. Step order
 
 Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities, step 1
-backend auth, breached-password check and the MCP endpoint (§11). Next, each with tests, deployable alone:
+backend auth, breached-password check, the MCP endpoint and the UI (§11). Next, each with tests, deployable alone:
 1. ~~Backend auth~~ — done (§11, JSON only). Left from it for later steps: `PATCH /account` + email change
    (`pending_email` columns exist, flow not built), `GET /reset-password/{token}` screen, sessions list device parsing.
 2. ~~MCP endpoint~~ — done (§6, §11).
 3. ~~Cursor ingest~~ — done: scoped replace + markers, `cursor` tool, new columns; CSV import (§7).
-4. UI from the prototypes: login/signup (Turnstile) / reset / account / tokens / onboarding / admin / usage Cursor;
-   then remove the gate, read states per user.
+4. ~~UI from the prototypes~~ — done (§11 "UI"): login / signup (Turnstile) / reset / account / tokens + MCP /
+   onboarding / admin / usage Cursor + CSV upload, shell. Left from it (backend, each switches its screen on by itself):
+   - `PATCH /account` {name, timezone, email} + email change (`pending_email` signed link), `POST /account/email/resend`,
+     `DELETE /account/email/pending` — named `account.update` / `account.email.resend` / `account.email.cancel`; the
+     profile form is read-only and the pending banner has no actions until those route names exist.
+   - Web `POST /projects` (`projects.store`) for a workspace without agents (`owner_agent_id` today is required and
+     only `POST /api/agents` (Captain) makes agents) and `PATCH /projects/{slug}/columns` (`projects.columns.update`,
+     needs the `column_labels` column): onboarding steps 1–2 are read-only with a note until then. A new user can
+     sign up, verify, create tokens and use MCP, but cannot get a first project yet — the real blocker for step 4.
+   - Retire the AUTH-1 gate (Tilen's call): remove `/gate*`, `bridge_gate_unlocked`, the gate branch of
+     `EnsureWorkspaceGate` / `CursorCsvController::allowed`, the "Workspace password" link; then read states per user.
+   - Live: Turnstile keys (The Many), `MAIL_*` (mail domain still open), `SESSION_DRIVER=database` before the Sessions
+     card means anything.
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
    artisan imports, first-agent creation for new workspaces (`POST /api/agents` is Captain-only today).
 
@@ -351,13 +363,33 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Security fix (existence oracle / cross-workspace agent): `POST /api/status-updates` checked `project_id` / `agent_id` with unscoped `exists:` rules, so another workspace's project answered 404 but an unknown one 422, and a token could file a status under another workspace's agent id. Now the project is looked up in the current workspace (unknown and foreign both 404, project checked first), then `agent_id` via `WorkspaceRule::exists` (unknown and foreign both 422, nothing written). Audit of every REST/web controller and FormRequest: `NextStepController` store/update had the same unscoped `exists:projects` / `exists:agents` → `WorkspaceRule::exists`; no other `exists:` / `Rule::exists` / raw `DB::table` lookup on an owned table remains (`DeviceSessions` reads `sessions` by user id). `/api` rate limit: 120/min per token id (`throttle:api-token`, a first-party session per user), JSON 429 | `Api\StatusUpdateController`, `Api\NextStepController`, `AppServiceProvider`, `routes/api.php`, `WorkspaceIsolationTest` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
-Step 1 notes: all routes are JSON in the `web` group (CSRF applies; screens come in step 4); the AUTH-1 gate still
+Step 1 notes: all routes are JSON in the `web` group (CSRF applies; the screens of step 4 call them); the AUTH-1 gate still
 works for the existing pages. A soft-deleted user's email stays taken (unique). Deleted users keep their workspace
 (no workspace marker column yet; the soft-deleted owner is the marker). Changing the password also rotates the remember
 token, so this device's "keep me logged in" cookie ends too (its session continues). Still global by design (later step): client-chosen
 ids (`unique:` on `projects` / `agents` / `status_updates` / `next_steps` ids) and project slug / ticket prefix, so a
 create with an id or slug another workspace already uses answers 422 "taken"; this only shows that the key is in use
 somewhere, not where, and nothing can be read or written through it.
+
+**UI (step 4, branch `feat/multi-user`, Tommy's prototypes `design/bridge-multiuser/`):** styles from `shared.css` §4
+in `resources/css/account.css` (kanban excerpts lifted / scoped to `.colprev`, prototype `.proto` dropped; 720 / 1100 px
+breakpoints, reduced motion). Every write goes to the JSON routes above; the new GET routes only render Inertia props
+(no new business logic). Tests: `tests/Feature/Screens/*`.
+
+| Screen | Route → component | Notes |
+|---|---|---|
+| Shell | shared props `auth.user {id, name, email, initials, is_admin, email_verified}` (null for guests / gate), `features.polymarket`, `features.admin` | `TopBar`: account menu (Account, API tokens & MCP, Log out = `POST /logout`), Owner chip + Admin nav for `is_admin`, Polymarket only with the feature; gate sessions keep "Tilen" |
+| Log in | `GET /login` → `Auth/Login` {gateAvailable} | guests are redirected here (was `/gate`); wrong (tries left), locked (countdown to `locked_until`, reset link), disabled, deletion pending → "Cancel deletion and log in" (`POST /login/cancel-deletion`); "Workspace password" → `/gate` |
+| Sign up | `GET /signup` → `Auth/Signup` {formToken, turnstileSiteKey, minPassword} | honeypot `website` + `form_token` always; the Turnstile script loads only when `turnstile.site_key` is set (secret never in props); email taken banner; lands on `/welcome` |
+| Reset | `GET /forgot-password` → `Auth/ForgotPassword`; `GET /reset-password/{token}?email=` (`password.reset`, the mail link) → `Auth/ResetPassword` {token, email, valid} | request → sent (neutral), set new (meter, match line) → success, expired (also for an unknown email) |
+| Account | `GET /account` → `Account/Settings` {account, sessions, timezones, minPassword, deletion {graceDays, counts}, can} (JSON clients keep the JSON) | verify-email banner (resend), profile (read-only until `account.update`), password, sessions (this device, others, log out others with password, all devices), danger zone (export download, delete with typed email, 7-day grace → `/login?status=deletion-requested`) |
+| Tokens & MCP | `GET /account/tokens` → `Account/Tokens` {tokens (masked), mcpUrl, emailVerified, expiryDays} (JSON clients keep the JSON) | create read / read & write, 30/90/365/never (verified only), show-once plaintext from the POST response with copy, revoke (alertdialog), MCP URL / header / JSON snippets |
+| Onboarding | `GET /welcome` (auth) → `Onboarding` {name, project, hasToken, emailVerified, columns, createProjectUrl, saveColumnsUrl} | derived steps; URLs null until the backend routes exist (above) |
+| Admin | `GET /admin/users` → `Admin/Users` {users (exactly `AdminUsers::KEYS`), meId} (JSON clients keep the JSON); 404 for non-admins | status chips, disable (confirm) / enable; no counts, no invited state |
+| Usage | `/usage` (`Usage/Overview`) | Cursor models section: stats, per-model table, daily chart by model, one account "Cursor (all agents)", cost when the CSV had one (`costCents`, only where a row has `cost_cents`); "no file that day" vs zero per tool from `cli.importedTools` (coding tools and Cursor); owner's upload panel (`cli.cursorUpload.allowed`) with summary, kept partial edge days and 422 line errors |
+
+Also: the verification mail link opened in a browser redirects (tokens page or login) with a flash instead of
+showing JSON; a user disabled mid-session lands on `/login` with the reason; an empty Portfolio links to `/welcome`.
 
 **Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate` — without it the
 backfill throws and `migrate` stops (it never picks the token owner or first user); (2) `SELECT id, name, abilities FROM
