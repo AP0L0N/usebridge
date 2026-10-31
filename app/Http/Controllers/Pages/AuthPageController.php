@@ -29,6 +29,7 @@ class AuthPageController extends Controller
         return Inertia::render('Auth/Login', [
             // AUTH-1 stays usable for the existing workspace until Tilen retires it ("Workspace password" link).
             'gateAvailable' => (string) config('bridge.gate_password') !== '',
+            'copy' => self::copy(),
         ]);
     }
 
@@ -43,6 +44,7 @@ class AuthPageController extends Controller
             // null = no widget (and no script); the honeypot + minimum fill time always apply.
             'turnstileSiteKey' => config('turnstile.site_key') ?: null,
             'minPassword' => AccountService::MIN_PASSWORD,
+            'copy' => self::copy(),
             // Required, never pre-ticked (terms + age 18); copy from lang/en/legal.php (:terms / :privacy become links).
             'acceptTerms' => false,
             'acceptance' => [
@@ -60,7 +62,7 @@ class AuthPageController extends Controller
 
     public function forgot(): Response
     {
-        return Inertia::render('Auth/ForgotPassword');
+        return Inertia::render('Auth/ForgotPassword', ['copy' => self::copy()]);
     }
 
     /** The link from the reset mail (AppServiceProvider::createUrlUsing): /reset-password/{token}?email=… */
@@ -75,6 +77,13 @@ class AuthPageController extends Controller
             // Same answer for an unknown email and a used / expired token, so the page reveals nothing new.
             'valid' => $user instanceof User && Password::broker()->tokenExists($user, $token),
             'minPassword' => AccountService::MIN_PASSWORD,
+            'copy' => self::copy(),
         ]);
+    }
+
+    /** Every string of the logged-out screens (lang/en/auth_ui.php); the pages fill the :placeholders. */
+    public static function copy(): array
+    {
+        return (array) __('auth_ui');
     }
 }

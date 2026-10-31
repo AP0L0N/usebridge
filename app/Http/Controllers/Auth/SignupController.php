@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Services\Auth\AccountService;
 use App\Services\Auth\SignupBotCheck;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Open sign-up (relayed decision 1): user + own workspace, verification mail, logged in. Boards work right away;
@@ -34,13 +36,40 @@ class SignupController extends Controller
             'password' => ['required', 'string', 'max:255'],
             'accept_terms' => ['accepted'],
         ], [
-            'accept_terms.accepted' => 'Confirm that you are at least 18 and agree to the Terms of Use.',
+            'name.required' => __('auth_ui.errors.name_required'),
+            'email.required' => __('auth_ui.errors.email_invalid'),
+            'accept_terms.accepted' => __('auth_ui.errors.accept_terms'),
         ]);
         $bots->check($request->all(), $request->ip());
-        $user = $accounts->register($data['name'], $data['email'], $data['password'], acceptedTerms: true);
+        try {
+            $user = $accounts->register($data['name'], $data['email'], $data['password'], acceptedTerms: true);
+        } catch (ValidationException $e) {
+            throw self::screenErrors($e);
+        }
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
         return response()->json(['user' => LoginController::user($user), 'redirect' => route('portfolio')], 201);
+    }
+
+    /**
+     * The sign-up screen's wording for register()'s email errors (one line per field). A taken email answers
+     * `email_taken: true`, so the screen shows "Log in instead" without matching on the message text.
+     */
+    private static function screenErrors(ValidationException $e): ValidationException|HttpResponseException
+    {
+        $failed = $e->validator->failed()['email'] ?? [];
+        if ($failed === []) {
+            return $e;
+        }
+        $errors = $e->errors();
+        $taken = isset($failed['Unique']);
+        $errors['email'] = [__($taken ? 'auth_ui.errors.email_taken' : 'auth_ui.errors.email_invalid')];
+
+        return new HttpResponseException(response()->json([
+            'message' => $errors['email'][0],
+            'errors' => $errors,
+            'email_taken' => $taken,
+        ], 422));
     }
 }

@@ -81,8 +81,10 @@ final class LoginService
         $email = Str::lower(trim($email));
         $ipKey = 'login-ip:'.($ip ?? 'none');
         if (RateLimiter::tooManyAttempts($ipKey, self::IP_PER_MINUTE)) {
+            $retry = max(1, RateLimiter::availableIn($ipKey));
             throw new LoginRefused('Too many login attempts. Try again in a minute.', 429, [
-                'retry_after' => RateLimiter::availableIn($ipKey),
+                'retry_after' => $retry,
+                'locked_until' => Carbon::now()->addSeconds($retry)->toIso8601String(),
             ]);
         }
 
@@ -157,10 +159,12 @@ final class LoginService
         ]);
     }
 
+    /** retry_after: whole seconds left (the screen counts down from it, so the browser clock does not matter). */
     private function locked(Carbon $until): LoginRefused
     {
         return new LoginRefused('Too many failed logins. The account is locked for '.self::LOCK_MINUTES.' minutes; a password reset unlocks it.', 429, [
             'locked_until' => $until->toIso8601String(),
+            'retry_after' => max(1, (int) ceil(Carbon::now()->diffInSeconds($until, true))),
         ]);
     }
 }
