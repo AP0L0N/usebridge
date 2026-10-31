@@ -42,7 +42,7 @@ class AccountPageController extends Controller
                 // Own workspace only (EnsureWorkspaceGate set it; the scope filters every query).
                 'counts' => ['projects' => Project::query()->count(), 'tickets' => Ticket::query()->count(), 'tokens' => count($tokens->list($user))],
             ],
-            // Profile edit / email change are not built yet (§9 step 1); the form turns on when their routes exist.
+            // Profile edit / email change (ProfileController); the form turns on when their routes exist.
             'can' => [
                 'updateProfile' => Route::has('account.update'),
                 'resendEmailChange' => Route::has('account.email.resend'),
