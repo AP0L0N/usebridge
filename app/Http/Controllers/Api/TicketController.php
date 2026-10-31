@@ -12,7 +12,6 @@ use App\Services\Tickets\TicketService;
 use App\Services\Tickets\TicketView;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /** Tickets API (Sanctum). Writes need an acting agent (see Actor::fromApi). No delete route: archive instead. */
 class TicketController extends Controller
