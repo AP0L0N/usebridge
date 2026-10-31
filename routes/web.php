@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
+use App\Http\Controllers\Pages\AccountPageController;
 use App\Http\Controllers\Pages\AuthPageController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -23,7 +24,6 @@ use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Models\Workspace;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
@@ -50,12 +50,12 @@ Route::post('/email/verification-notification', [EmailVerificationController::cl
     ->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 
 Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->group(function () {
-    Route::get('/', fn (Request $request) => response()->json(['user' => LoginController::user($request->user())]))->name('account.show');
+    Route::get('/', [AccountPageController::class, 'show'])->name('account.show');
     Route::put('/password', [PasswordController::class, 'change'])->name('account.password');
     Route::get('/sessions', [SessionController::class, 'index'])->name('account.sessions');
     Route::delete('/sessions/others', [SessionController::class, 'destroyOthers'])->name('account.sessions.others');
     Route::delete('/sessions', [SessionController::class, 'destroyAll'])->name('account.sessions.all');
-    Route::get('/tokens', [TokenController::class, 'index'])->name('account.tokens');
+    Route::get('/tokens', [AccountPageController::class, 'tokens'])->name('account.tokens');
     Route::post('/tokens', [TokenController::class, 'store'])->middleware(RequireVerifiedEmail::class)->name('account.tokens.store');
     Route::delete('/tokens/{id}', [TokenController::class, 'destroy'])->whereNumber('id')->name('account.tokens.destroy');
     Route::post('/delete', [AccountDeletionController::class, 'request'])->name('account.delete');

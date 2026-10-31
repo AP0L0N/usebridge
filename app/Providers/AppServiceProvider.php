@@ -27,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
                 return null;
             }
 
-            return route('gate.show');
+            return route('login'); // the login screen (it links the AUTH-1 gate as "Workspace password")
         });
 
         // Open sign-up: 5 per IP and hour (relayed decision 1).
