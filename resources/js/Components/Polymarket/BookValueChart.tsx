@@ -1,6 +1,7 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { niceStep } from '../../lib/usage';
 import { signedUsd, usd, usdAxis, type ChartData, type ChartRange } from '../../lib/polymarket';
+import { t } from '../../lib/strings-pm';
 
 // DATA-SPEC §4: viewBox 1312×452, plot x 64→1150 (150 px right gutter for end labels), y 22→362, swept track at 424.
 // ≤720px: a 480-wide viewBox without the gutter (end labels go into the legend), so text stays readable.
@@ -8,23 +9,23 @@ const H = 452, X0 = 64, TOP = 22, BASE = 362, TRACK = 424;
 const WIDE = { W: 1312, X1: 1150 }, NARROW = { W: 480, X1: 468 };
 /** Wall-clock window of a day slot: 06:00–24:00 maps across the slot, nights collapse to its edge. */
 const DAY_START = 360, DAY_LEN = 1080;
-const NAVY = '#1F3A5F';
+const INK = '#0B0C0F', RISK = '#E5484D';
 const TIP_W = 236;
 
 type Hit = { x: number; y: number; label: string; book: number; cash: number | null; prev: number | null; hw: number; src: string; live: boolean };
 
-const RANGES: { range: ChartRange; label: (since: string) => string }[] = [
-  { range: '7', label: () => '7 days' },
-  { range: '30', label: () => '30 days' },
-  { range: 'all', label: (since) => `All · since ${since}` },
+const RANGES: { range: ChartRange; label: () => string }[] = [
+  { range: '7', label: () => t('pm.chart.r7') },
+  { range: '30', label: () => t('pm.chart.r30') },
+  { range: 'all', label: () => t('pm.chart.rAll') },
 ];
 
 /** 7 days | 30 days | All · since 3 Oct (client-side: every point is already on the page). */
-export function ChartRangeSeg({ range, since, onChange }: { range: ChartRange; since: string; onChange: (r: ChartRange) => void }) {
+export function ChartRangeSeg({ range, onChange }: { range: ChartRange; onChange: (r: ChartRange) => void }) {
   return (
-    <div className="seg" role="group" aria-label="Range">
+    <div className="pmx-seg" role="group" aria-label={t('pm.chart.range')}>
       {RANGES.map(({ range: r, label }) => (
-        <button key={r} type="button" aria-pressed={r === range} onClick={() => onChange(r)}>{label(since)}</button>
+        <button key={r} type="button" aria-pressed={r === range} onClick={() => onChange(r)}>{label()}</button>
       ))}
     </div>
   );
@@ -33,10 +34,6 @@ export function ChartRangeSeg({ range, since, onChange }: { range: ChartRange; s
 /** Days and runs shown for a range: the last N calendar days up to today, never before the first run. */
 export function visibleDays(chart: ChartData, range: ChartRange) {
   return range === 'all' ? chart.days : chart.days.slice(Math.max(0, chart.days.length - Number(range)));
-}
-
-export function LegendLine({ dash, color, width }: { dash?: string; color: string; width: number }) {
-  return <svg width="26" height="12" aria-hidden="true"><line x1="1" x2="25" y1="6" y2="6" stroke={color} strokeWidth={width} strokeDasharray={dash} /></svg>;
 }
 
 /**
@@ -82,7 +79,6 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
   const xy = pts.map(({ p, hw }) => ({ x: xOf(p.day, p.min), y: y(p.book), hwY: y(hw) }));
   const liveXY = { x: xOf(live.day, live.min), y: y(live.book) };
   const line = xy.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
-  const area = xy.length ? `M${xy[0]!.x.toFixed(1)},${BASE} ${line.replace(/^M/, 'L')} L${xy[xy.length - 1]!.x.toFixed(1)},${BASE} Z` : '';
 
   // High-water: step line through the runs (+ live), extended to the right edge.
   const hwPts = [...xy.map((q) => ({ x: q.x, y: q.hwY })), ...(showLive ? [{ x: liveXY.x, y: y(liveHw) }] : [])];
@@ -157,23 +153,17 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
 
   const first = days[0]!, lastDay = days[days.length - 1]!;
   const labelEvery = Math.max(1, Math.ceil(26 / slot));
-  const nowLabel = `Now ${usd(live.book)}`;
+  const nowLabel = t('pm.chart.now', { value: usd(live.book) });
   const nowXY = showLive ? liveXY : xy[xy.length - 1]!;
 
   return (
-    <div className="chart-wrap" ref={wrap}>
-      <svg className={`pmchart${narrow ? ' narrow' : ''}`} viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="pm-ct pm-cd">
+    <div className="pmx-chartwrap" ref={wrap}>
+      <svg className={`pmx-chart${narrow ? ' narrow' : ''}`} viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="pm-ct pm-cd">
         <title id="pm-ct">{`Book value, every desk run, ${first.d} ${first.mon} to ${lastDay.d} ${lastDay.mon}`}</title>
         <desc id="pm-cd">
           {`Book value ${usd(live.book)} now; high-water ${usd(hwValue)}${chart.peak ? ` on ${chart.peak.dayLabel}` : ''}${chart.funded !== null ? `; funded ${usd(chart.funded)}` : ''}. Use the buttons over the chart to read each run.`}
         </desc>
-        <defs>
-          <linearGradient id="pmfill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={NAVY} stopOpacity=".16" />
-            <stop offset="1" stopColor={NAVY} stopOpacity=".02" />
-          </linearGradient>
-        </defs>
-        {days.map((d, i) => d.weekend && <rect key={d.date} x={X0 + i * slot} y={TOP} width={slot} height={BASE - TOP} fill="#F7F5F0" />)}
+        {days.map((d, i) => d.weekend && <rect key={d.date} className="wkband" x={X0 + i * slot} y={TOP} width={slot} height={BASE - TOP} />)}
         {ticks.map((v) => (
           <g key={v}>
             <line className="grid" x1={X0} x2={X1} y1={y(v)} y2={y(v)} />
@@ -194,32 +184,30 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
 
         {stopFirst && stopLast && (
           <>
-            {stopIdx.length > 1 ? <path className="stop" d={stopPath} fill="none" /> : <circle cx={stopFirst.x} cy={stopFirst.y} r="2.5" fill="var(--w2)" />}
+            {stopIdx.length > 1 ? <path className="stop" d={stopPath} fill="none" /> : <circle cx={stopFirst.x} cy={stopFirst.y} r="2.5" fill={RISK} />}
             <text className="ann" x={stopFirst.x} y={stopFirst.y - 12}>Stop {usd(stopFirst.v)}</text>
             {chart.stop?.removed && stopIdx[stopIdx.length - 1] !== pts.length - 1 && (
               <>
-                <line stroke="#B4661C" strokeWidth="2" x1={stopLast.x} x2={stopLast.x} y1={stopLast.y - 7} y2={stopLast.y + 7} />
+                <line stroke={RISK} strokeWidth="2" x1={stopLast.x} x2={stopLast.x} y1={stopLast.y - 7} y2={stopLast.y + 7} />
                 <text className="ann" x={stopLast.x + 8} y={stopLast.y + 4}>Stop-loss removed {chart.stop.toLabel}</text>
               </>
             )}
           </>
         )}
 
-        {area && <path d={area} fill="url(#pmfill)" />}
         {line && <path className="line" d={line} />}
         {showLive && xy.length > 0 && (
           <path className="line" strokeDasharray="3 4" d={`M${xy[xy.length - 1]!.x.toFixed(1)},${xy[xy.length - 1]!.y.toFixed(1)} L${liveXY.x.toFixed(1)},${liveXY.y.toFixed(1)}`} />
         )}
-        {xy.length <= 400 && xy.map((q, i) => <circle key={i} cx={q.x} cy={q.y} r="2" fill={NAVY} />)}
-        <circle cx={nowXY.x} cy={nowXY.y} r="9" fill={NAVY} opacity=".14" />
-        <circle cx={nowXY.x} cy={nowXY.y} r="5" fill="#fff" stroke={NAVY} strokeWidth="2.5" />
+        <circle cx={nowXY.x} cy={nowXY.y} r="9" fill={INK} opacity=".1" />
+        <circle cx={nowXY.x} cy={nowXY.y} r="5" fill="#fff" stroke={INK} strokeWidth="2.5" />
         <text className="lv" x={nowXY.x - 10} y={nowXY.y - 16} textAnchor="end">{nowLabel}</text>
-        {peakXY && <circle cx={peakXY.x} cy={peakXY.y} r="4.5" fill="#fff" stroke="#4A4F5A" strokeWidth="2" />}
+        {peakXY && <circle cx={peakXY.x} cy={peakXY.y} r="4.5" fill="#fff" stroke="#8A8F9C" strokeWidth="2" />}
 
         {cur && (
           <>
             <line x1={cur.x} x2={cur.x} y1={TOP} y2={BASE} stroke="#17191F" strokeOpacity=".35" strokeWidth="1" />
-            <circle cx={cur.x} cy={cur.y} r="5.5" fill={NAVY} stroke="#fff" strokeWidth="2" />
+            <circle cx={cur.x} cy={cur.y} r="5.5" fill={INK} stroke="#fff" strokeWidth="2" />
           </>
         )}
 
@@ -239,18 +227,18 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
 
         {track.length > 0 && (
           <>
-            <text className="xm" x={X0 - 10} y="428" textAnchor="end">Swept</text>
+            <text className="xm" x={X0 - 10} y="428" textAnchor="end">{t('pm.chart.swept')}</text>
             <line className="swtrack" x1={X0} x2={X1} y1={TRACK} y2={TRACK} />
             {track.map((s) => (
               <g key={s.day}>
-                <path className="sw" d={`M${(s.x - 6).toFixed(1)},418 L${(s.x + 6).toFixed(1)},418 L${s.x.toFixed(1)},428 Z`} />
+                <circle className="sw" cx={s.x} cy={TRACK} r="6" />
                 <text className="swl" x={s.x} y={s.ly} textAnchor="middle">{usd(s.total)}{s.count > 1 ? ` ×${s.count}` : ''}</text>
               </g>
             ))}
           </>
         )}
       </svg>
-      <div className="bars-hit">
+      <div className="pmx-hit">
         {hits.map((h, i) => {
           const left = i === 0 ? Math.max(X0, h.x - 8) : (hits[i - 1]!.x + h.x) / 2;
           const right = i === n - 1 ? Math.min(X1 + 8, h.x + 8) : (h.x + hits[i + 1]!.x) / 2;
@@ -262,7 +250,7 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
               tabIndex={i === focusAt ? 0 : -1}
               style={{ left: `${(left / W) * 100}%`, width: `${(Math.max(2, right - left) / W) * 100}%`, top: `${(TOP / H) * 100}%`, height: `${((BASE - TOP) / H) * 100}%` }}
               aria-label={`${h.live ? 'Live mark' : 'Desk run'} ${h.label}: book value ${usd(h.book)}, cash ${h.cash === null ? 'not recorded' : usd(h.cash)}.`}
-              aria-describedby={active === i ? 'pm-tip' : undefined}
+              aria-describedby={active === i ? 'pmx-tip' : undefined}
               onMouseEnter={() => setActive(i)}
               onMouseLeave={() => setActive(null)}
               onFocus={() => { setFocusIdx(i); setActive(i); }}
@@ -273,7 +261,7 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
         })}
       </div>
       {cur && tip && (
-        <div className="tip pmtip" id="pm-tip" role="tooltip" style={{ left: tip.left, top: tip.top }}>
+        <div className="pmx-tip" id="pmx-tip" role="tooltip" style={{ left: tip.left, top: tip.top }}>
           <h4>{cur.label}</h4>
           <dl>
             <dt>Book value</dt><dd>{usd(cur.book)}</dd>

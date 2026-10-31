@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { cents, pnlClass, shares, signedPct, signedUsd, usd, type Position, type Totals } from '../../lib/polymarket';
+import { cents, shares, usd, type Position, type Totals } from '../../lib/polymarket';
+import { t } from '../../lib/strings-pm';
+import { Delta } from './DeskBits';
 
 export type PositionSort = 'value' | 'pnl' | 'ends';
 
-const SORTS: { sort: PositionSort; label: string; words: string }[] = [
-  { sort: 'value', label: 'Value', words: 'value' },
-  { sort: 'pnl', label: 'P&L', words: 'P&L' },
-  { sort: 'ends', label: 'Ends', words: 'end date' },
+const SORTS: { sort: PositionSort; label: Parameters<typeof t>[0] }[] = [
+  { sort: 'value', label: 'pm.pos.sortValue' },
+  { sort: 'pnl', label: 'pm.pos.sortPnl' },
+  { sort: 'ends', label: 'pm.pos.sortEnds' },
 ];
-
-export const sortWords = (sort: PositionSort) => SORTS.find((s) => s.sort === sort)!.words;
 
 const ExtIcon = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M9 3h4v4M13 3 7.5 8.5M12 9.5V13H3V4h3.5" /></svg>
@@ -20,8 +20,8 @@ const Chevron = ({ open }: { open: boolean }) => (
 
 export function PositionSortSeg({ sort, onChange }: { sort: PositionSort; onChange: (s: PositionSort) => void }) {
   return (
-    <div className="seg" role="group" aria-label="Sort">
-      {SORTS.map((s) => <button key={s.sort} type="button" aria-pressed={s.sort === sort} onClick={() => onChange(s.sort)}>{s.label}</button>)}
+    <div className="pmx-seg" role="group" aria-label={t('pm.pos.sort')}>
+      {SORTS.map((s) => <button key={s.sort} type="button" aria-pressed={s.sort === sort} onClick={() => onChange(s.sort)}>{t(s.label)}</button>)}
     </div>
   );
 }
@@ -36,102 +36,93 @@ function sorted(rows: Position[], sort: PositionSort): Position[] {
   return [...rows].sort((a, b) => key(a) - key(b));
 }
 
-const Side = ({ outcome }: { outcome: string | null }) =>
-  outcome ? <span className={`sidep ${outcome.toLowerCase() === 'no' ? 'no' : 'yes'}`}>{outcome}</span> : <>—</>;
-
 function Ends({ p }: { p: Position }) {
   const e = p.ends;
-  let extra = null;
-  if (e?.kind === 'settled') extra = <span className="kb med">Settled</span>;
-  else if (e?.kind === 'awaiting') extra = <span className="kb warn">Awaiting result</span>;
-  else if (e?.kind === 'today') extra = <span className="kb navy">Resolves today</span>;
-  else if (e?.kind === 'tomorrow') extra = <span className="rel">tomorrow</span>;
-  else if (e?.kind === 'days') extra = <span className="rel">in {e.days} days</span>;
-  return <div className="ends"><span>{p.endLabel ?? '—'}</span>{extra}</div>;
+  const label = e?.kind === 'settled' ? t('pm.pos.ends.settled')
+    : e?.kind === 'awaiting' ? t('pm.pos.ends.awaiting')
+    : e?.kind === 'today' ? t('pm.pos.ends.today')
+    : e?.kind === 'tomorrow' ? t('pm.pos.ends.tomorrow')
+    : p.endLabel ? t('pm.pos.ends.date', { date: p.endLabel }) : '—';
+  return <div className="pmx-ends"><span>{label}</span></div>;
 }
+
+const Pnl = ({ pnl, pct }: { pnl: number | null; pct: number | null }) =>
+  pnl === null ? <>—</> : <Delta v={pnl} pct={pct} />;
 
 function Row({ p }: { p: Position }) {
   return (
     <tr className={p.settled ? 'setl' : undefined}>
-      <td className="l mkc">
-        <div className="mk">
-          {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.market}<span className="sr-only"> (opens Polymarket in a new tab)</span></a> : <span>{p.market}</span>}
-          {p.url && <ExtIcon />}
-        </div>
+      <td className="l mk">
+        {p.url
+          ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.market}<ExtIcon /><span className="sr-only"> {t('pm.pos.opens')}</span></a>
+          : p.market}
       </td>
-      <td className="l sidec"><Side outcome={p.outcome} /></td>
-      <td className="hide-m">{p.shares === null ? '—' : shares(p.shares)}</td>
-      <td className="hide-m">{p.avgPrice === null ? '—' : cents(p.avgPrice)}</td>
-      <td className="hide-m">{p.curPrice === null ? '—' : cents(p.curPrice)}</td>
-      <td className="hide-m">{p.cost === null ? '—' : usd(p.cost)}</td>
-      <td className="valc"><b>{p.value === null ? '—' : usd(p.value)}</b></td>
-      <td className={`pnlc ${pnlClass(p.pnl)}`}>
-        {p.pnl === null ? '—' : <b>{signedUsd(p.pnl)}</b>}
-        {p.pnlPct !== null && <span className="pct">{signedPct(p.pnlPct)}</span>}
-      </td>
-      <td className="endc"><Ends p={p} /></td>
+      <td className="l">{p.outcome ? <span className={`pmx-side ${p.outcome.toLowerCase() === 'no' ? 'no' : ''}`}>{p.outcome}</span> : '—'}</td>
+      <td>{p.shares === null ? '—' : shares(p.shares)}</td>
+      <td>{p.avgPrice === null ? '—' : cents(p.avgPrice)}</td>
+      <td>{p.curPrice === null ? '—' : cents(p.curPrice)}</td>
+      <td>{p.cost === null ? '—' : usd(p.cost)}</td>
+      <td>{p.value === null ? '—' : usd(p.value)}</td>
+      <td><Pnl pnl={p.pnl} pct={p.pnlPct} /></td>
+      <td><Ends p={p} /></td>
     </tr>
   );
 }
 
-/**
- * Open positions (sorted by the seg), totals row, then the settled group: one collapsed row
- * ("resolved at $0 · redeemable, nothing to collect"), Show/Hide expands the dimmed rows.
- */
+/** Open positions (sorted by the seg), a Total row, and the settled group collapsed under it. */
 export function PositionsTable({ open, settled, openTotals, settledTotals, sort }: { open: Position[]; settled: Position[]; openTotals: Totals; settledTotals: Totals; sort: PositionSort }) {
   const [showSettled, setShowSettled] = useState(false);
   const allZero = settled.every((p) => (p.value ?? 0) === 0);
   return (
-    <table className="tbl ptbl" style={{ marginTop: 10 }}>
-      <caption className="sr-only">Open positions, sorted by {sortWords(sort)}, with settled markets below</caption>
-      <thead>
-        <tr>
-          <th scope="col">Market</th>
-          <th scope="col" className="l" style={{ textAlign: 'left' }}>Side</th>
-          <th scope="col" className="hide-m">Shares</th>
-          <th scope="col" className="hide-m">Avg entry</th>
-          <th scope="col" className="hide-m">Now</th>
-          <th scope="col" className="hide-m">Cost*</th>
-          <th scope="col">Value</th>
-          <th scope="col">P&amp;L*</th>
-          <th scope="col">Ends</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sorted(open, sort).map((p, i) => <Row key={`o${i}-${p.market}`} p={p} />)}
-        {open.length > 0 && (
-          <tr className="tot">
-            <td className="l mkc" colSpan={2}>Open total · {openTotals.count} market{openTotals.count === 1 ? '' : 's'}</td>
-            <td className="hide-m" /><td className="hide-m" /><td className="hide-m" />
-            <td className="hide-m">{openTotals.cost === null ? '—' : usd(openTotals.cost)}</td>
-            <td className="valc">{openTotals.value === null ? '—' : usd(openTotals.value)}</td>
-            <td className={`pnlc ${pnlClass(openTotals.pnl)}`}>
-              {openTotals.pnl === null ? '—' : signedUsd(openTotals.pnl)}
-              {openTotals.pnlPct !== null && <span className="pct">{signedPct(openTotals.pnlPct)}</span>}
-            </td>
-            <td className="hide-m" />
-          </tr>
-        )}
-        {settled.length > 0 && (
-          <tr className="grp">
-            <td className="l mkc" colSpan={5}>
-              <span className="gt">
-                <Chevron open={showSettled} />
-                Settled · {settled.length} market{settled.length === 1 ? '' : 's'} {allZero ? 'resolved at $0 · redeemable, nothing to collect' : 'resolved'}
+    <>
+      {open.length > 0 && (
+        <div className="pmx-scroll" tabIndex={0} role="region" aria-label={t('pm.pos.title')}>
+          <table className="pmx-tbl">
+            <thead>
+              <tr>
+                <th scope="col" className="l">{t('pm.pos.col.market')}</th>
+                <th scope="col" className="l">{t('pm.pos.col.side')}</th>
+                <th scope="col">{t('pm.pos.col.shares')}</th>
+                <th scope="col">{t('pm.pos.col.avg')}</th>
+                <th scope="col">{t('pm.pos.col.now')}</th>
+                <th scope="col">{t('pm.pos.col.cost')}</th>
+                <th scope="col">{t('pm.pos.col.value')}</th>
+                <th scope="col">{t('pm.pos.col.pnl')}</th>
+                <th scope="col">{t('pm.pos.col.ends')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted(open, sort).map((p, i) => <Row key={`o${i}-${p.market}`} p={p} />)}
+              <tr className="tot">
+                <td className="l" colSpan={5}>{t('pm.pos.total')}</td>
+                <td>{openTotals.cost === null ? '—' : usd(openTotals.cost)}</td>
+                <td>{openTotals.value === null ? '—' : usd(openTotals.value)}</td>
+                <td><Pnl pnl={openTotals.pnl} pct={null} /></td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      {settled.length > 0 && (
+        <>
+          <div className="pmx-settled">
+            <button className="t" type="button" aria-expanded={showSettled} onClick={() => setShowSettled((v) => !v)}>
+              <Chevron open={showSettled} />
+              <span>
+                {t('pm.pos.settled', { markets: `${settled.length} market${settled.length === 1 ? '' : 's'}`, resolved: allZero ? t('pm.pos.settled.zero') : t('pm.pos.settled.some') })}
+                {!allZero && settledTotals.pnl !== null && <> · <span className="v">{usd(settledTotals.value ?? 0)}</span></>}
               </span>
-            </td>
-            <td className="hide-m">{settledTotals.cost === null ? '—' : usd(settledTotals.cost)}</td>
-            <td className="valc">{settledTotals.value === null ? '—' : usd(settledTotals.value)}</td>
-            <td className="pnlc">{settledTotals.pnl === null ? '—' : signedUsd(settledTotals.pnl)}</td>
-            <td className="endc" style={{ textAlign: 'right' }}>
-              <button className="tlink" type="button" aria-expanded={showSettled} onClick={() => setShowSettled((v) => !v)}>
-                {showSettled ? 'Hide' : 'Show'}<span className="sr-only"> settled markets</span>
-              </button>
-            </td>
-          </tr>
-        )}
-        {showSettled && settled.map((p, i) => <Row key={`s${i}-${p.market}`} p={p} />)}
-      </tbody>
-    </table>
+              <span className="sr-only">{showSettled ? t('pm.pos.settled.hide') : t('pm.pos.settled.show')}{t('pm.pos.settled.aria')}</span>
+            </button>
+          </div>
+          {showSettled && (
+            <div className="pmx-scroll" tabIndex={0} role="region" aria-label={t('pm.pos.settled.aria')}>
+              <table className="pmx-tbl"><tbody>{settled.map((p, i) => <Row key={`s${i}-${p.market}`} p={p} />)}</tbody></table>
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 }
