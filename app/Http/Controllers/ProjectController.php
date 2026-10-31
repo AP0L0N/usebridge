@@ -14,6 +14,7 @@ use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\TicketView;
+use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,9 @@ class ProjectController extends Controller
             'people' => fn () => self::people(),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,
+            // Column labels editor: logged-in users only (the AUTH-1 gate session is not a workspace member).
+            'columnLabelsUrl' => $request->user() !== null ? route('projects.column-labels.update', $project->slug) : null,
+            'defaultColumns' => BoardColumns::all(),
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
             'now' => now()->toIso8601String(),
         ]);

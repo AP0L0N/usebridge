@@ -16,7 +16,7 @@ class PortfolioController extends Controller
         $projects = Project::query()
             ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at'])])
             ->get()
-            ->map(fn ($p) => ProjectStatus::summary($p, null, $names))
+            ->map(fn (Project $p) => [...ProjectStatus::summary($p, null, $names), 'columnLabels' => $p->column_labels ?? (object) []])
             ->sort(self::order(...))
             ->values();
 

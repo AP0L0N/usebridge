@@ -12,7 +12,8 @@ use Illuminate\Support\Carbon;
 /**
  * The project board payload (GET /api/projects/{id}/board; the UI run reuses it as Inertia props).
  * Waiting on Tilen is ordered oldest waiting_since first; every other column by position.
- * Done shows tickets done since `done_since` (default 7 days) plus done_older_count.
+ * Done shows tickets done since `done_since` (default 7 days) plus done_older_count. Column labels are the project's
+ * own (projects.column_labels) over the defaults; keys and order never change.
  */
 final class BoardView
 {
@@ -31,6 +32,7 @@ final class BoardView
             'pm_agent_id' => $p->owner_agent_id,
             'pm_name' => $this->view->name($p->owner_agent_id),
             'ticket_prefix' => $p->ticket_prefix,
+            'description' => $p->description,
             'status' => $p->status,
             'status_label' => Project::statusLabel($p->status),
             'status_note' => $p->status_note,
@@ -59,7 +61,7 @@ final class BoardView
             ->where(fn ($w) => $w->whereNull('done_at')->orWhere('done_at', '<', $doneSince))->count();
 
         $columns = [];
-        foreach (BoardColumns::all() as $col) {
+        foreach ($p->boardColumns() as $col) {
             $in = $tickets->where('status', $col['key']);
             $in = $col['key'] === BoardColumns::WAITING_TILEN
                 ? $in->sortBy(fn (Ticket $t) => [$t->waiting_since?->getTimestamp() ?? 0, $t->key])

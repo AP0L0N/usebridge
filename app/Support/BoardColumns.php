@@ -45,10 +45,27 @@ final class BoardColumns
         return (int) array_search($key, self::keys(), true);
     }
 
-    /** @return list<array{key:string,label:string,order:int}> */
-    public static function all(): array
+    /** Longest per-project column label (PUT /projects/{slug}/column-labels). */
+    public const LABEL_MAX = 40;
+
+    /**
+     * Columns in board order. $labels = a project's own names (projects.column_labels, {key: label}); keys it does not
+     * name, or unknown keys, fall back to / are ignored in favour of the defaults.
+     *
+     * @param  array<string, string>|null  $labels
+     * @return list<array{key:string,label:string,order:int}>
+     */
+    public static function all(?array $labels = null): array
     {
-        return array_map(fn (string $k) => ['key' => $k, 'label' => self::LABELS[$k], 'order' => self::order($k)], self::keys());
+        return array_map(fn (string $k) => ['key' => $k, 'label' => self::labelFor($k, $labels), 'order' => self::order($k)], self::keys());
+    }
+
+    /** @param  array<string, string>|null  $labels */
+    public static function labelFor(string $key, ?array $labels): string
+    {
+        $own = $labels[$key] ?? null;
+
+        return is_string($own) && trim($own) !== '' ? $own : self::label($key);
     }
 
     /** SQL CASE for ordering rows by column order (SQLite + MySQL). */

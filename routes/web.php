@@ -16,6 +16,7 @@ use App\Http\Controllers\Pages\OnboardingController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectSetupController;
 use App\Http\Controllers\StatusUpdateController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UsageController;
@@ -71,6 +72,12 @@ Route::middleware(RequireAdmin::class)->prefix('admin')->group(function () {
 });
 
 Route::get('/welcome', OnboardingController::class)->middleware(['auth', EnsureWorkspaceGate::class])->name('onboarding');
+
+// A logged-in user's own projects (onboarding step 1, board "Column labels"): JSON, own workspace only (§8).
+Route::middleware(['auth', EnsureWorkspaceGate::class])->group(function () {
+    Route::post('/projects', [ProjectSetupController::class, 'store'])->middleware('throttle:30,1')->name('projects.store');
+    Route::put('/projects/{slug}/column-labels', [ProjectSetupController::class, 'updateColumnLabels'])->name('projects.column-labels.update');
+});
 
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/', PortfolioController::class)->name('portfolio');

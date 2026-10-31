@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Support\BoardColumns;
 use App\Support\TicketPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,7 @@ class Project extends Model
     protected $fillable = [
         'id', 'name', 'slug', 'owner_agent_id', 'archived_at', 'reopened_at',
         'ticket_prefix', 'status', 'status_note', 'status_set_by', 'status_set_at', 'last_activity_at',
+        'description', 'column_labels',
     ];
 
     protected function casts(): array
@@ -34,6 +36,7 @@ class Project extends Model
             'ticket_seq' => 'integer',
             'status_set_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'column_labels' => 'array',
         ];
     }
 
@@ -46,6 +49,12 @@ class Project extends Model
                 $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::acrossWorkspaces()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
             }
         });
+    }
+
+    /** This project's board columns (own labels over the defaults). @return list<array{key:string,label:string,order:int}> */
+    public function boardColumns(): array
+    {
+        return BoardColumns::all($this->column_labels);
     }
 
     public function isArchived(): bool

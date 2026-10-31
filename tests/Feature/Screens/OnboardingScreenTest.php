@@ -40,8 +40,9 @@ class OnboardingScreenTest extends TestCase
             ->where('hasToken', false)
             ->where('emailVerified', false)
             ->where('columns', BoardColumns::all())
-            // web project creation / column renaming are not built yet (§8): the screen says so
-            ->where('createProjectUrl', null)
+            ->where('defaultColumns', BoardColumns::all())
+            ->where('createProjectUrl', route('projects.store'))
+            // no project yet: step 1's answer carries the URL
             ->where('saveColumnsUrl', null));
     }
 
@@ -54,6 +55,7 @@ class OnboardingScreenTest extends TestCase
 
         $this->actingAs($tilen)->get('/welcome')->assertInertia(fn (Assert $p) => $p
             ->where('project', fn ($pr) => $pr !== null && array_keys($pr->toArray()) === ['name', 'slug'])
+            ->where('saveColumnsUrl', fn ($url) => str_ends_with((string) $url, '/column-labels'))
             ->where('hasToken', true));
     }
 
