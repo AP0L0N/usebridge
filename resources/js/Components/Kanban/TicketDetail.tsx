@@ -9,7 +9,7 @@ import { IconCal16, IconChev } from '../AppIcons';
 import { ago, updateTime } from '../../lib/dates';
 import { t as tr } from '../../lib/strings';
 import {
-  ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl,
+  ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe,
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
   type TicketDetail as Detail, type TicketEvent,
 } from '../../lib/kanban';
@@ -53,7 +53,8 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
   }
 }
 
-const actorShort = (e: { actor_id: string | null; actor_name: string | null }) => (e.actor_id === 'tilen' ? tr('ticket.role.you') : firstName(e.actor_name) || e.actor_id || '');
+/** "You" for the signed-in user's own actions, else the actor's first name. */
+const actorShort = (e: { actor_id: string | null; actor_name: string | null }, me: string | null) => (e.actor_id !== null && e.actor_id === me ? tr('ticket.role.you') : firstName(e.actor_name) || e.actor_id || '');
 
 /** Native <select> laid over the mock's select look (accessible, works on touch). */
 function SelectField({ id, label, value, options, onChange, dot, lead }: {
@@ -95,6 +96,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const toasts = useToasts();
+  const me = useMe();
   const [menu, setMenu] = useState(false);
   const [details, setDetails] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -116,9 +118,9 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
 
   // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under your eyes.
   // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
-  const [seenAt, setSeenAt] = useState<string | null | undefined>(() => (detail ? detail.tilen_last_seen_at : undefined));
-  useEffect(() => { if (seenAt === undefined && detail) setSeenAt(detail.tilen_last_seen_at); }, [detail, seenAt]);
-  const [unreadAtOpen] = useState(() => fallback.unread_for_tilen);
+  const [seenAt, setSeenAt] = useState<string | null | undefined>(() => (detail ? detail.last_seen_at : undefined));
+  useEffect(() => { if (seenAt === undefined && detail) setSeenAt(detail.last_seen_at); }, [detail, seenAt]);
+  const [unreadAtOpen] = useState(() => fallback.unread_for_me);
 
   const pm = project.pm_name;
   const pmFirst = firstName(pm) || 'the PM';
@@ -176,7 +178,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
           <SelectField id={`as-${inSheet}`} label={tr('board.filter.assignee')} value={t.assignee_id ?? ''} options={assigneeOptions}
             onChange={(v) => patch(v ? { assignee: v } : { assignee_type: null, assignee_id: null })} />
         </div>
-        {t.assignee_id && <p className="sm">{t.assignee_type === 'agent' ? `Agent · ${roleTag(t.assignee_id, project.pm_agent_id, people) || 'Agent'}` : t.assignee_id === 'tilen' ? tr('ticket.role.you') : 'Person'}</p>}
+        {t.assignee_id && <p className="sm">{t.assignee_type === 'agent' ? `Agent · ${roleTag(t.assignee_id, project.pm_agent_id, people) || 'Agent'}` : t.assignee_id === me ? tr('ticket.role.you') : 'Person'}</p>}
       </div>
       <div className="fld">
         <p className="k"><label htmlFor={`pr-${inSheet}`}>{tr('board.filter.priority')}</label></p>
@@ -331,6 +333,7 @@ function LabelsField({ t, labels, onSave }: { t: Ticket; labels: Label[]; onSave
 }
 
 function HistoryField({ events, columns, people, now }: { events: TicketEvent[]; columns: Column[]; people: Person[]; now: string }) {
+  const me = useMe();
   const [all, setAll] = useState(false);
   const rows = events.map((e) => ({ e, txt: eventText(e, columns, people) })).filter((r) => r.txt);
   const shown = all ? rows : rows.slice(0, 3);
@@ -339,7 +342,7 @@ function HistoryField({ events, columns, people, now }: { events: TicketEvent[];
       <p className="k">{tr('ticket.history')}</p>
       {rows.length === 0 ? <p className="sm">{tr('ticket.history.empty')}</p> : (
         <ul className="mini">
-          {shown.map(({ e, txt }) => <li key={e.id}>{txt}<time dateTime={e.created_at ?? undefined}>{actorShort(e)} · {updateTime(e.created_at, now)}</time></li>)}
+          {shown.map(({ e, txt }) => <li key={e.id}>{txt}<time dateTime={e.created_at ?? undefined}>{actorShort(e, me)} · {updateTime(e.created_at, now)}</time></li>)}
         </ul>
       )}
       {rows.length > 3 && <button className="gbtn" type="button" style={{ alignSelf: 'flex-start' }} onClick={() => setAll((v) => !v)}>{all ? tr('ticket.history.less') : tr('ticket.history.more', { n: rows.length })}</button>}
@@ -384,14 +387,14 @@ const answeredAt = (iso: string | null, now: string): string => {
 };
 
 /** The latest input comment of yours on this ticket (for the SENT state). */
-const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_tilen_input && !c.retracted);
+const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_owner_input && !c.retracted);
 
 function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Detail | null; pm: string | null; slug: string; now: string; onSent: () => void }) {
   const pmFirst = firstName(pm) || 'the PM';
   const opts = t.ask_options ?? [];
   const last = latestInput(detail);
   const sent = !!last && t.needs_pm_pickup;
-  const answered = !!last && !t.needs_pm_pickup && !!t.tilen_answered_ask; // QA M1: acked, ask unchanged
+  const answered = !!last && !t.needs_pm_pickup && !!t.owner_answered_ask; // QA M1: acked, ask unchanged
   const [changing, setChanging] = useState(false);
   const [choice, setChoice] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -412,7 +415,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
     if (noteRequired && !note.trim()) { setErr(tr(choice === 'other' ? 'ticket.input.noteErrOther' : 'ticket.input.noteErr')); setState('err'); return; }
     setState('busy');
     try {
-      await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body: note.trim() || null, is_tilen_input: true, input_choice: opts.length ? choice : null });
+      await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body: note.trim() || null, is_owner_input: true, input_choice: opts.length ? choice : null });
       setState('idle'); setChanging(false); setNote(''); setBase(''); setChoice(null);
       onSent();
     } catch (e) {
@@ -437,7 +440,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
     return (
       <section className="tin sent" aria-labelledby="tin-h">
         <div className="tih"><span className="tag">{tr('ticket.input.answered.tag')}</span><h2 id="tin-h">{tr('ticket.input.answered.title', { when: answeredAt(last.created_at, now) })}</h2></div>
-        <p className="askc" role="status">{tr('ticket.input.answered.body', { answer })}{t.tilen_input_ack_at ? <> {tr('ticket.input.answered.ack', { name: pmFirst, when: updateTime(t.tilen_input_ack_at, now) })}</> : null} </p>
+        <p className="askc" role="status">{tr('ticket.input.answered.body', { answer })}{t.owner_input_ack_at ? <> {tr('ticket.input.answered.ack', { name: pmFirst, when: updateTime(t.owner_input_ack_at, now) })}</> : null} </p>
         <div className="qact"><button className="gbtn" type="button" onClick={startChange}>{tr('ticket.input.again')}</button></div>
       </section>
     );
@@ -488,6 +491,7 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
   d: Detail; project: BoardProject; people: Person[]; columns: Column[]; now: string; seenAt: string | null; unread: boolean;
 }) {
   const pmFirst = firstName(project.pm_name) || 'the PM';
+  const me = useMe();
   type Item = { at: number; node: (isNew: boolean) => ReactNode; key: string; agent?: boolean };
   const items = useMemo(() => {
     const out: Item[] = d.comments.map((c) => ({
@@ -497,14 +501,14 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
     for (const e of d.events) {
       if (e.type !== 'moved' && e.type !== 'assigned') continue;
       if (e.type === 'moved' && (e.from?.status === e.to?.status || !e.from)) continue;
-      const who = e.actor_id === 'tilen' ? tr('ticket.role.you') : firstName(e.actor_name) || e.actor_id;
+      const who = actorShort(e, me);
       const what = e.type === 'moved'
         ? <>moved this <span className="st">{COLNAME(columns, e.from?.status)} → {COLNAME(columns, e.to?.status)}</span></>
         : e.to?.id ? <>assigned this to <b>{people.find((p) => p.id === e.to?.id)?.name ?? String(e.to.id)}</b></> : <>unassigned this</>;
       out.push({ at: Date.parse(e.created_at ?? ''), key: `e${e.id}`, node: () => <li className="ev"><span className="agentdot" aria-hidden="true" /><span><b>{who}</b> {what}</span><time>{updateTime(e.created_at, now)}</time></li> });
     }
     return out.sort((a, b) => a.at - b.at);
-  }, [d, project.pm_agent_id, pmFirst, people, columns, now]);
+  }, [d, project.pm_agent_id, pmFirst, people, columns, now, me]);
 
   const seen = seenAt ? Date.parse(seenAt) : 0;
   const isNew = (i: Item) => unread && !!i.agent && i.at > seen;
@@ -523,7 +527,7 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
 }
 
 function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: string | null; pmFirst: string; people: Person[]; now: string; isNew: boolean }) {
-  const tl = c.is_tilen_input;
+  const tl = c.is_owner_input;
   const role = tl ? tr('ticket.input.tag') : roleTag(c.author_id, pm, people);
   const choice = c.input_choice && c.input_choice !== 'other' ? c.input_choice : null;
   const rest = choice && c.body === choice ? '' : c.body ?? '';
@@ -561,7 +565,7 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
     if (!body.trim() || state === 'busy') return;
     setState('busy');
     try {
-      await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body, is_tilen_input: asInput });
+      await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body, is_owner_input: asInput });
       setBody(''); setAsInput(false); setState('ok');
       onSent();
     } catch {

@@ -1,4 +1,4 @@
-// Marie's final copy (design/r1/STRINGS.md), Tilen's status names kept.
+// Marie's final copy (design/r1/STRINGS.md), the owner's status names kept.
 export const S = {
   'app.name': 'Bridge',
   'dash.archived.heading': 'Archived',
@@ -41,8 +41,8 @@ export const S = {
   'inputs.markDone': 'Mark done',
   'inputs.reopen': 'Reopen',
   'inputs.saveError': 'Couldn’t save that. Try again.',
-  // r4 Questions for Tilen (Tommy's mock, design/r4-questions/SPEC.md), pending Marie's review.
-  'q.heading': 'Questions for Tilen',
+  // r4 Questions (Tommy's mock, design/r4-questions/SPEC.md), pending Marie's review.
+  'q.heading': 'Questions for you',
   'q.openCount': 'open',
   'q.answeredCount': 'answered',
   'q.asked': 'asked {t}',
@@ -66,7 +66,7 @@ export const S = {
   'q.none.body': 'Agents will post here when they need a decision from you.',
   'q.badge.one': '{n} open question for you',
   'q.badge.many': '{n} open questions for you',
-  // Not in STRINGS.md: Tilen's own additions (r1 approval).
+  // Not in STRINGS.md: the owner's own additions (r1 approval).
   'proj.archive': 'Archive',
   'proj.unarchive': 'Unarchive',
   // Redesign: Portfolio + app top bar (Marc's notes); wording pending Marie's review.

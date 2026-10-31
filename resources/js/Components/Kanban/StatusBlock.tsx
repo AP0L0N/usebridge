@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmSheet, IcChev, IcHist, PmBadge, PlainBadge, Sheet, refocus, useDismiss } from './Bits';
 import { updateTime } from '../../lib/dates';
-import { STATUS_LABEL, archiveMessage, firstName, send, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
+import { STATUS_LABEL, archiveMessage, firstName, send, useMe, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
 import { t } from '../../lib/strings';
 
-/** "Janice (PM)", "Sam Rivera", "Captain William Diego (CEO)". */
-export function setByLabel(by: string | null, name: string | null, pmId: string | null): string {
+/** "Janice (PM)", "Sam Rivera", "Captain William Diego (CEO)"; "You" when $me (the signed-in user's actor id) set it. */
+export function setByLabel(by: string | null, name: string | null, pmId: string | null, me: string | null): string {
   if (!by) return '';
-  if (by === 'tilen') return t('ticket.role.you');
+  if (by === me) return t('ticket.role.you');
   return by === pmId ? `${firstName(name)} (PM)` : name ?? by;
 }
 
@@ -19,6 +19,7 @@ export function pmAge(p: Pick<StatusSubject, 'status' | 'status_set_at'>, now: s
 }
 
 export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId: string | null; now: string }) {
+  const me = useMe();
   if (!events.length) return <p className="hint">{t('ticket.history.empty')}</p>;
   return (
     <ol className="shist">
@@ -26,7 +27,7 @@ export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId
         <li key={e.id}>
           <PlainBadge status={e.to_status} />
           <p className="n">{e.note ? `“${e.note}”` : <span className="dim2">{t('ticket.history.empty')}</span>}</p>
-          <p>{setByLabel(e.set_by, e.set_by_name, pmId)} · {updateTime(e.created_at, now)} · {e.source === 'api' ? 'via API' : 'via Bridge'}</p>
+          <p>{setByLabel(e.set_by, e.set_by_name, pmId, me)} · {updateTime(e.created_at, now)} · {e.source === 'api' ? 'via API' : 'via Bridge'}</p>
         </li>
       ))}
     </ol>
@@ -45,6 +46,7 @@ type Props = {
 
 export function StatusBlock({ project: p, history, now, mobile, historyOpen, setHistoryOpen, onChanged }: Props) {
   const age = pmAge(p, now);
+  const me = useMe();
   const [menu, setMenu] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,7 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
       setBusy('err');
     }
   };
-  const viaAgent = p.status_set_by !== null && p.status_set_by !== 'tilen';
+  const viaAgent = p.status_set_by !== null && !p.status_set_by_human;
 
   return (
     <div className="pstat">
@@ -103,7 +105,7 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
         {p.status && p.status_set_at ? (
           <>
             <p className="sset">
-              <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
+              <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id, me)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
               {viaAgent && <span className="via"><span className="agentdot" aria-hidden="true" />via MCP · {firstName(p.status_set_by_name)}</span>}
             </p>
             {p.status_note && <p className="snote">“{p.status_note}”</p>}
@@ -133,14 +135,15 @@ const firstRadio = (root: ParentNode | null) => root?.querySelector<HTMLElement>
 const NOTE_MAX = 280;
 
 /** "Janice's note", "Your note" (you set it), "William's note". */
-function noteOwner(p: StatusSubject): string {
-  if (p.status_set_by === 'tilen') return 'Your note';
+function noteOwner(p: StatusSubject, me: string | null): string {
+  if (p.status_set_by !== null && p.status_set_by === me) return 'Your note';
   const who = firstName(p.status_set_by === p.pm_agent_id ? (p.pm_name ?? p.status_set_by_name) : p.status_set_by_name);
   return who ? `${who}’s note` : 'Current note';
 }
 
-/** Your override: logged as set_by=tilen, source=ui (PATCH /projects/{slug}/status). */
+/** Your override: logged as set_by = your actor id, source=ui (PATCH /projects/{slug}/status). */
 export function StatusForm({ project: p, onDone, onCancel, onArchive }: { project: StatusSubject; onDone: () => void; onCancel: () => void; onArchive: () => void }) {
+  const me = useMe();
   const [status, setStatus] = useState<PmStatus | null>(p.status);
   const [note, setNote] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'err'>('idle');
@@ -177,7 +180,7 @@ export function StatusForm({ project: p, onDone, onCancel, onArchive }: { projec
       </fieldset>
       <div className="other">
         <label className="flabel" htmlFor="pst-note">Note (optional)</label>
-        {p.status_note && <p className="hint cur">{noteOwner(p)}: “{p.status_note}”</p>}
+        {p.status_note && <p className="hint cur">{noteOwner(p, me)}: “{p.status_note}”</p>}
         <textarea id="pst-note" className="qta" maxLength={NOTE_MAX} placeholder="Why? (optional)" value={note}
           aria-describedby="pst-count" onChange={(e) => setNote(e.target.value)} />
         <p className="hint count" id="pst-count">{note.length}/{NOTE_MAX}</p>

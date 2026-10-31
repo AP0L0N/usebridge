@@ -13,7 +13,7 @@ import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
 import { t as tr } from '../lib/strings';
 import {
-  ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl,
+  ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl, useMe,
   type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type StatusEvent, type Ticket, type TicketDetail as Detail,
 } from '../lib/kanban';
 
@@ -52,6 +52,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
   const signedIn = usePage<Shared>().props.auth?.user != null;
+  const me = useMe();
 
   // ------------------------------------------------------------ columns (optimistic copy of the props)
   const [cols, setCols] = useState<Column[]>(board.columns);
@@ -89,7 +90,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     if (filters.label && !t.labels.some((l) => l.name === filters.label)) return false;
     if (filters.priority && t.priority !== filters.priority) return false;
     if (filters.blocked && !t.blocked) return false;
-    if (filters.replies && !t.unread_for_tilen) return false;
+    if (filters.replies && !t.unread_for_me) return false;
     if (filters.pickup && !t.needs_pm_pickup) return false;
     return true;
   }, [q, filters]);
@@ -119,8 +120,8 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     if (seenPosted.current) return;
     seenPosted.current = true;
     const ev = statusHistory[0];
-    if (p.status_unseen_by_tilen && ev) {
-      const who = ev.set_by === p.pm_agent_id ? firstName(ev.set_by_name) : setByLabel(ev.set_by, ev.set_by_name, p.pm_agent_id);
+    if (p.status_unseen_by_me && ev) {
+      const who = ev.set_by === p.pm_agent_id ? firstName(ev.set_by_name) : setByLabel(ev.set_by, ev.set_by_name, p.pm_agent_id, me);
       statusToast.current = toasts.push({
         ms: 15000,
         icon: <IcHist />,
@@ -657,7 +658,7 @@ const IcColumns = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
 );
 
-/** "Waiting on Tilen" → "waiting on Tilen" for the meta row (names keep their capital). */
+/** "Waiting on Sam" → "waiting on Sam" for the meta row (names keep their capital). */
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 function EmptyColumn({ k }: { k: ColumnKey }) {

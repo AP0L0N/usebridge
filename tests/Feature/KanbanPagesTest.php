@@ -157,7 +157,7 @@ class KanbanPagesTest extends TestCase
             ->component('Board')
             ->where('ticket.key', $t['key'])
             ->where('ticket.ask_options', ['Yes', 'No'])
-            ->where('ticket.tilen_last_seen_at', null)
+            ->where('ticket.last_seen_at', null)
             ->has('ticket.comments', 1)
             ->has('ticket.events')
             ->has('board.columns', 6));
@@ -181,7 +181,7 @@ class KanbanPagesTest extends TestCase
         $this->assertNotNull(TicketReadState::query()->where('user', 'tilen')->where('ticket_id', $t['id'])->value('last_seen_at'));
 
         $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.tickets.0.unread_for_tilen', false));
-        $this->get("/projects/blue-harbor/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.tilen_last_seen_at', null));
+        $this->get("/projects/blue-harbor/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.last_seen_at', null));
     }
 
     #[Test]

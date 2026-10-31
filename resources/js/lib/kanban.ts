@@ -1,4 +1,7 @@
 // Kanban board types and helpers (shapes from App\Services\Tickets\TicketView / BoardView, docs/API-TICKETS.md).
+// The payloads also carry the old owner-input field names as compatibility aliases; the UI reads the neutral ones.
+import { usePage } from '@inertiajs/react';
+import type { Shared } from './account';
 
 export type ColumnKey = 'backlog' | 'todo' | 'in_progress' | 'waiting_tilen' | 'review' | 'done';
 export type PmStatus = 'smooth' | 'waiting' | 'archived';
@@ -30,21 +33,22 @@ export interface Ticket {
   ask: string | null;
   ask_context: string | null;
   ask_options: string[] | null;
-  waiting_on_tilen: boolean;
+  waiting_on_owner: boolean;
   waiting_since: string | null;
   waiting_age_days: number | null;
   waiting_level: 1 | 2 | 3 | null;
-  tilen_input_at: string | null;
-  tilen_input_ack_at: string | null;
+  owner_input_at: string | null;
+  owner_input_ack_at: string | null;
   needs_pm_pickup: boolean;
-  /** Tilen answered the current ask (sent or already picked up); no blank form until the PM posts a new ask. */
-  tilen_answered_ask?: boolean;
+  /** The current ask is answered (sent or already picked up); no blank form until the PM posts a new ask. */
+  owner_answered_ask?: boolean;
   labels: Label[];
   comment_count: number;
   last_comment_at: string | null;
   /** Newest live comment (card "via MCP" line); null when no comments. */
   latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human'; created_at: string | null } | null;
-  unread_for_tilen: boolean;
+  /** New agent replies for the signed-in user. */
+  unread_for_me: boolean;
   latest_unread_author: { id: string; name: string | null } | null;
   created_by: string | null;
   created_by_type: string | null;
@@ -62,7 +66,7 @@ export interface Comment {
   author_name: string | null;
   body: string | null;
   retracted: boolean;
-  is_tilen_input: boolean;
+  is_owner_input: boolean;
   input_choice: string | null;
   picked_up_at: string | null;
   created_at: string | null;
@@ -82,7 +86,8 @@ export interface TicketEvent {
 export interface TicketDetail extends Ticket {
   comments: Comment[];
   events: TicketEvent[];
-  tilen_last_seen_at: string | null;
+  /** When the signed-in user last opened the ticket. */
+  last_seen_at: string | null;
 }
 
 export interface Column { key: ColumnKey; label: string; order: number; count: number; tickets: Ticket[] }
@@ -101,10 +106,12 @@ export interface BoardProject {
   status_note: string | null;
   status_set_by: string | null;
   status_set_by_name: string | null;
+  /** status_set_by is a person (UI), not an agent. */
+  status_set_by_human: boolean;
   status_set_at: string | null;
   last_activity_at: string | null;
   archived: boolean;
-  status_unseen_by_tilen: boolean;
+  status_unseen_by_me: boolean;
 }
 
 export interface Board { project: BoardProject; columns: Column[]; done_since: string; done_older_count: number }
@@ -133,6 +140,7 @@ export interface PortfolioProject {
   pmStatusNote: string | null;
   pmStatusSetBy: string | null;
   pmStatusSetByName: string | null;
+  pmStatusSetByHuman?: boolean;
   pmStatusSetAt: string | null;
   pmLevel: 1 | 2 | 3 | null;
   pmAgeDays: number | null;
@@ -143,19 +151,19 @@ export interface PortfolioProject {
   ticketCounts: Record<ColumnKey, number>;
   /** The project's own column names ({key: label}); keys it does not name use the defaults. */
   columnLabels?: Partial<Record<ColumnKey, string>>;
-  waitingTilenCount: number;
+  waitingOwnerCount: number;
   lastActivityAt: string | null;
   lastUpdatedAt: string | null;
 }
 
 /** What the status form and the archive controls need: the board project, or a portfolio card adapted to it. */
-export type StatusSubject = Pick<BoardProject, 'name' | 'slug' | 'status' | 'status_note' | 'status_set_by' | 'status_set_by_name' | 'status_set_at' | 'pm_agent_id' | 'pm_name' | 'archived'>;
+export type StatusSubject = Pick<BoardProject, 'name' | 'slug' | 'status' | 'status_note' | 'status_set_by' | 'status_set_by_name' | 'status_set_by_human' | 'status_set_at' | 'pm_agent_id' | 'pm_name' | 'archived'>;
 
 export const archiveMessage = (name: string) => `Archive ${name}? It moves to Archived; you can unarchive any time.`;
 
 export const STATUS_LABEL: Record<PmStatus, string> = { smooth: 'Smooth sailing', waiting: 'Waiting input', archived: 'Archived' };
 
-/** "Dr. Janice Polito" → "Janice"; "Captain William Diego" → "William"; "Tilen" → "Tilen". */
+/** "Dr. Janice Polito" → "Janice"; "Captain William Diego" → "William"; "Sam Rivera" → "Sam". */
 export function firstName(name: string | null | undefined): string {
   if (!name) return '';
   const words = name.split(/\s+/).filter((w) => !/^(dr\.?|captain|mr\.?|ms\.?)$/i.test(w));
@@ -166,7 +174,12 @@ export function initial(name: string | null | undefined): string {
   return (firstName(name) || '?').charAt(0).toUpperCase();
 }
 
-/** Role tag in the thread: the project's PM reads "PM", Tilen "Tilen", agents their short role. */
+/** The signed-in user's actor id (shared prop auth.user.actor_id); null for guests. */
+export function useMe(): string | null {
+  return usePage<Shared>().props.auth?.user?.actor_id ?? null;
+}
+
+/** Role tag in the thread: the project's PM reads "PM", agents their short role, people none. */
 export function roleTag(authorId: string, pmId: string | null, people: Person[]): string {
   if (authorId === pmId) return 'PM';
   const p = people.find((x) => x.id === authorId);

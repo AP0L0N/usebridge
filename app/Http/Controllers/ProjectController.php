@@ -53,7 +53,7 @@ class ProjectController extends Controller
     /** Ticket detail for the modal: detail() plus when the signed-in user last opened it (the thread's "New" divider). */
     public static function ticketDetail(Ticket $ticket, TicketView $view): array
     {
-        return [...$view->detail($ticket), 'tilen_last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String()];
+        return [...$view->detail($ticket), 'last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String()];
     }
 
     /**

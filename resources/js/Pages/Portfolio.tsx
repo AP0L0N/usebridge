@@ -74,7 +74,7 @@ function Card({ p, q, now, columns }: { p: PortfolioProject; q: string; now: str
   });
   const total = cols.reduce((s, c) => s + c.n, 0);
   const archived = isArch(p);
-  const waiting = p.waitingTilenCount ?? 0;
+  const waiting = p.waitingOwnerCount ?? 0;
   return (
     <article className={`pf-card pf-h-${heat(p)}${archived ? ' archived' : ''}`}>
       <div className="pf-heat" aria-hidden="true" />
@@ -128,7 +128,7 @@ function SkeletonCards() {
 }
 
 const subject = (p: PortfolioProject, archived: boolean): StatusSubject => ({
-  name: p.name, slug: p.slug, status: p.pmStatus, status_note: p.pmStatusNote, status_set_by: p.pmStatusSetBy, status_set_by_name: p.pmStatusSetByName,
+  name: p.name, slug: p.slug, status: p.pmStatus, status_note: p.pmStatusNote, status_set_by: p.pmStatusSetBy, status_set_by_name: p.pmStatusSetByName, status_set_by_human: !!p.pmStatusSetByHuman,
   status_set_at: p.pmStatusSetAt, pm_agent_id: p.pmAgentId, pm_name: p.pmName, archived,
 });
 
@@ -217,7 +217,7 @@ export default function Portfolio({ projects, now, welcome, columns }: Props) {
 
   const live = projects.filter((p) => !isArch(p));
   const waitingProjects = live.filter((p) => p.pmStatus === 'waiting').length;
-  const forYou = live.reduce((s, p) => s + (p.waitingTilenCount ?? 0), 0);
+  const forYou = live.reduce((s, p) => s + (p.waitingOwnerCount ?? 0), 0);
   const total = active.length + archived.length;
   const plural = (n: number, one: StrKey, many: StrKey) => t(n === 1 ? one : many);
 

@@ -94,7 +94,7 @@ export function TopBar({ nav = true }: { nav?: boolean } = {}) {
             </details>
           </>
         )}
-        {user ? <AccountMenu url={page.url} /> : nav && <span className="who">Tilen</span>}
+        {user && <AccountMenu url={page.url} />}
       </div>
     </header>
   );

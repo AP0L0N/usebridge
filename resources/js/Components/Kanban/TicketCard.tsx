@@ -26,7 +26,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
     strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p>{t.ask}</p></div>);
   }
   if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span>{str('board.card.blocked', { reason: t.blocked_reason })}</span></p>);
-  if (t.unread_for_tilen) {
+  if (t.unread_for_me) {
     strips.push(<p key="new" className="unr new"><span className="dotk" aria-hidden="true" />{str('board.card.newReply', { name: firstName(t.latest_unread_author?.name) || 'the PM' })}</p>);
   } else if (t.needs_pm_pickup) {
     strips.push(<p key="pend" className="unr pend">{str('board.card.pickup')}</p>);

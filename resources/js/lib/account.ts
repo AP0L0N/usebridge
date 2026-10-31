@@ -1,6 +1,7 @@
 // Multi-user screens (docs/MULTI-USER-PLAN.md §8): shared prop types and small helpers.
 
-export type AuthUser = { id: number; name: string; email: string; initials: string; is_admin: boolean; email_verified: boolean };
+/** actor_id: how this user's board writes are recorded in the current workspace (threads show "You" for it). */
+export type AuthUser = { id: number; name: string; email: string; initials: string; is_admin: boolean; email_verified: boolean; actor_id: string };
 export type Shared = {
   auth?: { user: AuthUser | null };
   features?: { polymarket?: boolean; admin?: boolean };
