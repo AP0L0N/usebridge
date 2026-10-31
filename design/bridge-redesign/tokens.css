@@ -1,0 +1,218 @@
+/* Bridge redesign — design tokens (single source).
+   Light is the default; dark is a real theme via <html data-theme="dark">.
+   Every colour in components.css comes from here. Contrast notes = WCAG ratio on the surface named. */
+
+@font-face { font-family: "Atkinson Hyperlegible"; src: url(fonts/atkinson-hyperlegible-regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible"; src: url(fonts/atkinson-hyperlegible-bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Atkinson Hyperlegible"; src: url(fonts/atkinson-hyperlegible-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+
+:root {
+  color-scheme: light;
+
+  /* ---- Type ---------------------------------------------------------- */
+  --font-sans: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace; /* tokens, model ids, code only */
+
+  --fs-11: 0.6875rem;  /* 11 — count pips only */
+  --fs-12: 0.75rem;    /* 12 — chips, meta */
+  --fs-13: 0.8125rem;  /* 13 — secondary text, table cells, labels */
+  --fs-14: 0.875rem;   /* 14 — controls, card body */
+  --fs-15: 0.9375rem;  /* 15 — body */
+  --fs-17: 1.0625rem;  /* 17 — card titles, section titles */
+  --fs-20: 1.25rem;    /* 20 — modal titles, stat values */
+  --fs-24: 1.5rem;     /* 24 — page title (mobile), ticket title */
+  --fs-30: 1.875rem;   /* 30 — page title (desktop) */
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.5;
+  --track-tight: -0.012em;   /* titles ≥ 20px */
+
+  /* ---- Spacing: 4px grid --------------------------------------------- */
+  --s-0: 2px;
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
+
+  --page-max: 1360px;
+  --page-pad: var(--s-8);
+  --topbar-h: 52px;
+  --col-w: 304px;          /* kanban column above 720px */
+  --tap: 40px;             /* minimum tap target */
+  --ctl-h: 36px;           /* desktop control height; 40px at ≤720 */
+
+  /* ---- Radii --------------------------------------------------------- */
+  --r-xs: 4px;   /* chips, pips, code */
+  --r-sm: 6px;   /* buttons, inputs, menu items */
+  --r-md: 10px;  /* cards, columns, ticket cards, popovers */
+  --r-lg: 14px;  /* modals, sheets */
+  --r-full: 999px;
+
+  /* ---- Motion -------------------------------------------------------- */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  /* ---- Colour: neutrals (warm paper, cleaner) ----------------------- */
+  --bg: #F5F3EE;            /* page (was paper #F4F2EC) */
+  --surface: #FFFFFF;       /* cards, inputs, modals */
+  --surface-2: #FAF9F6;     /* table head, card footers, wells */
+  --sunken: #ECEAE3;        /* kanban columns, skeletons, seg track */
+  --hover: #F0EEE8;         /* row / ghost-button hover */
+  --line: #E4E0D7;          /* hairlines, card borders */
+  --line-2: #CFCAC0;        /* input borders, dividers that must read */
+  --ink: #17191F;           /* 16.3:1 on --bg */
+  --ink-2: #474C57;         /* 8.0:1 on --bg */
+  --ink-3: #626772;         /* 5.3:1 on --bg, 5.9:1 on white */
+  --ink-inv: #FFFFFF;
+
+  /* Brand */
+  --accent: #1F3A5F;        /* links, selected, focus (11.5:1 on white) */
+  --accent-hover: #172D4A;
+  --accent-tint: #E8EDF4;   /* selected fill, info callout */
+  --accent-line: #A9BCD4;
+  --focus: #2F5A8C;
+  --primary: #17191F;       /* primary button fill (ink, as today) */
+  --primary-hover: #2B2F38;
+  --primary-ink: #FFFFFF;
+
+  /* Top bar (kept ink) */
+  --top-bg: #17191F;
+  --top-ink: #F1F0EC;
+  --top-ink-2: #B9BCC4;     /* 9.0:1 on --top-bg */
+  --top-hover: #2A2D35;
+  --top-active: #33373F;
+  --top-line: #17191F;
+
+  /* ---- Colour: status heat (brand, recognisable) ---------------------- */
+  --w1: #F7D94C;  --w1-ink: #3A2E00;  --w1-tint: #FFF6D1;  --w1-tint-ink: #5C4500;  /* waiting, <3d */
+  --w2: #F28C28;  --w2-ink: #2B1400;  --w2-tint: #FDEBD9;  --w2-tint-ink: #7A3A00;  /* waiting, 3–6d */
+  --w3: #B42318;  --w3-ink: #FFFFFF;  --w3-tint: #FBE6E4;  --w3-tint-ink: #8A2318;  /* waiting, 7d+, errors, danger */
+  --ok: #1E6B47;  --ok-ink: #FFFFFF;  --ok-tint: #E1F2E8;  --ok-tint-ink: #1E6B47;  /* smooth sailing, success */
+  --ok-mark: #3FB37F;                                                              /* brand mark green stripe */
+  --arch: #5B606B; --arch-tint: #ECEAE4;                                           /* archived, not set */
+  --danger: var(--w3);  --danger-tint: var(--w3-tint);  --danger-ink: var(--w3-tint-ink);
+  --warn-tint: var(--w1-tint);  --warn-ink: var(--w1-tint-ink);
+
+  /* ---- Colour: kanban columns (unchanged hues) ----------------------- */
+  --col-backlog: #C9C5BA;
+  --col-todo: #A9BCD4;
+  --col-progress: #3E5F8A;
+  --col-waiting: var(--w2);
+  --col-review: #8C79B5;
+  --col-done: #3FB37F;
+  --col-waiting-bg: #E9EEF5;   /* the Waiting on Tilen column well */
+  --drop: #D5DEEA;
+
+  /* ---- Colour: label chips ------------------------------------------- */
+  --l-navy-bg: #E7EDF5;   --l-navy: #1F3A5F;
+  --l-green-bg: #E1F2E8;  --l-green: #1E6B47;
+  --l-amber-bg: #FFF4D6;  --l-amber: #5C4500;
+  --l-rose-bg: #FBE6E4;   --l-rose: #8A2318;
+  --l-violet-bg: #EEE8F6; --l-violet: #4B3577;
+  --l-grey-bg: #ECEAE4;   --l-grey: #474C57;
+
+  /* ---- Colour: data viz (validated: dataviz validate_palette, light on #fff) */
+  --series-1: #2A78D6;  /* blue */
+  --series-2: #1BAF7A;  /* aqua — <3:1, always with legend + table view */
+  --series-3: #6250D6;  /* violet */
+  --series-4: #E87BA4;  /* magenta — <3:1, always with legend + table view */
+  --series-5: #A8781A;  /* ochre */
+  --series-missing: #D9D5CB;
+  --grid: #ECE9E2;
+  --axis: #626772;
+  /* sequential (hour heatmap): one hue, light → dark */
+  --h0: #F1EFE9; --h1: #D5DEEA; --h2: #A9BCD4; --h3: #6F8DB3; --h4: #3E5F8A; --h5: #1F3A5F;
+  /* money (Polymarket) */
+  --pos: #1E6B47; --neg: #B42318;
+  --chart-book: #1F3A5F; --chart-hw: #626772; --chart-funded: #8A8F99; --chart-stop: #D9741A; --chart-weekend: #F3F1EC;
+
+  /* ---- Elevation: borders first, shadow only for things that float -- */
+  --sh-0: 0 0 0 1px var(--line);
+  --sh-1: 0 1px 2px rgba(23, 25, 31, .05);
+  --sh-2: 0 1px 2px rgba(23, 25, 31, .05), 0 6px 16px -6px rgba(23, 25, 31, .10);       /* lifted card, drag */
+  --sh-pop: 0 2px 6px rgba(23, 25, 31, .06), 0 16px 40px -12px rgba(23, 25, 31, .22);   /* menus, popovers, toasts */
+  --sh-modal: 0 32px 80px -20px rgba(23, 25, 31, .35);
+  --scrim: rgba(23, 25, 31, .48);
+  --skeleton-a: #ECEAE3; --skeleton-b: #F5F3EE;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #111317;
+  --surface: #191C21;
+  --surface-2: #1E2127;
+  --sunken: #15171B;
+  --hover: #23272E;
+  --line: #2A2E36;
+  --line-2: #3B404A;
+  --ink: #ECEDEF;           /* 15.0:1 on --surface */
+  --ink-2: #B9BEC7;         /* 9.6:1 */
+  --ink-3: #8D939D;         /* 5.6:1 on --surface, 6.0:1 on --bg */
+  --ink-inv: #111317;
+
+  --accent: #9DBBE3;        /* text/link accent, 9.2:1 on --surface */
+  --accent-hover: #BDD2EE;
+  --accent-tint: #1E2A3B;
+  --accent-line: #3A5578;
+  --focus: #9DBBE3;
+  --primary: #ECEDEF;
+  --primary-hover: #FFFFFF;
+  --primary-ink: #111317;
+
+  --top-bg: #0C0E11;
+  --top-ink: #ECEDEF;
+  --top-ink-2: #A7ACB5;
+  --top-hover: #1E2127;
+  --top-active: #272B32;
+  --top-line: #23272E;
+
+  --w1: #E9CB45;  --w1-ink: #2A2100;  --w1-tint: #2C2711;  --w1-tint-ink: #F0D76A;
+  --w2: #EE8A2E;  --w2-ink: #1F0E00;  --w2-tint: #33220F;  --w2-tint-ink: #F6AE68;
+  --w3: #C9372C;  --w3-ink: #FFFFFF;  --w3-tint: #3A1816;  --w3-tint-ink: #F4A097;
+  --ok: #24774F;  --ok-ink: #FFFFFF;  --ok-tint: #14301F;  --ok-tint-ink: #7FD3A8;
+  --ok-mark: #3FB37F;
+  --arch: #A3A8B1; --arch-tint: #24272D;
+
+  --col-backlog: #8B877D;
+  --col-todo: #7E97B8;
+  --col-progress: #5F8AC4;
+  --col-review: #A08BDB;
+  --col-done: #3FB37F;
+  --col-waiting-bg: #18202B;
+  --drop: #22324A;
+
+  --l-navy-bg: #1E2A3B;   --l-navy: #A9C3E6;
+  --l-green-bg: #14301F;  --l-green: #7FD3A8;
+  --l-amber-bg: #2C2711;  --l-amber: #E9CF6B;
+  --l-rose-bg: #3A1816;   --l-rose: #F4A097;
+  --l-violet-bg: #2A2238; --l-violet: #C6B3EE;
+  --l-grey-bg: #24272D;   --l-grey: #B9BEC7;
+
+  /* validated dark steps (dataviz, surface #1b1e24) */
+  --series-1: #3987E5;
+  --series-2: #199E70;
+  --series-3: #9085E9;
+  --series-4: #D55181;
+  --series-5: #B88A2A;
+  --series-missing: #3B404A;
+  --grid: #262A31;
+  --axis: #8D939D;
+  --h0: #1E2127; --h1: #1F2D40; --h2: #2B4568; --h3: #3E6599; --h4: #5F8AC4; --h5: #9DBBE3;
+  --pos: #6CCB98; --neg: #F28B80;
+  --chart-book: #9DBBE3; --chart-hw: #8D939D; --chart-funded: #6B717B; --chart-stop: #EE8A2E; --chart-weekend: #1C1F25;
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, .3);
+  --sh-2: 0 1px 2px rgba(0, 0, 0, .35), 0 8px 20px -8px rgba(0, 0, 0, .55);
+  --sh-pop: 0 0 0 1px var(--line-2), 0 18px 44px -12px rgba(0, 0, 0, .7);
+  --sh-modal: 0 0 0 1px var(--line-2), 0 32px 80px -20px rgba(0, 0, 0, .8);
+  --scrim: rgba(5, 6, 8, .66);
+  --skeleton-a: #1E2127; --skeleton-b: #262A31;
+}
+
+@media (max-width: 720px) {
+  :root { --page-pad: var(--s-4); --ctl-h: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; }
+}
