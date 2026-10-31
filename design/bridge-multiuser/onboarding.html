@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge · Welcome (prototype)</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="step1:1 · Create first project|step2:2 · Set up board|step3:3 · Connect Grok bot|done:Done · portfolio">
+
+<header class="top"><div class="wrap topin">
+ <a class="brand" href="onboarding.html?state=done"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+ <span class="sample">Sample data</span>
+ <nav class="nav" aria-label="Main"><a href="onboarding.html?state=done" aria-current="page">Portfolio</a><a href="usage.html">Usage</a></nav>
+ <details class="navm"><summary aria-label="Menu, current page: Portfolio">Portfolio <span aria-hidden="true">▾</span></summary><nav aria-label="Main (menu)"><ul><li><a href="onboarding.html?state=done" aria-current="page">Portfolio</a></li><li><a href="usage.html">Usage</a></li></ul></nav></details>
+ <details class="acct"><summary aria-label="Account menu for Sam Rivera"><span class="avi" aria-hidden="true">SR</span><span class="an">Sam Rivera</span><span class="car" aria-hidden="true">▾</span></summary>
+  <div class="menu"><p class="aid"><b>Sam Rivera</b><span>sam@example.com</span></p>
+  <ul><li><a href="account.html">Account</a></li><li><a href="tokens.html">API tokens &amp; MCP</a></li><li class="sep" role="separator"></li><li><a href="login.html">Log out</a></li></ul></div></details>
+</div></header>
+
+<main class="wrap">
+ <!-- Steps 1–3: welcome + checklist -->
+ <div data-hide="done">
+  <div class="dhead">
+   <div>
+    <h1>Welcome to Bridge, Sam</h1>
+    <p class="summary"><span data-show="step1">Your portfolio is empty. </span>Three steps and your first board is ready. You can change everything later.</p>
+    <p class="prog"><span class="bar" aria-hidden="true"><span class="pbar"></span></span><span class="ptxt">Step 1 of 3</span></p>
+   </div>
+  </div>
+
+  <div class="obgrid">
+   <ol class="olist" aria-label="Setup steps">
+    <li data-step="1"><span class="n" aria-hidden="true">1</span><span class="t">Create your first project</span><span class="s">Name it; you can add more later</span><span class="sr-only st"></span></li>
+    <li data-step="2"><span class="n" aria-hidden="true">2</span><span class="t">Set up its board</span><span class="s">Five default columns, editable</span><span class="sr-only st"></span></li>
+    <li data-step="3"><span class="n" aria-hidden="true">3</span><span class="t">Connect your Grok bot</span><span class="s">Optional</span><span class="sr-only st"></span></li>
+   </ol>
+
+   <!-- step 1 -->
+   <section class="card" data-show="step1" aria-labelledby="h-s1">
+    <h2 id="h-s1">Create your first project</h2>
+    <p class="sub">A project gets its own card on your Portfolio and its own board.</p>
+    <form class="form2" onsubmit="return false">
+     <div class="fld2 full">
+      <label class="flabel" for="p-name">Project name</label>
+      <input class="qin" id="p-name" name="name" value="Example project" autocomplete="off" required>
+     </div>
+     <div class="fld2 full">
+      <label class="flabel" for="p-desc">Short description <span class="dim2">(optional)</span></label>
+      <textarea class="qta" id="p-desc" name="description" aria-describedby="p-desc-h" style="min-height:88px"></textarea>
+      <p class="fhint" id="p-desc-h">One line about what it is. It shows under the name on the board.</p>
+     </div>
+     <div class="fld2">
+      <label class="flabel" for="p-lead">Project lead</label>
+      <select class="qsel" id="p-lead" name="lead" aria-describedby="p-lead-h">
+       <option>Me (Sam Rivera)</option>
+       <option>Add an agent later</option>
+      </select>
+      <p class="fhint" id="p-lead-h">The lead sets the project status. An agent can take over once your bot is connected.</p>
+     </div>
+    </form>
+    <div class="cardfoot">
+     <button type="button" class="btn" data-goto="step2">Create project</button>
+    </div>
+   </section>
+
+   <!-- step 2 -->
+   <section class="card" data-show="step2" aria-labelledby="h-s2">
+    <h2 id="h-s2">Set up its board</h2>
+    <p class="sub">Default columns for Example project. Rename, reorder or remove them now or any time from the board.</p>
+    <div class="colprev" role="list" aria-label="Board columns">
+     <div class="col" role="listitem"><div class="colh"><span class="dot c-backlog" aria-hidden="true"></span><label class="sr-only" for="c1">Column 1 name</label><input id="c1" value="Backlog"><span class="cnt">0</span></div><div class="ghosttk" aria-hidden="true"></div></div>
+     <div class="col" role="listitem"><div class="colh"><span class="dot c-todo" aria-hidden="true"></span><label class="sr-only" for="c2">Column 2 name</label><input id="c2" value="To do"><span class="cnt">0</span></div><div class="ghosttk" aria-hidden="true"></div></div>
+     <div class="col" role="listitem"><div class="colh"><span class="dot c-in_progress" aria-hidden="true"></span><label class="sr-only" for="c3">Column 3 name</label><input id="c3" value="In progress"><span class="cnt">0</span></div><div class="ghosttk" aria-hidden="true"></div></div>
+     <div class="col" role="listitem"><div class="colh"><span class="dot c-review" aria-hidden="true"></span><label class="sr-only" for="c4">Column 4 name</label><input id="c4" value="Review"><span class="cnt">0</span></div><div class="ghosttk" aria-hidden="true"></div></div>
+     <div class="col" role="listitem"><div class="colh"><span class="dot c-done" aria-hidden="true"></span><label class="sr-only" for="c5">Column 5 name</label><input id="c5" value="Done"><span class="cnt">0</span></div><div class="ghosttk" aria-hidden="true"></div></div>
+    </div>
+    <button type="button" class="abtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add column</button>
+    <p class="fhint" style="margin-top:12px">Select a column name to rename it. Tickets your bot creates land in the first column.</p>
+    <div class="cardfoot">
+     <button type="button" class="abtn" data-goto="step1">Back</button>
+     <button type="button" class="btn" data-goto="step3">Save board</button>
+    </div>
+   </section>
+
+   <!-- step 3 -->
+   <section class="card" data-show="step3" aria-labelledby="h-s3">
+    <h2 id="h-s3">Connect your Grok bot</h2>
+    <p class="sub">Optional. Your bot can then read the board and move tickets for you.</p>
+    <ol class="steps">
+     <li><h3>Create a token</h3><p>Choose read, or read &amp; write if the bot should move tickets.</p></li>
+     <li><h3>Add the Bridge MCP connector in Grok</h3><p>Paste the server URL and the token as the Authorization header.</p></li>
+     <li><h3>Ask your bot “list my Bridge boards”</h3><p>It should answer with Example project.</p></li>
+    </ol>
+    <div class="cardfoot">
+     <a class="btn" href="tokens.html?state=create">Create a token</a>
+     <button type="button" class="abtn" data-goto="done">Skip for now</button>
+     <p class="fine">You can do this later in Account, API tokens &amp; MCP.</p>
+    </div>
+   </section>
+  </div>
+ </div>
+
+ <!-- Done: the real Portfolio with one project -->
+ <div data-show="done">
+  <div class="dhead">
+   <div>
+    <h1>Portfolio</h1>
+    <p class="summary"><b>1</b> active project</p>
+   </div>
+   <div class="tools"><button type="button" class="abtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New project</button></div>
+  </div>
+  <div role="status" class="callout ok" style="margin-bottom:20px">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+   <p><span class="t">Example project is ready.</span> Open it to add your first tickets.</p>
+  </div>
+  <div class="pgrid2">
+   <a class="pc s-none" href="#">
+    <div class="pcb">
+     <div class="pctop"><div><h2>Example project</h2><p class="pm">PM You</p></div>
+      <span class="badge b-arch">Status not set</span></div>
+     <p class="sset">The PM hasn't set a status yet</p>
+     <div class="cbar" aria-hidden="true"></div>
+     <ul class="ccount"><li><i class="c-backlog"></i>Backlog <b>0</b></li><li><i class="c-todo"></i>To do <b>0</b></li><li><i class="c-in_progress"></i>In progress <b>0</b></li><li><i class="c-review"></i>Review <b>0</b></li><li><i class="c-done"></i>Done (7 days) <b>0</b></li></ul>
+    </div>
+    <div class="pcf"><span></span><span>Last activity <time>Today, 09:12</time></span></div>
+   </a>
+  </div>
+  <div class="callout info" style="margin-top:20px">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+   <p><span class="t">Connect your Grok bot</span> so it can read this board and move tickets. <a href="tokens.html">Set up API tokens &amp; MCP</a></p>
+  </div>
+ </div>
+</main>
+
+<script>
+window.onProtoState = function (id) {
+  var n = { step1: 1, step2: 2, step3: 3 }[id] || 4;
+  document.querySelectorAll('.olist li').forEach(function (li) {
+    var s = +li.dataset.step;
+    li.classList.toggle('dn', s < n);
+    if (s === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    li.querySelector('.n').textContent = s < n ? '✓' : s;
+    li.querySelector('.st').textContent = s < n ? ' (done)' : s === n ? ' (current step)' : '';
+  });
+  if (n < 4) {
+    document.querySelector('.ptxt').textContent = 'Step ' + n + ' of 3';
+    document.querySelector('.pbar').style.width = ((n - 1) / 3 * 100 + 8) + '%';
+  }
+};
+</script>
+<script src="proto.js" defer></script>
+</body>
+</html>

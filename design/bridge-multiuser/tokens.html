@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API tokens &amp; MCP · Account · Bridge</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="with-tokens:With tokens|empty:No tokens yet|create:Create token modal|reveal:Token created (one-time reveal)|revoke:Revoke confirm">
+
+<header class="top"><div class="wrap topin">
+ <a class="brand" href="onboarding.html?state=done"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+ <span class="sample">Sample data</span>
+ <nav class="nav" aria-label="Main"><a href="onboarding.html?state=done">Portfolio</a><a href="usage.html">Usage</a></nav>
+ <details class="navm"><summary aria-label="Menu">Menu <span aria-hidden="true">▾</span></summary><nav aria-label="Main (menu)"><ul><li><a href="onboarding.html?state=done">Portfolio</a></li><li><a href="usage.html">Usage</a></li></ul></nav></details>
+ <details class="acct"><summary aria-label="Account menu for Sam Rivera"><span class="avi" aria-hidden="true">SR</span><span class="an">Sam Rivera</span><span class="car" aria-hidden="true">▾</span></summary>
+  <div class="menu"><p class="aid"><b>Sam Rivera</b><span>sam@example.com</span></p>
+  <ul><li><a href="account.html">Account</a></li><li><a href="tokens.html" aria-current="page">API tokens &amp; MCP</a></li><li class="sep" role="separator"></li><li><a href="login.html">Log out</a></li></ul></div></details>
+</div></header>
+
+<main class="wrap">
+ <div class="sethead"><h1>Account</h1><p class="summary">Sam Rivera · sam@example.com</p></div>
+ <div class="setgrid">
+  <nav class="subnav" aria-label="Account settings"><ul>
+   <li><a href="account.html#profile">Profile</a></li>
+   <li><a href="account.html#password">Password</a></li>
+   <li><a href="account.html#sessions">Sessions</a></li>
+   <li><a href="tokens.html" aria-current="page">API tokens &amp; MCP</a></li>
+   <li><a href="account.html#danger" class="bad">Danger zone</a></li>
+  </ul></nav>
+
+  <div class="setcol">
+   <!-- ===== API tokens ===== -->
+   <section class="card" aria-labelledby="h-tokens">
+    <div class="chead">
+     <h2 id="h-tokens">API tokens</h2>
+     <div class="right" data-hide="empty"><button type="button" class="btn" data-goto="create">Create token</button></div>
+    </div>
+    <p class="sub">Tokens let your Grok bot read and update your Bridge boards. Each token only sees your projects.</p>
+
+    <div class="tscroll" data-show="with-tokens create reveal revoke">
+     <table class="tbl stack">
+      <caption class="sr-only">Your API tokens</caption>
+      <thead><tr>
+       <th scope="col">Name</th><th scope="col">Scopes</th><th scope="col">Created</th><th scope="col">Last used</th><th scope="col">Expires</th><th scope="col"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+       <!-- reveal: the token just created -->
+       <tr data-show="reveal">
+        <th scope="row"><div class="tokname"><span class="nm">Grok bot (Ava) <span class="kb rw">New</span></span><span class="secret">brg_live_••••3f9a</span></div></th>
+        <td data-label="Scopes"><span class="scopes"><span class="kb rd">read</span><span class="kb rw">write</span></span></td>
+        <td data-label="Created">Today, 09:02</td>
+        <td data-label="Last used"><span class="never">Never</span></td>
+        <td data-label="Expires">29 Jan 2027</td>
+        <td class="act"><button type="button" class="abtn sm bad" aria-label="Revoke token Grok bot (Ava)" data-goto="revoke">Revoke</button></td>
+       </tr>
+       <tr data-show="with-tokens create revoke">
+        <th scope="row"><div class="tokname"><span class="nm">Grok bot (Ava)</span><span class="secret">brg_live_••••3f9a</span></div></th>
+        <td data-label="Scopes"><span class="scopes"><span class="kb rd">read</span><span class="kb rw">write</span></span></td>
+        <td data-label="Created">12 Oct 2026</td>
+        <td data-label="Last used">Today, 08:14</td>
+        <td data-label="Expires">10 Jan 2027</td>
+        <td class="act"><button type="button" class="abtn sm bad" aria-label="Revoke token Grok bot (Ava)" data-goto="revoke">Revoke</button></td>
+       </tr>
+       <tr>
+        <th scope="row"><div class="tokname"><span class="nm">Garden planner sync</span><span class="secret">brg_live_••••81c2</span></div></th>
+        <td data-label="Scopes"><span class="scopes"><span class="kb rd">read</span></span></td>
+        <td data-label="Created">2 Sep 2026</td>
+        <td data-label="Last used">3 days ago</td>
+        <td data-label="Expires">In 60 days</td>
+        <td class="act"><button type="button" class="abtn sm bad" aria-label="Revoke token Garden planner sync" data-goto="revoke">Revoke</button></td>
+       </tr>
+       <tr>
+        <th scope="row"><div class="tokname"><span class="nm">Laptop test</span><span class="secret">brg_live_••••0d47</span></div></th>
+        <td data-label="Scopes"><span class="scopes"><span class="kb rd">read</span></span></td>
+        <td data-label="Created">7 Oct 2026</td>
+        <td data-label="Last used"><span class="never">Never</span></td>
+        <td data-label="Expires"><span class="pend">Expires in 6 days</span></td>
+        <td class="act"><button type="button" class="abtn sm bad" aria-label="Revoke token Laptop test" data-goto="revoke">Revoke</button></td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+
+    <div class="empty" data-show="empty" style="margin:8px 0 0;padding:48px 24px">
+     <div class="eico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg></div>
+     <h2>No tokens yet</h2>
+     <p>Create a token to connect your Grok bot. You'll see it once, then only its last four characters.</p>
+     <button type="button" class="btn" data-goto="create">Create token</button>
+    </div>
+   </section>
+
+   <!-- ===== MCP connect ===== -->
+   <section class="card" aria-labelledby="h-mcp">
+    <h2 id="h-mcp">Connect your Grok bot</h2>
+    <p class="sub">Bridge speaks MCP. Point a Grok connector at this server and send your token as a header.</p>
+
+    <div class="codes">
+     <div class="code one">
+      <div class="ch"><span id="l-url">Server URL</span><button type="button" class="abtn sm" data-copy="#c-url" aria-label="Copy server URL"><span class="l">Copy</span></button></div>
+      <pre id="c-url" aria-labelledby="l-url">https://bridge.tilenpoje.eu/mcp</pre>
+     </div>
+     <div class="code one">
+      <div class="ch"><span id="l-hdr">Auth header</span><button type="button" class="abtn sm" data-copy="#c-hdr" aria-label="Copy auth header"><span class="l">Copy</span></button></div>
+      <pre id="c-hdr" aria-labelledby="l-hdr">Authorization: Bearer brg_live_••••</pre>
+     </div>
+     <p class="fhint">Use your own token in place of <span class="secret">brg_live_••••</span>.</p>
+     <div class="code">
+      <div class="ch"><span id="l-json">JSON connector config</span><button type="button" class="abtn sm" data-copy="#c-json" aria-label="Copy JSON connector config"><span class="l">Copy</span></button></div>
+      <pre id="c-json" aria-labelledby="l-json" tabindex="0">{
+  "mcpServers": {
+    "bridge": {
+      "url": "https://bridge.tilenpoje.eu/mcp",
+      "headers": { "Authorization": "Bearer brg_live_EXAMPLE_xxxxxxxxxxxxxxxxxxxxxxxx3f9a" }
+    }
+  }
+}</pre>
+     </div>
+    </div>
+
+    <h3 class="sh">Three steps</h3>
+    <ol class="steps">
+     <li><h3>Create a token</h3><p>Pick read &amp; write if the bot should move tickets or post updates.</p><button type="button" class="lnk" data-goto="create" style="padding:0">Create token</button></li>
+     <li><h3>Add an MCP connector in Grok</h3><p>Paste the server URL and the auth header with your token, then save the connector.</p></li>
+     <li><h3>Ask your bot “list my Bridge boards”</h3><p>It should answer with Example project, Garden planner and Client site redesign.</p></li>
+    </ol>
+
+    <h3 class="sh">What your bot can do</h3>
+    <div class="can">
+     <div>
+      <h3><span class="kb rd">read</span> Read only</h3>
+      <ul><li>List your boards and projects</li><li>Read tickets, columns and comments</li><li>Read project statuses and notes</li></ul>
+     </div>
+     <div>
+      <h3><span class="kb rd">read</span><span class="kb rw">write</span> Read &amp; write</h3>
+      <ul><li>Everything in read only, plus:</li><li>Move tickets between columns</li><li>Create tickets and add comments</li><li>Post status updates on your projects</li></ul>
+     </div>
+    </div>
+    <div class="callout info" style="margin-top:16px">
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+     <p>Bots never see other people's projects, and can't change your password, tokens or account.</p>
+    </div>
+   </section>
+  </div>
+ </div>
+</main>
+
+<!-- ===== Create token ===== -->
+<div class="mdl" data-show="create" data-close="with-tokens">
+ <div class="mdlbox" role="dialog" aria-modal="true" aria-labelledby="h-create">
+  <div class="mdlh"><h2 id="h-create">Create token</h2><button type="button" class="ibtn" aria-label="Close" data-goto="with-tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="mdlb">
+   <div class="fld2">
+    <label class="flabel" for="tok-name">Name</label>
+    <input class="qin" id="tok-name" type="text" placeholder="e.g. Grok bot (Ava)" value="Grok bot (Ava)" aria-describedby="tok-name-h" autofocus>
+    <p class="fhint" id="tok-name-h">So you can tell tokens apart later.</p>
+   </div>
+   <fieldset class="opts2">
+    <legend>Access</legend>
+    <label class="ropt"><input type="radio" name="scope" value="read"><span><b>Read only</b><span>Lists boards, tickets and statuses. Can't change anything.</span></span></label>
+    <label class="ropt"><input type="radio" name="scope" value="write" checked><span><b>Read &amp; write</b><span>Also moves tickets, adds comments and posts status updates.</span></span></label>
+   </fieldset>
+   <div class="fld2">
+    <label class="flabel" for="tok-exp">Expires</label>
+    <select class="qsel" id="tok-exp"><option>In 30 days</option><option selected>In 90 days</option><option>In 1 year</option><option>Never</option></select>
+   </div>
+  </div>
+  <div class="mdlf"><button type="button" class="abtn" data-goto="with-tokens">Cancel</button><button type="button" class="btn" data-goto="reveal">Create token</button></div>
+ </div>
+</div>
+
+<!-- ===== One-time reveal ===== -->
+<div class="mdl" data-show="reveal" data-close="with-tokens">
+ <div class="mdlbox" role="dialog" aria-modal="true" aria-labelledby="h-reveal">
+  <div class="mdlh"><h2 id="h-reveal" tabindex="-1">Token created</h2></div>
+  <div class="mdlb">
+   <div class="reveal">
+    <p class="flabel" id="newtok-l" style="margin:0">Grok bot (Ava) · read &amp; write · expires 29 Jan 2027</p>
+    <div class="tokrow">
+     <output id="newtok" aria-labelledby="newtok-l">brg_live_EXAMPLE_xxxxxxxxxxxxxxxxxxxxxxxx3f9a</output>
+     <button type="button" class="btn" data-copy="#newtok" aria-label="Copy token"><span class="l">Copy</span></button>
+    </div>
+   </div>
+   <div class="callout warn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17h.01"/></svg>
+    <p><b>You won't see this again.</b> Copy it now and paste it into Grok. If you lose it, revoke it and create a new one.</p>
+   </div>
+  </div>
+  <div class="mdlf"><button type="button" class="btn" data-goto="with-tokens">Done, I've saved it</button></div>
+ </div>
+</div>
+
+<!-- ===== Revoke confirm ===== -->
+<div class="mdl" data-show="revoke" data-close="with-tokens">
+ <div class="mdlbox" role="alertdialog" aria-modal="true" aria-labelledby="h-revoke" aria-describedby="d-revoke">
+  <div class="mdlh"><h2 id="h-revoke">Revoke “Grok bot (Ava)”?</h2><button type="button" class="ibtn" aria-label="Close" data-goto="with-tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="mdlb"><p id="d-revoke">Bots using this token stop working immediately. This can't be undone.</p></div>
+  <div class="mdlf"><button type="button" class="abtn" data-goto="with-tokens" autofocus>Keep token</button><button type="button" class="btn danger" data-goto="with-tokens">Revoke token</button></div>
+ </div>
+</div>
+
+<div class="toasts" aria-live="polite"></div>
+<script src="proto.js" defer></script>
+</body>
+</html>

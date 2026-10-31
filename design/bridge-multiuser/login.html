@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in · Bridge</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="default:Default|wrong:Wrong email or password|locked:Locked, too many attempts|loading:Logging in">
+
+<!-- Logged-out top bar: brand only, no nav, no account menu (same as today's Workspace gate). -->
+<header class="top">
+  <div class="wrap topin">
+    <a class="brand" href="login.html"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+    <span class="sample">Sample data</span>
+  </div>
+</header>
+
+<main class="gate">
+  <form class="gcard" action="#" novalidate aria-labelledby="h-login">
+    <h1 id="h-login">Log in</h1>
+    <p class="lede">Your projects, boards and bots, in one place.</p>
+
+    <!-- wrong credentials: one message for both fields, never say which one was wrong -->
+    <div class="callout bad" role="alert" data-show="wrong">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+      <p><span class="t">That email and password don't match.</span> Check both and try again. 2 tries left before a 15-minute pause.</p>
+    </div>
+
+    <!-- locked: too many attempts -->
+    <div class="callout warn" role="alert" data-show="locked">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      <p><span class="t">Too many attempts. Try again in 15 minutes.</span> Or <a href="reset.html?state=request">reset your password</a> now; the link works right away.</p>
+    </div>
+
+    <div class="fld2">
+      <label class="flabel" for="email">Email</label>
+      <input class="qin" id="email" type="email" name="email" autocomplete="email" value="sam@example.com" required>
+    </div>
+
+    <div class="fld2">
+      <div class="lrow">
+        <label class="flabel" for="pw">Password</label>
+        <a href="reset.html?state=request">Forgot password?</a>
+      </div>
+      <div class="pw">
+        <input class="qin" id="pw" type="password" name="password" autocomplete="current-password" value="example-pass" required>
+        <button type="button" class="pwt" data-pw="#pw" aria-pressed="false" aria-label="Show password">Show</button>
+      </div>
+    </div>
+
+    <label class="chkrow"><input type="checkbox" name="remember" checked> Keep me logged in on this device</label>
+
+    <button class="btn wide" type="submit" data-goto="loading" data-hide="loading locked">Log in</button>
+    <button class="btn wide" type="button" disabled aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span>Logging in…</button>
+    <button class="btn wide" type="button" disabled aria-disabled="true" data-show="locked">Log in (paused for 15 min)</button>
+    <p class="sr-only" aria-live="polite" data-show="loading">Logging in, please wait.</p>
+
+    <p class="alt">New to Bridge? <a href="signup.html">Create account</a></p>
+  </form>
+</main>
+
+<script>
+  // Prototype: in the wrong state the fields are marked invalid and the password is cleared.
+  window.onProtoState = function (id) {
+    var bad = id === 'wrong';
+    ['email', 'pw'].forEach(function (f) {
+      var el = document.getElementById(f);
+      el.setAttribute('aria-invalid', String(bad));
+      el.disabled = id === 'loading' || id === 'locked';
+    });
+    document.getElementById('pw').value = bad ? '' : 'example-pass';
+  };
+</script>
+<script src="proto.js" defer></script>
+</body>
+</html>

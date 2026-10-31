@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge · Roles and navigation (prototype)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* prototype-only: the *-menu states open both menus at once on phones; stack the account menu under the nav menu */
+@media (max-width:720px){
+ body[data-state="user-menu"] .acct .menu{margin-top:116px}
+ body[data-state="owner-menu"] .acct .menu{margin-top:206px}
+}
+</style>
+</head>
+<body data-states="user:Regular user (Sam)|owner:Owner (Tilen)|admin:Owner · Admin users|user-menu:Regular user · menus open|owner-menu:Owner · menus open">
+
+<!-- One top bar. Owner-only bits carry data-show="owner admin owner-menu"; regular-user bits data-show="user user-menu". -->
+<header class="top"><div class="wrap topin">
+ <a class="brand" href="onboarding.html?state=done"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+ <span class="sample">Sample data</span>
+ <nav class="nav" aria-label="Main">
+  <a href="#" data-nav="portfolio" aria-current="page">Portfolio</a>
+  <a href="usage.html" data-nav="usage">Usage</a>
+  <a href="#" data-nav="polymarket" data-show="owner admin owner-menu">Polymarket</a>
+  <a href="shell.html?state=admin" data-nav="admin" data-goto="admin" data-show="owner admin owner-menu">Admin</a>
+ </nav>
+ <details class="navm"><summary aria-label="Menu, current page: Portfolio"><span class="navcur">Portfolio</span> <span aria-hidden="true">▾</span></summary>
+  <nav aria-label="Main (menu)"><ul>
+   <li><a href="#" data-nav="portfolio" aria-current="page">Portfolio</a></li>
+   <li><a href="usage.html" data-nav="usage">Usage</a></li>
+   <li data-show="owner admin owner-menu"><a href="#" data-nav="polymarket">Polymarket</a></li>
+   <li data-show="owner admin owner-menu"><a href="shell.html?state=admin" data-nav="admin" data-goto="admin">Admin</a></li>
+  </ul></nav>
+ </details>
+ <details class="acct">
+  <summary aria-label="Account menu"><span class="ownr" data-show="owner admin owner-menu">Owner</span><span class="avi" aria-hidden="true"><span data-show="user user-menu">SR</span><span data-show="owner admin owner-menu">T</span></span><span class="an"><span data-show="user user-menu">Sam Rivera</span><span data-show="owner admin owner-menu">Tilen</span></span><span class="car" aria-hidden="true">▾</span></summary>
+  <div class="menu">
+   <p class="aid" data-show="user user-menu"><b>Sam Rivera</b><span>sam@example.com</span></p>
+   <p class="aid" data-show="owner admin owner-menu"><b>Tilen</b><span>tilen@example.com</span><span class="ownr">Owner</span></p>
+   <ul>
+    <li><a href="account.html">Account</a></li>
+    <li><a href="tokens.html">API tokens &amp; MCP</a></li>
+    <li class="sep" role="separator"></li>
+    <li><a href="login.html">Log out</a></li>
+   </ul>
+  </div>
+ </details>
+</div></header>
+
+<main class="wrap">
+ <div class="dhead">
+  <div>
+   <h1 data-hide="admin">Portfolio</h1>
+   <h1 data-show="admin">Admin · Users</h1>
+   <p class="summary" data-show="user user-menu"><b>3</b> active projects · <b>1</b> waiting input</p>
+   <p class="summary" data-show="owner owner-menu"><b>3</b> active projects · <b>1</b> waiting input · your projects only</p>
+   <p class="summary" data-show="admin"><b>5</b> users · <b>4</b> active · <b>1</b> disabled</p>
+  </div>
+  <div class="vas" role="group" aria-labelledby="vas-l">
+   <span class="lbl" id="vas-l">View as</span>
+   <div class="seg">
+    <button type="button" data-goto="user" data-vas="user">Regular user (Sam)</button>
+    <button type="button" data-goto="owner" data-vas="owner">Owner (Tilen)</button>
+   </div>
+  </div>
+ </div>
+
+ <!-- Regular user: only Sam's own projects -->
+ <div class="pgrid2" data-show="user user-menu">
+  <a class="pc s-ok" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Example project</h2><p class="pm">PM Ava</p></div>
+     <span class="badge b-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Smooth sailing</span></div>
+    <p class="sset">Set by <b>Ava</b> · Today, 08:10</p>
+    <p class="snote">Landing copy drafted. Nothing needed from you.</p>
+    <div class="cbar" aria-hidden="true"><i class="c-backlog" style="width:20%"></i><i class="c-todo" style="width:20%"></i><i class="c-in_progress" style="width:20%"></i><i class="c-done" style="width:40%"></i></div>
+    <ul class="ccount"><li><i class="c-backlog"></i>Backlog <b>2</b></li><li><i class="c-todo"></i>To do <b>2</b></li><li><i class="c-in_progress"></i>In progress <b>2</b></li><li><i class="c-done"></i>Done (7 days) <b>4</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Today, 08:10</time></span></div>
+  </a>
+  <a class="pc s-w1" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Garden planner</h2><p class="pm">PM Builder</p></div>
+     <span class="badge b-w1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>Waiting input</span></div>
+    <p class="sset">Set by <b>Builder</b> · Yesterday, 17:40</p>
+    <p class="snote">Needs your pick between two planting calendars.</p>
+    <div class="cbar" aria-hidden="true"><i class="c-backlog" style="width:30%"></i><i class="c-todo" style="width:30%"></i><i class="c-review" style="width:15%"></i><i class="c-done" style="width:25%"></i></div>
+    <ul class="ccount"><li><i class="c-backlog"></i>Backlog <b>3</b></li><li><i class="c-todo"></i>To do <b>3</b></li><li><i class="c-review"></i>Review <b>1</b></li><li><i class="c-done"></i>Done (7 days) <b>2</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Yesterday, 17:40</time></span></div>
+  </a>
+  <a class="pc s-none" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Client site redesign</h2><p class="pm">PM Scout</p></div>
+     <span class="badge b-arch">Status not set</span></div>
+    <p class="sset">The PM hasn't set a status yet</p>
+    <div class="cbar" aria-hidden="true"><i class="c-todo" style="width:60%"></i><i class="c-in_progress" style="width:40%"></i></div>
+    <ul class="ccount"><li><i class="c-todo"></i>To do <b>3</b></li><li><i class="c-in_progress"></i>In progress <b>2</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Mon 26 Oct, 11:00</time></span></div>
+  </a>
+ </div>
+
+ <!-- Owner: the owner's own projects (generic example names) -->
+ <div class="pgrid2" data-show="owner owner-menu">
+  <a class="pc s-w2" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Example project A</h2><p class="pm">PM Atlas</p></div>
+     <span class="badge b-w2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/></svg>Waiting input</span></div>
+    <p class="sset">Set by <b>Atlas</b> · Today, 07:40</p>
+    <p class="snote">Example update: one decision waiting on you.</p>
+    <div class="cbar" aria-hidden="true"><i class="c-backlog" style="width:25%"></i><i class="c-todo" style="width:25%"></i><i class="c-in_progress" style="width:25%"></i><i class="c-done" style="width:25%"></i></div>
+    <ul class="ccount"><li><i class="c-backlog"></i>Backlog <b>3</b></li><li><i class="c-todo"></i>To do <b>3</b></li><li><i class="c-in_progress"></i>In progress <b>3</b></li><li><i class="c-done"></i>Done (7 days) <b>3</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Today, 07:58</time></span></div>
+  </a>
+  <a class="pc s-ok" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Studio website</h2><p class="pm">PM Juno</p></div>
+     <span class="badge b-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Smooth sailing</span></div>
+    <p class="sset">Set by <b>Juno</b> · Yesterday, 21:15</p>
+    <p class="snote">Example update: homepage draft ready for review.</p>
+    <div class="cbar" aria-hidden="true"><i class="c-backlog" style="width:30%"></i><i class="c-in_progress" style="width:20%"></i><i class="c-done" style="width:50%"></i></div>
+    <ul class="ccount"><li><i class="c-backlog"></i>Backlog <b>5</b></li><li><i class="c-in_progress"></i>In progress <b>2</b></li><li><i class="c-done"></i>Done (7 days) <b>8</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Yesterday, 21:15</time></span></div>
+  </a>
+  <a class="pc s-ok" href="#">
+   <div class="pcb">
+    <div class="pctop"><div><h2>Internal tools</h2><p class="pm">PM Orion</p></div>
+     <span class="badge b-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Smooth sailing</span></div>
+    <p class="sset">Set by <b>Orion</b> · Today, 06:50</p>
+    <p class="snote">Example update: week 2 tasks in progress.</p>
+    <div class="cbar" aria-hidden="true"><i class="c-todo" style="width:40%"></i><i class="c-in_progress" style="width:30%"></i><i class="c-done" style="width:30%"></i></div>
+    <ul class="ccount"><li><i class="c-todo"></i>To do <b>4</b></li><li><i class="c-in_progress"></i>In progress <b>3</b></li><li><i class="c-done"></i>Done (7 days) <b>3</b></li></ul>
+   </div>
+   <div class="pcf"><span></span><span>Last activity <time>Today, 06:50</time></span></div>
+  </a>
+ </div>
+
+ <!-- Owner: Admin · Users -->
+ <section data-show="admin" aria-labelledby="h-users">
+  <h2 class="sect" id="h-users" style="margin-top:0">Users <span class="cnt">5</span></h2>
+  <div class="card">
+   <table class="tbl stack">
+    <caption class="sr-only">Everyone with a Bridge account. Disabling blocks sign-in and API tokens; nothing is deleted.</caption>
+    <thead><tr><th scope="col">User</th><th scope="col">Role</th><th scope="col">Projects</th><th scope="col">Agents</th><th scope="col">Last active</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+    <tbody>
+     <tr><th scope="row"><span class="who3"><span class="avi" aria-hidden="true">T</span><span>Tilen<small>tilen@example.com</small></span></span></th>
+      <td class="l" data-label="Role"><span class="role own">Owner</span></td><td data-label="Projects">3</td><td data-label="Agents">3</td><td data-label="Last active">Today, 09:02</td><td class="act"><span class="dim2">You</span></td></tr>
+     <tr><th scope="row"><span class="who3"><span class="avi" aria-hidden="true">SR</span><span>Sam Rivera<small>sam@example.com</small></span></span></th>
+      <td class="l" data-label="Role"><span class="role usr">User</span></td><td data-label="Projects">3</td><td data-label="Agents">3</td><td data-label="Last active">Today, 08:10</td><td class="act"><button type="button" class="abtn bad" aria-label="Disable Sam Rivera">Disable</button></td></tr>
+     <tr><th scope="row"><span class="who3"><span class="avi" aria-hidden="true">AK</span><span>Alex Kim<small>alex@example.com</small></span></span></th>
+      <td class="l" data-label="Role"><span class="role usr">User</span></td><td data-label="Projects">1</td><td data-label="Agents">1</td><td data-label="Last active">Yesterday, 18:30</td><td class="act"><button type="button" class="abtn bad" aria-label="Disable Alex Kim">Disable</button></td></tr>
+     <tr><th scope="row"><span class="who3"><span class="avi" aria-hidden="true">JL</span><span>Jordan Lee<small>jordan@example.com</small></span></span></th>
+      <td class="l" data-label="Role"><span class="role off">Disabled</span></td><td data-label="Projects">2</td><td data-label="Agents">0</td><td data-label="Last active">Mon 12 Oct</td><td class="act"><button type="button" class="abtn" aria-label="Enable Jordan Lee">Enable</button></td></tr>
+     <tr><th scope="row"><span class="who3"><span class="avi" aria-hidden="true">PP</span><span>Priya Patel<small>priya@example.com</small></span></span></th>
+      <td class="l" data-label="Role"><span class="role usr">User</span></td><td data-label="Projects">0</td><td data-label="Agents">0</td><td data-label="Last active">Never · invited Fri 30 Oct</td><td class="act"><button type="button" class="abtn bad" aria-label="Disable Priya Patel">Disable</button></td></tr>
+    </tbody>
+   </table>
+   <p class="foot">Disabling signs the person out everywhere and stops their API tokens. Their projects and usage stay; you can enable them again.</p>
+  </div>
+ </section>
+
+ <div class="annot" style="margin-top:32px">
+  <h3>What differs by role</h3>
+  <ul>
+   <li><b>Regular user:</b> nav is Portfolio and Usage only. Portfolio, boards and Usage show only their own projects and agents. <code>/polymarket</code> and <code>/admin</code> respond 404 (open question: 404 or 403).</li>
+   <li><b>Account menu (everyone):</b> avatar initials + name, opens Account, API tokens &amp; MCP, Log out.</li>
+   <li><b>Owner:</b> adds Polymarket and Admin to the nav and an <span class="ownr">Owner</span> chip in the top bar and account menu. Owner's Portfolio still shows only the owner's own projects.</li>
+   <li><b>Admin:</b> lists users with role, projects, agents, last active; can disable and enable. It cannot delete accounts or open other users' boards (open question).</li>
+   <li><b>Mobile (≤720px):</b> the nav collapses to the current page ▾ menu left of the avatar; the account name and Sample data chip are hidden, the avatar stays.</li>
+  </ul>
+ </div>
+</main>
+
+<script>
+window.onProtoState = function (id) {
+  var owner = /^(owner|admin|owner-menu)$/.test(id);
+  var cur = id === 'admin' ? 'admin' : 'portfolio';
+  document.querySelectorAll('[data-nav]').forEach(function (a) {
+    if (a.dataset.nav === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  var label = cur === 'admin' ? 'Admin' : 'Portfolio';
+  document.querySelector('.navcur').textContent = label;
+  document.querySelector('.navm summary').setAttribute('aria-label', 'Menu, current page: ' + label);
+  document.querySelectorAll('[data-vas]').forEach(function (b) {
+    b.setAttribute('aria-pressed', String(b.dataset.vas === (owner ? 'owner' : 'user')));
+  });
+  document.querySelector('.acct summary').setAttribute('aria-label', owner ? 'Account menu for Tilen, owner' : 'Account menu for Sam Rivera');
+  var open = /-menu$/.test(id);
+  document.querySelectorAll('details.acct, details.navm').forEach(function (d) {
+    if (open) d.setAttribute('open', ''); else d.removeAttribute('open');
+  });
+};
+</script>
+<script src="proto.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reset password · Bridge</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="request:Request reset link|sent:Check your email|set-new:Set new password|expired:Link expired or invalid|success:Password updated">
+
+<header class="top">
+  <div class="wrap topin">
+    <a class="brand" href="login.html"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+    <span class="sample">Sample data</span>
+  </div>
+</header>
+
+<main class="gate">
+
+  <!-- 1 · request -->
+  <form class="gcard" action="#" novalidate aria-labelledby="h-req" data-show="request">
+    <h1 id="h-req">Reset your password</h1>
+    <p class="lede">Enter the email you signed up with and we'll send a link to set a new password.</p>
+    <div class="fld2">
+      <label class="flabel" for="r-email">Email</label>
+      <input class="qin" id="r-email" type="email" name="email" autocomplete="email" value="sam@example.com" required>
+    </div>
+    <button class="btn wide" type="submit" data-goto="sent">Send reset link</button>
+    <p class="alt">Remembered it? <a href="login.html">Log in</a></p>
+  </form>
+
+  <!-- 2 · sent (same message whether or not the email exists) -->
+  <section class="gcard" aria-labelledby="h-sent" data-show="sent">
+    <div class="eico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></div>
+    <h1 id="h-sent">Check your email</h1>
+    <p class="lede" role="status">If <b>sam@example.com</b> has a Bridge account, a reset link is on its way. It works for 60 minutes.</p>
+    <p class="fine">No email after a few minutes? Check spam, or <button type="button" class="lnk" data-goto="request">send it again</button>.</p>
+    <p class="alt"><a href="login.html">Back to log in</a></p>
+  </section>
+
+  <!-- 3 · set new password (opened from the email link) -->
+  <form class="gcard" action="#" novalidate aria-labelledby="h-new" data-show="set-new">
+    <h1 id="h-new">Set a new password</h1>
+    <p class="lede">For sam@example.com. You'll be logged out on your other devices.</p>
+    <div class="fld2">
+      <label class="flabel" for="n-pw">New password</label>
+      <div class="pw">
+        <input class="qin" id="n-pw" type="password" autocomplete="new-password" value="planner-and-garden-9!" data-strength="#n-meter" aria-describedby="n-meter">
+        <button type="button" class="pwt" data-pw="#n-pw" aria-pressed="false" aria-label="Show new password">Show</button>
+      </div>
+      <p class="meter" id="n-meter" data-score="4" aria-live="polite">
+        <span class="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>Strength: <b class="w">Strong</b>, <span class="mtip">nice</span></span>
+      </p>
+    </div>
+    <div class="fld2">
+      <label class="flabel" for="n-pw2">Confirm new password</label>
+      <div class="pw">
+        <input class="qin" id="n-pw2" type="password" autocomplete="new-password" value="planner-and-garden-9!" aria-describedby="n-match">
+        <button type="button" class="pwt" data-pw="#n-pw2" aria-pressed="false" aria-label="Show confirmed password">Show</button>
+      </div>
+      <p class="ok-line" id="n-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Passwords match</p>
+    </div>
+    <button class="btn wide" type="submit" data-goto="success">Update password</button>
+  </form>
+
+  <!-- 4 · expired / invalid link -->
+  <section class="gcard" aria-labelledby="h-exp" data-show="expired">
+    <div class="eico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+    <h1 id="h-exp">This link has expired</h1>
+    <p class="lede">Reset links work once, for 60 minutes. Ask for a new one and use the newest email.</p>
+    <button class="btn wide" type="button" data-goto="request">Send a new link</button>
+    <p class="alt"><a href="login.html">Back to log in</a></p>
+  </section>
+
+  <!-- 5 · success -->
+  <section class="gcard" aria-labelledby="h-ok" data-show="success">
+    <div class="eico ok" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5 9-10"/></svg></div>
+    <h1 id="h-ok">Password updated</h1>
+    <p class="lede" role="status">Use your new password to log in. Other devices have been logged out.</p>
+    <a class="btn wide" href="login.html">Log in</a>
+  </section>
+
+</main>
+<script src="proto.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account · Bridge</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="default:Default|saved:Saved (toast + email pending)|error:Validation error|delete:Delete account modal">
+
+<!-- Logged-in top bar: same on every app page. No main-nav item is current on Account. -->
+<header class="top">
+  <div class="wrap topin">
+    <a class="brand" href="onboarding.html?state=done"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+    <span class="sample">Sample data</span>
+    <nav class="nav" aria-label="Main"><a href="onboarding.html?state=done">Portfolio</a><a href="usage.html">Usage</a></nav>
+    <details class="navm">
+      <summary aria-label="Menu">Menu <span aria-hidden="true">▾</span></summary>
+      <nav aria-label="Main (menu)"><ul><li><a href="onboarding.html?state=done">Portfolio</a></li><li><a href="usage.html">Usage</a></li></ul></nav>
+    </details>
+    <details class="acct">
+      <summary aria-label="Account menu for Sam Rivera"><span class="avi" aria-hidden="true">SR</span><span class="an">Sam Rivera</span><span class="car" aria-hidden="true">▾</span></summary>
+      <div class="menu">
+        <p class="aid"><b>Sam Rivera</b><span>sam@example.com</span></p>
+        <ul>
+          <li><a href="account.html" aria-current="page">Account</a></li>
+          <li><a href="tokens.html">API tokens &amp; MCP</a></li>
+          <li class="sep" role="separator"></li>
+          <li><a href="login.html">Log out</a></li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="sethead">
+    <h1>Account</h1>
+    <p class="summary">Sam Rivera · sam@example.com</p>
+  </div>
+
+  <div class="setgrid">
+    <nav class="subnav" aria-label="Account settings">
+      <ul>
+        <li><a href="#profile" aria-current="true">Profile</a></li>
+        <li><a href="#password">Password</a></li>
+        <li><a href="#sessions">Sessions</a></li>
+        <li><a href="tokens.html">API tokens &amp; MCP</a></li>
+        <li><a href="#danger" class="bad">Danger zone</a></li>
+      </ul>
+    </nav>
+
+    <div class="setcol">
+
+      <!-- Profile -->
+      <section class="card" id="profile" aria-labelledby="h-profile">
+        <h2 id="h-profile">Profile</h2>
+        <p class="sub">How you appear on your boards and to your bots.</p>
+
+        <div class="errsum" role="alert" tabindex="-1" aria-labelledby="sum-h" data-show="error">
+          <h3 id="sum-h">Fix 2 things to save your profile</h3>
+          <ul>
+            <li><a href="#p-name">Enter your name</a></li>
+            <li><a href="#p-email">Enter an email like name@example.com</a></li>
+          </ul>
+        </div>
+
+        <div class="prof">
+          <span class="avi xl" aria-hidden="true">SR</span>
+          <div>
+            <b>Sam Rivera</b>
+            <p>Your initials are your avatar. They update when you change your name.</p>
+          </div>
+        </div>
+
+        <form class="form2" action="#" novalidate>
+          <div class="fld2">
+            <label class="flabel" for="p-name">Name</label>
+            <input class="qin" id="p-name" autocomplete="name" value="Sam Rivera" aria-describedby="p-name-err">
+            <p class="ferr" id="p-name-err" data-show="error">Enter your name</p>
+          </div>
+
+          <div class="fld2">
+            <label class="flabel" for="p-tz">Timezone</label>
+            <select class="qsel" id="p-tz" aria-describedby="p-tz-hint">
+              <option>Europe/London</option>
+              <option selected>Europe/Ljubljana</option>
+              <option>Europe/Berlin</option>
+              <option>America/New_York</option>
+              <option>America/Los_Angeles</option>
+              <option>Asia/Tokyo</option>
+            </select>
+            <p class="fhint" id="p-tz-hint">Used for “Today”, due dates and the Usage day boundaries.</p>
+          </div>
+
+          <div class="fld2 full">
+            <label class="flabel" for="p-email">Email</label>
+            <input class="qin" id="p-email" type="email" autocomplete="email" value="sam@example.com" aria-describedby="p-email-err p-email-hint">
+            <p class="ferr" id="p-email-err" data-show="error">Enter an email like name@example.com</p>
+            <p class="fhint" id="p-email-hint" data-hide="saved">Changing it sends a link to the new address. You keep logging in with the current email until you confirm.</p>
+            <!-- after saving a new email: pending verification -->
+            <div class="callout warn" data-show="saved">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>
+              <p><span class="t">Verify your new email.</span> We sent a link to <b>sam.rivera@example.com</b>. Until you confirm, Bridge keeps using sam@example.com. <a href="#p-email">Resend link</a> · <a href="#p-email">Keep the old email</a></p>
+            </div>
+          </div>
+
+          <div class="cardfoot full">
+            <button class="btn" type="submit" data-goto="saved">Save profile</button>
+            <span class="ok-line" data-show="saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>Profile saved</span>
+          </div>
+        </form>
+      </section>
+
+      <!-- Password -->
+      <section class="card" id="password" aria-labelledby="h-pw">
+        <h2 id="h-pw">Password</h2>
+        <p class="sub">Changing it logs you out everywhere else.</p>
+        <form class="form2" action="#" novalidate>
+          <div class="fld2 full">
+            <label class="flabel" for="c-pw">Current password</label>
+            <div class="pw">
+              <input class="qin" id="c-pw" type="password" autocomplete="current-password">
+              <button type="button" class="pwt" data-pw="#c-pw" aria-pressed="false" aria-label="Show current password">Show</button>
+            </div>
+          </div>
+          <div class="fld2">
+            <label class="flabel" for="a-pw">New password</label>
+            <div class="pw">
+              <input class="qin" id="a-pw" type="password" autocomplete="new-password" data-strength="#a-meter" aria-describedby="a-meter">
+              <button type="button" class="pwt" data-pw="#a-pw" aria-pressed="false" aria-label="Show new password">Show</button>
+            </div>
+            <p class="meter" id="a-meter" data-score="0" aria-live="polite">
+              <span class="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span>Strength: <b class="w">Too short</b>, <span class="mtip">use at least 10 characters</span></span>
+            </p>
+          </div>
+          <div class="fld2">
+            <label class="flabel" for="a-pw2">Confirm new password</label>
+            <div class="pw">
+              <input class="qin" id="a-pw2" type="password" autocomplete="new-password">
+              <button type="button" class="pwt" data-pw="#a-pw2" aria-pressed="false" aria-label="Show confirmed password">Show</button>
+            </div>
+          </div>
+          <div class="cardfoot full">
+            <button class="btn" type="submit">Change password</button>
+            <a href="reset.html?state=request" class="lnk">Forgot your current password?</a>
+          </div>
+        </form>
+      </section>
+
+      <!-- Sessions -->
+      <section class="card" id="sessions" aria-labelledby="h-sess">
+        <h2 id="h-sess">Sessions</h2>
+        <p class="sub">Where you're logged in. API tokens for bots are separate; see API tokens &amp; MCP.</p>
+        <div class="rowact">
+          <div><p><b>This device</b></p><p class="d">Browser on a laptop · active now</p></div>
+          <a class="abtn" href="login.html">Log out</a>
+        </div>
+        <div class="rowact">
+          <div><p><b>2 other devices</b></p><p class="d">Last active yesterday, 21:40 (example)</p></div>
+          <button class="abtn" type="button">Log out of all devices</button>
+        </div>
+      </section>
+
+      <!-- Danger zone -->
+      <section class="card dz" id="danger" aria-labelledby="h-dz">
+        <h2 id="h-dz">Danger zone</h2>
+        <p class="sub">Deleting your account removes your projects, boards, tickets, usage history and API tokens. Bots using your tokens stop working at once.</p>
+        <div class="rowact">
+          <div><p><b>Delete account</b></p><p class="d">This can't be undone. Export anything you need first.</p></div>
+          <button class="btn danger" type="button" data-goto="delete">Delete account…</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- Delete: typed confirmation -->
+<div class="mdl" data-show="delete" data-close="default">
+  <div class="mdlbox" role="dialog" aria-modal="true" aria-labelledby="h-del" aria-describedby="del-d">
+    <div class="mdlh">
+      <h2 id="h-del">Delete your account?</h2>
+      <button class="ibtn" type="button" aria-label="Close" data-goto="default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="mdlb">
+      <p id="del-d">This permanently deletes <b>3 projects</b>, <b>41 tickets</b>, your usage history and <b>3 API tokens</b>. It can't be undone.</p>
+      <div class="fld2">
+        <label class="flabel" for="del-confirm">Type <b>sam@example.com</b> to confirm</label>
+        <input class="qin" id="del-confirm" autocomplete="off" spellcheck="false" aria-describedby="del-hint">
+        <p class="fhint" id="del-hint">The delete button turns on when it matches.</p>
+      </div>
+    </div>
+    <div class="mdlf">
+      <button class="abtn" type="button" data-goto="default">Keep my account</button>
+      <button class="btn danger" type="button" id="del-go" disabled>Delete account</button>
+    </div>
+  </div>
+</div>
+
+<!-- toasts: polite live region, always in the DOM -->
+<div class="toasts" aria-live="polite">
+  <div class="toast" data-show="saved">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+    <div class="tbody"><p>Profile saved</p><p class="s">Check sam.rivera@example.com to confirm the new email.</p></div>
+    <button class="tx" type="button" aria-label="Dismiss" data-goto="default"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</div>
+
+<script>
+  // Prototype: example values per state; typed confirmation enables delete.
+  window.onProtoState = function (id) {
+    var err = id === 'error';
+    var n = document.getElementById('p-name'), e = document.getElementById('p-email');
+    n.value = err ? '' : 'Sam Rivera';
+    e.value = err ? 'sam.rivera@' : (id === 'saved' ? 'sam.rivera@example.com' : 'sam@example.com');
+    n.setAttribute('aria-invalid', String(err));
+    e.setAttribute('aria-invalid', String(err));
+    document.getElementById('del-confirm').value = '';
+    document.getElementById('del-go').disabled = true;
+  };
+  document.getElementById('del-confirm').addEventListener('input', function (ev) {
+    document.getElementById('del-go').disabled = ev.target.value.trim() !== 'sam@example.com';
+  });
+</script>
+<script src="proto.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridge, multi-user · prototypes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* hub only (not a product screen) */
+  .hub{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+  .hub .card h2 a{color:inherit;text-decoration:none}
+  .hub .card h2 a:hover{text-decoration:underline;text-underline-offset:3px}
+  .hub .file{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:var(--ink3);margin-left:auto}
+  .hub .card p.d{margin:6px 0 12px;color:var(--ink2)}
+  .sts{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+  .sts a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:2px solid var(--line);border-radius:99px;text-decoration:none;color:var(--ink);font-size:15px;font-weight:700;background:var(--card)}
+  .sts a:hover{border-color:var(--ink3)}
+  .sts code{font-size:12px;font-weight:400;color:var(--ink3)}
+  @media (max-width:900px){.hub{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap topin">
+    <a class="brand" href="index.html"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+    <span class="sample">Sample data</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="dhead">
+    <div>
+      <h1>Multi-user prototypes</h1>
+      <p class="summary">Static screens for opening Bridge to other people. Every state opens with <b>?state=</b> or the States switcher at the bottom right. All names and numbers are example data.</p>
+    </div>
+    <a class="abtn" href="DESIGN.md">Read DESIGN.md</a>
+  </div>
+
+  <h2 class="sect">Logged out</h2>
+  <div class="hub">
+    <section class="card">
+      <div class="chead"><h2><a href="signup.html">Sign up</a></h2><span class="file">signup.html</span></div>
+      <p class="d">Name, email and password with a strength meter. Inline errors with a summary.</p>
+      <ul class="sts">
+        <li><a href="signup.html?state=default">Default <code>default</code></a></li>
+        <li><a href="signup.html?state=errors">Field errors <code>errors</code></a></li>
+        <li><a href="signup.html?state=loading">Loading <code>loading</code></a></li>
+        <li><a href="signup.html?state=email-taken">Email already used <code>email-taken</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="login.html">Log in</a></h2><span class="file">login.html</span></div>
+      <p class="d">The Workspace gate card, now with email, show/hide password and recovery.</p>
+      <ul class="sts">
+        <li><a href="login.html?state=default">Default <code>default</code></a></li>
+        <li><a href="login.html?state=wrong">Wrong credentials <code>wrong</code></a></li>
+        <li><a href="login.html?state=locked">Too many attempts <code>locked</code></a></li>
+        <li><a href="login.html?state=loading">Loading <code>loading</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="reset.html">Password reset</a></h2><span class="file">reset.html</span></div>
+      <p class="d">Request a link, check email, set a new password, expired link, done.</p>
+      <ul class="sts">
+        <li><a href="reset.html?state=request">Request <code>request</code></a></li>
+        <li><a href="reset.html?state=sent">Check your email <code>sent</code></a></li>
+        <li><a href="reset.html?state=set-new">Set new password <code>set-new</code></a></li>
+        <li><a href="reset.html?state=expired">Expired link <code>expired</code></a></li>
+        <li><a href="reset.html?state=success">Password updated <code>success</code></a></li>
+      </ul>
+    </section>
+  </div>
+
+  <h2 class="sect">Logged in</h2>
+  <div class="hub">
+    <section class="card">
+      <div class="chead"><h2><a href="onboarding.html">Onboarding</a></h2><span class="file">onboarding.html</span></div>
+      <p class="d">A new user's empty Portfolio: create a project, set up its board, connect a bot.</p>
+      <ul class="sts">
+        <li><a href="onboarding.html?state=step1">Create project <code>step1</code></a></li>
+        <li><a href="onboarding.html?state=step2">Board columns <code>step2</code></a></li>
+        <li><a href="onboarding.html?state=step3">Connect bot <code>step3</code></a></li>
+        <li><a href="onboarding.html?state=done">Portfolio, one project <code>done</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="account.html">Account</a></h2><span class="file">account.html</span></div>
+      <p class="d">Profile, password, sessions and danger zone, with a sub-nav that becomes pills on phones.</p>
+      <ul class="sts">
+        <li><a href="account.html?state=default">Default <code>default</code></a></li>
+        <li><a href="account.html?state=saved">Saved <code>saved</code></a></li>
+        <li><a href="account.html?state=error">Validation error <code>error</code></a></li>
+        <li><a href="account.html?state=delete">Delete account <code>delete</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="tokens.html">API tokens &amp; MCP</a></h2><span class="file">tokens.html</span></div>
+      <p class="d">Create, reveal once and revoke tokens. MCP URL, header and config to connect a Grok bot.</p>
+      <ul class="sts">
+        <li><a href="tokens.html?state=with-tokens">With tokens <code>with-tokens</code></a></li>
+        <li><a href="tokens.html?state=empty">No tokens <code>empty</code></a></li>
+        <li><a href="tokens.html?state=create">Create modal <code>create</code></a></li>
+        <li><a href="tokens.html?state=reveal">One-time reveal <code>reveal</code></a></li>
+        <li><a href="tokens.html?state=revoke">Revoke confirm <code>revoke</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="usage.html">Usage</a></h2><span class="file">usage.html</span></div>
+      <p class="d">Today's Usage page for one user's agents, plus a new Cursor models section.</p>
+      <ul class="sts">
+        <li><a href="usage.html?state=7d">7 days <code>7d</code></a></li>
+        <li><a href="usage.html?state=yesterday">Yesterday <code>yesterday</code></a></li>
+        <li><a href="usage.html?state=30d">30 days <code>30d</code></a></li>
+        <li><a href="usage.html?state=cursor-empty">No Cursor data <code>cursor-empty</code></a></li>
+      </ul>
+    </section>
+    <section class="card">
+      <div class="chead"><h2><a href="shell.html">Nav &amp; roles</a></h2><span class="file">shell.html</span></div>
+      <p class="d">What a regular user sees compared with the owner: nav, account menu, Admin users list.</p>
+      <ul class="sts">
+        <li><a href="shell.html?state=user">Regular user <code>user</code></a></li>
+        <li><a href="shell.html?state=owner">Owner <code>owner</code></a></li>
+        <li><a href="shell.html?state=admin">Admin users <code>admin</code></a></li>
+        <li><a href="shell.html?state=user-menu">User, menus open <code>user-menu</code></a></li>
+        <li><a href="shell.html?state=owner-menu">Owner, menus open <code>owner-menu</code></a></li>
+      </ul>
+    </section>
+  </div>
+</main>
+</body>
+</html>

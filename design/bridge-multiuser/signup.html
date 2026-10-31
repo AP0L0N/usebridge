@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create account · Bridge</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body data-states="default:Default|errors:Field errors|loading:Creating account|email-taken:Email already used">
+
+<header class="top">
+  <div class="wrap topin">
+    <a class="brand" href="login.html"><span class="mark" aria-hidden="true"></span><span>Bridge</span></a>
+    <span class="sample">Sample data</span>
+  </div>
+</header>
+
+<main class="gate">
+  <form class="gcard" action="#" novalidate aria-labelledby="h-signup">
+    <h1 id="h-signup">Create your account</h1>
+    <p class="lede">Track your own projects on a board, and let your Grok bot keep them up to date.</p>
+
+    <!-- error summary: appears on submit with errors, takes focus, links jump to fields -->
+    <div class="errsum" role="alert" tabindex="-1" aria-labelledby="sum-h" data-show="errors">
+      <h2 id="sum-h">Fix 3 things to continue</h2>
+      <ul>
+        <li><a href="#name">Enter your name</a></li>
+        <li><a href="#email">Enter an email like name@example.com</a></li>
+        <li><a href="#pw">Use at least 10 characters for your password</a></li>
+      </ul>
+    </div>
+
+    <div class="callout bad" role="alert" data-show="email-taken">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+      <p><span class="t">sam@example.com already has an account.</span> <a href="login.html">Log in</a> instead, or <a href="reset.html?state=request">reset the password</a> if you've forgotten it.</p>
+    </div>
+
+    <div class="fld2">
+      <label class="flabel" for="name">Name</label>
+      <input class="qin" id="name" name="name" autocomplete="name" required value="Sam Rivera"
+             aria-describedby="name-err name-hint">
+      <p class="ferr" id="name-err" data-show="errors">Enter your name</p>
+      <p class="fhint" id="name-hint">Shown on your boards and to your bots.</p>
+    </div>
+
+    <div class="fld2">
+      <label class="flabel" for="email">Email</label>
+      <input class="qin" id="email" type="email" name="email" autocomplete="email" required value="sam@example.com"
+             aria-describedby="email-err email-taken-err">
+      <p class="ferr" id="email-err" data-show="errors">Enter an email like name@example.com</p>
+      <p class="ferr" id="email-taken-err" data-show="email-taken">This email already has an account</p>
+    </div>
+
+    <div class="fld2">
+      <label class="flabel" for="pw">Password</label>
+      <div class="pw">
+        <input class="qin" id="pw" type="password" name="password" autocomplete="new-password" required
+               value="garden-planner-27" data-strength="#meter" aria-describedby="pw-err meter">
+        <button type="button" class="pwt" data-pw="#pw" aria-pressed="false" aria-label="Show password">Show</button>
+      </div>
+      <p class="ferr" id="pw-err" data-show="errors">Use at least 10 characters for your password</p>
+      <!-- strength: segment count + word + tip, so it never relies on colour -->
+      <p class="meter" id="meter" data-score="3" aria-live="polite">
+        <span class="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>Strength: <b class="w">Good</b>, <span class="mtip">longer is even better</span></span>
+      </p>
+    </div>
+
+    <p class="fine">By creating an account you agree to the <a href="#terms">Terms</a> and <a href="#privacy">Privacy note</a>. Bridge stores your projects and usage only to show them to you.</p>
+
+    <button class="btn wide" type="submit" data-goto="loading" data-hide="loading">Create account</button>
+    <button class="btn wide" type="button" disabled aria-disabled="true" data-show="loading"><span class="spin" aria-hidden="true"></span>Creating account…</button>
+    <p class="sr-only" aria-live="polite" data-show="loading">Creating your account, please wait.</p>
+
+    <p class="alt">Already have an account? <a href="login.html">Log in</a></p>
+  </form>
+</main>
+
+<script>
+  // Prototype-only: show example invalid values in the errors state.
+  window.onProtoState = function (id) {
+    var email = document.getElementById('email'), pw = document.getElementById('pw'), m = document.getElementById('meter');
+    var err = id === 'errors', name = document.getElementById('name');
+    name.value = err ? '' : 'Sam Rivera';
+    name.setAttribute('aria-invalid', String(err));
+    email.value = err ? 'sam@example' : 'sam@example.com';
+    email.setAttribute('aria-invalid', String(err || id === 'email-taken'));
+    pw.setAttribute('aria-invalid', String(err));
+    pw.value = err ? 'garden' : 'garden-planner-27';
+    m.dataset.score = err ? '0' : '3';
+    m.querySelector('.w').textContent = err ? 'Too short' : 'Good';
+    m.querySelector('.mtip').textContent = err ? 'use at least 10 characters' : 'longer is even better';
+    document.querySelectorAll('.gcard input').forEach(function (i) { i.disabled = id === 'loading'; });
+  };
+</script>
+<script src="proto.js" defer></script>
+</body>
+</html>
