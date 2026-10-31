@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from '../Components/TopBar';
 import { Highlight } from '../Components/Highlight';
+import { ConnectBotCard, ReadyBanner, type Welcome } from '../Components/Onboarding/ReadyBanner';
 import { IconInbox, IconSearch } from '../Components/Icons';
 import { ConfirmSheet, IcMore, IcWait, MOBILE, PmBadge, Sheet, refocus, useDismiss, useMedia } from '../Components/Kanban/Bits';
 import { StatusForm } from '../Components/Kanban/StatusBlock';
@@ -9,7 +10,7 @@ import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 
-type Props = { projects: PortfolioProject[]; now: string };
+type Props = { projects: PortfolioProject[]; now: string; welcome?: Welcome };
 
 const COLS: [ColumnKey, string][] = [
   ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
@@ -125,7 +126,7 @@ function CardMenu({ p, archived }: { p: PortfolioProject; archived: boolean }) {
   );
 }
 
-export default function Portfolio({ projects, now }: Props) {
+export default function Portfolio({ projects, now, welcome }: Props) {
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
@@ -183,6 +184,7 @@ export default function Portfolio({ projects, now }: Props) {
           </div>
         </div>
 
+        <ReadyBanner welcome={welcome} />
         {projects.length === 0 ? (
           signedIn ? (
             <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Your portfolio is empty. Create your first project; three steps and its board is ready.</p><Link className="btn" href="/welcome">Create your first project</Link></div>
@@ -207,6 +209,7 @@ export default function Portfolio({ projects, now }: Props) {
             )}
           </>
         )}
+        <ConnectBotCard welcome={welcome} />
       </main>
     </div>
   );
