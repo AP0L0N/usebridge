@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ConfirmSheet, IcChev, IcHist, PlainBadge, PmBadge, Sheet, refocus, useDismiss } from './Bits';
+import { ConfirmSheet, IcChev, IcHist, PmBadge, PlainBadge, Sheet, refocus, useDismiss } from './Bits';
 import { updateTime } from '../../lib/dates';
 import { STATUS_LABEL, archiveMessage, firstName, send, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
+import { t } from '../../lib/strings';
 
-/** "Janice (PM)", "Tilen", "Captain William Diego (CEO)". */
+/** "Janice (PM)", "Sam Rivera", "Captain William Diego (CEO)". */
 export function setByLabel(by: string | null, name: string | null, pmId: string | null): string {
   if (!by) return '';
-  if (by === 'tilen') return 'Tilen';
+  if (by === 'tilen') return t('ticket.role.you');
   return by === pmId ? `${firstName(name)} (PM)` : name ?? by;
 }
 
@@ -18,13 +19,13 @@ export function pmAge(p: Pick<StatusSubject, 'status' | 'status_set_at'>, now: s
 }
 
 export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId: string | null; now: string }) {
-  if (!events.length) return <p className="hint">No status changes yet.</p>;
+  if (!events.length) return <p className="hint">{t('ticket.history.empty')}</p>;
   return (
     <ol className="shist">
       {events.map((e) => (
         <li key={e.id}>
           <PlainBadge status={e.to_status} />
-          <p className="n">{e.note ? `“${e.note}”` : <span className="dim2">No note</span>}</p>
+          <p className="n">{e.note ? `“${e.note}”` : <span className="dim2">{t('ticket.history.empty')}</span>}</p>
           <p>{setByLabel(e.set_by, e.set_by_name, pmId)} · {updateTime(e.created_at, now)} · {e.source === 'api' ? 'via API' : 'via Bridge'}</p>
         </li>
       ))}
@@ -66,47 +67,51 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
       setBusy('err');
     }
   };
+  const viaAgent = p.status_set_by !== null && p.status_set_by !== 'tilen';
 
   return (
     <div className="pstat">
       {archived ? (
         <>
           <div className="pwrap"><PmBadge status="archived" /></div>
-          <button type="button" className="btn" disabled={busy === 'busy'} onClick={() => run('unarchive')}>{busy === 'busy' ? <><span className="spin" />Unarchiving…</> : 'Unarchive'}</button>
-          {busy === 'err' && <p className="err-line" role="alert">✕ Couldn’t unarchive. Try again.</p>}
+          <button type="button" className="abtn" disabled={busy === 'busy'} onClick={() => run('unarchive')}>{busy === 'busy' ? <><span className="spin" />{t('portfolio.menu.unarchiving')}</> : t('proj.unarchive')}</button>
+          {busy === 'err' && <p className="err-line" role="alert">{t('portfolio.menu.unarchiveError')}</p>}
         </>
       ) : (
       <div className="pwrap">
         <button ref={btnRef} type="button" className="bbtn" aria-haspopup="dialog" aria-expanded={menu}
-          aria-label={`Project status: ${p.status ? STATUS_LABEL[p.status] : 'Status not set'}. Change status`} onClick={() => (menu ? closeMenu() : setMenu(true))}>
+          aria-label={`Project status: ${p.status ? STATUS_LABEL[p.status] : t('portfolio.status.none')}. Change status`} onClick={() => (menu ? closeMenu() : setMenu(true))}>
           <PmBadge status={p.status} level={age?.level} ageDays={age?.days} /><IcChev />
         </button>
       </div>
       )}
       {menu && !mobile && (
-        <div ref={menuRef} className="pop menu smenu" role="dialog" aria-label="Set project status">
+        <div ref={menuRef} className="pop smenu" role="dialog" aria-label={t('portfolio.menu.status')}>
           <StatusForm project={p} onDone={saved} onCancel={closeMenu} onArchive={() => { closeMenu(); setConfirm(true); }} />
         </div>
       )}
       {menu && mobile && (
-        <Sheet label="Set project status" onClose={() => setMenu(false)} initialFocus={checkedRadio} restoreFocus={() => btnRef.current}>
+        <Sheet label={t('portfolio.menu.status')} onClose={() => setMenu(false)} initialFocus={checkedRadio} restoreFocus={() => btnRef.current}>
           <div className="sheetb"><StatusForm project={p} onDone={saved} onCancel={closeMenu} onArchive={() => { setMenu(false); setConfirm(true); }} /></div>
         </Sheet>
       )}
       {confirm && (
-        <ConfirmSheet message={archiveMessage(p.name)} confirmLabel="Archive" busy={busy === 'busy'} error={busy === 'err' ? 'Couldn’t archive. Try again.' : null}
+        <ConfirmSheet message={archiveMessage(p.name)} confirmLabel={t('portfolio.archive.confirm')} busy={busy === 'busy'} error={busy === 'err' ? t('portfolio.archive.error') : null}
           onConfirm={() => run('archive')} onCancel={() => { setConfirm(false); setBusy('idle'); }} restoreFocus={() => btnRef.current} />
       )}
       <div className="txt">
         {p.status && p.status_set_at ? (
           <>
-            <p className="sset">Set by <b>{p.status_set_by === p.pm_agent_id ? p.status_set_by_name : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id)}</b>{p.status_set_by === p.pm_agent_id ? ' (PM)' : ''} · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></p>
-            {p.status_note && <p className="snote">{p.status_note}</p>}
+            <p className="sset">
+              <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
+              {viaAgent && <span className="via"><span className="agentdot" aria-hidden="true" />via MCP · {firstName(p.status_set_by_name)}</span>}
+            </p>
+            {p.status_note && <p className="snote">“{p.status_note}”</p>}
           </>
-        ) : <p className="sset">The PM hasn’t set a status yet</p>}
+        ) : <p className="sset">{t('portfolio.noStatus')}</p>}
       </div>
       <div className="pwrap hist" ref={histRef}>
-        <button className="lnk" type="button" aria-haspopup="dialog" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}><IcHist />History</button>
+        <button className="gbtn" type="button" aria-haspopup="dialog" aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}><IcHist />History</button>
         {historyOpen && !mobile && (
           <div className="pop hpop" role="dialog" aria-label="Status history">
             <h3>Status history</h3>
@@ -127,14 +132,14 @@ const firstRadio = (root: ParentNode | null) => root?.querySelector<HTMLElement>
 
 const NOTE_MAX = 280;
 
-/** "Janice's note", "Your note" (Tilen set it), "William's note". */
+/** "Janice's note", "Your note" (you set it), "William's note". */
 function noteOwner(p: StatusSubject): string {
   if (p.status_set_by === 'tilen') return 'Your note';
   const who = firstName(p.status_set_by === p.pm_agent_id ? (p.pm_name ?? p.status_set_by_name) : p.status_set_by_name);
   return who ? `${who}’s note` : 'Current note';
 }
 
-/** Tilen's override: logged as set_by=tilen, source=ui (PATCH /projects/{slug}/status). */
+/** Your override: logged as set_by=tilen, source=ui (PATCH /projects/{slug}/status). */
 export function StatusForm({ project: p, onDone, onCancel, onArchive }: { project: StatusSubject; onDone: () => void; onCancel: () => void; onArchive: () => void }) {
   const [status, setStatus] = useState<PmStatus | null>(p.status);
   const [note, setNote] = useState('');
@@ -161,7 +166,7 @@ export function StatusForm({ project: p, onDone, onCancel, onArchive }: { projec
     <form ref={formRef} className="sform" onSubmit={(e) => { e.preventDefault(); save(); }}>
       <fieldset className="sfs">
         <legend>Set project status</legend>
-        <div className="opts col1">
+        <div className="opts">
           {(['smooth', 'waiting'] as PmStatus[]).map((s) => (
             <label key={s} className="opt">
               <input type="radio" name="pst" checked={status === s} onChange={() => setStatus(s)} />
@@ -173,13 +178,13 @@ export function StatusForm({ project: p, onDone, onCancel, onArchive }: { projec
       <div className="other">
         <label className="flabel" htmlFor="pst-note">Note (optional)</label>
         {p.status_note && <p className="hint cur">{noteOwner(p)}: “{p.status_note}”</p>}
-        <textarea id="pst-note" className="qta sm" maxLength={NOTE_MAX} placeholder="Why? (optional)" value={note}
+        <textarea id="pst-note" className="qta" maxLength={NOTE_MAX} placeholder="Why? (optional)" value={note}
           aria-describedby="pst-count" onChange={(e) => setNote(e.target.value)} />
         <p className="hint count" id="pst-count">{note.length}/{NOTE_MAX}</p>
       </div>
       <div className="qact">
-        <button className="btn" type="submit" disabled={!dirty || state === 'busy'}>{state === 'busy' ? <><span className="spin" />Saving…</> : 'Save status'}</button>
-        <button className="abtn" type="button" onClick={onCancel}>Cancel</button>
+        <button className="btn" type="submit" disabled={!dirty || state === 'busy'}>{state === 'busy' ? <><span className="spin" />{t('q.saving')}</> : t('save')}</button>
+        <button className="abtn" type="button" onClick={onCancel}>{t('cancel')}</button>
       </div>
       <div className="arow"><button className="lnk dng" type="button" onClick={onArchive}>Archive project</button></div>
       <p className="hint">Saved as set by you. {pm ? `${pm} sees` : 'The PM sees'} it in History.</p>

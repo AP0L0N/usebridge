@@ -1,18 +1,20 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react';
 import { AppTopBar } from '../Components/Shell/AppTopBar';
-import { IconSearch } from '../Components/Icons';
+import { IconChev, IconInbox20, IconSearch16, IconX16 } from '../Components/AppIcons';
 import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { TicketCard } from '../Components/Kanban/TicketCard';
 import { StatusBlock, setByLabel } from '../Components/Kanban/StatusBlock';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
 import { TicketDetail } from '../Components/Kanban/TicketDetail';
 import { ColumnLabelsSheet, type ColumnDef } from '../Components/Kanban/ColumnLabels';
+import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
+import { t as tr } from '../lib/strings';
 import {
-  ApiError, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl,
-  type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type StatusEvent, type Ticket, type TicketDetail as Detail,
+  ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl,
+  type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type StatusEvent, type Ticket, type TicketDetail as Detail,
 } from '../lib/kanban';
 
 type Props = {
@@ -29,7 +31,7 @@ type Props = {
 };
 
 export default function BoardPage(props: Props) {
-  return <div className="kanban"><ToastHost><Board {...props} /></ToastHost></div>;
+  return <div className="kanban app"><ToastHost><Board {...props} /></ToastHost></div>;
 }
 
 /** Board filters (local state, like search). `replies` / `pickup` match the card chips "New reply from …" / "Your input · not picked up yet". */
@@ -49,6 +51,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   const p = board.project;
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
+  const signedIn = usePage<Shared>().props.auth?.user != null;
 
   // ------------------------------------------------------------ columns (optimistic copy of the props)
   const [cols, setCols] = useState<Column[]>(board.columns);
@@ -76,6 +79,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
 
   // ------------------------------------------------------------ search + filters
   const [q, setQ] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const nFilters = Object.values(filters).filter(Boolean).length;
   const matches = useCallback((t: Ticket) => {
@@ -185,8 +189,8 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
       busy.current--;
       if (opts.undo && t.status !== to) {
         toasts.push({
-          body: <p>Moved {t.key} to {cols.find((c) => c.key === to)?.label}</p>,
-          action: { label: 'Undo', run: () => doMove({ ...t, status: to }, t.status, back, undefined, { silent: true }) },
+          body: <p>{tr('toast.moved', { key: t.key, column: cols.find((c) => c.key === to)?.label ?? to })}</p>,
+          action: { label: tr('toast.undo'), run: () => doMove({ ...t, status: to }, t.status, back, undefined, { silent: true }) },
           ms: 5000,
         });
       }
@@ -194,13 +198,13 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     } catch (e) {
       busy.current--;
       setCols(snapshot);
-      const why = e instanceof ApiError && e.status === 422 ? ` ${e.message}` : ' Try again.';
-      toasts.push({ tone: 'err', body: <p>Couldn’t move {t.key}.{why}</p> });
-      setLive(`Couldn’t move ${t.key}.`);
+      const why = e instanceof ApiError && e.status === 422 ? e.message : tr('toast.moveErrTry', { key: t.key });
+      toasts.push({ tone: 'err', body: <p>{why}</p> });
+      setLive(tr('toast.moveErrTry', { key: t.key }));
     }
   };
 
-  /** Every UI move goes through here: entering Waiting on Tilen without an ask asks first. */
+  /** Every UI move goes through here: entering Waiting on you without an ask asks first. */
   const requestMove = (pending: Pending) => {
     const { t, to, index, via } = pending;
     if (to === t.status && via !== 'drag' && via !== 'key') return;
@@ -416,7 +420,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
 
   // ------------------------------------------------------------ mobile tabs
   const waitingCount = cols.find((c) => c.key === WAITING)?.count ?? 0;
-  // Default tab: Waiting on Tilen when it has tickets, else In progress; after the dialog closes, the card's own column.
+  // Default tab: Waiting on you when it has tickets, else In progress; after the dialog closes, the card's own column.
   const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key
     ?? (waitingCount > 0 ? WAITING : 'in_progress'));
   // A filter change on mobile lands on a tab with matches: stay if the current one has some, else the first that does (b4).
@@ -459,6 +463,22 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   const [colLabelsOpen, setColLabelsOpen] = useState(false);
   const colLabelsBtn = useRef<HTMLButtonElement>(null);
 
+  // ------------------------------------------------------------ sideways-scroll hint (721–1279)
+  const [hint, setHint] = useState({ left: 0, w: 1 });
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const update = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      const w = el.clientWidth / Math.max(el.scrollWidth, 1);
+      setHint({ left: max > 0 ? el.scrollLeft / el.scrollWidth : 0, w: Math.min(1, Math.max(w, 0.12)) });
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, [board.columns]);
+
   // ------------------------------------------------------------ quick add
   const [adding, setAdding] = useState<ColumnKey | null>(null);
   const addTop = () => {
@@ -476,45 +496,57 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     <>
       <Head title={p.name} />
       <AppTopBar />
-      <main className="wrap">
-        <Link className="back" href="/">← All projects</Link>
-        <div className="bhead">
-          <div className="bhl">
-            <div className="t"><h1>{p.name}</h1></div>
-            {p.description && <p className="bdesc">{p.description}</p>}
-            <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
-              onChanged={() => reload(['board', 'statusHistory'])} />
+      <main className="kb">
+        <Link className="kb-back" href="/"><IcBack />{tr('board.back')}</Link>
+        <div className="kb-head">
+          <div className="kb-title">
+            <h1>{p.name}</h1>
+            {!signedIn && <span className="kb-sample">{tr('board.sample')}</span>}
           </div>
-          <div className="btools">
-            <label className={`search${q ? ' filled' : ''}`}>
-              <IconSearch />
-              <span className="sr-only">Search tickets</span>
-              <input type="text" placeholder="Search tickets" value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && <button type="button" className="clr" aria-label="Clear search" onClick={() => setQ('')}>×</button>}
-            </label>
+          <div className="kb-tools">
+            {mobile ? (
+              <button type="button" className="kb-search" aria-label={tr('board.search.label')} aria-expanded={searchOpen} onClick={() => setSearchOpen((v) => !v)}><IconSearch16 /></button>
+            ) : (
+              <label className={`kb-search${q ? ' filled' : ''}`}>
+                <IconSearch16 />
+                <span className="sr-only">{tr('board.search.label')}</span>
+                <input type="text" placeholder={tr('board.search.label')} value={q} onChange={(e) => setQ(e.target.value)} />
+                {q && <button type="button" className="clr" aria-label={tr('portfolio.search.clear')} onClick={() => setQ('')}><IconX16 /></button>}
+              </label>
+            )}
+            {mobile && searchOpen && (
+              <div className="kb-searchrow">
+                <IconSearch16 />
+                <span className="sr-only">{tr('board.search.label')}</span>
+                <input autoFocus type="text" placeholder={tr('board.search.label')} value={q} onChange={(e) => setQ(e.target.value)} />
+                {q && <button type="button" className="clr" aria-label={tr('portfolio.search.clear')} onClick={() => setQ('')}><IconX16 /></button>}
+              </div>
+            )}
             <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
             {columnLabelsUrl && (
-              <button ref={colLabelsBtn} type="button" className="fbtn bset" aria-haspopup="dialog" aria-label={mobile ? 'Column labels' : undefined}
-                onClick={() => setColLabelsOpen(true)}><IcColumns /><span className="t">Column labels</span></button>
+              <button ref={colLabelsBtn} type="button" className="bset only-d" aria-haspopup="dialog"
+                onClick={() => setColLabelsOpen(true)}><IcColumns /><span className="t">{tr('board.colLabels')}</span></button>
             )}
-            <button className="btn add" type="button" aria-label={mobile ? 'Add ticket' : undefined} onClick={addTop}><IcPlus /><span className="t">Add ticket</span></button>
+            <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tr('board.add')}</button>
           </div>
         </div>
+        <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
+          onChanged={() => reload(['board', 'statusHistory'])} />
         <p className="bsum">
-          <span><b>{open}</b> open tickets</span>
-          <span><b>{waitingCount}</b> waiting on you</span>
-          <span>{blocked} blocked</span>
-          {p.pm_name && <span>PM <b>{p.pm_name}</b></span>}
-          <span>Last activity <b>{updateTime(p.last_activity_at, now) || '—'}</b></span>
-          {filtering && <span role="status"><b>{visible.reduce((s, c) => s + c.tickets.length, 0)}</b> shown · <button type="button" className="lnk inl" onClick={() => { setQ(''); setFilters(NO_FILTERS); }}>Clear</button></span>}
+          <span className="mi"><b>{open}</b> {tr('board.open', { n: open })}</span>
+          <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { n: waitingCount })}</span>
+          <span className="mi"><b>{blocked}</b> {tr('board.blocked', { n: blocked })}</span>
+          {p.pm_name && <span className="mi hide-m">{tr('portfolio.pm')} <b className="name">{p.pm_name}</b></span>}
+          <span className="mi hide-m">{tr('portfolio.lastActivity')} <b className="name">{updateTime(p.last_activity_at, now) || '—'}</b></span>
+          {filtering && <span className="mi" role="status"><b>{visible.reduce((s, c) => s + c.tickets.length, 0)}</b> {tr('board.shown', { n: 0 })} · <button type="button" className="lnk" onClick={() => { setQ(''); setFilters(NO_FILTERS); }}>{tr('dash.noresults.clear')}</button></span>}
         </p>
 
         {mobile && (
           <div className="ctabs" role="tablist" aria-label="Columns" ref={tabsRef}>
             {visible.map((c) => (
-              <button key={c.key} id={`tab-${c.key}`} role="tab" type="button" className={c.key === WAITING ? 'wt' : ''} aria-selected={c.key === tab}
+              <button key={c.key} id={`tab-${c.key}`} role="tab" type="button" aria-selected={c.key === tab}
                 aria-controls={`col-${c.key}`} tabIndex={c.key === tab ? 0 : -1} onClick={() => setTab(c.key)} onKeyDown={tabKey}>
-                {c.label}<span className={`cnt${c.tickets.length === 0 ? ' is0' : ''}`}>{c.tickets.length}</span>
+                <span className={`dotk c-${c.key}`} aria-hidden="true" />{c.label}<span className={`cnt${c.tickets.length === 0 ? ' is0' : ''}`}>{c.tickets.length}</span>
               </button>
             ))}
           </div>
@@ -540,23 +572,29 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
             return (
               <section key={c.key} id={`col-${c.key}`} data-col={c.key} className={cls} aria-label={`${c.label}, ${c.tickets.length} tickets`}
                 role={mobile ? 'tabpanel' : undefined} aria-labelledby={mobile ? `tab-${c.key}` : undefined}>
-                <h2 className="colh"><span className={`dot c-${c.key}`} aria-hidden="true" />{c.label}<span className="cnt">{c.tickets.length}</span></h2>
-                {c.key === WAITING && <p className="colsub">Oldest first · your answers go to the PM</p>}
-                {c.key === 'done' && <p className="colsub">{doneAll ? 'All done tickets' : 'Last 7 days'}</p>}
+                <h2 className="colh"><span className={`dotk c-${c.key}`} aria-hidden="true" />{c.label}<span className="cnt">{c.tickets.length}</span></h2>
+                {c.key === WAITING && <p className="colsub">{tr('board.col.waitingSub')}</p>}
+                {c.key === 'done' && <p className="colsub">{doneAll ? tr('board.col.showRecent') : tr('board.col.doneSub')}</p>}
                 {items.length === 0 && !filtering && <EmptyColumn k={c.key} />}
-                {items.length === 0 && filtering && <div className="cempty">No matching tickets</div>}
+                {items.length === 0 && filtering && <div className="cempty"><b>{tr('board.noMatch')}</b></div>}
                 {items}
                 {c.key === 'done' && !doneAll && board.done_older_count > 0 && (
-                  <button className="colmore" type="button" onClick={() => router.reload({ only: ['board', 'doneAll'], data: { done: 'all' } })}>Show {board.done_older_count} older</button>
+                  <button className="colmore" type="button" onClick={() => router.reload({ only: ['board', 'doneAll'], data: { done: 'all' } })}>{tr('board.col.showOlder', { n: board.done_older_count })}</button>
                 )}
                 {c.key === 'done' && doneAll && (
-                  <button className="colmore" type="button" onClick={() => router.visit(`/projects/${p.slug}`, { only: ['board', 'doneAll'], preserveState: true, preserveScroll: true })}>Show last 7 days only</button>
+                  <button className="colmore" type="button" onClick={() => router.visit(`/projects/${p.slug}`, { only: ['board', 'doneAll'], preserveState: true, preserveScroll: true })}>{tr('board.col.showRecent')}</button>
                 )}
                 {QUICK_ADD.includes(c.key) && <QuickAdd col={c.key} slug={p.slug} open={adding === c.key} setOpen={(v) => setAdding(v ? c.key : null)} onAdded={(key) => { own.current.add(key); reload(['board']); }} />}
               </section>
             );
           })}
         </div>
+        {!mobile && (
+          <div className="khint">
+            <div className="trk" aria-hidden="true"><div className="fil" style={{ left: `${hint.left * 100}%`, width: `${hint.w * 100}%` }} /></div>
+            <p>{tr('board.scrollHint', { cols: cols.slice(1).map((c) => c.label).join(', ') })}</p>
+          </div>
+        )}
         {mobile && (
           <div className="swipe" aria-hidden="true">{keys.map((k) => <i key={k} className={k === tab ? 'on' : ''} />)}</div>
         )}
@@ -573,12 +611,12 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           onClose={() => setColLabelsOpen(false)}
           onSaved={() => {
             setColLabelsOpen(false);
-            toasts.push({ body: <p>Column labels saved</p>, icon: <IcOk />, ms: 4000 });
+            toasts.push({ body: <p>{tr('toast.colLabels')}</p>, icon: <IcOk />, ms: 4000 });
             reload(['board']);
           }} />
       )}
       {moveFor && (
-        <MoveSheet t={moveFor} columns={cols} onClose={() => setMoveFor(null)}
+        <MoveSheet ticket={moveFor} columns={cols} onClose={() => setMoveFor(null)}
           onPick={(to, ask) => {
             const t = moveFor;
             setMoveFor(null);
@@ -587,7 +625,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           }} />
       )}
       {askFor && (
-        <AskPrompt t={askFor.t} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
+        <AskPrompt ticket={askFor.t} mobile={mobile} columns={cols} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
           restoreFocus={askFor.via === 'drag' || askFor.via === 'key' ? () => document.querySelector<HTMLElement>(`.board [data-key="${askFor.t.key}"] .tkl`) : undefined}
           onSubmit={(ask) => {
             const a = askFor;
@@ -602,8 +640,8 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           onChanged={() => reload(['board', 'ticket'])}
           onArchived={(t) => {
             toasts.push({
-              body: <p>{t.key} archived</p>, ms: 6000,
-              action: { label: 'Undo', run: () => { send('POST', `/projects/${p.slug}/tickets/${t.key}/unarchive`).then(() => reload(['board'])).catch(() => {}); } },
+              body: <p>{tr('toast.archived', { key: t.key })}</p>, ms: 6000,
+              action: { label: tr('toast.undo'), run: () => { send('POST', `/projects/${p.slug}/tickets/${t.key}/unarchive`).then(() => reload(['board'])).catch(() => {}); } },
             });
             closeTicket();
             reload(['board']);
@@ -613,16 +651,17 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   );
 }
 
+const IcBack = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3.33333L3.33333 8L8 12.6667M3.33333 8H12.6667" stroke="currentColor" strokeWidth="1.33333" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+
 const IcColumns = () => (
-  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
 );
 
 function EmptyColumn({ k }: { k: ColumnKey }) {
   if (k === WAITING) {
-    return <div className="cempty ok"><IcOk /><div><b>Nothing waiting on you</b><span>The PM moves tickets here when they need your call.</span></div></div>;
+    return <div className="cempty"><IconInbox20 /><b>{tr('board.empty.waiting_tilen')}</b><span>{tr('board.empty.waiting.body')}</span></div>;
   }
-  const names: Record<ColumnKey, string> = { backlog: 'Nothing in the backlog', todo: 'Nothing to do', in_progress: 'Nothing in progress', waiting_tilen: '', review: 'Nothing in review', done: 'Nothing done in the last 7 days' };
-  return <div className="cempty"><b>{names[k]}</b>{k === 'done' ? '' : 'Drag a ticket here to start it.'}</div>;
+  return <div className="cempty"><IconInbox20 /><b>{tr(`board.empty.${k}`)}</b>{k !== 'done' && <span>{tr('board.empty.drag')}</span>}</div>;
 }
 
 function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug: string; open: boolean; setOpen: (v: boolean) => void; onAdded: (key: string) => void }) {
@@ -641,21 +680,21 @@ function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug:
       setState('err');
     }
   };
-  if (!open) return <button className="qadd" type="button" onClick={() => setOpen(true)}><IcPlus />Add a ticket</button>;
+  if (!open) return <button className="qadd" type="button" onClick={() => setOpen(true)}><IcPlus />{tr('board.addCol')}</button>;
   return (
     <form className="qform" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-      <label className="sr-only" htmlFor={`qa-${col}`}>New ticket title</label>
-      <textarea ref={input} id={`qa-${col}`} className="qta" rows={2} maxLength={140} placeholder="Ticket title" value={title}
+      <label className="sr-only" htmlFor={`qa-${col}`}>{tr('board.composer.placeholder')}</label>
+      <textarea ref={input} id={`qa-${col}`} className="qta" rows={2} maxLength={140} placeholder={tr('board.composer.placeholder')} value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
           if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); }
         }} />
       <div className="qact">
-        <button className="btn" type="submit" disabled={state === 'busy' || !title.trim()}>{state === 'busy' ? 'Adding…' : 'Add'}</button>
-        <button className="abtn" type="button" onClick={() => setOpen(false)}>Cancel</button>
+        <button className="btn" type="submit" disabled={state === 'busy' || !title.trim()}>{state === 'busy' ? tr('board.composer.adding') : tr('board.add')}</button>
+        <button className="gbtn" type="button" onClick={() => setOpen(false)}>{tr('cancel')}</button>
       </div>
-      {state === 'err' ? <p className="err-line" role="alert">✕ Couldn’t add it. Your text is kept. Try again.</p> : <p className="hint">Enter adds it. The PM refines it later.</p>}
+      {state === 'err' ? <p className="err-line" role="alert">{tr('board.composer.err')}</p> : <p className="hint">{tr('board.composer.hint')}</p>}
     </form>
   );
 }
@@ -679,43 +718,66 @@ function FilterMenu({ filters, setFilters, n, tickets, people, labels }: {
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
   const fields = (
     <>
-      <label className="flabel" htmlFor="f-as">Assignee</label>
-      <select ref={firstRef} id="f-as" className="qin" value={filters.assignee} onChange={(e) => set({ assignee: e.target.value })}>
-        <option value="">Anyone</option><option value="none">Unassigned</option>
-        {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select>
-      <label className="flabel" htmlFor="f-lb">Label</label>
-      <select id="f-lb" className="qin" value={filters.label} onChange={(e) => set({ label: e.target.value })}>
-        <option value="">Any label</option>
-        {usedLabels.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
-      </select>
-      <label className="flabel" htmlFor="f-pr">Priority</label>
-      <select id="f-pr" className="qin" value={filters.priority} onChange={(e) => set({ priority: e.target.value })}>
-        <option value="">Any priority</option><option value="p1">P1 · High</option><option value="p2">P2 · Medium</option><option value="p3">P3 · Normal</option>
-      </select>
-      <label className="chkl"><input type="checkbox" checked={filters.blocked} onChange={(e) => set({ blocked: e.target.checked })} />Blocked only</label>
-      <label className="chkl"><input type="checkbox" checked={filters.replies} onChange={(e) => set({ replies: e.target.checked })} />New replies for you</label>
-      <label className="chkl"><input type="checkbox" checked={filters.pickup} onChange={(e) => set({ pickup: e.target.checked })} />Your input not picked up</label>
+      <div className="fw">
+        <label className="ov" htmlFor="f-as">{tr('board.filter.assignee')}</label>
+        <span className="selw">
+          <span className="l">{filters.assignee === '' ? tr('board.filter.assignee.any') : filters.assignee === 'none' ? tr('board.filter.assignee.none') : assignees.find((a) => a.id === filters.assignee)?.name ?? '—'}</span>
+          <IconChev />
+          <select ref={firstRef} id="f-as" value={filters.assignee} onChange={(e) => set({ assignee: e.target.value })}>
+            <option value="">{tr('board.filter.assignee.any')}</option><option value="none">{tr('board.filter.assignee.none')}</option>
+            {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </span>
+      </div>
+      <div className="fw">
+        <label className="ov" htmlFor="f-lb">{tr('board.filter.label')}</label>
+        <span className="selw">
+          <span className="l">{filters.label || tr('board.filter.label.any')}</span>
+          <IconChev />
+          <select id="f-lb" value={filters.label} onChange={(e) => set({ label: e.target.value })}>
+            <option value="">{tr('board.filter.label.any')}</option>
+            {usedLabels.map((l) => <option key={l.id} value={l.name}>{l.name}</option>)}
+          </select>
+        </span>
+      </div>
+      <div className="fw">
+        <label className="ov" htmlFor="f-pr">{tr('board.filter.priority')}</label>
+        <span className="selw">
+          <span className="l">{filters.priority ? PRIORITY_LABEL[filters.priority as Priority] : tr('board.filter.priority.any')}</span>
+          <IconChev />
+          <select id="f-pr" value={filters.priority} onChange={(e) => set({ priority: e.target.value })}>
+            <option value="">{tr('board.filter.priority.any')}</option>
+            <option value="p1">P1 · High</option><option value="p2">P2 · Medium</option><option value="p3">P3 · Normal</option>
+          </select>
+        </span>
+      </div>
+      <div className="fchecks">
+        <label className="chkl"><input type="checkbox" checked={filters.blocked} onChange={(e) => set({ blocked: e.target.checked })} />{tr('board.filter.blocked')}</label>
+        <label className="chkl"><input type="checkbox" checked={filters.replies} onChange={(e) => set({ replies: e.target.checked })} />{tr('board.filter.replies')}</label>
+        <label className="chkl"><input type="checkbox" checked={filters.pickup} onChange={(e) => set({ pickup: e.target.checked })} />{tr('board.filter.pickup')}</label>
+      </div>
       <div className="qact ffoot">
-        <button className="abtn" type="button" onClick={() => setFilters(NO_FILTERS)} disabled={!n}>Clear filters</button>
-        <button className="btn" type="button" onClick={close}>Done</button>
+        <button className="gbtn" type="button" onClick={() => setFilters(NO_FILTERS)} disabled={!n}>{tr('board.filter.clear')}</button>
+        <span className="spacer" />
+        <button className="btn" type="button" onClick={close}>{tr('filter.done')}</button>
       </div>
     </>
   );
   return (
     <div className="pwrap">
       <button ref={btnRef} className={`fbtn${n ? ' on' : ''}`} type="button" aria-haspopup="dialog" aria-expanded={open}
-        aria-label={`Filter${n ? `, ${n} active` : ''}`} onClick={() => (open ? close() : setOpen(true))}>
-        <IcFilter /><span className="t" aria-hidden="true">Filter{n ? ` · ${n}` : ''}</span>
+        aria-label={n ? tr('board.filter.aria', { n }) : undefined} onClick={() => (open ? close() : setOpen(true))}>
+        <IcFilter /><span className="t" aria-hidden="true">{tr('board.filter')}{n ? ` · ${n}` : ''}</span>
         {n > 0 && <span className="cnt" aria-hidden="true">{n}</span>}
       </button>
-      {open && !asSheet && <div ref={popRef} className="pop menu fmenu" role="dialog" aria-label="Filter tickets">{fields}</div>}
+      {open && !asSheet && <div ref={popRef} className="pop fmenu" role="dialog" aria-label={tr('board.filter.title')}><h3>{tr('board.filter.title')}</h3><div className="fform">{fields}</div></div>}
       {open && asSheet && (
-        <Sheet label="Filter tickets" onClose={() => setOpen(false)} initialFocus={firstRef} restoreFocus={() => btnRef.current} className="fsheet">
-          <h3>Filter tickets</h3>
+        <Sheet label={tr('board.filter.title')} onClose={() => setOpen(false)} initialFocus={firstRef} restoreFocus={() => btnRef.current}>
+          <h3>{tr('board.filter.title')}</h3>
           <div className="sheetb fform">{fields}</div>
         </Sheet>
       )}
     </div>
   );
 }
+
