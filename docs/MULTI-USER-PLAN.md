@@ -143,8 +143,8 @@ Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BR
     `polymarket:write` only when the workspace has that feature (Polymarket: Tilen's; usage upload: Tilen's until
     other users have a collector).
   - Legacy `ceo` / `*` keep meaning everything; the UI never issues them. List shows scope derived from abilities.
-- Expiry 30/90/365 days or none → `expires_at` (Sanctum rejects expired tokens). Rate limit 120/min per token (API
-  and MCP). Creation requires a verified email.
+- Expiry 30/90/365 days or none → `expires_at` (Sanctum rejects expired tokens). Rate limit 120/min per token (MCP:
+  done, `throttle:mcp`; `/api`: not yet). Creation requires a verified email.
 - Workspace resolution (done): token's `workspace_id` (user must still be a member), else owned, else only
   membership, else 403; + 403 when the user is disabled or deletion-pending.
 
@@ -160,18 +160,49 @@ Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BR
   Tilen's workspace is his own data only.
 - Tests: owner (is_admin) gets 404 on another user's project/board/ticket/usage via web and via API with his token;
   admin JSON contains only the listed keys; disabled user → login refused, sessions gone, token 403, enable → token
-  works. **MCP placeholder plan** (when `/mcp` lands): owner token calling `get_board`/`list_tickets`/`get_ticket` on
-  another workspace's project → not found; `tools/list` identical for owner and user except feature tools.
+  works. **MCP** (done, `tests/Feature/Mcp/McpIsolationTest.php`): Tilen's
+  token and another user's token get "Unknown project/ticket" (same as missing) from every read and write tool on the
+  other workspace, its data unchanged; list tools and `tools/list` name nothing of it; `tools/list` identical for all.
 
 ## 6. MCP server
 
-`POST /mcp` (JSON-RPC 2.0, streamable HTTP; `GET` 405, no server stream), Bearer per-user token, same workspace
-resolution, abilities, verification and disabled checks as `/api`. Tools (thin wrappers over `TicketService`,
-`ProjectStatusService`, `StatusUpdateIngest`, `BoardView`, `TicketView`), each declaring its ability:
-read — `list_projects`, `get_board`, `list_tickets`, `get_ticket`, `list_agents`, `list_labels`; write —
-`create_ticket`, `update_ticket`, `move_ticket`, `comment_ticket` (`boards:write`), `post_status`,
-`set_project_status` (`status:write`). Implementation: `laravel/mcp` (new dependency, Tilen's call) or a hand-rolled
-controller (`initialize`, `tools/list`, `tools/call`, `ping`; ~300 lines, no dependency).
+**Done** (§11, `laravel/mcp`, CoS decision 1). `POST /mcp` (JSON-RPC 2.0, streamable HTTP via `Mcp::web` in
+`routes/ai.php`; `GET`/`DELETE` 405, no server stream). Same checks as `/api`: per-user Sanctum Bearer token
+(`auth:sanctum`, 401 + `WWW-Authenticate`), `ResolveTokenWorkspace` (token's workspace; disabled / deletion-pending
+user 403), `RequireVerifiedEmail` (403), then `throttle:mcp` = 120 requests/min per token id (429).
+
+Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `TicketService`, `ProjectStatusService`,
+`StatusUpdateIngest`, `BoardView`, `TicketView` with the REST rules (`TicketService::rules/moveRules/commentRules`,
+`TicketView::filterRules`, `ProjectStatusService::rules`, `StatusUpdateIngest::rules`) and the REST lookups
+(`FindsTickets`):
+
+| Tool | Args | Ability |
+|---|---|---|
+| `list_projects` | – | `boards:read` |
+| `get_board` | `project` (id or slug), `done_since?`, `include_archived?` | `boards:read` |
+| `list_tickets` | `project?`, `status?` (comma list), `label?`, `assignee?` (id / `tilen` / `none`), `q?` (title or key), `limit?` (≤ 200, default 50) | `boards:read` |
+| `get_ticket` | `key` | `boards:read` |
+| `list_agents`, `list_labels` | – | `boards:read` |
+| `create_ticket` | `project`, `title`, ticket fields, `actor?` | `boards:write` |
+| `update_ticket` | `key`, ticket fields, `actor?` | `boards:write` |
+| `move_ticket` | `key`, `status`, `position?`/`before_id?`/`after_id?`, `ask*?`, `actor?` | `boards:write` |
+| `comment_ticket` | `key`, `body`, `actor?` | `boards:write` |
+| `post_status` | `project`, `body`, `inputs?`, `resolved_inputs?`, `actor?` | `status:write` |
+| `set_project_status` | `project`, `status`, `note?`, `actor?` | `status:write` |
+
+- Abilities as `EnsureTokenAbility` (`*` / legacy `ceo` pass everything); a missing ability is a tool error
+  (`isError`, "This token lacks the '…' ability."), never data. `tools/list` is the same for every token.
+- Actor as on `/api` (`Actor::forToken`): a per-agent token acts as its agent (a different `actor` → error), a shared
+  token needs `actor` (an agent of the workspace; `tilen` refused). `post_status` uses the actor as `agent_id`.
+- Another workspace's project / ticket gives the same "Unknown project 'x'." / "Unknown ticket 'x'." as a missing
+  one; no new query path, everything goes through the workspace scope. Validation errors are tool errors.
+
+**Client config** (Cursor `~/.cursor/mcp.json` → `mcpServers.bridge`, Claude Code `.mcp.json` / `claude mcp add
+--transport http`): token from Account → Tokens (verified email; `read` or `read & write`):
+
+```json
+{"url": "https://<host>/mcp", "headers": {"Authorization": "Bearer <token>"}}
+```
 
 ## 7. Cursor usage
 
@@ -238,11 +269,11 @@ last 2 days (late events).
 
 ## 9. Step order
 
-Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities, and step 1
-backend auth (§11). Next, each with tests, deployable alone:
+Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities, step 1
+backend auth, breached-password check and the MCP endpoint (§11). Next, each with tests, deployable alone:
 1. ~~Backend auth~~ — done (§11, JSON only). Left from it for later steps: `PATCH /account` + email change
    (`pending_email` columns exist, flow not built), `GET /reset-password/{token}` screen, sessions list device parsing.
-2. MCP endpoint (after the dependency decision).
+2. ~~MCP endpoint~~ — done (§6, §11).
 3. Cursor ingest: scoped replace + markers, `cursor` tool, new columns.
 4. UI from the prototypes: login/signup (Turnstile) / reset / account / tokens / onboarding / admin / usage Cursor;
    then remove the gate, read states per user.
@@ -273,12 +304,14 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Auth columns: `users` lockout/last login/disabled/pending email/timezone/delete grace/soft delete, `token_suffix`; existing users marked verified; `usage_upload` feature on Tilen's workspace | `2026_10_31_130000_multi_user_auth` |
 | Login: `LoginService` (5 fails → 15 min lock, unknown emails identical via `RateLimiter`, 10/min per IP, disabled / deletion pending → 403, `last_login_at`, regenerate), `POST /login`, `/logout`, `/login/cancel-deletion` | `LoginService`, `Auth\LoginController` |
 | Sessions: `DeviceSessions` (list own rows, hashed ids; others; all + remember token), `GET/DELETE /account/sessions[/others]`; password change ends other sessions, reset ends all and clears the lock; `POST /forgot-password` (neutral), `/reset-password`, `PUT /account/password` | `DeviceSessions`, `Auth\SessionController`, `Auth\PasswordController` |
-| Verification: `User implements MustVerifyEmail`, signed `GET /email/verify/{id}/{hash}`, `POST /email/verification-notification`; `RequireVerifiedEmail` (JSON 403) on token creation, ready for `/mcp` | `Auth\EmailVerificationController`, `RequireVerifiedEmail` |
+| Verification: `User implements MustVerifyEmail`, signed `GET /email/verify/{id}/{hash}`, `POST /email/verification-notification`; `RequireVerifiedEmail` (JSON 403) on token creation and `/mcp` | `Auth\EmailVerificationController`, `RequireVerifiedEmail` |
 | Tokens: `ApiTokens` (read/write → abilities, usage/polymarket by feature; 30/90/365/none; `brg_live_` default via `SANCTUM_TOKEN_PREFIX`; `token_suffix`; bound to the workspace; masked list, legacy = no suffix; revoke own), `GET/POST/DELETE /account/tokens` | `ApiTokens`, `Auth\TokenController`, `config/sanctum.php` |
 | Disabled / deletion pending: `ResolveTokenWorkspace` 403 (tokens blocked, not revoked), `LogoutBlockedUser` (web), logged-in web users act in their own workspace (`User::homeWorkspace`, login wins over the gate) | `app/Http/Middleware` |
 | Admin: `GET /admin/users` → `[id, name, email, created_at, last_login_at, status]` only; `POST /admin/users/{id}/disable\|enable` (not self; disable deletes sessions); 404 unless logged-in `is_admin` | `AdminUsers`, `Admin\UserController`, `RequireAdmin` |
 | Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
+| Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
+| MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
 Step 1 notes: all routes are JSON in the `web` group (CSRF applies; screens come in step 4); the AUTH-1 gate still
@@ -291,8 +324,10 @@ backfill throws and `migrate` stops (it never picks the token owner or first use
 personal_access_tokens` — each needs `*`/`ceo` or the abilities it uses; (3) rehearse on a dump copy incl.
 `migrate:rollback --step=4`; (4) after: counts + smoke tests; (5) `SESSION_DRIVER=database` (sessions / disable / log
 out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification); (7) optional `TURNSTILE_*`; (8) daily cron
-`php artisan bridge:accounts-delete-expired`; (9) once `laravel/mcp` lands (MCP step), the deploy script needs
-`composer install --no-dev`.
+`php artisan bridge:accounts-delete-expired`; (9) `laravel/mcp` is a runtime dependency now: the deploy runs
+`composer install --no-dev --optimize-autoloader` (vendor must contain it, else every request fails at boot);
+(10) `BRIDGE_HIBP_ENABLED` stays unset (on) — the box needs outbound HTTPS to `api.pwnedpasswords.com` (fail-open
+otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with a verified user's token.
 
 **Staging (`bridge_staging`, migrated before (1) was enforced: Captain's API user is owner + admin, no Tilen user):**
 1. `php artisan bridge:set-owner --email=<Tilen's email> --name=Tilen --dry-run`, then without `--dry-run`. Tilen is
