@@ -85,5 +85,5 @@ return [
     'legal_entity' => env('BRIDGE_LEGAL_ENTITY', 'Your company'),
     'legal_dir' => env('BRIDGE_LEGAL_DIR'),
     'source_url' => env('BRIDGE_SOURCE_URL', 'https://github.com/AP0L0N/usebridge'),
-    'source_sha' => env('BRIDGE_SOURCE_SHA', env('BRIDGE_DEPLOYED_SHA')),
+    'source_sha' => env('BRIDGE_SOURCE_SHA') ?: env('BRIDGE_DEPLOYED_SHA'),
 ];
