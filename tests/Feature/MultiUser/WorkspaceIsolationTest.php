@@ -3,7 +3,9 @@
 namespace Tests\Feature\MultiUser;
 
 use App\Models\Agent;
+use App\Models\NextStep;
 use App\Models\Project;
+use App\Models\StatusUpdate;
 use App\Models\Ticket;
 use App\Models\UsageDay;
 use App\Models\User;
@@ -177,5 +179,67 @@ class WorkspaceIsolationTest extends TestCase
         $this->send($writer, 'POST', '/api/status-updates', ['project_id' => 'x', 'agent_id' => 'agent-grok', 'body' => 'b'])->assertForbidden()
             ->assertJsonPath('message', "This token lacks the 'status:write' ability.");
         $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'body' => 'b'])->assertCreated();
+    }
+
+    #[Test]
+    public function a_foreign_project_on_status_updates_answers_exactly_like_a_missing_one(): void
+    {
+        $this->grokAgent();
+        $foreign = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => 'agent-grok', 'body' => 'x']);
+        $missing = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => 'proj-missing', 'agent_id' => 'agent-grok', 'body' => 'x']);
+
+        $foreign->assertNotFound();
+        $missing->assertNotFound();
+        // Same body shape; the message only echoes the caller's own id back (debug traces aside).
+        $this->assertSame(array_keys($missing->json()), array_keys($foreign->json()));
+        $this->assertSame($missing->json('message'), str_replace(self::MW, 'proj-missing', $foreign->json('message')));
+        $this->assertSame(0, app(CurrentWorkspace::class)->runAs($this->other, fn () => StatusUpdate::query()->count()));
+    }
+
+    #[Test]
+    public function a_token_cannot_file_a_status_under_another_workspaces_agent(): void
+    {
+        $this->grokAgent();
+        $tilens = StatusUpdate::query()->count();
+        app(CurrentWorkspace::class)->runAs($this->other, fn () => Project::query()->create(['id' => 'proj-grok', 'name' => 'Grok Lab', 'slug' => 'grok-lab', 'owner_agent_id' => 'agent-grok']));
+
+        // Grok's own project, Tilen's agent: rejected exactly like an unknown agent.
+        $foreign = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => 'proj-grok', 'agent_id' => self::ANATOLY, 'body' => 'x'])
+            ->assertUnprocessable()->assertJsonValidationErrors('agent_id');
+        $missing = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => 'proj-grok', 'agent_id' => 'agent-missing', 'body' => 'x'])
+            ->assertUnprocessable()->assertJsonValidationErrors('agent_id');
+        $this->assertSame($missing->json(), $foreign->json());
+        // And the other way round: Tilen's token, Tilen's project, Grok's agent.
+        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => 'agent-grok', 'body' => 'x'])
+            ->assertUnprocessable()->assertJsonValidationErrors('agent_id');
+
+        $this->assertSame($tilens, StatusUpdate::query()->count());
+        $this->assertSame(0, app(CurrentWorkspace::class)->runAs($this->other, fn () => StatusUpdate::query()->count()));
+    }
+
+    #[Test]
+    public function next_steps_reject_a_foreign_project_or_agent_like_a_missing_one(): void
+    {
+        $this->grokAgent();
+        $tilens = NextStep::query()->count();
+        $foreign = $this->send($this->grok, 'POST', '/api/next-steps', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'kind' => 'blocker', 'text' => 'x'])
+            ->assertUnprocessable()->assertJsonValidationErrors(['project_id', 'agent_id']);
+        $missing = $this->send($this->grok, 'POST', '/api/next-steps', ['project_id' => 'proj-missing', 'agent_id' => 'agent-missing', 'kind' => 'blocker', 'text' => 'x'])
+            ->assertUnprocessable();
+        $this->assertSame($missing->json(), $foreign->json());
+        $this->assertSame($tilens, NextStep::query()->count());
+        $this->assertSame(0, app(CurrentWorkspace::class)->runAs($this->other, fn () => NextStep::query()->count()));
+    }
+
+    #[Test]
+    public function api_is_rate_limited_to_120_requests_a_minute_per_token(): void
+    {
+        for ($i = 0; $i < 120; $i++) {
+            $this->send($this->grok, 'GET', '/api/agents')->assertOk();
+        }
+        $this->send($this->grok, 'GET', '/api/agents')->assertStatus(429)
+            ->assertJsonPath('message', 'Too many API requests for this token. Try again in a minute.');
+        // Keyed by token id: another token is unaffected.
+        $this->send($this->tilen, 'GET', '/api/agents')->assertOk();
     }
 }

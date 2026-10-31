@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\NextStep;
+use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -42,11 +43,11 @@ class NextStepController extends Controller
     {
         $data = $request->validate([
             'id' => ['nullable', 'string', 'max:64', 'unique:next_steps,id'],
-            'project_id' => ['required', 'string', 'exists:projects,id'],
+            'project_id' => ['required', 'string', WorkspaceRule::exists('projects', 'id')],
             'kind' => ['required', Rule::in(NextStep::KINDS)],
             'text' => ['required', 'string', 'max:500'],
             'owner' => ['nullable', 'string', 'max:120'],
-            'agent_id' => ['nullable', 'string', 'exists:agents,id'],
+            'agent_id' => ['nullable', 'string', WorkspaceRule::exists('agents', 'id')],
             'position' => ['nullable', 'integer', 'min:0', 'max:100000'],
         ]);
         $step = NextStep::create([
@@ -66,7 +67,7 @@ class NextStepController extends Controller
             'kind' => ['sometimes', Rule::in(NextStep::KINDS)],
             'text' => ['sometimes', 'string', 'max:500'],
             'owner' => ['sometimes', 'nullable', 'string', 'max:120'],
-            'agent_id' => ['sometimes', 'nullable', 'string', 'exists:agents,id'],
+            'agent_id' => ['sometimes', 'nullable', 'string', WorkspaceRule::exists('agents', 'id')],
             'position' => ['sometimes', 'integer', 'min:0', 'max:100000'],
             'done' => ['sometimes', 'boolean'],
             'done_by' => ['nullable', 'string', 'max:120'],

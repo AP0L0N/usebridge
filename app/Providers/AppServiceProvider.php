@@ -6,6 +6,7 @@ use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -37,6 +38,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute(120)
             ->by('mcp-token:'.($request->user()?->currentAccessToken()?->getKey() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => 'Too many MCP requests for this token. Try again in a minute.'], 429)));
+
+        // /api: 120 requests per minute per token id (docs/MULTI-USER-PLAN.md §4), after auth:sanctum; a first-party
+        // session (Sanctum TransientToken, no id) counts per user.
+        RateLimiter::for('api-token', fn (Request $request) => Limit::perMinute(120)
+            ->by(($token = $request->user()?->currentAccessToken()) instanceof Model
+                ? 'api-token:'.$token->getKey()
+                : 'api-user:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
+            ->response(fn () => response()->json(['message' => 'Too many API requests for this token. Try again in a minute.'], 429)));
 
         // Cursor CSV upload (POST /usage/cursor-csv): 10 per hour per user, else per IP (gate session).
         RateLimiter::for('cursor-csv', fn (Request $request) => Limit::perHour(10)

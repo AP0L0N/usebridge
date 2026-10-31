@@ -48,7 +48,7 @@ class BridgeR1Test extends TestCase
             ->assertJsonPath('data.project_id', 'proj-merkwell')
             ->assertJsonStructure(['data' => ['id', 'project_id', 'agent_id', 'body', 'created_at']]);
         $this->postJson('/api/status-updates', ['project_id' => 'nope', 'agent_id' => 'agent-anatoly', 'body' => 'x'])
-            ->assertUnprocessable();
+            ->assertNotFound();
     }
 
     #[Test]

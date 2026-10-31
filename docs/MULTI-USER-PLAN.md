@@ -154,7 +154,7 @@ Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BR
     other users have a collector).
   - Legacy `ceo` / `*` keep meaning everything; the UI never issues them. List shows scope derived from abilities.
 - Expiry 30/90/365 days or none → `expires_at` (Sanctum rejects expired tokens). Rate limit 120/min per token (MCP:
-  done, `throttle:mcp`; `/api`: not yet). Creation requires a verified email.
+  done, `throttle:mcp`; `/api`: done, `throttle:api-token`). Creation requires a verified email.
 - Workspace resolution (done): token's `workspace_id` (user must still be a member), else owned, else only
   membership, else 403; + 403 when the user is disabled or deletion-pending.
 
@@ -348,12 +348,16 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
 | Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner or gate, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
 | Mail: sender from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` (empty → `bridge@localhost` / "Bridge"), `.env.example` `MAIL_MAILER=log`; verification / reset links only in the mail log | `config/mail.php`, `tests/Feature/MultiUser/MailConfigTest.php` |
+| Security fix (existence oracle / cross-workspace agent): `POST /api/status-updates` checked `project_id` / `agent_id` with unscoped `exists:` rules, so another workspace's project answered 404 but an unknown one 422, and a token could file a status under another workspace's agent id. Now the project is looked up in the current workspace (unknown and foreign both 404, project checked first), then `agent_id` via `WorkspaceRule::exists` (unknown and foreign both 422, nothing written). Audit of every REST/web controller and FormRequest: `NextStepController` store/update had the same unscoped `exists:projects` / `exists:agents` → `WorkspaceRule::exists`; no other `exists:` / `Rule::exists` / raw `DB::table` lookup on an owned table remains (`DeviceSessions` reads `sessions` by user id). `/api` rate limit: 120/min per token id (`throttle:api-token`, a first-party session per user), JSON 429 | `Api\StatusUpdateController`, `Api\NextStepController`, `AppServiceProvider`, `routes/api.php`, `WorkspaceIsolationTest` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
 Step 1 notes: all routes are JSON in the `web` group (CSRF applies; screens come in step 4); the AUTH-1 gate still
 works for the existing pages. A soft-deleted user's email stays taken (unique). Deleted users keep their workspace
 (no workspace marker column yet; the soft-deleted owner is the marker). Changing the password also rotates the remember
-token, so this device's "keep me logged in" cookie ends too (its session continues).
+token, so this device's "keep me logged in" cookie ends too (its session continues). Still global by design (later step): client-chosen
+ids (`unique:` on `projects` / `agents` / `status_updates` / `next_steps` ids) and project slug / ticket prefix, so a
+create with an id or slug another workspace already uses answers 422 "taken"; this only shows that the key is in use
+somewhere, not where, and nothing can be read or written through it.
 
 **Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate` — without it the
 backfill throws and `migrate` stops (it never picks the token owner or first user); (2) `SELECT id, name, abilities FROM
