@@ -19,8 +19,8 @@ use RuntimeException;
 /**
  * SCREENSHOTS ONLY, NEVER PRODUCTION.
  *
- * Mirrors the SAMPLE content of Tommy's Kanban mocks (/workspace/bridge-kanban, build.py) so the shots in
- * shots/kanban/ can be compared with the target PNGs. Every ticket, comment, count, PM pairing and date is invented.
+ * Mirrors the SAMPLE content of the Kanban design mocks so local screenshots in
+ * shots/kanban/ (gitignored) can be compared with the target PNGs. Every ticket, comment, count, PM pairing and date is invented.
  * It WIPES agents, projects and all ticket tables first, so it refuses to run unless APP_ENV is local or testing.
  *
  *   php artisan db:seed --class=KanbanSampleSeeder   (against a throwaway sqlite file)
@@ -48,7 +48,7 @@ class KanbanSampleSeeder extends Seeder
             foreach ([
                 ['agent-janice', 'Dr. Janice Polito', 'PM'], ['agent-erin', 'Erin', 'Developer'], ['agent-tommy', 'Tommy Suarez', 'Design'],
                 ['agent-marie', 'Marie', 'Copy (SL)'], ['agent-shodan', 'Shodan', 'Engineering'], ['agent-enrique', 'Enrique', 'PM'],
-                ['agent-alice', 'Alice', 'PM'], ['agent-anatoly', 'Anatoly Korenchkin', 'Sales'], ['agent-xerxes', 'Xerxes', 'PM'],
+                ['agent-alice', 'Alice', 'PM'], ['agent-anatoly', 'Anatoly Korenchkin', 'Sales'], ['agent-xavier', 'Xavier', 'PM'],
                 ['agent-william', 'Captain William Diego', 'CEO'],
             ] as [$id, $name, $role]) {
                 Agent::create(['id' => $id, 'name' => $name, 'role_label' => $role]);
@@ -60,19 +60,19 @@ class KanbanSampleSeeder extends Seeder
                 $labels[$name] = Label::create(['id' => 'lb-'.strtolower($name), 'name' => $name, 'color' => $color])->id;
             }
 
-            $this->concierge($labels);
+            $this->blueHarbor($labels);
 
             // Other projects: status as in the portfolio mock, tickets only as counts per column.
-            $this->project('proj-shopify', 'Chipolo · Shopify migration', 'chipolo-shopify', 'CS', 'agent-shodan', 'waiting',
+            $this->project('proj-shopify', 'Lumen · Shopify migration', 'lumen-shopify', 'LS', 'agent-shodan', 'waiting',
                 'Translation batch 4 needs your OK on the native-reviewed strings.', 'agent-shodan', $this->at(-4, '18:02'), [4, 2, 2, 1, 1, 9], $this->at(-1, '16:30'));
-            $this->project('proj-adria', 'AdriaEdition', 'adriaedition', 'AE', 'agent-enrique', 'smooth',
+            $this->project('proj-acme', 'Acme Studio', 'acme-studio', 'AC', 'agent-enrique', 'smooth',
                 'Region page live; mobile hero next. Nothing needed from you.', 'agent-enrique', $this->at(-1, '21:15'), [5, 3, 2, 0, 1, 12], $this->at(-1, '21:15'));
-            $this->project('proj-chatpulse', 'ChatPulse', 'chatpulse', 'CP', 'agent-alice', 'smooth',
+            $this->project('proj-fernleaf', 'Fernleaf', 'fernleaf', 'FL', 'agent-alice', 'smooth',
                 'Tenant Figma port at screen 16 of 22.', 'agent-alice', $this->at(0, '06:50'), [2, 4, 3, 0, 0, 6], $this->at(0, '06:50'));
-            $this->project('proj-merkwell', 'Merkwell', 'merkwell', 'MW', 'agent-anatoly', 'waiting',
+            $this->project('proj-northwind', 'Northwind', 'northwind', 'NW', 'agent-anatoly', 'waiting',
                 'Outreach list waits on your pricing call.', 'agent-anatoly', $this->at(-8, '10:05'), [1, 1, 0, 1, 0, 4], $this->at(-8, '10:05'));
-            $this->project('proj-zeleni', 'Zeleni Mark', 'zeleni-mark', 'ZM', 'agent-xerxes', null, null, null, null, [0, 2, 1, 0, 0, 0], $this->at(-3, '11:00'));
-            $arch = $this->project('proj-renewal', 'Chipolo renewal redesign', 'chipolo-renewal', 'CR', 'agent-shodan', 'archived',
+            $this->project('proj-cobalt', 'Cobalt Works', 'cobalt-works', 'CW', 'agent-xavier', null, null, null, null, [0, 2, 1, 0, 0, 0], $this->at(-3, '11:00'));
+            $arch = $this->project('proj-renewal', 'Lumen renewal redesign', 'lumen-renewal', 'LR', 'agent-shodan', 'archived',
                 'Shelved by Tilen. Mocks archived.', 'agent-william', $this->at(-7, '09:30'), [0, 0, 0, 0, 0, 7], $this->at(-7, '09:30'));
             $arch->forceFill(['archived_at' => $this->at(-7, '09:30')])->save();
         });
@@ -154,10 +154,10 @@ class KanbanSampleSeeder extends Seeder
             'actor_id' => $actor, 'actor_type' => 'agent', 'source' => 'api', 'created_at' => $at]);
     }
 
-    private function concierge(array $L): void
+    private function blueHarbor(array $L): void
     {
-        $p = Project::create(['id' => 'proj-concierge-avant', 'name' => 'Concierge Avant', 'slug' => 'concierge-avant', 'owner_agent_id' => 'agent-janice',
-            'ticket_prefix' => 'CA', 'status' => 'waiting', 'status_note' => 'Two decisions waiting on you: link expiry default and the cart sign-off. Build is on track otherwise.',
+        $p = Project::create(['id' => 'proj-blue-harbor', 'name' => 'Blue Harbor', 'slug' => 'blue-harbor', 'owner_agent_id' => 'agent-janice',
+            'ticket_prefix' => 'BH', 'status' => 'waiting', 'status_note' => 'Two decisions waiting on you: link expiry default and the cart sign-off. Build is on track otherwise.',
             'status_set_by' => 'agent-janice', 'status_set_at' => $this->at(0, '07:40'), 'last_activity_at' => $this->at(0, '07:58')]);
         foreach ([['smooth', 'waiting', 'Need the cart scope call.', -7, '17:30'], ['waiting', 'smooth', 'Check-in build on track, nothing needed.', -3, '09:10'],
             ['smooth', 'waiting', $p->status_note, 0, '07:40']] as $i => [$from, $to, $note, $d, $tm]) {
@@ -169,21 +169,21 @@ class KanbanSampleSeeder extends Seeder
 
         $old = $this->at(-6, '10:00');
         $rows = [
-            ['CA-131', 'backlog', 'Late check-out request in the Home module', ['Home', 'Idea'], null],
-            ['CA-128', 'backlog', 'Room service: allergen icons on menu items', ['Design'], 'agent-tommy', 'cm' => 1],
-            ['CA-133', 'backlog', 'Reminder to guests 24 h before the link closes', ['Check-in', 'Idea'], null],
-            ['CA-127', 'todo', 'Wire holder.you.* SL strings', ['Frontend', 'Copy'], 'agent-erin', 'blk' => 'Waiting on Marie’s SL copy'],
-            ['CA-124', 'todo', 'Boutique cart: Done closes the sheet', ['Cart', 'Frontend'], 'agent-erin', 'pri' => 'p2'],
-            ['CA-129', 'todo', 'Empty state: no upcoming stays', ['Design'], 'agent-tommy'],
-            ['CA-118', 'in_progress', 'Single-guest share-link form', ['Check-in', 'Frontend'], 'agent-erin', 'pri' => 'p1', 'cm' => 4, 'due' => $this->today->copy()->addDay()->format('Y-m-d'), 'unread' => true],
-            ['CA-121', 'in_progress', 'First-launch intro: 2 direction starts', ['Design'], 'agent-tommy', 'cm' => 2],
-            ['CA-122', 'in_progress', 'Dynamic Home module API', ['Home', 'Backend'], 'agent-erin', 'cm' => 1],
-            ['CA-119', 'waiting_tilen', 'Sign off the cart flow on staging', ['Review', 'Cart'], 'agent-janice', 'cm' => 4, 'ask' => 'Review staging and approve, or list fixes.', 'waiting' => $this->at(-4, '08:00'), 'input' => true],
-            ['CA-116', 'review', 'Cart: items always listed (Hide items removed)', ['Cart', 'QA'], 'agent-tommy', 'cm' => 2],
-            ['CA-117', 'review', 'Landing copy: single-guest intro', ['Copy'], 'agent-janice'],
-            ['CA-110', 'done', 'Multi-guest link path /neu/group-check-in', ['Check-in'], 'agent-erin', 'done' => $this->at(-1, '15:00')],
-            ['CA-112', 'done', 'Review screen: required confirm checkbox', ['Check-in'], 'agent-erin', 'cm' => 2, 'done' => $this->at(-2, '15:00')],
-            ['CA-108', 'done', 'Placeholder guest Sam Rivera in all mocks', ['Design'], 'agent-tommy', 'done' => $this->at(-3, '15:00')],
+            ['BH-131', 'backlog', 'Late check-out request in the Home module', ['Home', 'Idea'], null],
+            ['BH-128', 'backlog', 'Room service: allergen icons on menu items', ['Design'], 'agent-tommy', 'cm' => 1],
+            ['BH-133', 'backlog', 'Reminder to guests 24 h before the link closes', ['Check-in', 'Idea'], null],
+            ['BH-127', 'todo', 'Wire holder.you.* SL strings', ['Frontend', 'Copy'], 'agent-erin', 'blk' => 'Waiting on Marie’s SL copy'],
+            ['BH-124', 'todo', 'Boutique cart: Done closes the sheet', ['Cart', 'Frontend'], 'agent-erin', 'pri' => 'p2'],
+            ['BH-129', 'todo', 'Empty state: no upcoming stays', ['Design'], 'agent-tommy'],
+            ['BH-118', 'in_progress', 'Single-guest share-link form', ['Check-in', 'Frontend'], 'agent-erin', 'pri' => 'p1', 'cm' => 4, 'due' => $this->today->copy()->addDay()->format('Y-m-d'), 'unread' => true],
+            ['BH-121', 'in_progress', 'First-launch intro: 2 direction starts', ['Design'], 'agent-tommy', 'cm' => 2],
+            ['BH-122', 'in_progress', 'Dynamic Home module API', ['Home', 'Backend'], 'agent-erin', 'cm' => 1],
+            ['BH-119', 'waiting_tilen', 'Sign off the cart flow on staging', ['Review', 'Cart'], 'agent-janice', 'cm' => 4, 'ask' => 'Review staging and approve, or list fixes.', 'waiting' => $this->at(-4, '08:00'), 'input' => true],
+            ['BH-116', 'review', 'Cart: items always listed (Hide items removed)', ['Cart', 'QA'], 'agent-tommy', 'cm' => 2],
+            ['BH-117', 'review', 'Landing copy: single-guest intro', ['Copy'], 'agent-janice'],
+            ['BH-110', 'done', 'Multi-guest link path /group-check-in', ['Check-in'], 'agent-erin', 'done' => $this->at(-1, '15:00')],
+            ['BH-112', 'done', 'Review screen: required confirm checkbox', ['Check-in'], 'agent-erin', 'cm' => 2, 'done' => $this->at(-2, '15:00')],
+            ['BH-108', 'done', 'Placeholder guest Sam Rivera in all mocks', ['Design'], 'agent-tommy', 'done' => $this->at(-3, '15:00')],
         ];
         $pos = [];
         foreach ($rows as $r) {
@@ -211,11 +211,11 @@ class KanbanSampleSeeder extends Seeder
         // Nine older Done tickets behind "Show 9 older".
         for ($i = 1; $i <= 9; $i++) {
             $pos['done']++;
-            $this->ticket($p, 'CA-'.(90 + $i), ['col' => 'done', 't' => "Older sample ticket $i", 'a' => 'agent-erin', 'pos' => $pos['done'], 'created' => $this->at(-30, '10:00'), 'done' => $this->at(-10 - $i, '10:00')], [$L['Check-in']]);
+            $this->ticket($p, 'BH-'.(90 + $i), ['col' => 'done', 't' => "Older sample ticket $i", 'a' => 'agent-erin', 'pos' => $pos['done'], 'created' => $this->at(-30, '10:00'), 'done' => $this->at(-10 - $i, '10:00')], [$L['Check-in']]);
         }
 
-        // CA-115: the ticket in the detail mock (Waiting on Tilen, Your input box open).
-        $t = $this->ticket($p, 'CA-115', [
+        // BH-115: the ticket in the detail mock (Waiting on Tilen, Your input box open).
+        $t = $this->ticket($p, 'BH-115', [
             'col' => 'waiting_tilen', 't' => 'Group link: close at check-in, or after 48 h?', 'a' => 'agent-janice', 'pri' => 'p1', 'pos' => 0,
             'due' => $this->today->copy()->addDay()->format('Y-m-d'), 'created' => $this->at(-3, '16:20'), 'updated' => $this->at(-2, '18:25'),
             'waiting' => $this->at(-2, '18:10'),

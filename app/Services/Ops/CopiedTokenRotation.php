@@ -18,12 +18,10 @@ use Throwable;
  * stay. The new plaintexts (`id|token`, Sanctum's plainTextToken format) go to a new 0600 file, nowhere else.
  *
  * Refused (refusal()) on APP_ENV production, outside staging without --force-env=staging, and when APP_URL is the live
- * host. The rows are updated and the file written in one transaction: a failed write rolls the rows back.
+ * host (config bridge.live_host). The rows are updated and the file written in one transaction: a failed write rolls the rows back.
  */
 final class CopiedTokenRotation
 {
-    public const LIVE_HOST = 'bridge.tilenpoje.eu';
-
     /** Why this run is refused, or null when it may go ahead. */
     public static function refusal(string $env, ?string $forceEnv, ?string $appUrl, ?string $out): ?string
     {
@@ -40,8 +38,10 @@ final class CopiedTokenRotation
         if ($host === '') {
             return 'APP_URL has no host: refusing.';
         }
-        if ($host === self::LIVE_HOST) {
-            return 'APP_URL is the live Bridge ('.self::LIVE_HOST.'): refusing.';
+        $live = trim((string) config('bridge.live_host'));
+        $live = $live === '' ? '' : self::host(str_contains($live, '://') ? $live : 'https://'.$live);
+        if ($live !== '' && $host === $live) {
+            return 'APP_URL is the live Bridge ('.$live.'): refusing.';
         }
         if (! filled($out)) {
             return '--out=<path> is required.';

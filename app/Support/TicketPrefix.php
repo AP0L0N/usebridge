@@ -2,11 +2,12 @@
 
 namespace App\Support;
 
+use App\Services\BridgeRoster;
 use Illuminate\Support\Str;
 
 /**
- * Ticket key prefix from a project name: initials of the words ("Concierge Avant" -> CA), first two letters of a
- * one-word name ("Merkwell" -> ME). Uppercase A-Z, at most 8 chars; made unique by appending the next letter of the
+ * Ticket key prefix from a project name: initials of the words ("Blue Harbor" -> BH), first two letters of a
+ * one-word name ("Northwind" -> NO). Uppercase A-Z, at most 8 chars; made unique by appending the next letter of the
  * name, then a digit. Used by the tickets migration (existing projects) and when a project is created.
  */
 final class TicketPrefix
@@ -16,30 +17,32 @@ final class TicketPrefix
     public const PATTERN = '/^[A-Z][A-Z0-9]{0,7}$/';
 
     /**
-     * Fixed prefixes decided by Captain (29 Oct 2026), keyed by project id. Used by the tickets migration and
-     * whenever a prefix is assigned, so these never depend on name order. Other projects keep the generated prefix.
+     * Fixed prefixes keyed by project id: the optional "ticket_prefixes" of the roster file (BridgeRoster, kept
+     * outside the repo). Used by the tickets migration and whenever a prefix is assigned, so these never depend on
+     * name order. Other projects keep the generated prefix.
      *
-     * @var array<string, string>
+     * @return array<string, string>
      */
-    public const MAP = [
-        'proj-concierge-avant' => 'CA',
-        'proj-merkwell' => 'MW',
-    ];
+    public static function map(): array
+    {
+        return BridgeRoster::load()['ticket_prefixes'];
+    }
 
     /**
-     * Prefix for a project: the MAP entry when set (and free), else generated from the name. Prefixes reserved in
-     * MAP for other projects are never handed out by the generator.
+     * Prefix for a project: the map() entry when set (and free), else generated from the name. Prefixes reserved in
+     * map() for other projects are never handed out by the generator.
      *
      * @param  iterable<string>  $taken  prefixes already in use
      */
     public static function forProject(string $id, string $name, iterable $taken = []): string
     {
         $taken = array_map('strtoupper', is_array($taken) ? $taken : iterator_to_array($taken));
-        $mapped = self::MAP[$id] ?? null;
+        $map = self::map();
+        $mapped = $map[$id] ?? null;
         if ($mapped !== null && ! in_array($mapped, $taken, true)) {
             return $mapped;
         }
-        $reserved = array_values(array_diff_key(self::MAP, [$id => true]));
+        $reserved = array_values(array_diff_key($map, [$id => true]));
 
         return self::generate($name, [...$taken, ...$reserved]);
     }

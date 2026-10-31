@@ -24,16 +24,16 @@ class TicketCommentsFeedTest extends TestCase
         $this->bootTickets();
         $this->api();
         $this->ca = $this->waitingTicket();
-        $this->mw = $this->newTicket(['title' => 'MW ticket', 'actor' => self::ANATOLY], self::MW);
+        $this->mw = $this->newTicket(['title' => 'MW ticket', 'actor' => self::ANATOLY], self::NW);
 
-        // id order: 1 tilen input (CA), 2 agent (CA), 3 tilen plain (ME), 4 tilen input (ME), 5 agent (ME)
+        // id order: 1 tilen input (BH), 2 agent (BH), 3 tilen plain (NW), 4 tilen input (NW), 5 agent (NW)
         $this->tilenSays($this->ca['key'], ['input_choice' => 'Yes', 'body' => 'Yes, ship it'])->assertCreated();
         $this->travelMinutes(10);
         $this->postJson("/api/tickets/{$this->ca['key']}/comments", ['body' => 'Thanks, shipping', 'actor' => self::JANICE])->assertCreated();
         $this->travelMinutes(10);
-        $this->tilenSays($this->mw['key'], ['body' => 'Any news?'], 'merkwell')->assertCreated();
+        $this->tilenSays($this->mw['key'], ['body' => 'Any news?'], 'northwind')->assertCreated();
         $this->travelMinutes(10);
-        $this->tilenSays($this->mw['key'], ['body' => 'Use the Q4 numbers', 'is_tilen_input' => true], 'merkwell')->assertCreated();
+        $this->tilenSays($this->mw['key'], ['body' => 'Use the Q4 numbers', 'is_tilen_input' => true], 'northwind')->assertCreated();
         $this->travelMinutes(10);
         $this->postJson("/api/tickets/{$this->mw['key']}/comments", ['body' => 'Will do', 'actor' => self::ANATOLY])->assertCreated();
     }
@@ -69,7 +69,7 @@ class TicketCommentsFeedTest extends TestCase
         $this->assertSame(['id', 'key', 'title', 'status', 'status_label', 'assignee_type', 'assignee_id', 'assignee_name', 'ask', 'needs_pm_pickup', 'url'], array_keys($first['ticket']));
         $this->assertSame('Waiting on Tilen', $first['ticket']['status_label']);
         $this->assertSame(['id', 'name', 'slug', 'pm_agent_id', 'pm_name'], array_keys($first['project']));
-        $this->assertSame('merkwell', $r->json('data.1.project.slug'));
+        $this->assertSame('northwind', $r->json('data.1.project.slug'));
         $this->assertSame('Anatoly Korenchkin', $r->json('data.1.project.pm_name'));
     }
 
@@ -102,8 +102,8 @@ class TicketCommentsFeedTest extends TestCase
         $this->assertSame([2, 5], $this->ids('?author=agents'));
         $this->assertSame([1, 2, 3, 4, 5], $this->ids('?author=all'));
         $this->assertSame([1, 4], $this->ids('?inputs_only=1'));
-        $this->assertSame([3, 4], $this->ids('?project_id='.self::MW));
-        $this->assertSame([2], $this->ids('?project_id='.self::CA.'&author=agents'));
+        $this->assertSame([3, 4], $this->ids('?project_id='.self::NW));
+        $this->assertSame([2], $this->ids('?project_id='.self::BH.'&author=agents'));
         $this->getJson('/api/ticket-comments/feed?author=bots')->assertUnprocessable();
 
         // Retracted comments drop out of the relay.

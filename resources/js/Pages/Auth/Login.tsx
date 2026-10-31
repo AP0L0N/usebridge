@@ -131,7 +131,7 @@ export default function Login({ gateAvailable }: { gateAvailable: boolean }) {
           : <BusyButton busy={busy} busyLabel="Logging in…">Log in</BusyButton>}
 
         <p className="alt">New to Bridge? <Link href="/signup">Create account</Link></p>
-        {gateAvailable && <p className="fine" style={{ textAlign: 'center' }}>LANTIS team? <a href="/gate">Workspace password</a></p>}
+        {gateAvailable && <p className="fine" style={{ textAlign: 'center' }}>Shared team access? <a href="/gate">Workspace password</a></p>}
       </form>
     </AuthShell>
   );

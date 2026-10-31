@@ -174,7 +174,7 @@ class ProjectSetupTest extends TestCase
         // A gate session (not a workspace member) cannot rename either, and its board has no editor.
         $this->bootTickets();
         $this->app['auth']->forgetGuards();
-        $slug = Project::acrossWorkspaces()->where('id', self::CA)->value('slug');
+        $slug = Project::acrossWorkspaces()->where('id', self::BH)->value('slug');
         $this->gate()->putJson("/projects/$slug/column-labels", ['column_labels' => ['backlog' => 'Ideas']])->assertUnauthorized();
         $this->gate()->get("/projects/$slug")->assertInertia(fn (Assert $p) => $p->where('columnLabelsUrl', null));
     }

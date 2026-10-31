@@ -25,7 +25,7 @@ export default function Gate() {
       <main className="gate">
         <form onSubmit={onSubmit}>
           <h1>Workspace gate</h1>
-          <p>Shared LANTIS internal password.</p>
+          <p>Shared workspace password.</p>
           <label htmlFor="gate-password">Password</label>
           <input
             id="gate-password"

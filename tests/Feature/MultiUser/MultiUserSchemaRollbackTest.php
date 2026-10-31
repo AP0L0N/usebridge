@@ -26,7 +26,7 @@ class MultiUserSchemaRollbackTest extends TestCase
     #[Test]
     public function schema_down_drops_only_the_added_columns_and_up_restores_them(): void
     {
-        $user = User::query()->create(['name' => 'Captain', 'email' => 'captain@lantis.internal', 'password' => Hash::make('x')]);
+        $user = User::query()->create(['name' => 'Captain', 'email' => 'captain@example.test', 'password' => Hash::make('x')]);
         $user->createToken('ceo', ['ceo']);
         DB::table('agents')->insert(['id' => 'agent-janice', 'name' => 'Janice', 'role_label' => 'PM']);
         DB::table('projects')->insert(['id' => 'proj-x', 'name' => 'X', 'slug' => 'x', 'owner_agent_id' => 'agent-janice']);
@@ -49,7 +49,7 @@ class MultiUserSchemaRollbackTest extends TestCase
         $schema->up();
         $backfill->up();
         $keys->up();
-        $ws = DB::table('workspaces')->where('slug', 'tilen')->value('id');
+        $ws = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('id');
         $this->assertSame(1, DB::table('projects')->where('workspace_id', $ws)->count());
         $this->assertSame(1, DB::table('personal_access_tokens')->where('workspace_id', $ws)->count());
     }

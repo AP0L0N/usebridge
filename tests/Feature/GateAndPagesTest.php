@@ -55,11 +55,11 @@ class GateAndPagesTest extends TestCase
         Carbon::setTestNow('2026-09-10 12:00:00'); // seeded update falls inside the 7-day timeline
         $this->withSession(['bridge_gate_unlocked' => true]);
 
-        $this->get(route('projects.show', 'concierge-avant'))
+        $this->get(route('projects.show', 'blue-harbor'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Board')
-                ->where('board.project.slug', 'concierge-avant')
+                ->where('board.project.slug', 'blue-harbor')
                 ->has('board.columns', 6)
                 ->where('ticket', null)
                 ->missing('openInputs')
@@ -76,13 +76,13 @@ class GateAndPagesTest extends TestCase
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
 
-        $this->post(route('projects.status-updates.store', 'merkwell'), [
+        $this->post(route('projects.status-updates.store', 'northwind'), [
             'body' => 'Checkpoint note from test.',
             'agent_id' => 'agent-anatoly',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('status_updates', [
-            'project_id' => 'proj-merkwell',
+            'project_id' => 'proj-northwind',
             'agent_id' => 'agent-anatoly',
             'body' => 'Checkpoint note from test.',
         ]);

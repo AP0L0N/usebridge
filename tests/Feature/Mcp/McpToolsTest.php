@@ -46,25 +46,25 @@ class McpToolsTest extends TestCase
     #[Test]
     public function read_tools_return_the_workspaces_data(): void
     {
-        $a = $this->tool($this->janice, 'create_ticket', ['project' => self::CA, 'title' => 'Draft the brief', 'labels' => ['copy'], 'status' => 'in_progress']);
-        $b = $this->tool($this->janice, 'create_ticket', ['project' => self::CA, 'title' => 'Book the venue', 'assignee' => self::ANATOLY]);
-        $this->tool($this->shared, 'create_ticket', ['project' => self::MW, 'title' => 'Merkwell pricing', 'actor' => self::ANATOLY]);
+        $a = $this->tool($this->janice, 'create_ticket', ['project' => self::BH, 'title' => 'Draft the brief', 'labels' => ['copy'], 'status' => 'in_progress']);
+        $b = $this->tool($this->janice, 'create_ticket', ['project' => self::BH, 'title' => 'Book the venue', 'assignee' => self::ANATOLY]);
+        $this->tool($this->shared, 'create_ticket', ['project' => self::NW, 'title' => 'Northwind pricing', 'actor' => self::ANATOLY]);
 
         $projects = $this->tool($this->read, 'list_projects')['data'];
-        $this->assertEqualsCanonicalizing([self::CA, self::MW], array_column($projects, 'id'));
-        $this->assertSame(self::JANICE, collect($projects)->firstWhere('id', self::CA)['pm_agent_id']);
+        $this->assertEqualsCanonicalizing([self::BH, self::NW], array_column($projects, 'id'));
+        $this->assertSame(self::JANICE, collect($projects)->firstWhere('id', self::BH)['pm_agent_id']);
 
-        $board = $this->tool($this->read, 'get_board', ['project' => 'concierge-avant'])['data'];
-        $this->assertSame(self::CA, $board['project']['id']);
+        $board = $this->tool($this->read, 'get_board', ['project' => 'blue-harbor'])['data'];
+        $this->assertSame(self::BH, $board['project']['id']);
         $columns = collect($board['columns'])->keyBy('key');
         $this->assertSame(['Draft the brief'], array_column($columns['in_progress']['tickets'], 'title'));
         $this->assertSame(['Book the venue'], array_column($columns['todo']['tickets'], 'title'));
-        $this->assertSame($this->bearer($this->read, 'GET', '/api/projects/'.self::CA.'/board')->json('data'), $board);
+        $this->assertSame($this->bearer($this->read, 'GET', '/api/projects/'.self::BH.'/board')->json('data'), $board);
 
         $keys = fn (array $args) => array_column($this->tool($this->read, 'list_tickets', $args)['data'], 'key');
         $this->assertCount(3, $keys([]));
-        $this->assertEqualsCanonicalizing([$a['data']['key'], $b['data']['key']], $keys(['project' => self::CA]));
-        $this->assertSame([$b['data']['key']], $keys(['project' => 'concierge-avant', 'status' => 'todo']));
+        $this->assertEqualsCanonicalizing([$a['data']['key'], $b['data']['key']], $keys(['project' => self::BH]));
+        $this->assertSame([$b['data']['key']], $keys(['project' => 'blue-harbor', 'status' => 'todo']));
         $this->assertSame([$a['data']['key']], $keys(['label' => 'COPY']));
         $this->assertSame([$b['data']['key']], $keys(['assignee' => self::ANATOLY]));
         $this->assertSame([$b['data']['key']], $keys(['q' => 'venue']));
@@ -88,7 +88,7 @@ class McpToolsTest extends TestCase
     public function write_tools_work_and_show_up_on_the_rest_api(): void
     {
         $created = $this->tool($this->janice, 'create_ticket', [
-            'project' => 'concierge-avant', 'title' => 'Draft the brief', 'description' => 'Two pages', 'priority' => 'p1', 'labels' => ['copy'],
+            'project' => 'blue-harbor', 'title' => 'Draft the brief', 'description' => 'Two pages', 'priority' => 'p1', 'labels' => ['copy'],
         ]);
         $key = $created['data']['key'];
         $this->assertSame([], $created['warnings']);
@@ -110,29 +110,29 @@ class McpToolsTest extends TestCase
         $this->assertSame([], array_diff(['created', 'edited', 'assigned', 'ask_set', 'moved', 'commented'], $types));
         $this->assertSame([self::JANICE], array_values(array_unique(array_column($this->bearer($this->read, 'GET', "/api/tickets/$key/events")->json('data'), 'actor_id'))));
 
-        $status = $this->tool($this->janice, 'post_status', ['project' => self::CA, 'body' => 'Brief is with Tilen.', 'inputs' => [['text' => 'Venue budget', 'waiting_on' => 'Tilen']]]);
+        $status = $this->tool($this->janice, 'post_status', ['project' => self::BH, 'body' => 'Brief is with Tilen.', 'inputs' => [['text' => 'Venue budget', 'waiting_on' => 'Tilen']]]);
         $this->assertSame([self::JANICE, 'Brief is with Tilen.'], [$status['data']['agent_id'], $status['data']['body']]);
         $this->assertCount(1, $status['inputs']);
-        $updates = $this->bearer($this->read, 'GET', '/api/status-updates?project_id='.self::CA)->json('data');
+        $updates = $this->bearer($this->read, 'GET', '/api/status-updates?project_id='.self::BH)->json('data');
         $this->assertSame('Brief is with Tilen.', $updates[0]['body']);
         $this->assertSame(self::JANICE, $updates[0]['agent_id']);
 
-        $set = $this->tool($this->janice, 'set_project_status', ['project' => self::CA, 'status' => 'waiting', 'note' => 'Needs the budget'])['data'];
+        $set = $this->tool($this->janice, 'set_project_status', ['project' => self::BH, 'status' => 'waiting', 'note' => 'Needs the budget'])['data'];
         $this->assertSame(['waiting', 'Needs the budget', self::JANICE], [$set['current']['status'], $set['current']['note'], $set['current']['set_by']]);
-        $this->bearer($this->read, 'GET', '/api/projects/'.self::CA.'/status')
+        $this->bearer($this->read, 'GET', '/api/projects/'.self::BH.'/status')
             ->assertJsonPath('data.current.status', 'waiting')->assertJsonPath('data.current.set_by', self::JANICE);
-        // Same authorization as PATCH /api/projects/{id}/status: Janice is not Merkwell's PM, only Captain archives.
-        $this->assertStringContainsString("Only the project's PM", $this->toolError($this->janice, 'set_project_status', ['project' => self::MW, 'status' => 'waiting']));
-        $this->assertStringContainsString('Only Captain', $this->toolError($this->janice, 'set_project_status', ['project' => self::CA, 'status' => 'archived']));
+        // Same authorization as PATCH /api/projects/{id}/status: Janice is not Northwind's PM, only Captain archives.
+        $this->assertStringContainsString("Only the project's PM", $this->toolError($this->janice, 'set_project_status', ['project' => self::NW, 'status' => 'waiting']));
+        $this->assertStringContainsString('Only Captain', $this->toolError($this->janice, 'set_project_status', ['project' => self::BH, 'status' => 'archived']));
     }
 
     #[Test]
     public function the_actor_is_resolved_like_on_the_rest_api(): void
     {
         // Shared token: actor required, must be an agent of this workspace, never tilen.
-        $this->assertStringContainsString('actor field is required', $this->toolError($this->shared, 'create_ticket', ['project' => self::CA, 'title' => 'x']));
-        $this->assertStringContainsString('Unknown actor', $this->toolError($this->shared, 'create_ticket', ['project' => self::CA, 'title' => 'x', 'actor' => 'agent-nobody']));
-        $key = $this->tool($this->shared, 'create_ticket', ['project' => self::CA, 'title' => 'By Captain', 'actor' => self::CAPTAIN])['data']['key'];
+        $this->assertStringContainsString('actor field is required', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x']));
+        $this->assertStringContainsString('Unknown actor', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x', 'actor' => 'agent-nobody']));
+        $key = $this->tool($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'By Captain', 'actor' => self::CAPTAIN])['data']['key'];
         $this->assertStringContainsString("Tilen's input only comes from the Bridge UI", $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));
         $this->bearer($this->read, 'GET', "/api/tickets/$key")->assertJsonPath('data.created_by', self::CAPTAIN);
 
@@ -142,8 +142,8 @@ class McpToolsTest extends TestCase
         $this->bearer($this->read, 'GET', "/api/tickets/$key/comments")->assertJsonPath('data.0.author_id', self::JANICE);
 
         // Validation errors are tool errors, not data.
-        $this->assertStringContainsString('title', $this->toolError($this->janice, 'create_ticket', ['project' => self::CA]));
-        $this->assertSame("Unknown ticket 'CA-999'.", $this->toolError($this->janice, 'get_ticket', ['key' => 'CA-999']));
+        $this->assertStringContainsString('title', $this->toolError($this->janice, 'create_ticket', ['project' => self::BH]));
+        $this->assertSame("Unknown ticket 'BH-999'.", $this->toolError($this->janice, 'get_ticket', ['key' => 'BH-999']));
         $this->assertSame("Unknown project 'nope'.", $this->toolError($this->janice, 'get_board', ['project' => 'nope']));
     }
 }

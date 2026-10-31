@@ -32,21 +32,21 @@ class TicketsMigrationTest extends TestCase
         $this->bootTickets('2026-10-20 09:00:00');
         $this->long = 'Should we '.str_repeat('really ', 30).'launch the autumn campaign on Monday?';
 
-        // Concierge Avant (PM Janice): seeded open input in-ca-1 (waiting on Tilen) + these.
-        Question::create(['id' => 'q-open', 'project_id' => self::CA, 'text' => $this->long, 'context' => 'Budget is approved.', 'type' => 'yesno', 'asked_by' => 'Janice']);
-        Question::create(['id' => 'q-yes', 'project_id' => self::CA, 'text' => 'Use the new logo?', 'type' => 'yesno', 'asked_by' => 'Tommy Suarez',
+        // Blue Harbor (PM Janice): seeded open input in-ca-1 (waiting on Tilen) + these.
+        Question::create(['id' => 'q-open', 'project_id' => self::BH, 'text' => $this->long, 'context' => 'Budget is approved.', 'type' => 'yesno', 'asked_by' => 'Janice']);
+        Question::create(['id' => 'q-yes', 'project_id' => self::BH, 'text' => 'Use the new logo?', 'type' => 'yesno', 'asked_by' => 'Tommy Suarez',
             'state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => '2026-10-19 18:00:00']);
-        Question::create(['id' => 'q-text', 'project_id' => self::CA, 'text' => 'Which colour?', 'type' => 'text', 'asked_by' => 'Some Freelancer',
+        Question::create(['id' => 'q-text', 'project_id' => self::BH, 'text' => 'Which colour?', 'type' => 'text', 'asked_by' => 'Some Freelancer',
             'state' => 'answered', 'answer_text' => 'The deep blue.', 'answered_at' => '2026-10-19 19:00:00']);
-        Question::create(['id' => 'q-closed', 'project_id' => self::CA, 'text' => 'Old one', 'type' => 'yesno', 'asked_by' => 'Janice', 'state' => 'closed']);
-        RequiredInput::create(['id' => 'in-ca-2', 'project_id' => self::CA, 'text' => 'Final copy for the landing page', 'waiting_on' => 'Copywriter', 'since' => '2026-10-15 10:00:00']);
-        RequiredInput::create(['id' => 'in-ca-3', 'project_id' => self::CA, 'text' => 'Done already', 'waiting_on' => 'Tilen', 'since' => '2026-10-01 10:00:00', 'resolved_at' => '2026-10-02 10:00:00']);
-        // Merkwell (PM Anatoly): next steps.
-        NextStep::create(['id' => 'ns-1', 'project_id' => self::MW, 'kind' => 'in_progress', 'text' => 'Build the price table', 'agent_id' => BridgeSeeder::AGENT_SHODAN, 'position' => 0]);
-        NextStep::create(['id' => 'ns-2', 'project_id' => self::MW, 'kind' => 'blocker', 'text' => 'Client has not sent the logo files', 'owner' => 'Client', 'position' => 1]);
-        NextStep::create(['id' => 'ns-3', 'project_id' => self::MW, 'kind' => 'blocker', 'text' => 'Sign the supplier contract', 'owner' => 'tilen', 'position' => 2]);
-        NextStep::create(['id' => 'ns-4', 'project_id' => self::MW, 'kind' => 'in_progress', 'text' => 'Finished', 'position' => 3, 'done_at' => '2026-10-19 10:00:00']);
-        NextStep::create(['id' => 'ns-5', 'project_id' => self::MW, 'kind' => 'in_progress', 'text' => 'Write the FAQ', 'position' => 4]);
+        Question::create(['id' => 'q-closed', 'project_id' => self::BH, 'text' => 'Old one', 'type' => 'yesno', 'asked_by' => 'Janice', 'state' => 'closed']);
+        RequiredInput::create(['id' => 'in-ca-2', 'project_id' => self::BH, 'text' => 'Final copy for the landing page', 'waiting_on' => 'Copywriter', 'since' => '2026-10-15 10:00:00']);
+        RequiredInput::create(['id' => 'in-ca-3', 'project_id' => self::BH, 'text' => 'Done already', 'waiting_on' => 'Tilen', 'since' => '2026-10-01 10:00:00', 'resolved_at' => '2026-10-02 10:00:00']);
+        // Northwind (PM Anatoly): next steps.
+        NextStep::create(['id' => 'ns-1', 'project_id' => self::NW, 'kind' => 'in_progress', 'text' => 'Build the price table', 'agent_id' => BridgeSeeder::AGENT_SHODAN, 'position' => 0]);
+        NextStep::create(['id' => 'ns-2', 'project_id' => self::NW, 'kind' => 'blocker', 'text' => 'Client has not sent the logo files', 'owner' => 'Client', 'position' => 1]);
+        NextStep::create(['id' => 'ns-3', 'project_id' => self::NW, 'kind' => 'blocker', 'text' => 'Sign the supplier contract', 'owner' => 'tilen', 'position' => 2]);
+        NextStep::create(['id' => 'ns-4', 'project_id' => self::NW, 'kind' => 'in_progress', 'text' => 'Finished', 'position' => 3, 'done_at' => '2026-10-19 10:00:00']);
+        NextStep::create(['id' => 'ns-5', 'project_id' => self::NW, 'kind' => 'in_progress', 'text' => 'Write the FAQ', 'position' => 4]);
         Carbon::setTestNow('2026-10-29 10:00:00');
     }
 
@@ -77,7 +77,7 @@ class TicketsMigrationTest extends TestCase
     {
         $before = $this->legacy();
         $this->artisan('bridge:tickets-migrate --dry-run')
-            ->expectsOutputToContain('Concierge Avant ('.self::CA.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_tilen 4, todo 0, in_progress 1) · skipped 0')
+            ->expectsOutputToContain('Blue Harbor ('.self::BH.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_tilen 4, todo 0, in_progress 1) · skipped 0')
             ->expectsOutputToContain('total: dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9')
             ->assertSuccessful();
         $this->assertSame(0, Ticket::count());
@@ -93,7 +93,7 @@ class TicketsMigrationTest extends TestCase
     {
         $before = $this->legacy();
         $this->artisan('bridge:tickets-migrate')
-            ->expectsOutputToContain('Merkwell ('.self::MW.'): questions open 0, answered 0, inputs 0, next steps 4 → tickets 4 (waiting_tilen 1, todo 1, in_progress 2) · skipped 0')
+            ->expectsOutputToContain('Northwind ('.self::NW.'): questions open 0, answered 0, inputs 0, next steps 4 → tickets 4 (waiting_tilen 1, todo 1, in_progress 2) · skipped 0')
             ->expectsOutputToContain(self::TOTAL)
             ->assertSuccessful();
         $this->assertSame(9, Ticket::count());
@@ -112,7 +112,7 @@ class TicketsMigrationTest extends TestCase
         $this->assertSame('2026-10-20 09:00:00', $q->waiting_since->format('Y-m-d H:i:s'));
         $this->assertSame(['question'], $q->labels->pluck('name')->all());
         $this->assertFalse($q->needsPmPickup());
-        $this->assertStringStartsWith('CA-', $q->key);
+        $this->assertStringStartsWith('BH-', $q->key);
 
         // Answered questions: Tilen input comment at answered_at, not acked -> PM pickup.
         $y = $this->byRow('question', 'q-yes');
@@ -150,7 +150,7 @@ class TicketsMigrationTest extends TestCase
         $n5 = $this->byRow('next_step', 'ns-5');
         $this->assertSame(['agent', self::ANATOLY], [$n5->assignee_type, $n5->assignee_id]); // falls back to the PM
         $this->assertSame([0, 1], [$n1->position, $n5->position]);
-        $this->assertSame(['MW-1', 'MW-2', 'MW-3', 'MW-4'], Ticket::query()->where('project_id', self::MW)->orderBy('key')->pluck('key')->all());
+        $this->assertSame(['NW-1', 'NW-2', 'NW-3', 'NW-4'], Ticket::query()->where('project_id', self::NW)->orderBy('key')->pluck('key')->all());
 
         // Events: created by migration via api.
         $this->assertSame(9, TicketEvent::query()->where('type', 'created')->where('actor_id', 'migration')->where('actor_type', 'system')->where('source', 'api')->count());
@@ -177,13 +177,13 @@ class TicketsMigrationTest extends TestCase
 
         // Even with the legacy flags cleared, the (source_type, source_id) ticket blocks a duplicate.
         Question::query()->whereKey('q-open')->toBase()->update(['ticket_id' => null, 'superseded_at' => null]);
-        Question::create(['id' => 'q-new', 'project_id' => self::MW, 'text' => 'New question?', 'type' => 'yesno', 'asked_by' => 'Anatoly']);
-        $this->artisan('bridge:tickets-migrate --project='.self::MW)
+        Question::create(['id' => 'q-new', 'project_id' => self::NW, 'text' => 'New question?', 'type' => 'yesno', 'asked_by' => 'Anatoly']);
+        $this->artisan('bridge:tickets-migrate --project='.self::NW)
             ->expectsOutputToContain('total: questions open 1, answered 0, inputs 0, next steps 0 → tickets 1 (waiting_tilen 1, todo 0, in_progress 0) · skipped 4')
             ->assertSuccessful();
         $this->artisan('bridge:tickets-migrate')->expectsOutputToContain('· skipped 10')->assertSuccessful();
         $this->assertSame(10, Ticket::count());
-        $this->assertSame('MW-5', $this->byRow('question', 'q-new')->key);
+        $this->assertSame('NW-5', $this->byRow('question', 'q-new')->key);
         $this->assertSame([self::ANATOLY, 'agent'], [$this->byRow('question', 'q-new')->created_by, $this->byRow('question', 'q-new')->created_by_type]);
 
         $this->artisan('bridge:tickets-migrate --project=proj-nope')->expectsOutputToContain('Unknown project id')->assertFailed();
@@ -196,7 +196,7 @@ class TicketsMigrationTest extends TestCase
         $this->api();
         $keys = array_column($this->getJson('/api/tickets?needs_pm_pickup=1')->assertOk()->json('data'), 'key');
         $this->assertCount(2, $keys);
-        $this->getJson('/api/tickets?label=question&project_id='.self::CA)->assertJsonCount(3, 'data');
+        $this->getJson('/api/tickets?label=question&project_id='.self::BH)->assertJsonCount(3, 'data');
         $this->getJson('/api/ticket-comments/feed?inputs_only=1')->assertJsonCount(2, 'data');
         $this->postJson("/api/tickets/{$keys[0]}/ack-input", ['actor' => self::JANICE])->assertOk();
     }
@@ -207,10 +207,10 @@ class TicketsMigrationTest extends TestCase
         $this->api();
         config(['bridge.legacy_read_only' => true]);
         foreach ([
-            ['post', '/api/questions', ['project_id' => self::CA, 'text' => 'x', 'type' => 'yesno', 'asked_by' => 'x']],
+            ['post', '/api/questions', ['project_id' => self::BH, 'text' => 'x', 'type' => 'yesno', 'asked_by' => 'x']],
             ['patch', '/api/questions/q-open', ['state' => 'closed']],
             ['delete', '/api/questions/q-open', []],
-            ['post', '/api/projects/'.self::CA.'/questions', []],
+            ['post', '/api/projects/'.self::BH.'/questions', []],
             ['post', '/api/inputs', []],
             ['patch', '/api/inputs/in-ca-1', []],
             ['delete', '/api/inputs/in-ca-1', []],
@@ -221,8 +221,8 @@ class TicketsMigrationTest extends TestCase
         ] as [$method, $uri, $body]) {
             $this->json($method, $uri, $body)->assertStatus(410)->assertExactJson(['message' => 'Superseded by tickets; see docs/API-TICKETS.md']);
         }
-        $this->gate()->post('/projects/concierge-avant/inputs/in-ca-1/resolve', ['resolved' => true])->assertStatus(410);
-        $this->post('/projects/concierge-avant/questions/q-open/answer', ['answer_choice' => 'yes'])->assertStatus(410);
+        $this->gate()->post('/projects/blue-harbor/inputs/in-ca-1/resolve', ['resolved' => true])->assertStatus(410);
+        $this->post('/projects/blue-harbor/questions/q-open/answer', ['answer_choice' => 'yes'])->assertStatus(410);
         $this->assertSame('open', Question::find('q-open')->state);
         $this->assertNull(RequiredInput::find('in-ca-1')->resolved_at);
         $this->assertNotNull(NextStep::find('ns-1'));
@@ -232,7 +232,7 @@ class TicketsMigrationTest extends TestCase
         $this->getJson('/api/inputs')->assertOk();
         $this->getJson('/api/next-steps')->assertOk();
         $this->getJson('/api/ceo-queue-items')->assertOk();
-        $this->get('/projects/concierge-avant')->assertOk();
+        $this->get('/projects/blue-harbor')->assertOk();
 
         // Off (default): legacy writes work as before.
         config(['bridge.legacy_read_only' => false]);
@@ -241,9 +241,9 @@ class TicketsMigrationTest extends TestCase
 
     public function test_next_step_owner_name_matching_an_agent_becomes_an_agent_assignee(): void
     {
-        NextStep::create(['id' => 'ns-owner', 'project_id' => self::MW, 'kind' => 'in_progress', 'text' => 'Deploy the hotfix', 'owner' => 'shodan', 'position' => 9]);
+        NextStep::create(['id' => 'ns-owner', 'project_id' => self::NW, 'kind' => 'in_progress', 'text' => 'Deploy the hotfix', 'owner' => 'shodan', 'position' => 9]);
 
-        $this->artisan('bridge:tickets-migrate', ['--project' => self::MW])->assertSuccessful();
+        $this->artisan('bridge:tickets-migrate', ['--project' => self::NW])->assertSuccessful();
 
         $t = $this->byRow('next_step', 'ns-owner');
         $this->assertSame(['agent', BridgeSeeder::AGENT_SHODAN], [$t->assignee_type, $t->assignee_id]);
@@ -251,9 +251,9 @@ class TicketsMigrationTest extends TestCase
 
     public function test_input_waiting_on_an_agent_goes_to_in_progress_with_that_agent(): void
     {
-        RequiredInput::create(['id' => 'in-janice', 'project_id' => self::CA, 'text' => 'Janice confirms the guest copy', 'waiting_on' => 'Janice', 'since' => '2026-10-20 10:00:00']);
+        RequiredInput::create(['id' => 'in-janice', 'project_id' => self::BH, 'text' => 'Janice confirms the guest copy', 'waiting_on' => 'Janice', 'since' => '2026-10-20 10:00:00']);
 
-        $this->artisan('bridge:tickets-migrate', ['--project' => self::CA])->assertSuccessful();
+        $this->artisan('bridge:tickets-migrate', ['--project' => self::BH])->assertSuccessful();
 
         $t = $this->byRow('required_input', 'in-janice');
         $this->assertSame(['in_progress', 'agent', self::JANICE], [$t->status, $t->assignee_type, $t->assignee_id]);
