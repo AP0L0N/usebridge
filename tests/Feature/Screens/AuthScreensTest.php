@@ -21,7 +21,7 @@ class AuthScreensTest extends TestCase
     #[Test]
     public function guests_land_on_login_which_links_the_workspace_gate(): void
     {
-        $this->get('/')->assertRedirect('/login');
+        $this->get('/')->assertOk()->assertViewIs('landing'); // the public landing page, no longer a redirect
         $this->get('/usage')->assertRedirect('/login');
 
         $this->get('/login')->assertOk()->assertInertia(fn (Assert $p) => $p

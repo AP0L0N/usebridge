@@ -1,0 +1,80 @@
+/* Bridge design tokens: the single place to restyle the landing page. landing.css consumes only these variables. */
+:root {
+    /* Brand */
+    --ink: #0B0C0F;
+    --ink-2: #1C1E24;
+    --ink-3: #2A2D35;
+    --lime: #C8F135;          /* fill only: never text on light backgrounds */
+    --lime-hover: #D6F76B;
+    --violet: #7C5CFF;        /* agent / bot cues (fills, borders) */
+    --violet-text: #5B3FE0;   /* violet as text on light surfaces (>= 4.5:1) */
+    --violet-on-ink: #A895FF; /* violet as text on ink surfaces (>= 4.5:1) */
+    --violet-tint: #EFEBFF;
+
+    /* Surfaces */
+    --paper: #F6F5F1;
+    --card: #FFFFFF;
+    --line: #E4E2DC;
+    --line-on-ink: #2E3139;
+
+    /* Text */
+    --text: var(--ink);
+    --text-muted: #5A5D66;
+    --text-on-ink: #FFFFFF;
+    --text-muted-on-ink: #A9ADB8;
+
+    /* Status */
+    --placeholder-border: #B9B5AA;
+    --placeholder-bg: #FBFAF7;
+    --placeholder-text: #6B6D74;
+    --focus: #5B3FE0;
+    --focus-on-ink: #C8F135;
+
+    /* Type */
+    --font-ui: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --fs-xs: 0.75rem;
+    --fs-sm: 0.875rem;
+    --fs-base: 1rem;
+    --fs-lg: 1.125rem;
+    --fs-xl: 1.25rem;
+    --fs-h3: 1.25rem;
+    --fs-h2: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+    --fs-h1: clamp(2.25rem, 1.4rem + 4vw, 4rem);
+    --lh-tight: 1.1;
+    --lh-snug: 1.25;
+    --lh-body: 1.6;
+    --tracking-tight: -0.025em;
+
+    /* Spacing */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-24: 96px;
+
+    /* Shape */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+    --tap-min: 44px;
+    --content-max: 1200px;
+    --gutter: 24px;
+    --shadow-card: 0 1px 2px rgb(11 12 15 / 0.05), 0 8px 24px rgb(11 12 15 / 0.06);
+    --shadow-float: 0 24px 60px rgb(0 0 0 / 0.35);
+
+    /* Motion */
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --dur: 180ms;
+}
+
+@media (max-width: 600px) {
+    :root {
+        --gutter: 16px;
+    }
+}

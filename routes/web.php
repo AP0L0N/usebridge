@@ -25,6 +25,7 @@ use App\Http\Middleware\LegacyReadOnly;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
+use App\Http\Middleware\ShowLandingToGuests;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 
@@ -79,8 +80,10 @@ Route::middleware(['auth', EnsureWorkspaceGate::class])->group(function () {
     Route::put('/projects/{slug}/column-labels', [ProjectSetupController::class, 'updateColumnLabels'])->name('projects.column-labels.update');
 });
 
+// `/` shows the public landing page to pure guests, the Portfolio to everyone else (ShowLandingToGuests runs before the gate).
+Route::get('/', PortfolioController::class)->middleware([ShowLandingToGuests::class, EnsureWorkspaceGate::class])->name('portfolio');
+
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
-    Route::get('/', PortfolioController::class)->name('portfolio');
     Route::get('/portfolio', fn () => redirect()->route('portfolio'));
     Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
