@@ -10,8 +10,8 @@
             <p class="trust">@include('landing.trust')</p>
         </div>
 
-        {{-- Hero animation slot: Tommy's hero component (public/landing/hero/, self-contained HTML/CSS/JS from
-             /workspace/bridge-hero/) is mounted here. Its markup is in landing/hero-animation.blade.php. --}}
+        {{-- Hero animation slot: the self-contained hero component (CSS/JS in public/landing/hero/)
+             is mounted here. Its markup is in landing/hero-animation.blade.php. --}}
         <div class="hero-slot" id="hero-animation" data-slot="hero-animation">
             @include('landing.hero-animation')
         </div>

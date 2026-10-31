@@ -218,7 +218,7 @@ class LandingPageTest extends TestCase
     #[Test]
     public function the_footer_renders_the_shared_legal_copy_and_the_source_link(): void
     {
-        config(['bridge.legal_entity' => 'LANTIS (Tilen Poje s.p.)', 'bridge.source_url' => 'https://github.com/AP0L0N/usebridge', 'bridge.source_sha' => null]);
+        config(['bridge.legal_entity' => 'Example Studio', 'bridge.source_url' => 'https://github.com/AP0L0N/usebridge', 'bridge.source_sha' => null]);
         $html = $this->html();
         $footer = LegalPages::footer(null);
 
@@ -227,7 +227,7 @@ class LandingPageTest extends TestCase
         }
         $this->assertSame(['/imprint', '/terms', '/privacy'], array_column($footer['links'], 'href'));
         $this->assertStringContainsString('<a href="https://github.com/AP0L0N/usebridge" rel="noopener">Source code (AGPL-3.0-or-later)</a>', $html);
-        $this->assertStringContainsString('© LANTIS (Tilen Poje s.p.) · Bridge is free software under AGPL-3.0-or-later. <a href="https://github.com/AP0L0N/usebridge" rel="noopener">Get the source code</a>.', $html);
+        $this->assertStringContainsString('© Example Studio · Bridge is free software under AGPL-3.0-or-later. <a href="https://github.com/AP0L0N/usebridge" rel="noopener">Get the source code</a>.', $html);
         $this->assertStringNotContainsString('EN | SL', $html);
         $this->assertStringContainsString('mailto:support@usebridge.si', $html);
 
