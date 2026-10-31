@@ -86,10 +86,11 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
         ->middleware(GuardUsageUpload::class)
         ->name('api.usage.days.store');
 
-    // Polymarket desk: {snapshot: feed.json, series: book_series.json} (raw JSON body, <= 1 MB), posted by Captain.
-    // Only workspaces with the polymarket feature (Tilen's): 404 elsewhere, before the body is looked at.
+    // Polymarket desk: {snapshot: feed.json, series: book_series.json} (raw JSON body, <= 1 MB). Only workspaces with the
+    // polymarket feature (Tilen's) and only a token of the workspace OWNER: 404 for everyone else (as on the web), before
+    // the body is looked at. Every api/polymarket/* route must carry this middleware (PolymarketApiOwnerOnlyTest).
     Route::post('polymarket/feed', [PolymarketFeedController::class, 'store'])
-        ->middleware([RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET, GuardPolymarketUpload::class])
+        ->middleware([RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner', GuardPolymarketUpload::class])
         ->name('api.polymarket.feed.store');
 
     // r0 CEO queue, kept for agents: items become Required inputs (see CeoQueueCompatController).

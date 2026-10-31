@@ -181,7 +181,10 @@ Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BR
   - `read` = `["boards:read"]`
   - `read & write` = `boards:read`, `boards:write`, `status:write`, `agents:write`, plus `usage:write` /
     `polymarket:write` only when the workspace has that feature (Polymarket: Tilen's; usage upload: Tilen's until
-    other users have a collector).
+    other users have a collector). `polymarket:write` is additionally **owner-only**: only tokens created by the
+    workspace owner get it, and every `/api/polymarket/*` route re-checks on each request that the token's user owns
+    the workspace (404 otherwise, like the web desk), so a member token with `ceo` / `*` / a forged ability is refused.
+    The Polymarket feed job must therefore post with a token of the owner's own account.
   - Legacy `ceo` / `*` keep meaning everything; the UI never issues them. List shows scope derived from abilities.
 - Expiry 30/90/365 days or none → `expires_at` (Sanctum rejects expired tokens). Rate limit 120/min per token (MCP:
   done, `throttle:mcp`; `/api`: done, `throttle:api-token`). Creation requires a verified email.

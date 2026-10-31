@@ -84,7 +84,10 @@ class ApiTokensTest extends TestCase
         $marta = $this->marta();
 
         $this->assertSame($base, ApiTokens::abilitiesFor('write', $marta->ownedWorkspaces()->first()));
-        $this->assertSame([...$base, 'usage:write', 'polymarket:write'], ApiTokens::abilitiesFor('write', $tilens));
+        $this->assertSame([...$base, 'usage:write', 'polymarket:write'], ApiTokens::abilitiesFor('write', $tilens, $tilens->owner));
+        // polymarket:write is for the workspace owner only (a member or no user gets usage:write but not polymarket).
+        $this->assertSame([...$base, 'usage:write'], ApiTokens::abilitiesFor('write', $tilens, $this->workspaceUser()));
+        $this->assertSame([...$base, 'usage:write'], ApiTokens::abilitiesFor('write', $tilens));
         $this->assertSame(['boards:read'], ApiTokens::abilitiesFor('read', $tilens));
 
         $this->actingAs($marta)->postJson('/account/tokens', ['name' => 'bot', 'scope' => 'write', 'expires' => null])->assertCreated()

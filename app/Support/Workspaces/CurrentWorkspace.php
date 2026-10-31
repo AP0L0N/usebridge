@@ -2,6 +2,7 @@
 
 namespace App\Support\Workspaces;
 
+use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Auth;
 
@@ -87,8 +88,7 @@ final class CurrentWorkspace
         }
         $user ??= Auth::guard('web')->user();
 
-        return $user !== null && $this->workspace !== null
-            && (int) $this->workspace->owner_user_id === (int) $user->getAuthIdentifier();
+        return $user instanceof User && $this->workspace !== null && $this->workspace->isOwnedBy($user);
     }
 
     /** The owner's workspace (bridge.default_workspace); null before the backfill migration ran. */

@@ -52,6 +52,12 @@ class Workspace extends Model
         return is_string($label) && trim($label) !== '' ? $label : null;
     }
 
+    /** The workspace owner (owner_user_id), e.g. for owner-only features like Polymarket. */
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->owner_user_id !== null && (int) $this->owner_user_id === (int) $user->id;
+    }
+
     public function hasMember(User $user): bool
     {
         return $this->owner_user_id === $user->id || $this->users()->whereKey($user->id)->exists();

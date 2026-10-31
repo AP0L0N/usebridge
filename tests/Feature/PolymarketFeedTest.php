@@ -24,7 +24,7 @@ class PolymarketFeedTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->token = $this->workspaceUser()->createToken('bridge-api')->plainTextToken;
+        $this->token = $this->workspaceOwner()->createToken('bridge-api')->plainTextToken;
     }
 
     protected function tearDown(): void

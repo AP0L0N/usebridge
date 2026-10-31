@@ -41,7 +41,9 @@ class PolymarketOwnerOnlyTest extends TestCase
     #[Test]
     public function tilens_workspace_keeps_the_desk_the_nav_item_and_the_ingest(): void
     {
-        $this->ingest($this->workspaceUser()->createToken('captain', ['ceo'])->plainTextToken)->assertCreated();
+        // Only the owner's token may post (a member's 'ceo' token, like Captain's API user, gets 404: PolymarketApiOwnerOnlyTest).
+        $this->ingest($this->workspaceOwner()->createToken('desk', ['polymarket:write'])->plainTextToken)->assertCreated();
+        $this->ingest($this->workspaceUser()->createToken('captain', ['ceo'])->plainTextToken)->assertNotFound();
 
         $this->asOwner()->get('/polymarket')->assertOk()
             ->assertInertia(fn (Assert $p) => $p->component('Polymarket/Desk')->where('features.polymarket', true));

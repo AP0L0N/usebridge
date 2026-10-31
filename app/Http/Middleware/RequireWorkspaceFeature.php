@@ -10,7 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * `feature:polymarket`-style switch per workspace (workspaces.features): 404 when the current workspace does not have
  * it, so the feature stays invisible. Runs after the login / token middleware resolved the workspace. A second parameter
- * `owner` (`feature:polymarket,owner`) also hides it from logged-in users who do not own the workspace.
+ * `owner` (`feature:polymarket,owner`) also hides it from everyone but the workspace owner: on the web the logged-in
+ * user, on /api the token's user ($request->user() either way; no user = 404).
  */
 class RequireWorkspaceFeature
 {
@@ -18,7 +19,9 @@ class RequireWorkspaceFeature
 
     public function handle(Request $request, Closure $next, string $feature, string $who = ''): Response
     {
-        abort_unless($who === 'owner' ? $this->current->hasOwnerFeature($feature) : $this->current->hasFeature($feature), 404);
+        abort_unless($who === 'owner'
+            ? $this->current->hasOwnerFeature($feature, $request->user())
+            : $this->current->hasFeature($feature), 404);
 
         return $next($request);
     }

@@ -18,7 +18,8 @@ use Laravel\Sanctum\PersonalAccessToken;
  * A user's own API tokens (docs/MULTI-USER-PLAN.md §4). Sanctum, sha256 at rest; the plaintext is returned once.
  *
  * - Scope -> abilities: read = boards:read; write = boards:read/write, status:write, agents:write, plus usage:write /
- *   polymarket:write only when the workspace has that feature. The UI never issues '*' / 'ceo'.
+ *   polymarket:write only when the workspace has that feature (polymarket:write also only for the workspace owner; the
+ *   /api/polymarket routes check the owner again on every request). The UI never issues '*' / 'ceo'.
  * - Expiry 30 / 90 / 365 days or none -> expires_at (Sanctum rejects expired tokens).
  * - New tokens carry sanctum.token_prefix (brg_live_) and keep the last 4 plaintext characters in token_suffix for the
  *   masked list; the token is bound to the workspace it was created in. Legacy tokens keep working, listed as legacy.
@@ -31,7 +32,7 @@ final class ApiTokens
     public const EXPIRY_DAYS = [30, 90, 365];
 
     /** @return list<string> */
-    public static function abilitiesFor(string $scope, Workspace $workspace): array
+    public static function abilitiesFor(string $scope, Workspace $workspace, ?User $user = null): array
     {
         if ($scope === 'read') {
             return ['boards:read'];
@@ -40,7 +41,7 @@ final class ApiTokens
         return [
             'boards:read', 'boards:write', 'status:write', 'agents:write',
             ...($workspace->hasFeature(Workspace::FEATURE_USAGE_UPLOAD) ? ['usage:write'] : []),
-            ...($workspace->hasFeature(Workspace::FEATURE_POLYMARKET) ? ['polymarket:write'] : []),
+            ...($workspace->hasFeature(Workspace::FEATURE_POLYMARKET) && $user !== null && $workspace->isOwnedBy($user) ? ['polymarket:write'] : []),
         ];
     }
 
@@ -75,7 +76,7 @@ final class ApiTokens
             'expires' => ['nullable', 'integer', Rule::in(self::EXPIRY_DAYS)],
         ])->validate();
 
-        $new = $user->createToken(trim($name), self::abilitiesFor($scope, $workspace),
+        $new = $user->createToken(trim($name), self::abilitiesFor($scope, $workspace, $user),
             $expiresInDays === null ? null : Carbon::now()->addDays($expiresInDays));
         // Shown once: the part after "id|" (Sanctum finds a token without the id by its hash).
         $plain = Str::after($new->plainTextToken, '|');
