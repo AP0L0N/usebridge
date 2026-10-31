@@ -114,9 +114,9 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
         ->name('usage.agent');
     // Cursor dashboard CSV export (individual plan): workspace owner or the AUTH-1 gate session; 404 for others.
     Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
-    // Polymarket desk: only workspaces with the polymarket feature (Tilen's); 404 elsewhere.
+    // Polymarket desk: only workspaces with the polymarket feature (Tilen's), and only their owner; 404 for everyone else.
     Route::get('/polymarket', [PolymarketController::class, 'index'])
-        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET)->name('polymarket');
+        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner')->name('polymarket');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/agents', '/');
