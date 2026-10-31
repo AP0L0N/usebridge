@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
-import { count, fmt, rangeWords, spanLabel, type CliBlock, type CliModelRow, type CliSums, type CliToolStats, type OverviewDay, type Range, type Series } from '../../lib/usage';
+import { count, dayState, fmt, rangeWords, spanLabel, withoutCursor, type CliBlock, type CliModelRow, type CliSums, type CliToolStats, type OverviewDay, type Range, type Series } from '../../lib/usage';
 import { ChartLegend } from './ChartLegend';
 import { Measured, MeasuredBadge } from './Measured';
 import { MissingKey } from './MissingStub';
-import { DailyTable, StackedDailyChart } from './StackedDailyChart';
+import { StackedDailyChart } from './StackedDailyChart';
 
 const MISSING = {
   short: 'no data, not counted in any total',
@@ -12,7 +12,7 @@ const MISSING = {
 
 type Props = { cli: CliBlock; range: Range; fromLabel: string; toLabel: string; narrow: boolean; loading: boolean };
 
-const SUM_COLS: { key: keyof CliSums; label: string }[] = [
+export const SUM_COLS: { key: 'input' | 'output' | 'cacheRead' | 'cacheCreation' | 'total'; label: string }[] = [
   { key: 'input', label: 'Input' },
   { key: 'output', label: 'Output' },
   { key: 'cacheRead', label: 'Cache read' },
@@ -20,7 +20,7 @@ const SUM_COLS: { key: keyof CliSums; label: string }[] = [
   { key: 'total', label: 'Total' },
 ];
 
-function ModelName({ m }: { m: CliModelRow }) {
+export function ModelName({ m }: { m: CliModelRow }) {
   return m.model ? <code className="mname">{m.model}</code> : <span className="mname none">{m.label}</span>;
 }
 
@@ -30,10 +30,16 @@ function shortModel(m: CliModelRow): string {
   return m.model.replace(/^claude-/, '').replace(/-(\d+)-(\d+)$/, ' $1.$2');
 }
 
-function ToolTile({ t, range }: { t: CliToolStats; range: Range }) {
+function ToolTile({ t, range, noFile }: { t: CliToolStats; range: Range; noFile: number }) {
   return (
     <div className="cli-tool">
-      <h3><i style={{ background: t.color }} aria-hidden="true" />{t.name}<span className="sub">{t.calls > 0 ? `${count(t.days)} ${t.days === 1 ? 'day' : 'days'} with calls` : `no calls ${rangeWords(range)}`}</span></h3>
+      <h3>
+        <i style={{ background: t.color }} aria-hidden="true" />{t.name}
+        <span className="sub">
+          {t.calls > 0 ? `${count(t.days)} ${t.days === 1 ? 'day' : 'days'} with calls` : `no calls ${rangeWords(range)}`}
+          {noFile > 0 && <> · <MissingKey /> no file on {count(noFile)} {noFile === 1 ? 'day' : 'days'}</>}
+        </span>
+      </h3>
       <div className="cli-stats">
         {SUM_COLS.map((c) => (
           <div key={c.key} className={`cli-stat${c.key === 'total' ? ' tot' : ''}`}>
@@ -85,6 +91,43 @@ function Cells({ r }: { r: CliSums }) {
     </>
   );
 }
+
+/**
+ * Day × tool: the measured total, "0" when that day's file covered the tool without calls, or "No file" (no marker in
+ * cli.importedTools and no rows): no file that day is not the same as zero.
+ */
+export function ToolDayTable({ cli, days, tools, caption }: { cli: CliBlock; days: OverviewDay[]; tools: { tool: CliToolStats['tool']; name: string; color: string }[]; caption: string }) {
+  return (
+    <div className="tscroll">
+      <table className="tbl">
+        <caption className="sr">{caption}</caption>
+        <thead>
+          <tr><th scope="col">Day</th>{tools.map((t) => <th key={t.tool} scope="col">{t.name}</th>)}</tr>
+        </thead>
+        <tbody>
+          {days.map((d) => (
+            <tr key={d.date}>
+              <th scope="row">{d.longLabel}{d.today ? ' (so far)' : ''}</th>
+              {tools.map((t) => {
+                const st = dayState(cli, d.date, t.tool);
+                return (
+                  <td key={t.tool}>
+                    {st.kind === 'value' ? <Measured value={st.row.total} />
+                      : st.kind === 'zero' ? <span title="A file covered this day: no calls">0</span>
+                        : <span className="num-miss"><MissingKey /> No file</span>}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Days of the range without a file for the tool (no rows, no marker). */
+export const noFileDays = (cli: CliBlock, tool: CliToolStats['tool']) => cli.days.filter((d) => dayState(cli, d.date, tool).kind === 'nofile').length;
 
 /** Day × tool table, with one indented row per agent when a (day, tool) has more than one. */
 function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
@@ -156,7 +199,8 @@ function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
  * "Coding tools (Claude Code, Kimi Code & OpenCode Go) — measured tokens": real counts from the CLI logs on the shared box, over the
  * same range as the estimates above (yesterday / 7 / 30 days), independent of the estimator files.
  */
-export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Props) {
+export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading }: Props) {
+  const cli = withoutCursor(all);
   const [isolated, setIsolated] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
   const span = spanLabel(fromLabel, toLabel);
@@ -185,7 +229,7 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
         ) : (
           <>
             <div className="cli-tools">
-              {cli.tools.map((t) => <ToolTile key={t.tool} t={t} range={range} />)}
+              {cli.tools.map((t) => <ToolTile key={t.tool} t={t} range={range} noFile={noFileDays(all, t.tool)} />)}
             </div>
 
             <div className="chead">
@@ -200,7 +244,7 @@ export function CliUsage({ cli, range, fromLabel, toLabel, narrow, loading }: Pr
             {narrow ? (
               <NarrowDays days={cli.days} />
             ) : asTable ? (
-              <DailyTable days={cli.days} series={series} kind="measured" caption={`Daily measured tokens by tool, ${fromLabel} – ${toLabel}`} missingText="No data. Not counted in any total." />
+              <ToolDayTable cli={all} days={cli.days} tools={cli.tools} caption={`Daily measured tokens by tool, ${fromLabel} – ${toLabel}. No file = that day's collector file did not cover the tool; 0 = it did, without calls.`} />
             ) : (
               <>
                 <ChartLegend series={series} isolated={isolated} onToggle={(k) => setIsolated((cur) => (cur === k ? null : k))} kind="measured" label="Tools in the chart. Select one to isolate it." />

@@ -34,7 +34,9 @@ use Carbon\CarbonImmutable;
  *   to the row it sits in. Model '' (rows from before models were collected, or a log without one) is
  *   `model: null` with the label "model not recorded". `tools` always lists the collector's three tools; Cursor
  *   only when it has rows in the range. `importedTools`: date => tools a file covered that day (CliUsageImport
- *   markers): a covered tool without rows is a true zero, a tool missing there had no file.
+ *   markers): a covered tool without rows is a true zero, a tool missing there had no file. `costCents` (cents,
+ *   float) is added to a tool, model and table row / model only when one of its rows carries `cost_cents` (Cursor
+ *   CSV with a Cost column); everywhere else the key is absent.
  */
 final class UsageReport
 {
@@ -197,6 +199,23 @@ final class UsageReport
             return array_values($models);
         };
 
+        /** @var array<string, float> cost in cents per "tool", "tool|model", "date|tool", "date|tool|model" (rows with cost_cents only) */
+        $cost = [];
+        foreach ($rows as $r) {
+            if ($r->cost_cents === null) {
+                continue;
+            }
+            $d = substr((string) $r->getRawOriginal('date'), 0, 10);
+            foreach ([$r->tool, $r->tool.'|'.$r->model, $d.'|'.$r->tool, $d.'|'.$r->tool.'|'.$r->model] as $k) {
+                $cost[$k] = ($cost[$k] ?? 0.0) + (float) $r->cost_cents;
+            }
+        }
+        $withCost = function (array $entry, string $key) use (&$cost): array {
+            return isset($cost[$key]) ? $entry + ['costCents' => round($cost[$key], 4)] : $entry;
+        };
+        $modelsWithCost = fn (array $models, string $prefix) => array_map(
+            fn (array $m) => $withCost($m, $prefix.'|'.($m['model'] ?? CliUsageDay::NO_MODEL)), $models);
+
         $tools = [];
         /** @var array<string, array<string, array<string, true>>> tool => model => date => true */
         $modelDays = [];
@@ -235,7 +254,8 @@ final class UsageReport
                 $model['days'] = count($modelDays[$tool][$m]);
             }
             unset($model);
-            $t['models'] = $modelList($t['models']);
+            $t['models'] = $modelsWithCost($modelList($t['models']), $tool);
+            $t = $withCost($t, $tool);
         }
         unset($t);
 
@@ -261,13 +281,13 @@ final class UsageReport
         foreach ($byDay as $d => $cells) {
             foreach ($cells as $tool => $cell) {
                 $agents = array_values(array_map(fn ($a) => array_replace($a, ['models' => $modelList($a['models'])]), $cell['agents']));
-                $table[] = [
+                $table[] = $withCost([
                     'date' => $d,
                     'label' => self::longLabel($d),
                     'tool' => $tool,
                     'name' => $tools[$tool]['name'],
                     'color' => $tools[$tool]['color'],
-                ] + $cell['sum'] + ['agents' => count($agents) > 1 ? $agents : [], 'models' => $modelList($cell['models'])];
+                ] + $cell['sum'] + ['agents' => count($agents) > 1 ? $agents : [], 'models' => $modelsWithCost($modelList($cell['models']), $d.'|'.$tool)], $d.'|'.$tool);
             }
         }
 

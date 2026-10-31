@@ -1,8 +1,10 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import type { Shared } from '../../lib/account';
 import { TopBar } from '../../Components/TopBar';
 import { ChartLegend } from '../../Components/Usage/ChartLegend';
 import { CliUsage } from '../../Components/Usage/CliUsage';
+import { CursorUsage } from '../../Components/Usage/CursorUsage';
 import { EstNote } from '../../Components/Usage/EstNote';
 import { Est } from '../../Components/Usage/Est';
 import { InfoLines } from '../../Components/Usage/InfoLines';
@@ -61,6 +63,7 @@ function NarrowDays({ days, series }: { days: OverviewDay[]; series: Series[] })
 }
 
 export default function Overview(p: OverviewProps) {
+  const signedIn = usePage<Shared>().props.auth?.user != null;
   const narrow = useNarrow();
   const [isolated, setIsolated] = useState<string | null>(null);
   const [asTable, setAsTable] = useState(false);
@@ -98,6 +101,7 @@ export default function Overview(p: OverviewProps) {
                 : <><b><Est value={p.rangeTotal} /></b> tokens{narrow ? '' : ` across ${p.agentCount} agents`} · {span}</>}
               {p.range === 30 && !p.empty && <> · <b>{p.daysWithFile} of {p.days.length} days have a file</b></>}
             </p>
+            {signedIn && <p className="mine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>Only your workspace's agents and tools are counted here.</p>}
           </div>
           <div className="tools"><RangeSeg range={p.range} onLoading={setLoading} /></div>
         </div>
@@ -197,6 +201,7 @@ export default function Overview(p: OverviewProps) {
         )}
 
         <CliUsage cli={p.cli} range={p.range} fromLabel={p.fromLabel} toLabel={p.toLabel} narrow={narrow} loading={loading} />
+        <CursorUsage cli={p.cli} range={p.range} fromLabel={p.fromLabel} toLabel={p.toLabel} narrow={narrow} loading={loading} />
       </main>
     </>
   );

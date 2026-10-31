@@ -34,7 +34,9 @@ export type OverviewProps = {
 
 // Measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days): real counts from the CLI logs, not estimates.
 export type CliTool = 'claude_code' | 'kimi_code' | 'opencode_go' | 'cursor';
-export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number };
+export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number;
+  /** Cents (float), only when a row had a cost (Cursor CSV with a Cost column). */
+  costCents?: number };
 /** One model inside a tool / day cell / agent, total desc; model null = not recorded in the log (label "model not recorded"). */
 export type CliModelRow = CliSums & { model: string | null; label: string };
 export type CliToolStats = CliSums & { tool: CliTool; name: string; color: AgentColor; days: number; models: (CliModelRow & { days: number })[] };
@@ -45,7 +47,45 @@ export type CliBlock = {
   total: number; calls: number; tools: CliToolStats[]; series: Series[]; days: OverviewDay[]; table: CliTableRow[];
   /** date => tools a file covered that day (marker): covered + no rows = zero, missing = no file. */
   importedTools: Record<string, CliTool[]>;
+  /** Cursor CSV upload (POST /usage/cursor-csv): only the workspace owner (or the gate session) may. */
+  cursorUpload?: { allowed: boolean; lastImportAt: string | null };
 };
+
+export const CURSOR: CliTool = 'cursor';
+
+/** One (day, tool) cell: rows → value; a file covered the tool that day but no rows → true zero; else no file. */
+export type DayState = { kind: 'value'; row: CliTableRow } | { kind: 'zero' } | { kind: 'nofile' };
+export function dayState(cli: CliBlock, date: string, tool: CliTool): DayState {
+  const row = cli.table.find((r) => r.date === date && r.tool === tool);
+  if (row) return { kind: 'value', row };
+  return (cli.importedTools[date] ?? []).includes(tool) ? { kind: 'zero' } : { kind: 'nofile' };
+}
+
+/**
+ * The coding-tools section without Cursor (Cursor has its own section): tools, series, table and the day segments
+ * of the other tools; totals recomputed.
+ */
+export function withoutCursor(cli: CliBlock): CliBlock {
+  const keep = cli.series.map((s, i) => (s.agentId === CURSOR ? -1 : i)).filter((i) => i >= 0);
+  const tools = cli.tools.filter((t) => t.tool !== CURSOR);
+  const table = cli.table.filter((r) => r.tool !== CURSOR);
+  const days = cli.days.map((d) => {
+    if (!d.present || !d.segments) return d;
+    const segments = keep.map((i) => d.segments![i] ?? 0);
+    return { ...d, segments, total: segments.reduce((a, b) => a + b, 0) };
+  });
+  return {
+    ...cli, tools, table, days,
+    series: cli.series.filter((s) => s.agentId !== CURSOR),
+    empty: table.length === 0,
+    daysWithRows: new Set(table.map((r) => r.date)).size,
+    total: tools.reduce((a, t) => a + t.total, 0),
+    calls: tools.reduce((a, t) => a + t.calls, 0),
+  };
+}
+
+/** "$12.34" from cents. */
+export const money = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** How a token figure is rendered: estimate (tilde, "estimated") or measured (plain, "measured"). */
 export type ValueKind = 'est' | 'measured';
