@@ -38,11 +38,12 @@ final class AccountService
 
     /**
      * New user and their own workspace (owner). Features off (no Polymarket). Unverified: the verification mail goes
-     * out here (tokens and MCP need a verified email; the boards do not).
+     * out here (tokens and MCP need a verified email; the boards do not). $acceptedTerms: the sign-up checkbox (terms +
+     * age 18) was ticked; stores both timestamps and config bridge.terms_version (null for users made any other way).
      *
      * @throws ValidationException
      */
-    public function register(string $name, string $email, string $password, ?string $workspaceName = null): User
+    public function register(string $name, string $email, string $password, ?string $workspaceName = null, bool $acceptedTerms = false): User
     {
         $data = Validator::make(
             ['name' => $name, 'email' => Str::lower(trim($email)), 'password' => $password, 'workspace' => $workspaceName ?? $name],
@@ -54,8 +55,12 @@ final class AccountService
             ],
         )->validate();
 
-        $user = DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($data, $acceptedTerms) {
             $user = User::query()->create(['name' => trim($data['name']), 'email' => $data['email'], 'password' => $data['password']]);
+            if ($acceptedTerms) {
+                $now = now();
+                $user->forceFill(['terms_accepted_at' => $now, 'age_confirmed_at' => $now, 'terms_version' => (string) config('bridge.terms_version')])->save();
+            }
             $workspace = Workspace::query()->create([
                 'slug' => $this->freeSlug($data['workspace']),
                 'name' => trim($data['workspace']),

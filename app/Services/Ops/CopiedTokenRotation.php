@@ -17,31 +17,17 @@ use Throwable;
  * only `token` (sha256) and `token_suffix` change; id, owner, name, abilities, workspace_id, expires_at, last_used_at
  * stay. The new plaintexts (`id|token`, Sanctum's plainTextToken format) go to a new 0600 file, nowhere else.
  *
- * Refused (refusal()) on APP_ENV production, outside staging without --force-env=staging, and when APP_URL is the live
- * host (config bridge.live_host). The rows are updated and the file written in one transaction: a failed write rolls the rows back.
+ * Refused (refusal(): StagingOnlyGuard + the --out checks) on APP_ENV production, outside staging without
+ * --force-env=staging, and when APP_URL is the live host. The rows are updated and the file written in one transaction:
+ * a failed write rolls the rows back.
  */
 final class CopiedTokenRotation
 {
-    /** Why this run is refused, or null when it may go ahead. */
+    /** Why this run is refused, or null when it may go ahead: the shared StagingOnlyGuard, then the --out file checks. */
     public static function refusal(string $env, ?string $forceEnv, ?string $appUrl, ?string $out): ?string
     {
-        if ($env === 'production') {
-            return 'APP_ENV is production: refusing.';
-        }
-        if ($forceEnv !== null && $forceEnv !== 'staging') {
-            return '--force-env only accepts "staging".';
-        }
-        if ($env !== 'staging' && $forceEnv === null) {
-            return "APP_ENV is '$env', not staging: refusing (--force-env=staging on a non-production copy).";
-        }
-        $host = self::host((string) $appUrl);
-        if ($host === '') {
-            return 'APP_URL has no host: refusing.';
-        }
-        $live = trim((string) config('bridge.live_host'));
-        $live = $live === '' ? '' : self::host(str_contains($live, '://') ? $live : 'https://'.$live);
-        if ($live !== '' && $host === $live) {
-            return 'APP_URL is the live Bridge ('.$live.'): refusing.';
+        if (($refusal = StagingOnlyGuard::refusal($env, $forceEnv, $appUrl)) !== null) {
+            return $refusal;
         }
         if (! filled($out)) {
             return '--out=<path> is required.';
@@ -114,14 +100,6 @@ final class CopiedTokenRotation
         }
 
         return $names;
-    }
-
-    /** Lower-case host of a URL without a trailing dot or leading "www." ('' when there is none). */
-    private static function host(string $url): string
-    {
-        $host = rtrim(strtolower((string) parse_url(trim($url), PHP_URL_HOST)), '.');
-
-        return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
     }
 
     /** New file only ('x'), 0600 before any content; a partial file is removed again. */

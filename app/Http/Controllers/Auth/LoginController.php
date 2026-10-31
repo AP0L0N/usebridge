@@ -23,7 +23,8 @@ class LoginController extends Controller
         ]);
         $user = $this->login->login($data['email'], $data['password'], (bool) ($data['remember'] ?? false), $request->ip(), $request->session());
 
-        return response()->json(['user' => self::user($user), 'redirect' => route('portfolio')]);
+        // Unverified: the verify notice first (resend there; the boards still work without verifying).
+        return response()->json(['user' => self::user($user), 'redirect' => route($user->hasVerifiedEmail() ? 'portfolio' : 'verification.notice')]);
     }
 
     public function cancelDeletion(Request $request, AccountDeletion $deletion): JsonResponse

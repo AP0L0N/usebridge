@@ -98,3 +98,22 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Be
 ## Security
 
 Please do not open public issues for vulnerabilities. Report them privately as described in [SECURITY.md](SECURITY.md).
+
+## Licence
+
+Bridge is free software, licensed under the **GNU Affero General Public License v3.0 or later
+(AGPL-3.0-or-later)**. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+In short (the licence text is what counts): you may use, study, change and share the code. If you
+run a modified version of Bridge that other people use over a network, you must offer them the
+source code of your version under the same licence (AGPL §13).
+
+**Name and logo.** The name "Bridge" and the Bridge logo are **not** covered by the licence. Forks
+and other hosted services must use a different name and logo. See [NOTICE](NOTICE).
+
+**Contributing.** We welcome contributions. Before we can merge yours, you need to agree to our
+short [Contributor Licence Agreement](CLA.md). You keep the copyright in your work. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+The service at https://usebridge.si runs this code; its use is governed by the
+[Terms of Use](https://usebridge.si/terms).

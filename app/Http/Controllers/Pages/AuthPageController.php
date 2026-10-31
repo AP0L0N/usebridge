@@ -43,6 +43,18 @@ class AuthPageController extends Controller
             // null = no widget (and no script); the honeypot + minimum fill time always apply.
             'turnstileSiteKey' => config('turnstile.site_key') ?: null,
             'minPassword' => AccountService::MIN_PASSWORD,
+            // Required, never pre-ticked (terms + age 18); copy from lang/en/legal.php (:terms / :privacy become links).
+            'acceptTerms' => false,
+            'acceptance' => [
+                'checkbox' => __('legal.signup.checkbox'),
+                'smallPrint' => __('legal.signup.small_print'),
+                'termsLink' => __('legal.signup.terms_link'),
+                'privacyLink' => __('legal.signup.privacy_link'),
+                'smallPrintTermsLink' => __('legal.signup.small_print_terms_link'),
+                'smallPrintPrivacyLink' => __('legal.signup.small_print_privacy_link'),
+                'termsUrl' => route('legal.terms', absolute: false),
+                'privacyUrl' => route('legal.privacy', absolute: false),
+            ],
         ]);
     }
 

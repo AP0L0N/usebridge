@@ -47,3 +47,6 @@ design/**/share
 *.key
 .bridge-*
 /private-docs/
+
+# Deployed commit for the footer source link (written by the deploy)
+.bridge-deploy-sha

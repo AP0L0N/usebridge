@@ -2,9 +2,14 @@ import { Link } from '@inertiajs/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AuthShell } from '../../Components/Account/AuthShell';
 import { BusyButton, Callout, described, ErrorSummary, Field, PasswordInput, StrengthMeter } from '../../Components/Account/Fields';
+import { fillPlaceholders } from '../../Components/SiteFooter';
 import { fieldErrors, go, requestJson } from '../../lib/http';
 
-type Props = { formToken: string; turnstileSiteKey: string | null; minPassword: number };
+type Acceptance = {
+  checkbox: string; smallPrint: string; termsLink: string; privacyLink: string; smallPrintTermsLink: string; smallPrintPrivacyLink: string;
+  termsUrl: string; privacyUrl: string;
+};
+type Props = { formToken: string; turnstileSiteKey: string | null; minPassword: number; acceptTerms: boolean; acceptance: Acceptance };
 
 declare global {
   interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void; render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
@@ -31,11 +36,12 @@ function Turnstile({ siteKey }: { siteKey: string }) {
   return <div ref={el} className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
 }
 
-const FIELD_IDS = { name: 'name', email: 'email', password: 'pw' };
+const FIELD_IDS = { name: 'name', email: 'email', password: 'pw', accept_terms: 'accept-terms' };
 
 /** Sign up: POST /signup with the honeypot (`website`) + signed `form_token`, plus Turnstile when configured. */
-export default function Signup({ formToken, turnstileSiteKey, minPassword }: Props) {
+export default function Signup({ formToken, turnstileSiteKey, minPassword, acceptTerms, acceptance }: Props) {
   const [name, setName] = useState('');
+  const [accepted, setAccepted] = useState(acceptTerms);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [website, setWebsite] = useState('');
@@ -55,7 +61,7 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword }: Pro
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
-    if (busy) return;
+    if (busy || !accepted) return;
     const local = check();
     setTaken(null);
     if (Object.keys(local).length > 0) {
@@ -66,7 +72,7 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword }: Pro
     setBusy(true);
     const tsResponse = formRef.current ? new FormData(formRef.current).get('cf-turnstile-response') : null;
     const res = await requestJson<{ redirect?: string }>('POST', '/signup', {
-      name, email, password, website, form_token: formToken,
+      name, email, password, website, form_token: formToken, accept_terms: accepted,
       ...(turnstileSiteKey ? { 'cf-turnstile-response': tsResponse ?? '' } : {}),
     });
     if (res.ok) {
@@ -120,7 +126,23 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword }: Pro
         {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} />}
 
         <p className="fine">Bridge stores your projects and usage only to show them to you. You verify your email before you create API tokens for bots.</p>
-        <BusyButton busy={busy} busyLabel="Creating account…">Create account</BusyButton>
+        <div>
+          <label className="chkrow" htmlFor="accept-terms">
+            <input type="checkbox" id="accept-terms" name="accept_terms" required checked={accepted} disabled={busy}
+              onChange={(e) => setAccepted(e.target.checked)} aria-invalid={errors.accept_terms ? true : undefined}
+              aria-describedby={errors.accept_terms ? 'accept-terms-err' : undefined} />
+            <span>{fillPlaceholders(acceptance.checkbox, {
+              terms: <a href={acceptance.termsUrl} target="_blank" rel="noopener">{acceptance.termsLink}</a>,
+              privacy: <a href={acceptance.privacyUrl} target="_blank" rel="noopener">{acceptance.privacyLink}</a>,
+            })}</span>
+          </label>
+          {errors.accept_terms && <p className="ferr" id="accept-terms-err">{errors.accept_terms}</p>}
+        </div>
+        <BusyButton busy={busy} busyLabel="Creating account…" disabled={!accepted}>Create account</BusyButton>
+        <p className="fine" id="signup-small-print">{fillPlaceholders(acceptance.smallPrint, {
+          terms: <a href={acceptance.termsUrl} target="_blank" rel="noopener">{acceptance.smallPrintTermsLink}</a>,
+          privacy: <a href={acceptance.privacyUrl} target="_blank" rel="noopener">{acceptance.smallPrintPrivacyLink}</a>,
+        })}</p>
         <p className="alt">Already have an account? <Link href="/login">Log in</Link></p>
       </form>
     </AuthShell>

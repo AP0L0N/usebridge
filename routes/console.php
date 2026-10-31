@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\Project;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Auth\AccountDeletion;
 use App\Services\BridgeRoster;
 use App\Services\Ops\CopiedTokenRotation;
+use App\Services\Ops\StagingOnlyGuard;
 use App\Services\Ops\WorkspaceOwnerTransfer;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
@@ -17,9 +19,11 @@ use App\Services\Usage\InvalidUsageDay;
 use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageDayValidator;
 use App\Support\Workspaces\CurrentWorkspace;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -281,3 +285,33 @@ Artisan::command('bridge:rotate-copied-tokens {--out= : New file for NAME=id|tok
 
     return 0;
 })->purpose('Staging only: give every API token a new plaintext, written to a new 0600 file');
+
+// Ops: on staging (or a local copy with --force-env=staging) mark one user's email as verified, e.g. while mail only
+// goes to the log. Same environment guard as bridge:rotate-copied-tokens (StagingOnlyGuard). Prints only the user id
+// and "verified" / "would verify": never the email, a link or a token.
+Artisan::command('bridge:verify-email {--email= : The user\'s login email} {--force-env= : "staging" to run outside APP_ENV=staging (never on production)} {--dry-run : Show what would happen, change nothing}', function () {
+    $refusal = StagingOnlyGuard::refusal((string) app()->environment(), $this->option('force-env'), config('app.url'));
+    if ($refusal !== null) {
+        $this->error($refusal);
+
+        return 1;
+    }
+    $email = Str::lower(trim((string) $this->option('email')));
+    $user = $email === '' ? null : User::query()->where('email', $email)->first();
+    if ($user === null) {
+        $this->error('No user with that email.');
+
+        return 1;
+    }
+    if ($this->option('dry-run')) {
+        $this->line($user->id.' would verify');
+
+        return 0;
+    }
+    if (! $user->hasVerifiedEmail() && $user->markEmailAsVerified()) {
+        event(new Verified($user));
+    }
+    $this->line($user->id.' verified');
+
+    return 0;
+})->purpose('Staging only: mark a user\'s email as verified (prints the user id only)');
