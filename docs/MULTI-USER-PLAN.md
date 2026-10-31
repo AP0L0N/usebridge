@@ -346,7 +346,10 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
 2. ~~MCP endpoint~~ — done (§6, §11).
 3. ~~Cursor ingest~~ — done: scoped replace + markers, `cursor` tool, new columns; CSV import (§7).
 4. ~~UI from the prototypes~~ — done (§11 "UI"): login / signup (Turnstile) / reset / account / tokens + MCP /
-   onboarding / admin / usage Cursor + CSV upload, shell. Left from it (backend, each switches its screen on by itself):
+   onboarding / admin / usage Cursor + CSV upload, shell. Redone on the Figma redesigns since (§11 "Redesign
+   screens"): app shell + top bar (guest / user / owner), Portfolio cards, Account, API tokens & MCP, Usage overview
+   + single agent, Polymarket desk (owner only), all auth states, onboarding steps 1–3 + ready banner, landing
+   page, legal pages + footer, on the shared tokens.css + Geist. Left from it (backend, each switches its screen on by itself):
    - `PATCH /account` {name, timezone, email} + email change (`pending_email` signed link), `POST /account/email/resend`,
      `DELETE /account/email/pending` — named `account.update` / `account.email.resend` / `account.email.cancel`; the
      profile form is read-only and the pending banner has no actions until those route names exist.
@@ -361,6 +364,31 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
    artisan imports, first-agent creation for new workspaces (`POST /api/agents` is Captain-only today; until then
    web-created projects have no PM, so only Captain / the UI can set their status).
+
+**Prod prerequisite** (env keys prod sets before the multi-user deploy; names + purpose only, values stay private):
+
+- `BRIDGE_OWNER_EMAIL` — owner the backfill migration picks or creates; it refuses to run without it (set, then
+  `config:clear`, before `migrate`).
+- `BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` — the backfilled workspace; a database already migrated keeps
+  the slug it was migrated with.
+- `BRIDGE_OWNER_WAITING_LABEL` — the exact current waiting label, stored for pre-existing workspaces at migration
+  (empty = derived from the default workspace owner's first name).
+- `BRIDGE_GATE_PASSWORD` — set explicitly before this ships (unset/empty = the gate rejects everyone); flip
+  `BRIDGE_GATE_ENABLED=false` at the launch to retire the gate (§0 decision 9).
+- `BRIDGE_PUBLIC_URL` — public base for ticket links in API payloads (empty = `APP_URL`).
+- `BRIDGE_LIVE_HOST` — the live host `bridge:rotate-copied-tokens` refuses on staging database copies.
+- `BRIDGE_ROSTER_PATH` — roster JSON outside the repo (agents, per-project PMs, fixed ticket prefixes).
+- `SANCTUM_TOKEN_PREFIX` — new tokens carry it; without it every minted token lists as "legacy".
+- `BRIDGE_SOURCE_SHA` (else `BRIDGE_DEPLOYED_SHA`) — deployed commit for the footer's AGPL source link.
+- `BRIDGE_LEGAL_DIR` — final legal texts outside the repo (empty = the shipped placeholders).
+- `BRIDGE_LEGAL_ENTITY` — operator name in the footer © line; `BRIDGE_TERMS_VERSION` — terms version stored at
+  sign-up (the draft until the final texts ship).
+- `LOG_CHANNEL` / `LOG_DAILY_DAYS` — daily log files, kept 14 days (the privacy promise).
+- `BRIDGE_ACCOUNT_PURGE_ENABLED=false` — hard purge of deleted accounts stays off until Tilen decides (§13).
+- `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — sign-up bot check; the widget's Pre-clearance stays **OFF** (no
+  `cf_clearance` cookie). Until The Many creates the keys, honeypot + minimum fill time apply.
+- plus `SESSION_DRIVER=database` (sessions / disable / log out everywhere) and `MAIL_*` (verification / reset
+  mail) from the §11 checklist.
 
 ## 10. Risks
 
@@ -427,6 +455,27 @@ breakpoints, reduced motion). Every write goes to the JSON routes above; the new
 | Board settings | `GET /projects/{slug}` + {columnLabelsUrl (logged-in only, null for the gate), defaultColumns}; `board.project.description` | "Column labels" button → sheet / dialog (default per column, "Use default names", per-field errors) → toast + board reload; description under the name |
 | Admin | `GET /admin/users` → `Admin/Users` {users (exactly `AdminUsers::KEYS`), meId} (JSON clients keep the JSON); 404 for non-admins | status chips, disable (confirm) / enable; no counts, no invited state |
 | Usage | `/usage` (`Usage/Overview`) | Cursor models section: stats, per-model table, daily chart by model, one account "Cursor (all agents)", cost when the CSV had one (`costCents`, only where a row has `cost_cents`); "no file that day" vs zero per tool from `cli.importedTools` (coding tools and Cursor); owner's upload panel (`cli.cursorUpload.allowed`) with summary, kept partial edge days and 422 line errors |
+
+**Redesign screens (Figma, on `feat/multi-user`; the routes/props above are unchanged):** one shared
+`resources/css/tokens.css` (Figma-named variables, byte-identical to the landing's copy) + Geist / Geist Mono;
+the legacy `bridge.css` `:root` still shadows `--paper` / `--line` / `--ok` in the app, so screens that need the
+token values repeat those three locally.
+
+| Screen | Styles / scope | Notes |
+|---|---|---|
+| App shell + top bar (guest / user / owner) | `app-shell.css` (`.app` / `.atb`), `AppTopBar` | top bar states per audience; onboarding lives on it |
+| Portfolio cards | `app-shell.css`, Portfolio | redesign cards take the workspace's waiting label; ReadyBanner ("… is ready" via `GET /?ready=<slug>`) and the dashed violet ConnectBotCard mount until the first API token |
+| Account | `account-redesign.css` (`.acx`) | Tommy's Figma |
+| API tokens & MCP | `account-redesign.css` (`.acx`) | Tommy's Figma |
+| Usage overview + single agent | `usage-redesign.css` (`.bu`) | charts use only `--chart-1..5` / `--chart-grid` |
+| Polymarket desk (owner only) | `pm-desk.css` (`.pmx`) | KPIs, book chart, positions, fills, sweeps; non-owner 404 |
+| Auth: sign up / log in / reset, all states | `auth.css` on tokens.css | AuthLayout (dot-grid stage + 400 px column, GuestTopBar narrow), Button / TextField / Badge / Wordmark; Turnstile module/sign-up kept |
+| Onboarding steps 1–3 + ready banner | `onboarding.css` | stepper (done ink / current lime / next outline) + cards, auth components reused |
+| Landing page | `landing.css` + hero | public, no login; amber placeholder blocks behind `BRIDGE_LANDING_PENDING` (off = absent) |
+| Legal pages + footer | §13(a), `SiteFooter` + Blade partial | one footer on every page, EN \| SL |
+
+Tests with the redesigns: usage screens, Polymarket desk states (owner-only 404, props, stale, unavailable, no
+positions), rendered footer lines EN/SL, landing page (incl. tokens/whitelisted-selectors greps).
 
 Also: the verification mail link opened in a browser redirects (tokens page or login) with a flash instead of
 showing JSON; a user disabled mid-session lands on `/login` with the reason; an empty Portfolio links "Create your first
