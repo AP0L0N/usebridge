@@ -92,6 +92,35 @@ class AccountServiceTest extends TestCase
     }
 
     #[Test]
+    public function a_password_reset_revokes_all_the_users_api_tokens(): void
+    {
+        Notification::fake();
+        $user = $this->accounts()->register('Marta', 'marta@example.test', self::PASSWORD);
+        $other = $this->accounts()->register('Kim', 'kim@example.test', self::PASSWORD);
+        $plain = $user->createToken('laptop', ['*'])->plainTextToken;
+        $user->createToken('mcp', ['boards:read']);
+        $other->createToken('kim-bot', ['*']);
+        $this->getJson('/api/projects', ['Authorization' => "Bearer $plain"])->assertOk();
+
+        $this->accounts()->sendPasswordResetLink('marta@example.test');
+        $token = null;
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $n) use (&$token) {
+            $token = $n->token;
+
+            return true;
+        });
+        // A failed reset changes nothing.
+        $this->assertSame(Password::INVALID_TOKEN, $this->accounts()->resetPassword('marta@example.test', 'wrong', 'a brand new passphrase'));
+        $this->assertSame(2, $user->tokens()->count());
+
+        $this->assertSame(Password::PASSWORD_RESET, $this->accounts()->resetPassword('marta@example.test', $token, 'a brand new passphrase'));
+        $this->assertSame(0, $user->tokens()->count());
+        $this->assertSame(1, $other->tokens()->count());
+        $this->app['auth']->forgetGuards();
+        $this->getJson('/api/projects', ['Authorization' => "Bearer $plain"])->assertUnauthorized();
+    }
+
+    #[Test]
     public function change_password_needs_the_current_one(): void
     {
         $user = $this->accounts()->register('Marta', 'marta@example.test', self::PASSWORD);

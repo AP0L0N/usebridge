@@ -101,6 +101,9 @@ final class AccountService
                 LoginService::clearLock($user);
                 $user->forceFill(['password' => $password])->save();
                 $this->sessions->logoutAll($user);
+                // S13: a reset means the account may be compromised: every API token (bots, MCP) is revoked too.
+                // The token agents stay (they own history); a new token can be created after logging in.
+                $user->tokens()->delete();
                 event(new PasswordReset($user));
             },
         );
