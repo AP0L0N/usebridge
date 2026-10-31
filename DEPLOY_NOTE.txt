@@ -1,3 +1,0 @@
-Live deploy DocumentRoot (later, parent): /var/www/bridge/public
-Currently static SPA was /var/www/bridge/dist
-App path on box: /workspace/bridge

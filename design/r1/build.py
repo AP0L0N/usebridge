@@ -34,16 +34,16 @@ def header(active, search_val='', show_arch=False, dash=True):
 
 PROJ = [
  # name, status, days, latest, updated, flags
- ("AdriaEdition","w",4,"Round 6 mocks delivered — waiting on Denis for region photos and the Osrednjeslovenska count.","4 days ago",""),
- ("Chipolo × SECRID","w",2,"Hotfix passed QA on preview — waiting on Watts to publish to live.","2 days ago",""),
- ("ChatPulse","w",1,"Onboarding copy draft ready — waiting on Marie for the final pass.","Yesterday",""),
- ("Concierge Avant","ok",0,"Weekly digest shipped; nothing blocking.","Today, 09:12","reopened"),
- ("Merkwell","ok",0,"Inbox triage running smoothly; next review on Friday.","Today, 07:40",""),
+ ("Northwind","w",4,"Round 6 mocks delivered — waiting on Dana for product photos and the store count.","4 days ago",""),
+ ("Blue Harbor","w",2,"Hotfix passed QA on preview — waiting on Watts to publish to live.","2 days ago",""),
+ ("Acme Studio","w",1,"Onboarding copy draft ready — waiting on Marie for the final pass.","Yesterday",""),
+ ("Cobalt Works","ok",0,"Weekly digest shipped; nothing blocking.","Today, 09:12","reopened"),
+ ("Sundial","ok",0,"Inbox triage running smoothly; next review on Friday.","Today, 07:40",""),
  ("Bridge","ok",0,"Redesign r1 in progress — two screens only.","Today, 18:05",""),
 ]
 ARCH = [
- ("Zeleni Mark","arch",0,"Launch page live. Project closed.","12 Sep 2026",""),
- ("Chipolo Phase 0","arch",0,"Theme audit handed over to Phase 1.","28 Aug 2026",""),
+ ("Fernleaf","arch",0,"Launch page live. Project closed.","12 Sep 2026",""),
+ ("Blue Harbor Phase 0","arch",0,"Theme audit handed over to Phase 1.","28 Aug 2026",""),
 ]
 def row(p, hl=None):
     n,st,d,line,upd,fl = p
@@ -52,7 +52,7 @@ def row(p, hl=None):
     else: line_h = html.escape(line)
     reo = f'<span class="reopen" title="Reopened by a new update">{ICON["reopen"]}{S("dash.reopened","Reopened by new update")}</span>' if fl=='reopened' else ''
     cls = {'w':'s-w'+str(1 if d<=1 else 2 if d==2 else 3),'ok':'s-ok','arch':'s-arch'}[st]
-    return f'''<a class="prow {cls}" href="project-adriaedition.html"><span class="spine"></span>
+    return f'''<a class="prow {cls}" href="project-northwind.html"><span class="spine"></span>
 <div class="pmain"><div class="pname"><span>{name}</span>{reo}</div><p class="pline">{line_h}</p></div>
 <div class="pbadge">{badge(st,d)}</div>
 <div class="pupd"><span class="lbl">{S("dash.updated","Updated")}</span> <time>{upd}</time></div></a>'''
@@ -92,7 +92,7 @@ def page(name, inner):
 
 ALL = PROJ+ARCH
 dash('dashboard-default.html', rows=PROJ)
-q='chipolo'; dash('dashboard-search.html', query=q, rows=[r for r in ALL if q in r[0].lower()+r[3].lower()])
+q='blue harbor'; dash('dashboard-search.html', query=q, rows=[r for r in ALL if q in r[0].lower()+r[3].lower()])
 dash('dashboard-archived.html', arch=True, rows=ALL)
 dash('dashboard-no-results.html', query='lisbon', empty='noresults')
 dash('dashboard-empty.html', empty='portfolio', rows=[])
@@ -101,16 +101,16 @@ def md(s):
     import markdown
     return markdown.markdown(s)
 UPD = [
- ("Enrique Cortez","Today, 18:40","**Round 6 update shipped** to the client preview.\n\n- Region label now *Osrednjeslovenska* everywhere\n- Čas tartufov recount: **31** (was 35)\n- Changed files listed in [the r6 handoff](#)\n\n**Waiting on:** Denis — new region photos; which central-region count to use."),
- ("Dr. Marie Delacroix","Today, 16:05","RUNDA 6 strings delivered:\n\n1. Five idea names with sublines\n2. »Pokaži več« plural forms\n3. Trip-row **Rezerviraj** label"),
- ("Enrique Cortez","Thu 8 Oct, 11:20","**Round 5 live** on the preview link.\n\n- Search window and favourites added\n- Pomoč za restavracije page drafted\n\n**Waiting on:** Denis — 10 open questions (photos, marketplace claim)."),
- ("Tommy Suarez","Wed 7 Oct, 17:45","Round 4 final copy merged; footer phone number still a placeholder.\n\n**Waiting on:** Denis — AE footer phone number."),
+ ("Enrique Cortez","Today, 18:40","**Round 6 update shipped** to the client preview.\n\n- Region label now *Central* everywhere\n- Store recount: **31** (was 35)\n- Changed files listed in the preview notes"),
+ ("Dr. Marie Delacroix","Today, 16:05","Round 6 strings delivered:\n\n1. Five collection names with sublines\n2. »Show more« plural forms\n3. Trip-row **Book now** label"),
+ ("Enrique Cortez","Thu 8 Oct, 11:20","**Round 5 live** on the preview link.\n\n- Search window and favourites added\n- Help page for partners drafted\n\n**Waiting on:** Dana — 10 open questions"),
+ ("Tommy Suarez","Wed 7 Oct, 17:45","Round 4 final copy merged; footer phone number still a placeholder.\n\n**Waiting on:** Dana — footer phone number."),
  ("Enrique Cortez","Mon 5 Oct, 09:30","Kick-off for round 4. Nothing blocking."),
 ]
-OPEN = [("Region photos (Prekmurje, Notranjska, Bela krajina, Dolenjska)","Denis","Thu 8 Oct",4),
-        ("Central-region count: 18 by city or 23 by region field?","Denis","Sat 10 Oct",2),
-        ("Footer phone number","Denis","Sun 11 Oct",1)]
-DONE = [("Final RUNDA 6 strings","Marie","Today"),("Region label decision","Enrique","Sat 10 Oct"),("Izleti trip descriptions","Denis","Fri 9 Oct")]
+OPEN = [("Product photos (north, south, east and west collections)","Dana","Thu 8 Oct",4),
+        ("Central-region count: 18 by city or 23 by region field?","Dana","Sat 10 Oct",2),
+        ("Footer phone number","Dana","Sun 11 Oct",1)]
+DONE = [("Final round 6 strings","Marie","Today"),("Region label decision","Enrique","Sat 10 Oct"),("Trip descriptions","Dana","Fri 9 Oct")]
 
 def proj(name, pname, st, d, opens, dones, upds):
     lv = lambda d: 1 if d<=1 else 2 if d==2 else 3
@@ -128,8 +128,8 @@ def proj(name, pname, st, d, opens, dones, upds):
 <aside class="inputs">{S("proj.inputs.heading","Required inputs","h2")}<p class="sub"><b>{len(opens)}</b> <span data-stand-in-key="proj.inputs.openCount">open</span> · {len(dones)} <span data-stand-in-key="proj.inputs.doneCount">done</span></p>
 <ul>{oi}</ul><ul class="donel">{di}</ul></aside></div></main>''')
 STR.setdefault("proj.updates.order","Newest first"); STR.setdefault("proj.inputs.openCount","open"); STR.setdefault("proj.inputs.doneCount","done")
-proj('project-adriaedition.html','AdriaEdition','w',4,OPEN,DONE,UPD)
-proj('project-no-open-inputs.html','Concierge Avant','ok',0,[],
+proj('project-northwind.html','Northwind','w',4,OPEN,DONE,UPD)
+proj('project-no-open-inputs.html','Cobalt Works','ok',0,[],
  [("Digest recipient list","Tilen","Fri 9 Oct"),("Tone sample for weekly digest","Marie","Tue 6 Oct")],
  [("William Diego","Today, 09:12","**Reopened.** New weekly digest shipped.\n\n- Sent to the agreed list\n- No open questions"),
   ("William Diego","Fri 9 Oct, 14:00","Recipient list confirmed by **Tilen**. Archiving until next change.")])
