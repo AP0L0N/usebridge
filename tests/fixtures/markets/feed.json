@@ -1,0 +1,1046 @@
+{
+ "as_of": "2037-10-25T20:47+01:00",
+ "book_value_usd": 1093.3,
+ "cash_usd": 189.75,
+ "open_value_usd": 903.55,
+ "open_count": 8,
+ "high_water_usd": 1528.56,
+ "funded_usd": 1240.0,
+ "funded_since": "2037-10-03T09:20+02:00",
+ "funded_note": "Desk base = free cash in the first desk record. No later deposits (synthetic test data).",
+ "total_pnl_usd": 201.32,
+ "total_pnl_method": "book_value_usd + sweeps_total_usd - funded_usd",
+ "last_decision": "PASS",
+ "gateway": {
+  "status": "ok",
+  "geoblock": false,
+  "country": "NL"
+ },
+ "sweeps_total_usd": 348.02,
+ "realized_pnl_usd": 109.04,
+ "realized_since": "2037-10-03T09:20+02:00",
+ "realized_method": "activity",
+ "realized_note": "Closed desk markets: redeems + sells - buys (synthetic test data).",
+ "cost_basis": "cost_usd/pnl_usd include entry fees; avg_price excludes fees.",
+ "positions": [
+  {
+   "market": "Will the Northwind Reserve raise rates by 25 bps after the October 2037 meeting?",
+   "slug": "will-the-northwind-reserve-raise-rates-by-25-bps-after-the-october-2037-meeting",
+   "event_slug": "northwind-reserve-decision-in-october-2037",
+   "url": "https://polymarket.com/event/northwind-reserve-decision-in-october-2037",
+   "outcome": "Yes",
+   "shares": 328,
+   "avg_price": 0.6807,
+   "cost_usd": 227.73,
+   "cur_price": 0.9234,
+   "value_usd": 302.88,
+   "pnl_usd": 75.15,
+   "pnl_pct": 33.0,
+   "end_date": "2037-10-28",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will the Blue Party win the Westvale Senate race in 2037?",
+   "slug": "will-the-blue-party-win-the-westvale-senate-race-in-2037",
+   "event_slug": "westvale-senate-election-winner",
+   "url": "https://polymarket.com/event/westvale-senate-election-winner",
+   "outcome": "Yes",
+   "shares": 205,
+   "avg_price": 0.7537,
+   "cost_usd": 157.6,
+   "cur_price": 0.8776,
+   "value_usd": 179.91,
+   "pnl_usd": 22.31,
+   "pnl_pct": 14.2,
+   "end_date": "2037-10-26",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will the Harbor Party win the most seats in the 2037 Fernland parliamentary election?",
+   "slug": "will-the-harbor-party-win-the-most-seats-in-the-2037-fernland-parliamentary-election",
+   "event_slug": "fernland-parliamentary-election-winner-2037",
+   "url": "https://polymarket.com/event/fernland-parliamentary-election-winner-2037",
+   "outcome": "Yes",
+   "shares": 196,
+   "avg_price": 0.4127,
+   "cost_usd": 82.51,
+   "cur_price": 0.7463,
+   "value_usd": 146.27,
+   "pnl_usd": 63.76,
+   "pnl_pct": 77.3,
+   "end_date": "2037-10-25",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will the Green Coalition win the most seats in the 2037 Ostmark legislative election?",
+   "slug": "will-the-green-coalition-win-the-most-seats-in-the-2037-ostmark-legislative-election",
+   "event_slug": "ostmark-legislative-election-winner",
+   "url": "https://polymarket.com/event/ostmark-legislative-election-winner",
+   "outcome": "Yes",
+   "shares": 315,
+   "avg_price": 0.8285,
+   "cost_usd": 266.2,
+   "cur_price": 0.4028,
+   "value_usd": 126.88,
+   "pnl_usd": -139.32,
+   "pnl_pct": -52.3,
+   "end_date": "2037-11-03",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will \"Stay\" win the Lakeshire independence referendum by 20–40%?",
+   "slug": "will-stay-win-the-lakeshire-independence-referendum-by-20-40",
+   "event_slug": "lakeshire-independence-referendum-margin-of-victory",
+   "url": "https://polymarket.com/event/lakeshire-independence-referendum-margin-of-victory",
+   "outcome": "Yes",
+   "shares": 157,
+   "avg_price": 0.1032,
+   "cost_usd": 16.53,
+   "cur_price": 0.6192,
+   "value_usd": 97.21,
+   "pnl_usd": 80.68,
+   "pnl_pct": 488.1,
+   "end_date": "2037-10-21",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will Teó Brand win the 2037 Southmark presidential election?",
+   "slug": "will-te-brand-win-the-2037-southmark-presidential-election",
+   "event_slug": "southmark-presidential-election",
+   "url": "https://polymarket.com/event/southmark-presidential-election",
+   "outcome": "Yes",
+   "shares": 123,
+   "avg_price": 0.0609,
+   "cost_usd": 7.64,
+   "cur_price": 0.2485,
+   "value_usd": 30.57,
+   "pnl_usd": 22.93,
+   "pnl_pct": 300.1,
+   "end_date": "2037-10-27",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will Ravi Stone win the 2037 Golden Boot?",
+   "slug": "will-ravi-stone-win-the-2037-golden-boot",
+   "event_slug": "golden-boot-winner-2037",
+   "url": "https://polymarket.com/event/golden-boot-winner-2037",
+   "outcome": "Yes",
+   "shares": 47,
+   "avg_price": 0.6681,
+   "cost_usd": 32.03,
+   "cur_price": 0.2509,
+   "value_usd": 11.79,
+   "pnl_usd": -20.24,
+   "pnl_pct": -63.2,
+   "end_date": "2037-11-12",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will Mara Quill win the next Esterland presidential election?",
+   "slug": "will-mara-quill-win-the-next-esterland-presidential-election",
+   "event_slug": "esterland-presidential-election",
+   "url": "https://polymarket.com/event/esterland-presidential-election",
+   "outcome": "Yes",
+   "shares": 40,
+   "avg_price": 0.5155,
+   "cost_usd": 21.03,
+   "cur_price": 0.2011,
+   "value_usd": 8.04,
+   "pnl_usd": -12.99,
+   "pnl_pct": -61.8,
+   "end_date": "2037-10-29",
+   "redeemable": false,
+   "settled": false
+  },
+  {
+   "market": "Will Fernleaf FC win on 2037-10-06?",
+   "slug": "will-fernleaf-fc-win-on-2037-10-06",
+   "event_slug": "fl-cup-2037-10-06",
+   "url": "https://polymarket.com/event/fl-cup-2037-10-06",
+   "outcome": "No",
+   "shares": 156,
+   "avg_price": 0.5136,
+   "cost_usd": 81.72,
+   "cur_price": 0,
+   "value_usd": 0.0,
+   "pnl_usd": -81.72,
+   "pnl_pct": -100.0,
+   "end_date": "2037-10-06",
+   "redeemable": true,
+   "settled": true
+  },
+  {
+   "market": "Eastline Pipeline restarts by September 30?",
+   "slug": "eastline-pipeline-restarts-by-september-30",
+   "event_slug": "eastline-pipeline-restarts-by-september-30",
+   "url": "https://polymarket.com/event/eastline-pipeline-restarts-by-september-30",
+   "outcome": "Yes",
+   "shares": 348,
+   "avg_price": 0.4817,
+   "cost_usd": 170.98,
+   "cur_price": 0,
+   "value_usd": 0.0,
+   "pnl_usd": -170.98,
+   "pnl_pct": -100.0,
+   "end_date": "2037-10-01",
+   "redeemable": true,
+   "settled": true
+  },
+  {
+   "market": "Will ExampleCoin dip to $1.25 in September?",
+   "slug": "will-examplecoin-dip-to-1-25-in-september",
+   "event_slug": "what-price-will-examplecoin-hit-in-september-2037",
+   "url": "https://polymarket.com/event/what-price-will-examplecoin-hit-in-september-2037",
+   "outcome": "Yes",
+   "shares": 398,
+   "avg_price": 0.3708,
+   "cost_usd": 150.53,
+   "cur_price": 0,
+   "value_usd": 0.0,
+   "pnl_usd": -150.53,
+   "pnl_pct": -100.0,
+   "end_date": "2037-10-01",
+   "redeemable": true,
+   "settled": true
+  }
+ ],
+ "fills": [
+  {
+   "ts": "2037-10-22T13:41+02:00",
+   "market": "Will \"Stay\" win the Lakeshire independence referendum by 20–40%?",
+   "slug": "will-stay-win-the-lakeshire-independence-referendum-by-20-40",
+   "outcome": "Yes",
+   "side": "BUY",
+   "shares": 97,
+   "price": 0.21,
+   "usdc": 20.37
+  },
+  {
+   "ts": "2037-10-21T09:12+02:00",
+   "market": "Will \"Stay\" win the Lakeshire independence referendum by 20–40%?",
+   "slug": "will-stay-win-the-lakeshire-independence-referendum-by-20-40",
+   "outcome": "Yes",
+   "side": "BUY",
+   "shares": 252,
+   "price": 0.19,
+   "usdc": 47.88
+  },
+  {
+   "ts": "2037-10-21T09:12+02:00",
+   "market": "Will \"Stay\" win the Lakeshire independence referendum by 20–40%?",
+   "slug": "will-stay-win-the-lakeshire-independence-referendum-by-20-40",
+   "outcome": "Yes",
+   "side": "BUY",
+   "shares": 12.89,
+   "price": 0.18,
+   "usdc": 2.32
+  },
+  {
+   "ts": "2037-10-19T16:33+02:00",
+   "market": "Will \"Stay\" win the Lakeshire independence referendum by 20–40%?",
+   "slug": "will-stay-win-the-lakeshire-independence-referendum-by-20-40",
+   "outcome": "Yes",
+   "side": "BUY",
+   "shares": 253,
+   "price": 0.16,
+   "usdc": 40.48
+  }
+ ],
+ "sweeps": [
+  {
+   "ts": "2037-10-07T01:37+02:00",
+   "type": "redeem",
+   "amount_usd": 98.0
+  },
+  {
+   "ts": "2037-10-07T09:03+02:00",
+   "type": "sweep",
+   "amount_usd": 42.52
+  },
+  {
+   "ts": "2037-10-08T05:52+02:00",
+   "type": "redeem",
+   "amount_usd": 243.0
+  },
+  {
+   "ts": "2037-10-08T09:31+02:00",
+   "type": "sweep",
+   "amount_usd": 15.39
+  },
+  {
+   "ts": "2037-10-09T23:18+02:00",
+   "type": "redeem",
+   "amount_usd": 212.0
+  },
+  {
+   "ts": "2037-10-11T13:49+02:00",
+   "type": "sweep",
+   "amount_usd": 23.7
+  },
+  {
+   "ts": "2037-10-14T10:22+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0
+  },
+  {
+   "ts": "2037-10-14T10:22+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0
+  },
+  {
+   "ts": "2037-10-14T10:23+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0
+  },
+  {
+   "ts": "2037-10-14T10:24+02:00",
+   "type": "sweep",
+   "amount_usd": 19.03
+  },
+  {
+   "ts": "2037-10-16T06:44+02:00",
+   "type": "redeem",
+   "amount_usd": 303.0
+  },
+  {
+   "ts": "2037-10-16T07:58+02:00",
+   "type": "redeem",
+   "amount_usd": 317.0
+  },
+  {
+   "ts": "2037-10-16T08:26+02:00",
+   "type": "sweep",
+   "amount_usd": 22.38
+  }
+ ],
+ "sweeps_detail": [
+  {
+   "ts": "2037-10-07T01:37+02:00",
+   "type": "redeem",
+   "amount_usd": 98.0,
+   "market": "Harbor Town vs. Fernleaf: O/U 2.5",
+   "tx": "0x0791c7fa479b81a4a2a94b90f5ff2c83caa7ffd4e56605e737f187a5d8c48c0c"
+  },
+  {
+   "ts": "2037-10-07T09:03+02:00",
+   "type": "sweep",
+   "amount_usd": 42.52,
+   "tx": "0x6a78ec7b98de269423a924bdfce8b7132195abcabff27e329d6e554a6f13c827",
+   "ts_precision": "run",
+   "sources": [
+    "desk-run-2037-10-07-0903-sweep.json",
+    "desk-run-2037-10-07-0903.json"
+   ]
+  },
+  {
+   "ts": "2037-10-08T05:52+02:00",
+   "type": "redeem",
+   "amount_usd": 243.0,
+   "market": "Will Blue Harbor FC win on 2037-10-07?",
+   "tx": "0x8412317e1c9b609cb8079fc4f720838dbf42a74dcca1f4023c77589c321c8b38"
+  },
+  {
+   "ts": "2037-10-08T09:31+02:00",
+   "type": "sweep",
+   "amount_usd": 15.39,
+   "tx": "0xccd825a189cd552b919ced273a5e28b12616f6ee1565406d4815fbe9f71f14b5",
+   "ts_precision": "run",
+   "sources": [
+    "desk-run-2037-10-08-0931.json"
+   ]
+  },
+  {
+   "ts": "2037-10-09T23:18+02:00",
+   "type": "redeem",
+   "amount_usd": 212.0,
+   "market": "Will Acme United win on 2037-10-09?",
+   "tx": "0x45a266202ef9010b6e29b220d949b7fe65b562b3c5dd7a6e1147e942c6f0e991"
+  },
+  {
+   "ts": "2037-10-11T13:49+02:00",
+   "type": "sweep",
+   "amount_usd": 23.7,
+   "tx": "0xa8152124d9cb1ba6de1832e824b95dea85742a2180f0c1f9cf60e77d923ec28d",
+   "ts_precision": "between 11:15 and 13:49",
+   "sources": [
+    "sweep-run-01.json"
+   ]
+  },
+  {
+   "ts": "2037-10-14T10:22+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0,
+   "tx": "0x2a3590154c21e9c89b30f95ca1dca462c2d6e9c171a25545ca57672e8d2130bf",
+   "ts_precision": "approx",
+   "sources": [
+    "sweep-run-06.json"
+   ]
+  },
+  {
+   "ts": "2037-10-14T10:22+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0,
+   "tx": "0xf8e1d4a960c8838ca3ffaff63de995db8056fbe6a4bb15f722dc0f4da5943167",
+   "ts_precision": "approx",
+   "sources": [
+    "sweep-run-07.json"
+   ]
+  },
+  {
+   "ts": "2037-10-14T10:23+02:00",
+   "type": "sweep",
+   "amount_usd": 75.0,
+   "tx": "0xde6eab71fd6933517d45f6e3b0201ba15aeb924435cc71ea72a1e92afb4fba21",
+   "ts_precision": "approx",
+   "sources": [
+    "sweep-run-08.json"
+   ]
+  },
+  {
+   "ts": "2037-10-14T10:24+02:00",
+   "type": "sweep",
+   "amount_usd": 19.03,
+   "tx": "0x9763f076cb48d9f6731af24dcce56d9b40bff90bf9af2014c32e28f30c19b324",
+   "ts_precision": "approx",
+   "sources": [
+    "sweep-run-09.json"
+   ]
+  },
+  {
+   "ts": "2037-10-16T06:44+02:00",
+   "type": "redeem",
+   "amount_usd": 303.0,
+   "market": "Will the Riverside Otters win the 2037 Lakes League final?",
+   "tx": "0xfb7d4aff8c3b481c4121c40f952adf09fcf789c7617749940929f3ef5109a061"
+  },
+  {
+   "ts": "2037-10-16T07:58+02:00",
+   "type": "redeem",
+   "amount_usd": 317.0,
+   "market": "Northwind announces end of port strike by October 15, 2037?",
+   "tx": "0x316509d3ef2738b100e3d09ead90f8ef26ea1c047d1fb48e3627e63f3534ad60"
+  },
+  {
+   "ts": "2037-10-16T08:26+02:00",
+   "type": "sweep",
+   "amount_usd": 22.38,
+   "tx": "0xf18cbe11374352a1784ecc7caa0e22ed0666b94183042bbdc20675d300d3e522",
+   "ts_precision": "run",
+   "sources": [
+    "desk-run-2037-10-16-0826.json",
+    "sweep-run-12.json"
+   ]
+  }
+ ],
+ "history": [
+  {
+   "ts": "2037-10-03T09:26+02:00",
+   "book_value_usd": 1241.82,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-03T10:44+02:00",
+   "book_value_usd": 1238.77,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-03T13:11+02:00",
+   "book_value_usd": 1239.7,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-03T19:08+02:00",
+   "book_value_usd": 1236.83,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-04T11:47+02:00",
+   "book_value_usd": 1239.5,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-04T15:31+02:00",
+   "book_value_usd": 1238.13,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-04T16:27+02:00",
+   "book_value_usd": 1242.96,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-04T17:37+02:00",
+   "book_value_usd": 1241.96,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-04T18:54+02:00",
+   "book_value_usd": 1245.4,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-05T09:34+02:00",
+   "book_value_usd": 1243.29,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-05T13:25+02:00",
+   "book_value_usd": 1242.02,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-05T13:53+02:00",
+   "book_value_usd": 1247.9,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-05T14:21+02:00",
+   "book_value_usd": 1253.8,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-05T16:27+02:00",
+   "book_value_usd": 1256.39,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-06T10:30+02:00",
+   "book_value_usd": 1251.65,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-06T14:56+02:00",
+   "book_value_usd": 1258.18,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-06T15:38+02:00",
+   "book_value_usd": 1278.48,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-06T17:02+02:00",
+   "book_value_usd": 1290.0,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-06T17:44+02:00",
+   "book_value_usd": 1315.38,
+   "stop_usd": 562.59
+  },
+  {
+   "ts": "2037-10-07T07:56+02:00",
+   "book_value_usd": 1311.98,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-07T10:44+02:00",
+   "book_value_usd": 1304.38,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-07T11:19+02:00",
+   "book_value_usd": 1318.39,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-07T14:00+02:00",
+   "book_value_usd": 1317.7,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T08:31+02:00",
+   "book_value_usd": 1338.81,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T13:18+02:00",
+   "book_value_usd": 1344.73,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T15:03+02:00",
+   "book_value_usd": 1339.78,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T15:10+02:00",
+   "book_value_usd": 1353.37,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T15:45+02:00",
+   "book_value_usd": 1374.79,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T16:41+02:00",
+   "book_value_usd": 1380.48,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-08T20:25+02:00",
+   "book_value_usd": 1394.48,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T07:28+02:00",
+   "book_value_usd": 1397.08,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T08:10+02:00",
+   "book_value_usd": 1397.68,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T08:31+02:00",
+   "book_value_usd": 1397.56,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T11:47+02:00",
+   "book_value_usd": 1397.25,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T14:00+02:00",
+   "book_value_usd": 1398.89,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T15:45+02:00",
+   "book_value_usd": 1400.17,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-09T17:23+02:00",
+   "book_value_usd": 1411.5,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-10T07:56+02:00",
+   "book_value_usd": 1438.02,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-10T15:45+02:00",
+   "book_value_usd": 1428.91,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-10T19:08+02:00",
+   "book_value_usd": 1451.49,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-10T20:53+02:00",
+   "book_value_usd": 1452.19,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-11T07:07+02:00",
+   "book_value_usd": 1452.94,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-11T08:31+02:00",
+   "book_value_usd": 1471.6,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-11T08:59+02:00",
+   "book_value_usd": 1462.35,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-11T16:27+02:00",
+   "book_value_usd": 1477.34,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-11T18:33+02:00",
+   "book_value_usd": 1474.93,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T08:17+02:00",
+   "book_value_usd": 1483.12,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T10:23+02:00",
+   "book_value_usd": 1480.26,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T11:19+02:00",
+   "book_value_usd": 1479.25,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T12:43+02:00",
+   "book_value_usd": 1487.13,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T17:51+02:00",
+   "book_value_usd": 1490.68,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-12T20:25+02:00",
+   "book_value_usd": 1486.19,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T08:45+02:00",
+   "book_value_usd": 1494.78,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T09:48+02:00",
+   "book_value_usd": 1492.79,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T10:09+02:00",
+   "book_value_usd": 1504.98,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T11:54+02:00",
+   "book_value_usd": 1496.12,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T12:22+02:00",
+   "book_value_usd": 1514.11,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T14:49+02:00",
+   "book_value_usd": 1508.57,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-13T16:13+02:00",
+   "book_value_usd": 1528.56,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-14T12:08+02:00",
+   "book_value_usd": 1521.68,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-14T17:44+02:00",
+   "book_value_usd": 1497.8,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-14T18:40+02:00",
+   "book_value_usd": 1495.14,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-14T18:54+02:00",
+   "book_value_usd": 1487.01,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-15T11:26+02:00",
+   "book_value_usd": 1471.87,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-15T14:42+02:00",
+   "book_value_usd": 1464.55,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-15T14:49+02:00",
+   "book_value_usd": 1439.05,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-15T15:52+02:00",
+   "book_value_usd": 1428.07,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-15T18:47+02:00",
+   "book_value_usd": 1406.8,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-16T07:14+02:00",
+   "book_value_usd": 1398.7,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-16T13:46+02:00",
+   "book_value_usd": 1379.27,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-16T14:42+02:00",
+   "book_value_usd": 1352.9,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-16T14:56+02:00",
+   "book_value_usd": 1328.98,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T11:26+02:00",
+   "book_value_usd": 1331.24,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T13:46+02:00",
+   "book_value_usd": 1330.52,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T13:53+02:00",
+   "book_value_usd": 1315.37,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T14:21+02:00",
+   "book_value_usd": 1292.04,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T15:59+02:00",
+   "book_value_usd": 1261.71,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-17T20:25+02:00",
+   "book_value_usd": 1252.68,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T09:27+02:00",
+   "book_value_usd": 1238.36,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T09:41+02:00",
+   "book_value_usd": 1236.32,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T15:38+02:00",
+   "book_value_usd": 1217.7,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T15:45+02:00",
+   "book_value_usd": 1217.43,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T17:44+02:00",
+   "book_value_usd": 1211.08,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T17:51+02:00",
+   "book_value_usd": 1200.0,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-18T17:58+02:00",
+   "book_value_usd": 1174.26,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T09:20+02:00",
+   "book_value_usd": 1168.62,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T13:46+02:00",
+   "book_value_usd": 1169.56,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T13:53+02:00",
+   "book_value_usd": 1170.79,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T16:13+02:00",
+   "book_value_usd": 1152.82,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T16:48+02:00",
+   "book_value_usd": 1134.49,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T19:08+02:00",
+   "book_value_usd": 1116.38,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-19T20:53+02:00",
+   "book_value_usd": 1106.91,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-20T10:44+02:00",
+   "book_value_usd": 1123.84,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-20T14:00+02:00",
+   "book_value_usd": 1111.96,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-20T17:44+02:00",
+   "book_value_usd": 1125.48,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-20T20:39+02:00",
+   "book_value_usd": 1118.34,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-21T07:07+02:00",
+   "book_value_usd": 1103.88,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-21T12:22+02:00",
+   "book_value_usd": 1104.31,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-21T16:34+02:00",
+   "book_value_usd": 1096.05,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-21T19:36+02:00",
+   "book_value_usd": 1091.15,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-22T08:59+02:00",
+   "book_value_usd": 1098.11,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-22T10:23+02:00",
+   "book_value_usd": 1103.73,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-22T12:15+02:00",
+   "book_value_usd": 1090.86,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-22T18:33+02:00",
+   "book_value_usd": 1097.22,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-22T19:01+02:00",
+   "book_value_usd": 1099.1,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-23T09:20+02:00",
+   "book_value_usd": 1090.37,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-23T17:44+02:00",
+   "book_value_usd": 1105.06,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-23T18:33+02:00",
+   "book_value_usd": 1101.31,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-23T19:29+02:00",
+   "book_value_usd": 1097.11,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-23T20:32+02:00",
+   "book_value_usd": 1099.84,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-24T07:07+02:00",
+   "book_value_usd": 1091.35,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-24T11:05+02:00",
+   "book_value_usd": 1083.58,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-24T12:57+02:00",
+   "book_value_usd": 1076.58,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-24T19:22+02:00",
+   "book_value_usd": 1086.68,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T07:07+01:00",
+   "book_value_usd": 1078.8,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T08:31+01:00",
+   "book_value_usd": 1071.28,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T12:36+01:00",
+   "book_value_usd": 1069.38,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T17:51+01:00",
+   "book_value_usd": 1079.4,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T18:19+01:00",
+   "book_value_usd": 1074.72,
+   "stop_usd": null
+  },
+  {
+   "ts": "2037-10-25T19:22+01:00",
+   "book_value_usd": 1067.84,
+   "stop_usd": null
+  }
+ ],
+ "note": "Fernland result pending (resolves today); Ostmark and Southmark resolve later this week; Lakeshire pending. No material edge.",
+ "note_ts": "2037-10-25T19:22+01:00"
+}

@@ -60,8 +60,8 @@ class AdminIsolationTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->call('POST', '/api/usage/days', [], [], [], [
             'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json', 'HTTP_AUTHORIZATION' => "Bearer {$this->martaToken}",
-        ], UsageImportTest::fixture('2026-10-19'))->assertCreated();
-        preg_match('/"agent_id":\s*"([^"]+)"/', UsageImportTest::fixture('2026-10-19'), $m);
+        ], UsageImportTest::fixture('2037-10-19'))->assertCreated();
+        preg_match('/"agent_id":\s*"([^"]+)"/', UsageImportTest::fixture('2037-10-19'), $m);
         $this->usageAgent = $m[1];
     }
 
@@ -115,27 +115,27 @@ class AdminIsolationTest extends TestCase
         $this->asTilen()->postJson('/projects/marta-lab/status-updates', ['body' => 'x'])->assertNotFound();
         $this->asTilen()->patchJson('/projects/marta-lab/status', ['status' => 'smooth'])->assertNotFound();
         $this->asTilen()->get("/usage/agents/{$this->usageAgent}?range=7")->assertNotFound();
-        foreach (['/', '/usage?range=7', '/usage?day=2026-10-19'] as $uri) {
+        foreach (['/', '/usage?range=7', '/usage?day=2037-10-19'] as $uri) {
             $body = $this->asTilen()->get($uri)->assertOk()->getContent();
             foreach (['Marta Lab', 'proj-marta', 'Marta secret', $this->usageAgent] as $secret) {
                 $this->assertStringNotContainsString($secret, $body, "$uri leaks $secret");
             }
         }
         // His own workspace is all he gets.
-        $this->asTilen()->get('/projects/concierge-avant')->assertOk();
+        $this->asTilen()->get('/projects/blue-harbor')->assertOk();
 
         // Control: Marta's web session sees her own.
         $this->app['auth']->forgetGuards();
         $this->actingAs($this->marta, 'web')->get('/projects/marta-lab')->assertOk();
         $this->actingAs($this->marta, 'web')->get("/usage/agents/{$this->usageAgent}?range=7")->assertOk();
-        $this->actingAs($this->marta, 'web')->get('/projects/concierge-avant')->assertNotFound();
+        $this->actingAs($this->marta, 'web')->get('/projects/blue-harbor')->assertNotFound();
     }
 
     #[Test]
     public function the_gate_does_not_widen_a_logged_in_users_view(): void
     {
         $this->app['auth']->forgetGuards();
-        $this->actingAs($this->marta, 'web')->withSession(['bridge_gate_unlocked' => true])->get('/projects/concierge-avant')->assertNotFound();
+        $this->actingAs($this->marta, 'web')->withSession(['bridge_gate_unlocked' => true])->get('/projects/blue-harbor')->assertNotFound();
     }
 
     #[Test]
