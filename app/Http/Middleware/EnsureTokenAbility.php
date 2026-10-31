@@ -30,15 +30,29 @@ class EnsureTokenAbility
 
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
         $needed = self::abilityFor($request);
-        foreach ([...self::FULL, $needed] as $ability) {
-            if ($user?->tokenCan($ability)) {
-                return $next($request);
+        if (self::allows($request->user(), $needed)) {
+            return $next($request);
+        }
+
+        return response()->json(['message' => self::lacks($needed)], 403);
+    }
+
+    /** The token (of $user) has $ability, '*' or the legacy 'ceo'. Also used by the MCP tools. */
+    public static function allows(mixed $user, string $ability): bool
+    {
+        foreach ([...self::FULL, $ability] as $a) {
+            if ($user?->tokenCan($a)) {
+                return true;
             }
         }
 
-        return response()->json(['message' => "This token lacks the '$needed' ability."], 403);
+        return false;
+    }
+
+    public static function lacks(string $ability): string
+    {
+        return "This token lacks the '$ability' ability.";
     }
 
     public static function abilityFor(Request $request): string

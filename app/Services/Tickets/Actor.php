@@ -51,7 +51,12 @@ final class Actor
     /** Resolve the acting agent of an API write. 422 when missing/unknown/tilen, 403 when it contradicts the token. */
     public static function fromApi(Request $request): self
     {
-        $given = $request->input('actor', $request->input('author'));
+        return self::forToken($request->input('actor', $request->input('author')), $request->user());
+    }
+
+    /** Same rules for an API token user and a given `actor` (REST body or MCP tool argument). */
+    public static function forToken(mixed $given, mixed $user): self
+    {
         if ($given !== null && ! is_string($given)) {
             throw ValidationException::withMessages(['actor' => 'The actor must be an agent id (GET /api/agents).']);
         }
@@ -60,7 +65,7 @@ final class Actor
             throw ValidationException::withMessages(['actor' => self::TILEN_ONLY_UI.'; use your agent id as actor.']);
         }
 
-        $tokenName = self::tokenAgent($request);
+        $tokenName = self::tokenAgent($user);
         if ($tokenName !== null) {
             abort_if($given !== null && $given !== '' && $given !== $tokenName, 403, "This token belongs to $tokenName; actor must be $tokenName (or omitted).");
 
@@ -78,9 +83,9 @@ final class Actor
     }
 
     /** The token's name when it names an existing agent (per-agent tokens), else null (shared CEO token). */
-    private static function tokenAgent(Request $request): ?string
+    private static function tokenAgent(mixed $user): ?string
     {
-        $token = $request->user()?->currentAccessToken();
+        $token = $user?->currentAccessToken();
         if (! $token instanceof PersonalAccessToken || ! $token->exists) {
             return null;
         }

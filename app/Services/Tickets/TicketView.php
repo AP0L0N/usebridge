@@ -184,7 +184,31 @@ final class TicketView
         return Carbon::parse($iso)->setTimezone((string) config('app.timezone'));
     }
 
-    /** Shared list filters (GET /api/tickets and /api/projects/{id}/tickets). */
+    /** Validation of the list filters (GET /api/tickets, /api/projects/{id}/tickets and MCP list_tickets). */
+    public static function filterRules(): array
+    {
+        return [
+            'project_id' => ['nullable', 'string'],
+            'status' => ['nullable', 'string', function ($attr, $value, $fail) {
+                foreach (explode(',', (string) $value) as $s) {
+                    if (! in_array(trim($s), BoardColumns::keys(), true)) {
+                        $fail('status must be one of '.implode(', ', BoardColumns::keys()).' (comma-separated).');
+                    }
+                }
+            }],
+            'assignee' => ['nullable', 'string', 'max:120'],
+            'label' => ['nullable', 'string', 'max:24'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'needs_pm_pickup' => ['nullable', 'in:0,1,true,false'],
+            'unread_for_tilen' => ['nullable', 'in:0,1,true,false'],
+            'blocked' => ['nullable', 'in:0,1,true,false'],
+            'include_archived' => ['nullable', 'in:0,1,true,false'],
+            'updated_since' => ['nullable', 'date'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ];
+    }
+
+    /** Shared list filters (GET /api/tickets and /api/projects/{id}/tickets, MCP list_tickets). */
     public static function filter(Builder $q, array $f): Builder
     {
         if (! empty($f['project_id'])) {
@@ -200,6 +224,11 @@ final class TicketView
         }
         if (! empty($f['label'])) {
             $q->whereHas('labels', fn ($l) => $l->whereRaw('LOWER(name) = ?', [mb_strtolower($f['label'])]));
+        }
+        if (! empty($f['q'])) {
+            // Title or key substring (LIKE is case-insensitive on MySQL's default collation and SQLite for ASCII).
+            $needle = '%'.trim($f['q']).'%';
+            $q->where(fn ($w) => $w->where('title', 'like', $needle)->orWhere('key', 'like', $needle));
         }
         if (! empty($f['needs_pm_pickup'])) {
             $q->needsPmPickup();

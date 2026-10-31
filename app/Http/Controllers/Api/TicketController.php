@@ -10,7 +10,6 @@ use App\Models\TicketEvent;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\TicketService;
 use App\Services\Tickets\TicketView;
-use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,27 +21,10 @@ class TicketController extends Controller
 
     public function __construct(private readonly TicketService $tickets) {}
 
-    /** GET /api/tickets ?project_id=&status=&assignee=&label=&needs_pm_pickup=1&unread_for_tilen=1&blocked=1&updated_since=&include_archived=1&limit= */
+    /** GET /api/tickets ?project_id=&status=&assignee=&label=&q=&needs_pm_pickup=1&unread_for_tilen=1&blocked=1&updated_since=&include_archived=1&limit= */
     public function index(Request $request): JsonResponse
     {
-        $f = $request->validate([
-            'project_id' => ['nullable', 'string'],
-            'status' => ['nullable', 'string', function ($attr, $value, $fail) {
-                foreach (explode(',', (string) $value) as $s) {
-                    if (! in_array(trim($s), BoardColumns::keys(), true)) {
-                        $fail('status must be one of '.implode(', ', BoardColumns::keys()).' (comma-separated).');
-                    }
-                }
-            }],
-            'assignee' => ['nullable', 'string', 'max:120'],
-            'label' => ['nullable', 'string', 'max:24'],
-            'needs_pm_pickup' => ['nullable', 'in:0,1,true,false'],
-            'unread_for_tilen' => ['nullable', 'in:0,1,true,false'],
-            'blocked' => ['nullable', 'in:0,1,true,false'],
-            'include_archived' => ['nullable', 'in:0,1,true,false'],
-            'updated_since' => ['nullable', 'date'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
-        ]);
+        $f = $request->validate(TicketView::filterRules());
         foreach (['needs_pm_pickup', 'unread_for_tilen', 'blocked', 'include_archived'] as $k) {
             $f[$k] = self::flag($f[$k] ?? false);
         }
@@ -101,11 +83,7 @@ class TicketController extends Controller
     {
         $t = $this->ticket($ticket);
         $actor = Actor::fromApi($request);
-        $data = $request->validate([
-            'status' => ['required', Rule::in(BoardColumns::keys())],
-            ...TicketService::placementRules(),
-            ...TicketService::askRules(),
-        ]);
+        $data = $request->validate(TicketService::moveRules());
 
         return $this->respond($this->tickets->move($t, $data, $actor));
     }

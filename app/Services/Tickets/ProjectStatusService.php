@@ -7,6 +7,7 @@ use App\Models\ProjectStatusEvent;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * PM-set project status (SPEC §3). Every write — also a note-only update — appends a project_status_events row.
@@ -15,6 +16,15 @@ use Illuminate\Support\Str;
  */
 final class ProjectStatusService
 {
+    /** PATCH /api/projects/{id}/status and MCP set_project_status. */
+    public static function rules(): array
+    {
+        return [
+            'status' => ['required', Rule::in(Project::STATUSES)],
+            'note' => ['nullable', 'string', 'max:280'],
+        ];
+    }
+
     public function canSet(Project $project, string $to, Actor $actor): ?string
     {
         if ($actor->isTilen() || $actor->isCaptain()) {

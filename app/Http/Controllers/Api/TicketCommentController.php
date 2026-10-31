@@ -37,7 +37,7 @@ class TicketCommentController extends Controller
         if ($request->boolean('is_tilen_input') || $request->filled('input_choice')) {
             throw ValidationException::withMessages(['is_tilen_input' => Actor::TILEN_ONLY_UI.'.']);
         }
-        $data = $request->validate(['body' => ['required', 'string', 'max:10000']]);
+        $data = $request->validate(TicketService::commentRules());
         $comment = $this->tickets->comment($t, $actor, $data['body']);
 
         return response()->json(['data' => (new TicketView)->comment($comment->fresh(), $t->fresh())], 201);

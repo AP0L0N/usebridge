@@ -50,6 +50,22 @@ final class TicketService
         ];
     }
 
+    /** POST /api/tickets/{ticket}/move and MCP move_ticket. */
+    public static function moveRules(): array
+    {
+        return [
+            'status' => ['required', Rule::in(BoardColumns::keys())],
+            ...self::placementRules(),
+            ...self::askRules(),
+        ];
+    }
+
+    /** Agent comments (API and MCP). */
+    public static function commentRules(): array
+    {
+        return ['body' => ['required', 'string', 'max:10000']];
+    }
+
     public static function askRules(): array
     {
         return [

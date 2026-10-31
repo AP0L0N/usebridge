@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\FindsTickets;
 use App\Http\Controllers\Controller;
-use App\Models\Project;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\TicketService;
 use App\Services\Tickets\TicketView;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /** PM-set project status (SPEC §3). Every PATCH logs a project_status_events row, also when only the note changes. */
 class ProjectStatusController extends Controller
@@ -38,10 +36,7 @@ class ProjectStatusController extends Controller
     {
         $project = $this->projectById($id);
         $actor = Actor::fromApi($request);
-        $data = $request->validate([
-            'status' => ['required', Rule::in(Project::STATUSES)],
-            'note' => ['nullable', 'string', 'max:280'],
-        ]);
+        $data = $request->validate(ProjectStatusService::rules());
         $denied = $this->status->canSet($project, $data['status'], $actor);
         abort_if($denied !== null, 403, (string) $denied);
 
