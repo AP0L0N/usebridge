@@ -1,0 +1,33 @@
+/*
+ * Logged-out screens (sign up, log in, reset): AuthLayout, Stage, GuestTopBar and the auth form components.
+ * Shared values come from tokens.css (byte-identical to the landing's copy; never edit it here). It is imported into a
+ * cascade layer so the app's own :root values in bridge.css (--ink, --line, --paper, --card) keep winning outside these
+ * screens; values the auth design needs that tokens.css does not hold are the --auth-* variables below.
+ */
+@import './tokens.css' layer(tokens);
+
+:root {
+    --auth-ink: #0B0C0F;        /* tokens --ink; bridge.css shadows that name in the app */
+    --auth-surface: #FFFFFF;
+    --auth-paper: #F6F6F3;      /* disabled field fill */
+    --auth-stage: #08090B;
+    --auth-ink-800: #1C1E24;
+    --auth-ink-600: #4A4F5C;
+    --auth-ink-400: #8A8F9C;
+    --auth-line: #E6E6E1;
+    --auth-ok: #1F9D55;
+    --auth-ok-bg: #E7F5EC;
+    --auth-warn: #D98A00;
+    --auth-warn-bg: #FDF7EC;
+    --auth-warn-line: #F2D9A9;
+    --auth-risk: #E5484D;
+    --auth-risk-bg: #FEF1F1;
+    --auth-risk-line: #F7C6C7;
+    --auth-disabled-bg: #E6E6E1;
+}
+
+/* Geist / Geist Mono, self-hosted (same files and URLs as the landing). */
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/Geist-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Geist'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/Geist-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/GeistMono-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Geist Mono'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/GeistMono-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
