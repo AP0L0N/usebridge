@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -11,11 +15,33 @@ use App\Http\Middleware\EnsureWorkspaceGate;
 use App\Http\Middleware\LegacyReadOnly;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Models\Workspace;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
 Route::post('/gate', [GateController::class, 'unlock'])->name('gate.unlock');
 Route::post('/gate/lock', [GateController::class, 'lock'])->name('gate.lock');
+
+// Accounts (docs/MULTI-USER-PLAN.md §2, §8): JSON for the screens to come. The AUTH-1 gate keeps working beside them;
+// a logged-in user acts in their own workspace (EnsureWorkspaceGate).
+Route::post('/login', [LoginController::class, 'login'])->name('login');
+Route::post('/login/cancel-deletion', [LoginController::class, 'cancelDeletion'])->name('login.cancel-deletion');
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
+Route::post('/forgot-password', [PasswordController::class, 'forgot'])->middleware('throttle:6,1')->name('password.email');
+Route::post('/reset-password', [PasswordController::class, 'reset'])->middleware('throttle:6,1')->name('password.update');
+Route::get('/email/verify', [EmailVerificationController::class, 'notice'])->name('verification.notice');
+Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
+    ->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
+Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->group(function () {
+    Route::get('/', fn (Request $request) => response()->json(['user' => LoginController::user($request->user())]))->name('account.show');
+    Route::put('/password', [PasswordController::class, 'change'])->name('account.password');
+    Route::get('/sessions', [SessionController::class, 'index'])->name('account.sessions');
+    Route::delete('/sessions/others', [SessionController::class, 'destroyOthers'])->name('account.sessions.others');
+    Route::delete('/sessions', [SessionController::class, 'destroyAll'])->name('account.sessions.all');
+});
 
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
     Route::get('/', PortfolioController::class)->name('portfolio');

@@ -14,13 +14,15 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Accounts without screens yet (docs/MULTI-USER-PLAN.md §2): sign up (user + own workspace as owner), password reset
- * through the built-in broker (password_reset_tokens, 60 min, 60 s throttle) and password change. Controllers for the
- * login/signup/reset screens call this; login itself is Auth::attempt + session regenerate in the controller.
+ * Accounts (docs/MULTI-USER-PLAN.md §2): sign up (user + own workspace as owner, verification mail), password reset
+ * through the built-in broker (password_reset_tokens, 60 min, 60 s throttle) and password change. A reset clears the
+ * login lock and ends every session; a change ends every other session. Login itself is LoginService.
  */
 final class AccountService
 {
-    public const MIN_PASSWORD = 12;
+    public const MIN_PASSWORD = 10;
+
+    public function __construct(private readonly DeviceSessions $sessions) {}
 
     public static function passwordRule(): PasswordRule
     {
@@ -28,7 +30,8 @@ final class AccountService
     }
 
     /**
-     * New user and their own workspace (owner). Features off (no Polymarket).
+     * New user and their own workspace (owner). Features off (no Polymarket). Unverified: the verification mail goes
+     * out here (tokens and MCP need a verified email; the boards do not).
      *
      * @throws ValidationException
      */
@@ -44,7 +47,7 @@ final class AccountService
             ],
         )->validate();
 
-        return DB::transaction(function () use ($data) {
+        $user = DB::transaction(function () use ($data) {
             $user = User::query()->create(['name' => trim($data['name']), 'email' => $data['email'], 'password' => $data['password']]);
             $workspace = Workspace::query()->create([
                 'slug' => $this->freeSlug($data['workspace']),
@@ -56,6 +59,9 @@ final class AccountService
 
             return $user;
         });
+        $user->sendEmailVerificationNotification();
+
+        return $user;
     }
 
     /**
@@ -68,7 +74,7 @@ final class AccountService
     }
 
     /**
-     * Completes a reset: new password, new remember token (other "remember me" sessions end). Returns the broker
+     * Completes a reset: new password, login lock cleared, every session and "remember me" cookie ends. Returns the broker
      * status (Password::PASSWORD_RESET on success, INVALID_TOKEN / INVALID_USER otherwise).
      *
      * @throws ValidationException when the new password is too weak
@@ -80,20 +86,27 @@ final class AccountService
         return Password::broker()->reset(
             ['email' => Str::lower(trim($email)), 'token' => $token, 'password' => $password],
             function (User $user, string $password) {
-                $user->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+                LoginService::clearLock($user);
+                $user->forceFill(['password' => $password])->save();
+                $this->sessions->logoutAll($user);
                 event(new PasswordReset($user));
             },
         );
     }
 
-    /** @throws ValidationException wrong current password or too weak a new one */
-    public function changePassword(User $user, string $current, string $new): void
+    /**
+     * Other devices are logged out (their sessions rows deleted, remember token rotated); $currentSessionId stays.
+     *
+     * @throws ValidationException wrong current password or too weak a new one
+     */
+    public function changePassword(User $user, string $current, string $new, ?string $currentSessionId = null): void
     {
         if (! Hash::check($current, $user->password)) {
             throw ValidationException::withMessages(['current_password' => 'The current password is wrong.']);
         }
         Validator::make(['password' => $new], ['password' => ['required', 'string', self::passwordRule()]])->validate();
         $user->forceFill(['password' => $new, 'remember_token' => Str::random(60)])->save();
+        $this->sessions->logoutOthers($user, $currentSessionId);
     }
 
     private function freeSlug(string $name): string

@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
  * /api (and later /mcp), after auth:sanctum: the workspace the token acts in. The token's workspace_id (the token user
  * must still be its owner or a member), else the user's owned workspace, else the user's only membership; 403
  * otherwise. The backfill bound the existing 'ceo' and per-agent tokens to Tilen's workspace.
+ * Tokens of disabled or deletion-pending users answer 403: blocked, not revoked, so enabling restores the bots (§2).
  */
 class ResolveTokenWorkspace
 {
@@ -22,6 +23,10 @@ class ResolveTokenWorkspace
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        if ($user instanceof User && $user->isBlocked()) {
+            return response()->json(['message' => $user->disabled_at !== null
+                ? 'This account is disabled.' : 'This account is scheduled for deletion.'], 403);
+        }
         $workspace = $user instanceof User ? self::resolve($user, $user->currentAccessToken()) : null;
         if ($workspace === null) {
             return response()->json(['message' => 'This token is not bound to a workspace.'], 403);
@@ -40,12 +45,6 @@ class ResolveTokenWorkspace
             return $workspace !== null && $workspace->hasMember($user) ? $workspace : null;
         }
 
-        $owned = $user->ownedWorkspaces()->orderBy('id')->first();
-        if ($owned !== null) {
-            return $owned;
-        }
-        $memberships = $user->workspaces()->limit(2)->get();
-
-        return $memberships->count() === 1 ? $memberships->first() : null;
+        return $user->homeWorkspace();
     }
 }
