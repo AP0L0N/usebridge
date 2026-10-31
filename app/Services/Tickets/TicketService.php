@@ -127,13 +127,13 @@ final class TicketService
         $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
         $prefix = $locked->ticket_prefix;
         if (blank($prefix)) {
-            $prefix = TicketPrefix::forProject((string) $locked->id, (string) $locked->name, Project::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+            $prefix = TicketPrefix::forProject((string) $locked->id, (string) $locked->name, Project::acrossWorkspaces()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
         }
         $seq = (int) $locked->ticket_seq;
         do {
             $seq++;
             $key = $prefix.'-'.$seq;
-        } while (Ticket::query()->where('key', $key)->exists());
+        } while (Ticket::acrossWorkspaces()->where('key', $key)->exists()); // keys are globally unique (for now)
         Project::query()->whereKey($project->id)->toBase()->update(['ticket_seq' => $seq, 'ticket_prefix' => $prefix]);
         $project->ticket_seq = $seq;
         $project->ticket_prefix = $prefix;

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CliUsageDay extends Model
 {
+    use BelongsToWorkspace;
+
     public const TOOLS = ['claude_code', 'kimi_code', 'opencode_go'];
 
     public const TOOL_LABELS = ['claude_code' => 'Claude Code', 'kimi_code' => 'Kimi Code', 'opencode_go' => 'OpenCode Go'];

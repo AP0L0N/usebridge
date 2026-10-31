@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PolymarketSeriesPoint extends Model
 {
+    use BelongsToWorkspace;
+
     protected $fillable = ['ts', 'ts_raw', 'book_value_usd', 'cash_usd', 'stop_usd', 'source'];
 
     public function instant(): CarbonImmutable

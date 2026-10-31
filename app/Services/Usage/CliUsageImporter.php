@@ -3,6 +3,7 @@
 namespace App\Services\Usage;
 
 use App\Models\CliUsageDay;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -55,7 +56,10 @@ final class CliUsageImporter
             $created = CliUsageDay::query()->where('date', $date)->lockForUpdate()->count() === 0;
             CliUsageDay::query()->where('date', $date)->delete();
             $now = now();
+            // Bulk insert skips the model's creating hook: the workspace is set here.
+            $workspaceId = app(CurrentWorkspace::class)->idForWrite(CliUsageDay::class);
             $rows = array_map(fn ($r) => [
+                'workspace_id' => $workspaceId,
                 'date' => $date,
                 'tool' => $r['tool'],
                 'agent_id' => $r['agent_id'],

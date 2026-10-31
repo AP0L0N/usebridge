@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use App\Services\Tickets\Actor;
 use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** A Kanban ticket (SPEC §6). Never hard-deleted: archived_at is the soft archive. */
 class Ticket extends Model
 {
+    use BelongsToWorkspace;
+
     public const PRIORITIES = ['p1', 'p2', 'p3'];
 
     public const ASSIGNEE_TYPES = ['agent', 'human'];

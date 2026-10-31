@@ -4,6 +4,7 @@ namespace App\Services\Polymarket;
 
 use App\Models\PolymarketSeriesPoint;
 use App\Models\PolymarketSnapshot;
+use App\Support\Workspaces\CurrentWorkspace;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -213,6 +214,9 @@ final class PolymarketFeedImporter
         }
 
         if (! $dryRun) {
+            // Bulk insert skips the model's creating hook: the workspace is set here.
+            $workspaceId = app(CurrentWorkspace::class)->idForWrite(PolymarketSeriesPoint::class);
+            $inserts = array_map(fn ($r) => [...$r, 'workspace_id' => $workspaceId], $inserts);
             foreach (array_chunk($inserts, self::CHUNK) as $chunk) {
                 PolymarketSeriesPoint::query()->insert($chunk);
             }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use App\Support\TicketPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Project extends Model
 {
+    use BelongsToWorkspace;
+
     /** PM-set status (PATCH /api/projects/{id}/status); null = "Status not set". */
     public const STATUSES = ['smooth', 'waiting', 'archived'];
 
@@ -36,10 +39,11 @@ class Project extends Model
 
     protected static function booted(): void
     {
-        // Every new project gets a unique ticket key prefix (same generator as the tickets migration).
+        // Every new project gets a unique ticket key prefix (same generator as the tickets migration). Prefixes are
+        // still globally unique (docs/MULTI-USER-PLAN.md §1), so all workspaces count as taken.
         static::creating(function (Project $project) {
             if (blank($project->ticket_prefix)) {
-                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::query()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::acrossWorkspaces()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
             }
         });
     }

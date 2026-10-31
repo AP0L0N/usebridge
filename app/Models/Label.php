@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /** Global ticket label (reused across projects). */
 class Label extends Model
 {
+    use BelongsToWorkspace;
+
     public const COLORS = ['navy', 'green', 'amber', 'rose', 'violet', 'grey'];
 
     public $incrementing = false;

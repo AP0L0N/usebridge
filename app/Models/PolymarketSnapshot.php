@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PolymarketSnapshot extends Model
 {
+    use BelongsToWorkspace;
+
     protected $fillable = ['as_of', 'as_of_raw', 'payload', 'payload_sha256', 'received_at'];
 
     protected function casts(): array

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Question extends Model
 {
+    use BelongsToWorkspace;
+
     public const TYPES = ['yesno', 'text'];
 
     public const STATES = ['open', 'answered', 'closed'];

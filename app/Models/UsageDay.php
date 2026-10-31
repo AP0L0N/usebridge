@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class UsageDay extends Model
 {
+    use BelongsToWorkspace;
+
     protected $fillable = ['date', 'generated_at', 'est_tokens_total', 'payload'];
 
     protected function casts(): array

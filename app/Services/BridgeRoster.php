@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Models\Agent;
 use App\Models\Project;
 use App\Services\Tickets\Actor;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -55,7 +57,7 @@ final class BridgeRoster
                 }
                 $out['agents_created'][] = $id;
                 if (! $dryRun) {
-                    Agent::query()->insert(['id' => $id, 'name' => $name, 'role_label' => $role, 'created_at' => $now, 'updated_at' => $now]);
+                    Agent::query()->insert(['id' => $id, 'name' => $name, 'role_label' => $role, 'created_at' => $now, 'updated_at' => $now, ...self::workspace('agents')]);
                 }
             }
             foreach (self::PMS as $projectId => $pm) {
@@ -85,6 +87,19 @@ final class BridgeRoster
         return $out;
     }
 
+    /**
+     * workspace_id for a raw insert (no model hook): the given/current workspace, else the default one. Empty before the
+     * multi-user migrations (the 2026_10_29 migration runs this roster on an older schema).
+     */
+    private static function workspace(string $table, ?int $id = null): array
+    {
+        if (! Schema::hasColumn($table, 'workspace_id')) {
+            return [];
+        }
+
+        return ['workspace_id' => $id ?? app(CurrentWorkspace::class)->idForWrite($table)];
+    }
+
     /** Change a project's PM and append a project_pm_events row (history). No-op when unchanged. */
     public static function setPm(Project $project, string $to, string $by, string $source): bool
     {
@@ -101,6 +116,7 @@ final class BridgeRoster
             'set_by' => $by,
             'source' => $source,
             'created_at' => $now,
+            ...self::workspace('project_pm_events', $project->workspace_id),
         ]);
         $project->forceFill(['owner_agent_id' => $to])->save();
 

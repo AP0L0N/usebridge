@@ -8,11 +8,12 @@ use App\Models\User;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
-use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageReport;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -278,7 +279,7 @@ class CliUsageTest extends TestCase
         return json_encode($day);
     }
 
-    private function postDay(string $body): \Illuminate\Testing\TestResponse
+    private function postDay(string $body): TestResponse
     {
         $token = User::factory()->create()->createToken('bridge-api')->plainTextToken;
 
@@ -821,7 +822,8 @@ class CliUsageTest extends TestCase
         app(CliUsageImporter::class)->importRaw(self::fixture());
         $this->assertSame(self::D24_TOTAL, (int) CliUsageDay::query()->selectRaw('sum(input_tokens + output_tokens + cache_read_tokens + cache_creation_tokens) as t')->value('t'));
 
-        $base = ['date' => '2026-10-24', 'tool' => 'claude_code', 'agent_id' => self::SHODAN, 'agent_name' => 'Shodan', 'input_tokens' => 1, 'output_tokens' => 1, 'cache_read_tokens' => 1, 'cache_creation_tokens' => 1, 'calls' => 1];
+        // Bulk insert bypasses the model hook, so workspace_id is given (the key is (workspace_id, date, tool, agent, model)).
+        $base = ['workspace_id' => app(CurrentWorkspace::class)->idForWrite(), 'date' => '2026-10-24', 'tool' => 'claude_code', 'agent_id' => self::SHODAN, 'agent_name' => 'Shodan', 'input_tokens' => 1, 'output_tokens' => 1, 'cache_read_tokens' => 1, 'cache_creation_tokens' => 1, 'calls' => 1];
         CliUsageDay::query()->insert($base + ['model' => 'claude-opus-5-5']); // same (date, tool, agent), other model: allowed
         $this->expectException(QueryException::class);
         CliUsageDay::query()->insert($base + ['model' => 'claude-opus-5-5']);
