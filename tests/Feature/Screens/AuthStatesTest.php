@@ -57,7 +57,7 @@ class AuthStatesTest extends TestCase
                 ->where('copy.stage.hero', 'One bridge between you and your bots.')
                 ->where('copy.stage.subline', 'Your projects, boards and bots, in one place.')
                 ->where('copy.stage.sample', 'Sample data')
-                ->where('copy.topbar.sample', 'Sample data'));
+                ->missing('copy.topbar')); // no "Sample data" chip on the narrow top bar (QA S4)
         }
     }
 

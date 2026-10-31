@@ -20,10 +20,6 @@ return [
         'sample' => 'Sample data',
     ],
 
-    'topbar' => [
-        'sample' => 'Sample data',
-    ],
-
     'common' => [
         'email' => 'Email',
         'password' => 'Password',

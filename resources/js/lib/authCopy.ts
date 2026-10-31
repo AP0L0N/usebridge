@@ -6,7 +6,6 @@ export type AuthCopy = {
   brand: string;
   home: string;
   stage: { label: string; hero: string; subline: string; activity_label: string; activity: Row[]; sample: string };
-  topbar: { sample: string };
   common: Record<
     'email' | 'password' | 'show' | 'hide' | 'show_label' | 'hide_label' | 'please_wait' | 'back_to_login' | 'summary_one' | 'summary_many'
     | 'network' | 'generic' | 'session_expired', string>;
