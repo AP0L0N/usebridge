@@ -106,7 +106,7 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
 
 ## 3. Migrating current data
 
-Done: `2026_10_31_110000_multi_user_backfill` (owner = `BRIDGE_OWNER_EMAIL`, else the token owner, …; workspace
+Done: `2026_10_31_110000_multi_user_backfill` (owner = `BRIDGE_OWNER_EMAIL` only, `migrate` refuses without it; workspace
 `tilen`/`LANTIS`, polymarket on; every row and token → that workspace; idempotent, `down()` drops only what it made).
 Live check: per-table counts equal before/after, `workspace_id IS NULL` = 0, `BRIDGE_API_TOKEN` lists the same projects.
 
@@ -267,11 +267,23 @@ works for the existing pages. A soft-deleted user's email stays taken (unique). 
 (no workspace marker column yet; the soft-deleted owner is the marker). Changing the password also rotates the remember
 token, so this device's "keep me logged in" cookie ends too (its session continues).
 
-**Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate`, else Captain's API
-user becomes owner; (2) `SELECT id, name, abilities FROM personal_access_tokens` — each needs `*`/`ceo` or the
-abilities it uses; (3) rehearse on a dump copy incl. `migrate:rollback --step=4`; (4) after: counts + smoke tests;
-(5) `SESSION_DRIVER=database` (sessions / disable / log out everywhere rely on it); (6) `MAIL_*` before sign-up opens
-(verification); (7) optional `TURNSTILE_*`; (8) daily cron `php artisan bridge:accounts-delete-expired`.
+**Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate` — without it the
+backfill throws and `migrate` stops (it never picks the token owner or first user); (2) `SELECT id, name, abilities FROM
+personal_access_tokens` — each needs `*`/`ceo` or the abilities it uses; (3) rehearse on a dump copy incl.
+`migrate:rollback --step=4`; (4) after: counts + smoke tests; (5) `SESSION_DRIVER=database` (sessions / disable / log
+out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification); (7) optional `TURNSTILE_*`; (8) daily cron
+`php artisan bridge:accounts-delete-expired`; (9) once `laravel/mcp` lands (MCP step), the deploy script needs
+`composer install --no-dev`.
+
+**Staging (`bridge_staging`, migrated before (1) was enforced: Captain's API user is owner + admin, no Tilen user):**
+1. `php artisan bridge:set-owner --email=<Tilen's email> --name=Tilen --dry-run`, then without `--dry-run`. Tilen is
+   created (verified, admin, unusable password) and becomes owner; Captain becomes member, not admin; tokens untouched.
+   Tilen sets a password via `/forgot-password` (with `MAIL_MAILER=log` the mail is in the log; never paste the link).
+2. `php artisan bridge:rotate-copied-tokens --out=<new file>` (`APP_ENV=staging`, or `--force-env=staging` on a
+   non-production env; refuses the live `APP_URL`). Every copied live token gets a new plaintext in place; the new
+   `NAME=id|token` lines (`BRIDGE_API_TOKEN` for `ceo`) are only in that 0600 file. Live tokens then answer 401 there.
+
+**Prod:** set `BRIDGE_OWNER_EMAIL` before `migrate` (step (1) above); no set-owner / rotation needed.
 
 ## 12. Open questions for Tilen
 

@@ -3,6 +3,8 @@
 use App\Models\Project;
 use App\Services\Auth\AccountDeletion;
 use App\Services\BridgeRoster;
+use App\Services\Ops\CopiedTokenRotation;
+use App\Services\Ops\WorkspaceOwnerTransfer;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
 use App\Services\Polymarket\PolymarketFeedValidator;
@@ -14,6 +16,7 @@ use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageDayValidator;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -180,3 +183,55 @@ Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be 
 
     return 0;
 })->purpose('Soft-delete accounts whose deletion grace (7 days) is over; nothing is purged');
+
+// Ops (docs/MULTI-USER-PLAN.md §11): make a user the owner of a workspace, e.g. Tilen on a copy migrated before
+// BRIDGE_OWNER_EMAIL was required. Idempotent, transactional, nothing deleted; prints ids only, never a password or link.
+Artisan::command('bridge:set-owner {--email= : The new owner\'s login email} {--name= : Name when the user is created (default: the email\'s local part)} {--workspace=tilen : Workspace slug} {--dry-run : Show the plan, change nothing}', function (WorkspaceOwnerTransfer $transfer) {
+    $dry = (bool) $this->option('dry-run');
+    try {
+        $r = $transfer->apply((string) $this->option('email'), $this->option('name'), (string) $this->option('workspace'), $dry);
+    } catch (InvalidArgumentException $e) {
+        $this->error($e->getMessage());
+
+        return 1;
+    }
+    $this->line(sprintf('%sworkspace %s (#%d)', $dry ? '[dry run] ' : '', $r['workspace']->slug, $r['workspace']->id));
+    $this->line('owner user id: '.($r['user_id'] ?? 'new'));
+    $this->line('created: '.($r['created'] ? ($dry ? 'would be (yes)' : 'yes') : 'no'));
+    $this->line('previous owners demoted to member (is_admin off): '.($r['demoted'] ? implode(', ', $r['demoted']) : 'none'));
+    if ($dry) {
+        $this->info('Dry run: nothing changed.');
+    } elseif ($r['created']) {
+        $this->info('The new owner has no usable password: use the password reset flow (/forgot-password). With MAIL_MAILER=log the reset mail lands in the application log.');
+    }
+
+    return 0;
+})->purpose('Make the user with this email the owner (and admin) of a workspace; other owners become members (idempotent)');
+
+// Ops (docs/MULTI-USER-PLAN.md §11): on a staging copy of the live database, give every token a new plaintext so live
+// tokens do not work there. Refuses production / the live APP_URL. New tokens go only to the --out file (0600).
+Artisan::command('bridge:rotate-copied-tokens {--out= : New file for NAME=id|token lines (created 0600, never overwritten)} {--force-env= : "staging" to run outside APP_ENV=staging (never on production)} {--dry-run : Count only, change nothing}', function (CopiedTokenRotation $rotation) {
+    $out = $this->option('out');
+    $refusal = CopiedTokenRotation::refusal((string) app()->environment(), $this->option('force-env'), config('app.url'), $out);
+    if ($refusal !== null) {
+        $this->error($refusal);
+
+        return 1;
+    }
+    $dry = (bool) $this->option('dry-run');
+    try {
+        $count = $rotation->rotate((string) $out, $dry);
+    } catch (RuntimeException $e) {
+        $this->error($e->getMessage().' Nothing changed.');
+
+        return 1;
+    }
+    if ($dry) {
+        $this->info("Dry run: would rotate $count token(s) into $out; nothing changed.");
+    } else {
+        Log::info("bridge:rotate-copied-tokens rotated $count token(s), written to $out");
+        $this->info("Rotated $count token(s); new values written to $out (0600). Old plaintexts no longer work here.");
+    }
+
+    return 0;
+})->purpose('Staging only: give every API token a new plaintext, written to a new 0600 file');

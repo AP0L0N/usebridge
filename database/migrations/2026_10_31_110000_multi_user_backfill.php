@@ -10,14 +10,16 @@ use Illuminate\Support\Str;
 /**
  * Multi-user backfill (docs/MULTI-USER-PLAN.md §3): Tilen's workspace owns everything that exists.
  *
- * - Owner user: BRIDGE_OWNER_EMAIL (created with an unusable random password when missing), else the user owning the
- *   Sanctum tokens ('ceo' first: Captain's API user on live), else the first user, else a new tilen@lantis.internal.
- *   is_admin = true.
+ * - Owner user: BRIDGE_OWNER_EMAIL (config bridge.owner_email) only, created with an unusable random password when
+ *   missing; is_admin = true. Never picked automatically: while the workspace does not exist yet, an unset or invalid
+ *   owner email throws and `migrate` stops before changing anything (a token owner or the first user, e.g. Captain's
+ *   API user, must not become owner + admin). A database migrated earlier is fixed with `bridge:set-owner`.
  * - Workspace slug bridge.default_workspace ('tilen'), name 'LANTIS', features {"polymarket": true}; memberships:
  *   owner -> owner, every other token-owning user -> member.
  * - workspace_id := that workspace on every row of every owned table and every token where it is still null. Tokens
  *   keep their user, hash, name and abilities, so BRIDGE_API_TOKEN and per-agent tokens keep working.
- * Idempotent (re-running only fills what is still null). Runs on an empty database too (fresh install / tests).
+ * Idempotent (re-running only fills what is still null). Runs on an empty database too (fresh install; tests set
+ * BRIDGE_OWNER_EMAIL in phpunit.xml).
  * down(): nulls the workspace_id values pointing at this workspace, removes its memberships and the workspace, and
  * clears is_admin of its owner. Users (including one created here) are kept.
  */
@@ -93,27 +95,21 @@ return new class extends Migration
 
     private function ownerId(Carbon $now): int
     {
-        $email = config('bridge.owner_email') ?? env('BRIDGE_OWNER_EMAIL');
-        if (filled($email)) {
-            return (int) (DB::table('users')->where('email', $email)->value('id') ?? $this->createUser((string) $email, $now));
+        $email = config('bridge.owner_email');
+        if (! is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            throw new RuntimeException('Set BRIDGE_OWNER_EMAIL (Tilen\'s login email) and run `php artisan config:clear` before '
+                .'migrating: the multi-user backfill never picks an owner by itself. See docs/MULTI-USER-PLAN.md §11.');
         }
-        $tokenUser = $this->tokenUserIds()[0] ?? null;
-        if ($tokenUser !== null) {
-            return $tokenUser;
-        }
-        $first = DB::table('users')->orderBy('id')->value('id');
 
-        return (int) ($first ?? $this->createUser('tilen@lantis.internal', $now));
+        return (int) (DB::table('users')->where('email', $email)->value('id') ?? $this->createUser($email, $now));
     }
 
-    /** @return list<int> users owning tokens: holders of a 'ceo' token first, then by id */
+    /** @return list<int> users owning tokens (they become members), by id */
     private function tokenUserIds(): array
     {
         return DB::table('personal_access_tokens')
             ->where('tokenable_type', User::class)
-            ->selectRaw("tokenable_id, MAX(CASE WHEN name = 'ceo' THEN 1 ELSE 0 END) AS has_ceo")
-            ->groupBy('tokenable_id')
-            ->orderByDesc('has_ceo')->orderBy('tokenable_id')
+            ->distinct()->orderBy('tokenable_id')
             ->pluck('tokenable_id')
             ->filter(fn ($id) => DB::table('users')->where('id', $id)->exists())
             ->map(fn ($id) => (int) $id)->values()->all();

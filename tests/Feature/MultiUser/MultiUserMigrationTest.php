@@ -55,7 +55,7 @@ class MultiUserMigrationTest extends TestCase
     }
 
     #[Test]
-    public function backfill_assigns_every_row_and_token_to_the_token_owner_workspace(): void
+    public function backfill_assigns_every_row_and_token_to_the_owner_email_workspace(): void
     {
         [$captain, $agentBot] = $this->legacyRows();
         $tokens = DB::table('personal_access_tokens')->get(['id', 'token', 'tokenable_id', 'abilities']);
@@ -65,15 +65,51 @@ class MultiUserMigrationTest extends TestCase
 
         $ws = DB::table('workspaces')->where('slug', 'tilen')->first();
         $this->assertSame(1, DB::table('workspaces')->count());
-        $this->assertSame($captain->id, (int) $ws->owner_user_id, 'the ceo token owner becomes the owner');
-        $this->assertTrue((bool) $captain->fresh()->is_admin);
-        $this->assertSame('member', DB::table('workspace_user')->where(['workspace_id' => $ws->id, 'user_id' => $agentBot->id])->value('role'));
+        $owner = User::query()->where('email', 'owner@example.test')->firstOrFail(); // BRIDGE_OWNER_EMAIL in phpunit.xml
+        $this->assertSame($owner->id, (int) $ws->owner_user_id);
+        $this->assertTrue((bool) $owner->fresh()->is_admin);
+        $this->assertFalse((bool) $captain->fresh()->is_admin, 'the ceo token owner is not made admin');
+        foreach ([$captain, $agentBot] as $member) {
+            $this->assertSame('member', DB::table('workspace_user')->where(['workspace_id' => $ws->id, 'user_id' => $member->id])->value('role'));
+        }
         foreach (['agents', 'projects', 'tickets', 'usage_days', 'personal_access_tokens'] as $t) {
             $this->assertSame(0, DB::table($t)->whereNull('workspace_id')->count(), $t);
             $this->assertSame(0, DB::table($t)->where('workspace_id', '!=', $ws->id)->count(), $t);
         }
         // Tokens unchanged apart from workspace_id: hash, user and abilities kept.
         $this->assertEquals($tokens, DB::table('personal_access_tokens')->get(['id', 'token', 'tokenable_id', 'abilities']));
+    }
+
+    #[Test]
+    public function backfill_without_an_owner_email_refuses_and_changes_nothing(): void
+    {
+        $this->legacyRows();
+        $snapshot = fn () => collect(['users', 'workspaces', 'workspace_user', 'agents', 'projects', 'tickets', 'usage_days', 'personal_access_tokens'])
+            ->mapWithKeys(fn ($t) => [$t => DB::table($t)->get()->map(fn ($r) => (array) $r)->all()])->all();
+        $before = $snapshot();
+
+        foreach ([null, '', 'not-an-email'] as $email) {
+            config(['bridge.owner_email' => $email]);
+            try {
+                $this->backfill()->up();
+                $this->fail('the backfill must refuse without a valid BRIDGE_OWNER_EMAIL');
+            } catch (RuntimeException $e) {
+                $this->assertStringContainsString('BRIDGE_OWNER_EMAIL', $e->getMessage());
+                $this->assertStringContainsString('MULTI-USER-PLAN.md §11', $e->getMessage());
+            }
+            $this->assertSame($before, $snapshot(), 'never picks the first user or the token owner');
+        }
+    }
+
+    #[Test]
+    public function backfill_is_a_no_op_for_the_owner_when_the_workspace_already_exists(): void
+    {
+        $ownerId = DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id');
+        config(['bridge.owner_email' => null]);
+
+        $this->backfill()->up();
+
+        $this->assertSame($ownerId, DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id'));
     }
 
     #[Test]
