@@ -7,22 +7,28 @@ import { fieldErrors, go, requestJson } from '../../lib/http';
 type Props = { formToken: string; turnstileSiteKey: string | null; minPassword: number };
 
 declare global {
-  interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void } }
+  interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void; render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
 }
 
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
 
 /** Cloudflare Turnstile, only when a site key is configured: the script loads then, and renders into .cf-turnstile. */
 function Turnstile({ siteKey }: { siteKey: string }) {
+  const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Script already loaded (an earlier visit in this tab): render explicitly; else its onload scans .cf-turnstile.
+    if (window.turnstile && el.current && el.current.childElementCount === 0) {
+      window.turnstile.render(el.current, { sitekey: siteKey, 'response-field-name': 'cf-turnstile-response' });
+      return;
+    }
     if (document.querySelector(`script[src="${TURNSTILE_SRC}"]`)) return;
     const s = document.createElement('script');
     s.src = TURNSTILE_SRC;
     s.async = true;
     s.defer = true;
     document.head.appendChild(s);
-  }, []);
-  return <div className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
+  }, [siteKey]);
+  return <div ref={el} className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
 }
 
 const FIELD_IDS = { name: 'name', email: 'email', password: 'pw' };

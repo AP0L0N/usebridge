@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { IconCheck, IconClose } from './Fields';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -6,6 +7,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 /**
  * Dialog (.mdl): aria-modal, labelled heading, focus trapped inside, Esc closes, the page behind is inert, and focus
  * returns to the element that opened it. Initial focus: [data-autofocus], else the first field, else the first button.
+ * Rendered into <body> (portal), so making header and main inert never disables the dialog itself.
  */
 export function Modal({ title, onClose, children, footer, alert = false, describedBy, closable = true }: {
   title: ReactNode; onClose: () => void; children: ReactNode; footer: ReactNode; alert?: boolean; describedBy?: string; closable?: boolean;
@@ -43,7 +45,7 @@ export function Modal({ title, onClose, children, footer, alert = false, describ
     };
   }, [closable]);
 
-  return (
+  return createPortal(
     <div className="mdl" onMouseDown={(e) => { if (closable && e.target === e.currentTarget) onClose(); }}>
       <div className="mdlbox" role={alert ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby={hid} aria-describedby={describedBy} ref={box} tabIndex={-1}>
         <div className="mdlh">
@@ -53,7 +55,8 @@ export function Modal({ title, onClose, children, footer, alert = false, describ
         <div className="mdlb">{children}</div>
         <div className="mdlf">{footer}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
