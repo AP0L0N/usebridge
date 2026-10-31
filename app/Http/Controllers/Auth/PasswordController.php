@@ -46,7 +46,9 @@ class PasswordController extends Controller
         $data = $request->validate([
             'current_password' => ['required', 'string'],
             'password' => ['required', 'string'],
-        ]);
+            // The redesigned form sends it; older JSON clients may not.
+            'password_confirmation' => ['sometimes', 'string', 'same:password'],
+        ], ['password_confirmation.same' => __('account.password.mismatch')]);
         $this->accounts->changePassword($request->user(), $data['current_password'], $data['password'], $request->session()->getId());
 
         return response()->json(['message' => 'Password changed. Other devices were logged out.']);

@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * One person's Bridge: projects, agents, boards, usage (docs/MULTI-USER-PLAN.md). Owned rows carry workspace_id
- * (Concerns\BelongsToWorkspace). `features` holds per-workspace switches, e.g. {"polymarket": true}.
+ * (Concerns\BelongsToWorkspace). `features` holds per-workspace switches, e.g. {"polymarket": true}. `settings` holds
+ * per-workspace values, e.g. {"waiting_label": "…"} (the waiting_tilen column name; BoardColumns::defaults).
  */
 class Workspace extends Model
 {
@@ -19,11 +20,13 @@ class Workspace extends Model
     /** POST /api/usage/days from a collector (Tilen's box): read & write tokens get usage:write only with this. */
     public const FEATURE_USAGE_UPLOAD = 'usage_upload';
 
-    protected $fillable = ['slug', 'name', 'owner_user_id', 'features'];
+    public const SETTING_WAITING_LABEL = 'waiting_label';
+
+    protected $fillable = ['slug', 'name', 'owner_user_id', 'features', 'settings'];
 
     protected function casts(): array
     {
-        return ['features' => 'array'];
+        return ['features' => 'array', 'settings' => 'array'];
     }
 
     public function owner(): BelongsTo
@@ -39,6 +42,14 @@ class Workspace extends Model
     public function hasFeature(string $feature): bool
     {
         return ($this->features[$feature] ?? false) === true;
+    }
+
+    /** This workspace's own name for the waiting_tilen column; null = BoardColumns' default. */
+    public function waitingLabel(): ?string
+    {
+        $label = $this->settings[self::SETTING_WAITING_LABEL] ?? null;
+
+        return is_string($label) && trim($label) !== '' ? $label : null;
     }
 
     public function hasMember(User $user): bool

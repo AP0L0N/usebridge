@@ -144,7 +144,7 @@ export const S = {
   'board.add': 'Add ticket',
   'board.colLabels': 'Column labels',
   'board.open': 'open tickets',
-  'board.waiting': 'waiting on you',
+  'board.waiting': '{column}',
   'board.blocked': 'blocked',
   'board.shown': 'shown',
   'board.col.waitingSub': 'Oldest first · your answers go to the PM',

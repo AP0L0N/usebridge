@@ -88,9 +88,9 @@ class ProjectSetupController extends Controller
             }],
             'column_labels.*' => ['required', 'string', 'min:1', 'max:'.BoardColumns::LABEL_MAX],
         ], [
-            'column_labels.*.required' => 'Give every column a name.',
-            'column_labels.*.min' => 'Give every column a name.',
-            'column_labels.*.max' => 'Column names are at most '.BoardColumns::LABEL_MAX.' characters.',
+            'column_labels.*.required' => __('onboarding.errors.column_required'),
+            'column_labels.*.min' => __('onboarding.errors.column_required'),
+            'column_labels.*.max' => __('onboarding.errors.column_max', ['max' => BoardColumns::LABEL_MAX]),
         ]);
 
         $own = array_merge($project->column_labels ?? [], $data['column_labels']);
@@ -104,10 +104,10 @@ class ProjectSetupController extends Controller
     public static function messages(): array
     {
         return [
-            'slug.unique' => 'This slug is already taken.',
-            'slug.regex' => 'Use lowercase letters, digits and single dashes (e.g. garden-planner).',
-            'ticket_prefix.unique' => 'This ticket prefix is already taken.',
-            'ticket_prefix.regex' => 'Use 1–8 capital letters or digits, starting with a letter (e.g. GP).',
+            'slug.unique' => __('onboarding.errors.slug_taken'),
+            'slug.regex' => __('onboarding.errors.slug_regex'),
+            'ticket_prefix.unique' => __('onboarding.errors.prefix_taken'),
+            'ticket_prefix.regex' => __('onboarding.errors.prefix_regex'),
         ];
     }
 

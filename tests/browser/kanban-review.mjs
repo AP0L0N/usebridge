@@ -2,15 +2,16 @@
 // Usage: node tests/browser/kanban-review.mjs   (server: php -S 127.0.0.1:8792 from public/, DB_DATABASE=$KANBAN_DB, default /tmp/kanban.sqlite)
 // The gate password is read from .env and never printed. Exits 1 when any check fails.
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BASE = process.env.KANBAN_BASE ?? 'http://127.0.0.1:8792';
-const PW = readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '');
-if (!PW) { console.error('BRIDGE_GATE_PASSWORD missing in .env'); process.exit(2); }
+// Gate password from the environment (or the repo .env); never a literal. Empty = the gate rejects everyone.
+const PW = process.env.BRIDGE_GATE_PASSWORD || (existsSync(REPO + '/.env') ? readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '') : '');
+if (!PW) { console.error('Set BRIDGE_GATE_PASSWORD (env or .env)'); process.exit(2); }
 const BOARD = BASE + '/projects/blue-harbor';
 const HTTP_CODE = /HTTP|\b[45]\d\d\b/;
 

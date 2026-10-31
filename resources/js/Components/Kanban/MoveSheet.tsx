@@ -9,27 +9,28 @@ const ASK_MAX = 280;
 
 /**
  * Mobile "Move to" sheet (screen 2): one row per column (the current one marked), a chevron hint on the rest, and a
- * Cancel button. Moving into Waiting on you without an ask turns the sheet into the ask step, with a back arrow to
- * the column list (Tommy review c1). Column labels come from the board (per-project names win).
+ * Cancel button. Moving into the waiting column without an ask turns the sheet into the ask step, with a back arrow to
+ * the column list (Tommy review c1). Column labels come from the board (workspace default or the project's own label),
+ * never hard-coded.
  */
 export function MoveSheet({ ticket, columns, onPick, onClose }: { ticket: Ticket; columns: Column[]; onPick: (to: ColumnKey, ask?: string) => void; onClose: () => void }) {
   const [step, setStep] = useState<'list' | 'ask'>('list');
   const listRef = useRef<HTMLUListElement>(null);
   const askRef = useRef<HTMLTextAreaElement>(null);
   const first = useRef(true);
-  const waitingLabel = columns.find((c) => c.key === WAITING)?.label ?? 'Waiting on you';
   useEffect(() => {
     if (first.current) { first.current = false; return; }
     if (step === 'ask') askRef.current?.focus({ preventScroll: true });
     else listRef.current?.querySelector<HTMLElement>(`[data-col="${WAITING}"]`)?.focus({ preventScroll: true });
   }, [step]);
+  const waiting = columns.find((c) => c.key === WAITING)?.label ?? '';
   const pick = (to: ColumnKey) => {
     if (to === ticket.status) return onClose();
     if (to === WAITING && !ticket.ask) return setStep('ask');
     onPick(to);
   };
   return (
-    <Sheet label={step === 'ask' ? t('move.ask.title', { key: ticket.key, column: waitingLabel }) : t('move.title', { key: ticket.key })} onClose={onClose} className={step === 'ask' ? 'askstep' : ''}>
+    <Sheet label={step === 'ask' ? t('move.ask.title', { key: ticket.key, column: waiting }) : t('move.title', { key: ticket.key })} onClose={onClose} className={step === 'ask' ? 'askstep' : ''}>
       {step === 'list' ? (
         <>
           <h3>Move <span className="mono">{ticket.key}</span></h3>
@@ -54,11 +55,11 @@ export function MoveSheet({ ticket, columns, onPick, onClose }: { ticket: Ticket
           <div className="askh">
             <button type="button" className="ibtn" aria-label={t('move.ask.back')} onClick={() => setStep('list')}><IcBack /></button>
             <div>
-              <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column: waitingLabel })}</h3>
+              <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column: waiting })}</h3>
               <p className="asub">{ticket.title}</p>
             </div>
           </div>
-          <AskForm input={askRef} onSubmit={(ask) => onPick(WAITING, ask)} onCancel={onClose} stacked />
+          <AskForm column={waiting} input={askRef} onSubmit={(ask) => onPick(WAITING, ask)} onCancel={onClose} stacked />
         </div>
       )}
     </Sheet>
@@ -66,10 +67,9 @@ export function MoveSheet({ ticket, columns, onPick, onClose }: { ticket: Ticket
 }
 
 /** The ask field shared by the desktop dialog and the mobile sheet step (Tommy review c2, c3, c5). */
-export function AskForm({ input, onSubmit, onCancel, stacked = false, columnLabel }: { input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; stacked?: boolean; columnLabel?: string }) {
+export function AskForm({ column, input, onSubmit, onCancel, stacked = false }: { column: string; input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; stacked?: boolean }) {
   const [ask, setAsk] = useState('');
   const [err, setErr] = useState(false);
-  const label = columnLabel ?? 'Waiting on you';
   const submit = () => {
     if (ask.trim()) return onSubmit(ask.trim());
     setErr(true);
@@ -87,7 +87,7 @@ export function AskForm({ input, onSubmit, onCancel, stacked = false, columnLabe
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} />
         </div>
         <p className="hint count" id="ask-keys">{t('move.ask.count', { n: ask.length, max: ASK_MAX })}</p>
-        {err && <p className="err-line" id="ask-err" role="alert">{t('move.ask.err', { column: label })}</p>}
+        {err && <p className="err-line" id="ask-err" role="alert">{t('move.ask.err', { column })}</p>}
       </div>
       <div className={`qact${stacked ? ' stack1' : ''}`}>
         <button className="btn" type="submit">{t('move.ask.move')}</button>
@@ -98,42 +98,40 @@ export function AskForm({ input, onSubmit, onCancel, stacked = false, columnLabe
 }
 
 /**
- * Moving into Waiting on you from the UI needs an ask (SPEC §4). Desktop: a centred dialog. Mobile (the ticket
- * drawer's status select; the Move sheet has its own step): a bottom sheet. `restoreFocus`: where focus goes on close
- * (the dragged card after a desktop drag, c4).
+ * Moving into the waiting column (`column`: its label) from the UI needs an ask (SPEC §4). Desktop: a centred dialog.
+ * Mobile (the ticket drawer's status select; the Move sheet has its own step): a bottom sheet. `restoreFocus`: where
+ * focus goes on close (the dragged card after a desktop drag, c4).
  */
-export function AskPrompt({ ticket, mobile, columns, onSubmit, onCancel, restoreFocus }: {
-  ticket: Ticket; mobile: boolean; columns: Column[]; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+export function AskPrompt({ ticket, column, mobile, onSubmit, onCancel, restoreFocus }: {
+  ticket: Ticket; column: string; mobile: boolean; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
-  const waitingLabel = columns.find((c) => c.key === WAITING)?.label ?? 'Waiting on you';
   if (mobile) {
     return (
-      <Sheet label={t('move.ask.title', { key: ticket.key, column: waitingLabel })} onClose={onCancel} initialFocus={input} restoreFocus={restoreFocus} className="askstep">
+      <Sheet label={t('move.ask.title', { key: ticket.key, column })} onClose={onCancel} initialFocus={input} restoreFocus={restoreFocus} className="askstep">
         <div className="askw">
-          <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column: waitingLabel })}</h3>
+          <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column })}</h3>
           <p className="asub">{ticket.title}</p>
-          <AskForm input={input} onSubmit={onSubmit} onCancel={onCancel} stacked columnLabel={waitingLabel} />
+          <AskForm column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} stacked />
         </div>
       </Sheet>
     );
   }
-  return <AskDialog ticket={ticket} input={input} columns={columns} onSubmit={onSubmit} onCancel={onCancel} restoreFocus={restoreFocus} />;
+  return <AskDialog ticket={ticket} column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} restoreFocus={restoreFocus} />;
 }
 
-function AskDialog({ ticket, input, columns, onSubmit, onCancel, restoreFocus }: {
-  ticket: Ticket; input: RefObject<HTMLTextAreaElement | null>; columns: Column[]; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
+function AskDialog({ ticket, column, input, onSubmit, onCancel, restoreFocus }: {
+  ticket: Ticket; column: string; input: RefObject<HTMLTextAreaElement | null>; onSubmit: (ask: string) => void; onCancel: () => void; restoreFocus?: () => HTMLElement | null | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onCancel, input, restoreFocus);
   const scrim = useScrimDismiss(ref, onCancel);
-  const waitingLabel = columns.find((c) => c.key === WAITING)?.label ?? 'Waiting on you';
   return (
     <div className="ovl askov" {...scrim}>
       <div ref={ref} className="askbox" role="dialog" aria-modal="true" aria-labelledby="ask-h">
-        <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column: waitingLabel })}</h3>
+        <h3 id="ask-h">{t('move.ask.title', { key: ticket.key, column })}</h3>
         <p className="asub">{ticket.title}</p>
-        <AskForm input={input} onSubmit={onSubmit} onCancel={onCancel} columnLabel={waitingLabel} />
+        <AskForm column={column} input={input} onSubmit={onSubmit} onCancel={onCancel} />
       </div>
     </div>
   );

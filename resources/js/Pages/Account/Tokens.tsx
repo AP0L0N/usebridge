@@ -1,34 +1,39 @@
 import { usePage } from '@inertiajs/react';
 import { useState, type FormEvent } from 'react';
-import { Callout, described, Field } from '../../Components/Account/Fields';
-import { CopyButton, Modal, useToasts } from '../../Components/Account/Overlay';
 import { SettingsLayout, VerifyEmailBanner } from '../../Components/Account/SettingsLayout';
-import { SCOPE_LABEL, type ApiToken, type Shared } from '../../lib/account';
+import { Badge, Button, Card, Chip, CodeBox, CopyButton, describedBy, Dialog, Field, Input, Notice, Select, useToasts } from '../../Components/Account/redesign/Ui';
+import type { ApiToken, Shared, TokenScope } from '../../lib/account';
 import { daysUntil, longDate, updateTime } from '../../lib/dates';
 import { fieldErrors, requestJson } from '../../lib/http';
+import { t, tn, type AcctKey } from '../../lib/strings-account';
 
 type Props = { tokens: ApiToken[]; mcpUrl: string; emailVerified: boolean; expiryDays: number[] };
 
-/** The plaintext lives only in this component's state, from the POST response; it is never a prop. */
+/** The plaintext lives only in this component's state, from the POST response; never a prop, never logged. */
 type Revealed = { token: ApiToken; plain: string };
 
-const EXPIRY_LABEL: Record<string, string> = { 30: 'In 30 days', 90: 'In 90 days', 365: 'In 1 year', never: 'Never' };
+const MASK = 'brg_live_••••';
+const scopeLabel = (s: TokenScope) => t(`tok.scopeLabel.${s}` as AcctKey);
+const expiryLabel = (v: string) => (v === 'never' ? t('tok.create.never') : v === '365' ? t('tok.create.inYear') : t('tok.create.inDays', { n: v }));
 
-function Scopes({ t }: { t: ApiToken }) {
-  if (t.scope === 'read') return <span className="scopes"><span className="kb rd">read</span></span>;
-  if (t.scope === 'write') return <span className="scopes"><span className="kb rd">read</span><span className="kb rw">write</span></span>;
-  return <span className="scopes"><span className="kb rd">{SCOPE_LABEL[t.scope]}</span></span>;
+function Scopes({ scope }: { scope: TokenScope }) {
+  return (
+    <span className="acx-scopes">
+      {scope === 'read' || scope === 'write' ? <Chip>{t('tok.scope.read')}</Chip> : <Chip>{t(`tok.scope.${scope}` as AcctKey)}</Chip>}
+      {scope === 'write' && <Chip kind="write">{t('tok.scope.write')}</Chip>}
+    </span>
+  );
 }
 
 function Expires({ iso, now }: { iso: string | null; now: string }) {
-  if (!iso) return <span className="never">Never</span>;
+  if (!iso) return <>{t('tok.never')}</>;
   const d = daysUntil(iso, now);
-  if (d < 0) return <span className="role off">Expired {longDate(iso)}</span>;
-  if (d <= 7) return <span className="pend">{d === 0 ? 'Expires today' : `Expires in ${d} ${d === 1 ? 'day' : 'days'}`}</span>;
+  if (d < 0) return <Badge tone="risk">{t('tok.expired', { date: longDate(iso) })}</Badge>;
+  if (d <= 7) return <Badge tone="warn">{d === 0 ? t('tok.expiresToday') : tn('tok.expiresIn', d)}</Badge>;
   return <>{longDate(iso)}</>;
 }
 
-/** API tokens & MCP (prototype tokens.html): masked list, create (verified only), one-time reveal, revoke, MCP snippet. */
+/** API tokens & MCP (Figma redesign): masked list, create (verified only), one-time reveal, revoke, MCP connector. */
 export default function Tokens({ tokens: initial, mcpUrl, emailVerified, expiryDays }: Props) {
   const [tokens, setTokens] = useState(initial);
   const [modal, setModal] = useState<null | 'create' | 'reveal' | { revoke: ApiToken }>(null);
@@ -36,26 +41,27 @@ export default function Tokens({ tokens: initial, mcpUrl, emailVerified, expiryD
   const [newId, setNewId] = useState<number | null>(null);
   const { push, region } = useToasts();
   const now = new Date().toISOString();
+  const email = usePage<Shared>().props.auth?.user?.email ?? '';
 
   // create form
+  const defaultExpiry = String(expiryDays.includes(90) ? 90 : expiryDays[0] ?? 'never');
   const [name, setName] = useState('');
   const [scope, setScope] = useState<'read' | 'write'>('write');
-  const [expires, setExpires] = useState<string>(String(expiryDays.includes(90) ? 90 : expiryDays[0] ?? 'never'));
+  const [expires, setExpires] = useState<string>(defaultExpiry);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const email = usePage<Shared>().props.auth?.user?.email ?? 'your email address';
 
-  const openCreate = () => { setName(''); setScope('write'); setErrors({}); setModal('create'); };
+  const openCreate = () => { setName(''); setScope('write'); setExpires(defaultExpiry); setErrors({}); setModal('create'); };
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim() === '') { setErrors({ name: 'Give the token a name' }); return; }
+    if (name.trim() === '') { setErrors({ name: t('tok.create.errName') }); return; }
     setBusy(true);
-    const res = await requestJson<{ data: ApiToken; plain_text_token: string; verified?: boolean }>('POST', '/account/tokens', {
+    const res = await requestJson<{ data: ApiToken; plain_text_token: string }>('POST', '/account/tokens', {
       name: name.trim(), scope, expires: expires === 'never' ? null : Number(expires),
     });
     setBusy(false);
     if (!res.ok) {
-      setErrors(res.status === 422 ? fieldErrors(res.data.errors) : { form: res.data.message ?? 'Something went wrong.' });
+      setErrors(res.status === 422 ? fieldErrors(res.data.errors) : { form: res.data.message ?? t('acct.generic') });
       return;
     }
     setTokens((cur) => [res.data.data, ...cur]);
@@ -63,148 +69,151 @@ export default function Tokens({ tokens: initial, mcpUrl, emailVerified, expiryD
     setRevealed({ token: res.data.data, plain: res.data.plain_text_token });
     setModal('reveal');
   };
+  // Closing the reveal drops the plaintext from state, so it leaves the DOM (JSON example included).
   const doneReveal = () => { setRevealed(null); setModal(null); };
 
-  const revoke = async (t: ApiToken) => {
+  const revoke = async (tok: ApiToken) => {
     setBusy(true);
-    const res = await requestJson('DELETE', `/account/tokens/${t.id}`);
+    const res = await requestJson('DELETE', `/account/tokens/${tok.id}`);
     setBusy(false);
     setModal(null);
-    if (res.ok || res.status === 404) setTokens((cur) => cur.filter((x) => x.id !== t.id));
-    push(res.ok ? { text: `Revoked “${t.name}”`, sub: 'Bots using it stop working now.' } : { text: res.data.message ?? 'Could not revoke the token.', error: true });
+    if (res.ok || res.status === 404) setTokens((cur) => cur.filter((x) => x.id !== tok.id));
+    push(res.ok ? { text: t('tok.revoke.done', { name: tok.name }), sub: t('tok.revoke.doneSub') } : { text: res.data.message ?? t('tok.revoke.failed'), error: true });
   };
 
-  const exampleToken = revealed?.plain ?? 'brg_live_••••';
+  const exampleToken = revealed?.plain ?? MASK;
   const json = JSON.stringify({ mcpServers: { bridge: { url: mcpUrl, headers: { Authorization: `Bearer ${exampleToken}` } } } }, null, 2);
+  const createBtn = (block?: boolean) => <Button onClick={openCreate} disabled={!emailVerified} block={block}>{t('tok.create')}</Button>;
 
   return (
-    <SettingsLayout page="tokens" title="API tokens & MCP" toasts={region}>
-      {!emailVerified && <VerifyEmailBanner email={email} why="Tokens and MCP need a verified email." onResent={(m) => push({ text: m })} />}
+    <SettingsLayout page="tokens" title={t('acct.nav.tokens')} toasts={region}>
+      {!emailVerified && <VerifyEmailBanner email={email} why={t('acct.verify.whyTokens')} onResent={(m) => push({ text: m })} />}
 
-      <section className="card" aria-labelledby="h-tokens">
-        <div className="chead">
-          <h2 id="h-tokens">API tokens</h2>
-          {tokens.length > 0 && <div className="right"><button type="button" className="btn" onClick={openCreate} disabled={!emailVerified}>Create token</button></div>}
-        </div>
-        <p className="sub">Tokens let your Grok bot read and update your Bridge boards. Each token only sees your projects.</p>
+      <Card title={t('tok.title')} sub={t('tok.sub')} action={tokens.length > 0 ? createBtn() : undefined}>
         {tokens.length > 0 ? (
-          <div className="tscroll">
-            <table className="tbl stack">
-              <caption className="sr-only">Your API tokens</caption>
-              <thead><tr>
-                <th scope="col">Name</th><th scope="col">Scopes</th><th scope="col">Created</th><th scope="col">Last used</th><th scope="col">Expires</th><th scope="col"><span className="sr-only">Actions</span></th>
-              </tr></thead>
-              <tbody>
-                {tokens.map((t) => (
-                  <tr key={t.id}>
-                    <th scope="row">
-                      <div className="tokname">
-                        <span className="nm">{t.name}{t.id === newId && <span className="kb rw">New</span>}</span>
-                        <span className="secret">{t.masked ?? 'legacy token'}</span>
-                      </div>
-                    </th>
-                    <td data-label="Scopes"><Scopes t={t} /></td>
-                    <td data-label="Created">{t.created_at ? (daysUntil(t.created_at, now) === 0 ? updateTime(t.created_at, now) : longDate(t.created_at)) : '—'}</td>
-                    <td data-label="Last used">{t.last_used_at ? updateTime(t.last_used_at, now) : <span className="never">Never</span>}</td>
-                    <td data-label="Expires"><Expires iso={t.expires_at} now={now} /></td>
-                    <td className="act"><button type="button" className="abtn sm bad" aria-label={`Revoke token ${t.name}`} onClick={() => setModal({ revoke: t })}>Revoke</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <table className="acx-table">
+            <caption className="sr-only">{t('tok.caption')}</caption>
+            <thead><tr>
+              <th scope="col">{t('tok.col.name')}</th><th scope="col">{t('tok.col.scopes')}</th><th scope="col">{t('tok.col.created')}</th>
+              <th scope="col">{t('tok.col.lastUsed')}</th><th scope="col">{t('tok.col.expires')}</th><th scope="col"><span className="sr-only">{t('tok.col.actions')}</span></th>
+            </tr></thead>
+            <tbody>
+              {tokens.map((tok) => (
+                <tr key={tok.id}>
+                  <th scope="row" className="acx-table__name">
+                    <span className="acx-tokname">{tok.name}{tok.id === newId && <Chip kind="new">{t('tok.new')}</Chip>}</span>
+                    <span className="acx-mono">{tok.masked ?? t('tok.legacy')}</span>
+                  </th>
+                  <td className="acx-table__scopes"><Scopes scope={tok.scope} /></td>
+                  <td className="acx-table__created">{tok.created_at ? (daysUntil(tok.created_at, now) === 0 ? updateTime(tok.created_at, now) : longDate(tok.created_at)) : '—'}</td>
+                  <td className="acx-table__used"><span className="acx-m-only">{t('tok.col.lastUsed')} </span>{tok.last_used_at ? updateTime(tok.last_used_at, now) : t('tok.never')}</td>
+                  <td className="acx-table__exp">
+                    {!(tok.expires_at && daysUntil(tok.expires_at, now) <= 7) && <span className="acx-m-only">{t('tok.col.expires')} </span>}
+                    <Expires iso={tok.expires_at} now={now} />
+                  </td>
+                  <td className="acx-table__act"><Button kind="secondary" aria-label={t('tok.revokeLabel', { name: tok.name })} onClick={() => setModal({ revoke: tok })}>{t('tok.revoke')}</Button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : (
-          <div className="empty" style={{ margin: '8px 0 0', padding: '48px 24px' }}>
-            <div className="eico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4" /><path d="M11 12l9-9M17 6l3 3M15 8l2 2" /></svg></div>
-            <h2>No tokens yet</h2>
-            <p>Create a token to connect your Grok bot. You'll see it once, then only its last four characters.</p>
-            <button type="button" className="btn" onClick={openCreate} disabled={!emailVerified}>Create token</button>
+          <div className="acx-empty">
+            <span className="acx-empty__tile" aria-hidden="true"><span /></span>
+            <h3>{t('tok.empty.title')}</h3>
+            <p>{t('tok.empty.body')}</p>
+            {createBtn()}
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className="card" aria-labelledby="h-mcp">
-        <h2 id="h-mcp">Connect your Grok bot</h2>
-        <p className="sub">Bridge speaks MCP (streamable HTTP). Point a connector at this server and send your token as a header.</p>
-        <div className="codes">
-          <div className="code one">
-            <div className="ch"><span id="l-url">Server URL</span><CopyButton text={mcpUrl} label="Copy server URL" /></div>
-            <pre aria-labelledby="l-url">{mcpUrl}</pre>
-          </div>
-          <div className="code one">
-            <div className="ch"><span id="l-hdr">Auth header</span><CopyButton text={`Authorization: Bearer ${exampleToken}`} label="Copy auth header" /></div>
-            <pre aria-labelledby="l-hdr">Authorization: Bearer {exampleToken}</pre>
-          </div>
-          <p className="fhint">Use your own token in place of <span className="secret">brg_live_••••</span>.</p>
-          <div className="code">
-            <div className="ch"><span id="l-json">JSON connector config (Cursor <code>~/.cursor/mcp.json</code>, Claude Code <code>.mcp.json</code>)</span><CopyButton text={json} label="Copy JSON connector config" /></div>
-            <pre aria-labelledby="l-json" tabIndex={0}>{json}</pre>
+      <Card eyebrow={<><span className="acx-eyebrow__dot" aria-hidden="true" />{t('mcp.eyebrow')}</>} title={t('mcp.title')} sub={t('mcp.sub')}>
+        <CodeBox label={t('mcp.url')} copy={mcpUrl}>{mcpUrl}</CodeBox>
+        <div className="acx-stack8">
+          <CodeBox label={t('mcp.header')} copy={`Authorization: Bearer ${exampleToken}`}>Authorization: Bearer {exampleToken}</CodeBox>
+          <p className="acx-hint">{t('mcp.headerHint', { mask: MASK })}</p>
+        </div>
+        <CodeBox label={t('mcp.json')} copy={json} multiline>{json}</CodeBox>
+        <div className="acx-sub">
+          <h3 className="acx-h3">{t('mcp.steps')}</h3>
+          <ol className="acx-steps">
+            {([1, 2, 3] as const).map((n) => (
+              <li key={n} className="acx-step">
+                <span className="acx-step__n" aria-hidden="true">{String(n).padStart(2, '0')}</span>
+                <h4>{t(`mcp.step${n}.title` as AcctKey)}</h4>
+                <p>{t(`mcp.step${n}.body` as AcctKey)}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="acx-sub">
+          <h3 className="acx-h3">{t('mcp.can')}</h3>
+          <div className="acx-can">
+            <div className="acx-can__box">
+              <h4><Chip>{t('tok.scope.read')}</Chip>{t('mcp.can.read')}</h4>
+              <ul>{([1, 2, 3] as const).map((n) => <li key={n}>{t(`mcp.can.read.${n}` as AcctKey)}</li>)}</ul>
+            </div>
+            <div className="acx-can__box">
+              <h4><Chip>{t('tok.scope.read')}</Chip><Chip kind="write">{t('tok.scope.write')}</Chip>{t('mcp.can.write')}</h4>
+              <ul>{([1, 2, 3, 4] as const).map((n) => <li key={n}>{t(`mcp.can.write.${n}` as AcctKey)}</li>)}</ul>
+            </div>
           </div>
         </div>
-        <h3 className="sh">Three steps</h3>
-        <ol className="steps">
-          <li><h3>Create a token</h3><p>Pick read &amp; write if the bot should move tickets or post updates.</p>{emailVerified && <button type="button" className="lnk" style={{ padding: 0 }} onClick={openCreate}>Create token</button>}</li>
-          <li><h3>Add an MCP connector</h3><p>Paste the server URL and the auth header with your token, then save the connector.</p></li>
-          <li><h3>Ask your bot “list my Bridge boards”</h3><p>It should answer with your projects, and only yours.</p></li>
-        </ol>
-        <h3 className="sh">What your bot can do</h3>
-        <div className="can">
-          <div>
-            <h3><span className="kb rd">read</span> Read only</h3>
-            <ul><li>List your projects and boards</li><li>Read tickets, columns and comments</li><li>List agents and labels</li></ul>
-          </div>
-          <div>
-            <h3><span className="kb rd">read</span><span className="kb rw">write</span> Read &amp; write</h3>
-            <ul><li>Everything in read only, plus:</li><li>Create, update and move tickets</li><li>Add comments</li><li>Post status updates and set project status</li></ul>
-          </div>
-        </div>
-        <Callout kind="info" style={{ marginTop: 16 }}>Bots never see other people's projects, and can't change your password, tokens or account. Each token is limited to 120 requests a minute.</Callout>
-      </section>
+        <p className="acx-hint">{t('mcp.foot')}</p>
+      </Card>
 
       {modal === 'create' && (
-        <Modal title="Create token" onClose={() => setModal(null)}
-          footer={<><button type="button" className="abtn" onClick={() => setModal(null)}>Cancel</button><button type="submit" form="tok-form" className="btn" disabled={busy}>{busy ? <><span className="spin" aria-hidden="true" />Creating…</> : 'Create token'}</button></>}>
-          {errors.form && <Callout kind="bad" alert>{errors.form}</Callout>}
-          <form id="tok-form" onSubmit={create} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Field id="tok-name" label="Name" error={errors.name} hint="So you can tell tokens apart later.">
-              <input className="qin" id="tok-name" type="text" placeholder="e.g. Grok bot (Ava)" maxLength={60} value={name} data-autofocus
-                onChange={(e) => setName(e.target.value)} {...described('tok-name', errors.name, true)} />
+        <Dialog title={t('tok.create.title')} onClose={() => setModal(null)}
+          footer={<><Button kind="secondary" onClick={() => setModal(null)}>{t('tok.create.cancel')}</Button><Button type="submit" form="tok-form" busy={busy} busyLabel={t('tok.create.busy')}>{t('tok.create')}</Button></>}>
+          {errors.form && <Notice kind="risk" role="alert"><p>{errors.form}</p></Notice>}
+          <form id="tok-form" className="acx-form" onSubmit={create} noValidate>
+            <Field id="tok-name" label={t('tok.create.name')} error={errors.name} hint={t('tok.create.nameHint')}>
+              <Input id="tok-name" type="text" placeholder={t('tok.create.namePlaceholder')} maxLength={60} value={name} data-autofocus
+                onChange={(e) => setName(e.target.value)} {...describedBy('tok-name', errors.name, true)} />
             </Field>
-            <fieldset className="opts2">
-              <legend>Access</legend>
-              <label className="ropt"><input type="radio" name="scope" value="read" checked={scope === 'read'} onChange={() => setScope('read')} /><span><b>Read only</b><span>Lists boards, tickets and statuses. Can't change anything.</span></span></label>
-              <label className="ropt"><input type="radio" name="scope" value="write" checked={scope === 'write'} onChange={() => setScope('write')} /><span><b>Read &amp; write</b><span>Also creates and moves tickets, adds comments and posts status updates.</span></span></label>
+            <fieldset className="acx-radios">
+              <legend className="acx-label">{t('tok.create.access')}</legend>
+              {(['read', 'write'] as const).map((v) => (
+                <label key={v} className={`acx-radio${scope === v ? ' is-checked' : ''}`}>
+                  <input type="radio" name="scope" value={v} checked={scope === v} onChange={() => setScope(v)} />
+                  <span><b>{t(`tok.create.${v}` as AcctKey)}</b><span>{t(`tok.create.${v}Hint` as AcctKey)}</span></span>
+                </label>
+              ))}
+              {errors.scope && <p className="acx-err">{errors.scope}</p>}
             </fieldset>
-            <Field id="tok-exp" label="Expires" error={errors.expires}>
-              <select className="qsel" id="tok-exp" value={expires} onChange={(e) => setExpires(e.target.value)}>
-                {[...expiryDays.map(String), 'never'].map((v) => <option key={v} value={v}>{EXPIRY_LABEL[v] ?? `In ${v} days`}</option>)}
-              </select>
+            <Field id="tok-exp" label={t('tok.create.expires')} error={errors.expires}>
+              <Select id="tok-exp" value={expires} onChange={(e) => setExpires(e.target.value)} {...describedBy('tok-exp', errors.expires)}>
+                {[...expiryDays.map(String), 'never'].map((v) => <option key={v} value={v}>{expiryLabel(v)}</option>)}
+              </Select>
             </Field>
           </form>
-        </Modal>
+        </Dialog>
       )}
 
       {modal === 'reveal' && revealed && (
-        <Modal title="Token created" onClose={doneReveal} closable={false}
-          footer={<button type="button" className="btn" onClick={doneReveal}>Done, I've saved it</button>}>
-          <div className="reveal">
-            <p className="flabel" id="newtok-l" style={{ margin: 0 }}>
-              {revealed.token.name} · {SCOPE_LABEL[revealed.token.scope]} · {revealed.token.expires_at ? `expires ${longDate(revealed.token.expires_at)}` : 'no expiry'}
+        <Dialog title={t('tok.reveal.title')} onClose={doneReveal} closable={false}
+          footer={<Button onClick={doneReveal}>{t('tok.reveal.done')}</Button>}>
+          <div className="acx-secret">
+            <p className="acx-secret__meta" id="newtok-l">
+              <span className="acx-eyebrow__dot" aria-hidden="true" />
+              {t('tok.reveal.meta', {
+                name: revealed.token.name, scope: scopeLabel(revealed.token.scope),
+                expiry: revealed.token.expires_at ? t('tok.reveal.expires', { date: longDate(revealed.token.expires_at) }) : t('tok.reveal.noExpiry'),
+              })}
             </p>
-            <div className="tokrow">
+            <div className="acx-secret__value">
               <output aria-labelledby="newtok-l">{revealed.plain}</output>
-              <CopyButton text={revealed.plain} label="Copy token" className="btn" autoFocus />
+              <CopyButton text={revealed.plain} what={t('tok.reveal.copy').toLowerCase()} kind="signal" autoFocus />
             </div>
           </div>
-          <Callout kind="warn"><b>You won't see this again.</b> Copy it now and paste it into your bot's connector. If you lose it, revoke it and create a new one.</Callout>
-        </Modal>
+          <Notice kind="warn"><p>{t('tok.reveal.warn')}</p></Notice>
+        </Dialog>
       )}
 
       {modal && typeof modal === 'object' && 'revoke' in modal && (
-        <Modal title={`Revoke “${modal.revoke.name}”?`} onClose={() => setModal(null)} alert describedBy="d-revoke"
-          footer={<><button type="button" className="abtn" onClick={() => setModal(null)} data-autofocus>Keep token</button><button type="button" className="btn danger" onClick={() => revoke(modal.revoke)} disabled={busy}>{busy ? 'Revoking…' : 'Revoke token'}</button></>}>
-          <p id="d-revoke">Bots using this token stop working immediately. This can't be undone.</p>
-        </Modal>
+        <Dialog title={t('tok.revoke.title', { name: modal.revoke.name })} onClose={() => setModal(null)} alert describedBy="d-revoke"
+          footer={<><Button kind="secondary" onClick={() => setModal(null)} data-autofocus>{t('tok.revoke.keep')}</Button><Button kind="danger" onClick={() => revoke(modal.revoke)} busy={busy} busyLabel={t('tok.revoke.busy')}>{t('tok.revoke.confirm')}</Button></>}>
+          <p id="d-revoke">{t('tok.revoke.body')}</p>
+        </Dialog>
       )}
     </SettingsLayout>
   );

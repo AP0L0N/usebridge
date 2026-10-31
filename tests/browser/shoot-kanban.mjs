@@ -1,10 +1,12 @@
 // Kanban screenshots against the LOCAL server (sqlite in /tmp). Gate password read from .env, never printed.
 // Usage: node tests/browser/shoot-kanban.mjs [name-prefix …]   (writes shots/kanban/*.png; prints the per-shot checks)
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 const REPO = process.cwd(), BASE = 'http://127.0.0.1:8792', OUT = process.env.SHOTS_DIR ?? REPO + '/shots/kanban/';
-const PW = readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)[1].trim().replace(/^"|"$/g, '');
+// Gate password from the environment (or the repo .env); never a literal. Empty = the gate rejects everyone.
+const PW = process.env.BRIDGE_GATE_PASSWORD || (existsSync(REPO + '/.env') ? readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '') : '');
+if (!PW) { console.error('Set BRIDGE_GATE_PASSWORD (env or .env)'); process.exit(2); }
 const only = process.argv.slice(2);
 const reseed = () => execSync('php artisan db:seed --class=KanbanSampleSeeder --force -q', { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });

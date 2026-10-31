@@ -1,63 +1,61 @@
+import { router } from '@inertiajs/react';
 import type { ReactNode } from 'react';
-import { cents, plural, shares, usd, type DeskFeed, type Fill, type Freshness, type SweepItem } from '../../lib/polymarket';
+import { cents, plural, shares, signedPct, signedUsd, usd, type DeskFeed, type Fill, type Freshness, type SweepItem } from '../../lib/polymarket';
+import { t } from '../../lib/strings-pm';
 
-const ClockIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 6v4l2.5 2" /></svg>
+export const InfoIcon = () => (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 6.2v4.6M10 13.6v.1" strokeLinecap="round" /></svg>
 );
-const CheckIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="m6.8 10.2 2.2 2.2 4.2-4.6" /></svg>
-);
-export const WarnIcon = () => (
-  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true"><path d="M10 3 18 17H2z" /><path d="M10 8.5v3.5M10 14.6v.1" strokeLinecap="round" /></svg>
+export const WifiIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><path d="M3 9.5a13 13 0 0 1 18 0M6 13a8.5 8.5 0 0 1 12 0M9.2 16.3a4 4 0 0 1 5.6 0" /><path d="M12 19.5v.1" /></svg>
 );
 const InboxIcon = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-8h13L21 13v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM3 13h5l1.5 3h5L16 13h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13l2.5-8h13L21 13v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM3 13h5l1.5 3h5L16 13h5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
 );
 
-const BADGE: Record<Freshness['state'], { cls: string; icon: ReactNode }> = {
-  fresh: { cls: 'b-ok', icon: <CheckIcon /> },
-  late: { cls: 'b-w1', icon: <ClockIcon /> },
-  stale: { cls: 'b-w2', icon: <WarnIcon /> },
-};
-
-export function FreshBadge({ f }: { f: Freshness }) {
-  const b = BADGE[f.state];
-  return <span className={`badge ${b.cls} sm`}>{b.icon}<span>{f.badge}</span></span>;
+/** Signed amount with an arrow (↗ up, ↘ down): never colour alone. A zero shows no arrow. */
+export function Delta({ v, text, pct }: { v: number; text?: string; pct?: number | null }) {
+  const up = v > 0.005, down = v < -0.005;
+  return (
+    <span className={`pmx-d num ${up ? 'pos' : down ? 'neg' : ''}`}>
+      {(up || down) && (
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {up ? <path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6" /> : <path d="M4.5 4.5l7 7M11.5 5.5v6h-6" />}
+        </svg>
+      )}
+      <span>{text ?? signedUsd(v)}</span>
+      {pct !== undefined && pct !== null && <span className="pct">({signedPct(pct)})</span>}
+    </span>
+  );
 }
 
-/** Under the header when the feed is not fresh: late (w1), stale (w2). */
 export function FreshBanner({ f }: { f: Freshness }) {
   if (!f.banner) return null;
-  const cls = f.state === 'stale' ? 'w2' : 'w1';
-  const icon = f.state === 'stale' ? <WarnIcon /> : <ClockIcon />;
   return (
-    <div className={`banner ${cls}`} role="status">
-      {icon}
-      <p><b>{f.banner.title}</b> {f.banner.body}</p>
+    <div className={`pmx-banner ${f.state === 'stale' ? 'stale' : ''}`} role="status">
+      <InfoIcon />
+      <div className="tx"><b>{f.banner.title}</b><span className="b">{f.banner.body}</span></div>
       <span className="k">{f.banner.key}</span>
+      <button className="pmx-btn" type="button" onClick={() => router.reload()}>{t('pm.banner.retry')}</button>
     </div>
   );
 }
 
 export function MiniEmpty({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mini-empty">
-      <div className="eico"><InboxIcon /></div>
+    <div className="pmx-empty mini">
+      <div className="ico"><InboxIcon /></div>
       <h3>{title}</h3>
       <p>{body}</p>
     </div>
   );
 }
 
-export function Quiet({ children }: { children: ReactNode }) {
-  return <p className="quiet"><ClockIcon /><span>{children}</span></p>;
-}
-
-/** Stat tile; `nullText` switches to the grey null state ("Not supplied" / "—"). */
-export function Tile({ label, value, hint, cls = '', nullText, children }: { label: string; value?: ReactNode; hint: ReactNode; cls?: string; nullText?: string; children?: ReactNode }) {
+/** KPI tile; `nullText` switches to the grey "Not supplied" / "—" treatment. */
+export function Tile({ label, value, hint, nullText, children }: { label: string; value?: ReactNode; hint: ReactNode; nullText?: string; children?: ReactNode }) {
   const isNull = nullText !== undefined;
   return (
-    <div className={`stat${isNull ? ' null' : ''}${cls ? ` ${cls}` : ''}`}>
+    <div className={`pmx-card pmx-tile${isNull ? ' null' : ''}`}>
       <p className="lbl">{label}</p>
       <p className="val">{isNull ? nullText : value}</p>
       {children}
@@ -66,38 +64,20 @@ export function Tile({ label, value, hint, cls = '', nullText, children }: { lab
   );
 }
 
-/** Consecutive items of the same day under one day heading. */
-function byDay<T extends { day: string; dayLabel: string }>(items: T[]): { day: string; label: string; items: T[] }[] {
-  const out: { day: string; label: string; items: T[] }[] = [];
-  for (const it of items) {
-    const last = out[out.length - 1];
-    if (last && last.day === it.day) last.items.push(it);
-    else out.push({ day: it.day, label: it.dayLabel, items: [it] });
-  }
-  return out;
-}
-
 export function FillsCard({ fills }: { fills: DeskFeed['fills'] }) {
   const n = fills.items.length;
+  const sub = !fills.available ? t('pm.tile.notInFeed') : t('pm.fills.sub', { fills: plural(n, 'fill'), detail: n ? t('pm.fills.detail', { bought: usd(fills.bought), sold: usd(fills.sold) }) : '' });
   return (
-    <section className="card" aria-labelledby="h-fills">
-      <div className="chead">
-        <h2 id="h-fills">Fills · last 7 days</h2>
-        <p className="sub">{fills.available ? `${plural(n, 'fill')}${n ? ` · bought ${usd(fills.bought)} · sold ${usd(fills.sold)}` : ''}` : 'Not in the feed'}</p>
-      </div>
+    <section className="pmx-card" aria-labelledby="pmx-h-fills">
+      <div className="pmx-chead"><div><h2 id="pmx-h-fills">{t('pm.fills.title')}</h2><p className="s">{sub}</p></div></div>
       {!fills.available ? (
-        <MiniEmpty title="No fills in this feed" body="Frank’s feed doesn’t list fills yet; they show here once it does." />
+        <MiniEmpty title={t('pm.fills.unavailable.title')} body={t('pm.fills.unavailable.body')} />
       ) : n === 0 ? (
-        <MiniEmpty title="No fills in the last 7 days" body="The desk hasn’t bought or sold anything this week." />
+        <MiniEmpty title={t('pm.fills.none.title')} body={t('pm.fills.none.body')} />
       ) : (
         <>
-          {fills.noneToday && <Quiet>No fills today.{fills.lastFillLabel ? ` Last fill ${fills.lastFillLabel}.` : ''}</Quiet>}
-          <ul className="tl">
-            {byDay(fills.items).map((g) => [
-              <li key={`d-${g.day}`} className="day">{g.label}</li>,
-              ...g.items.map((f, i) => <FillRow key={`${g.day}-${i}`} f={f} />),
-            ])}
-          </ul>
+          {fills.noneToday && <p className="pmx-quiet">{t('pm.fills.today')}{fills.lastFillLabel ? t('pm.fills.lastFill', { when: fills.lastFillLabel }) : ''}</p>}
+          <ul className="pmx-list">{fills.items.map((f, i) => <FillRow key={i} f={f} />)}</ul>
         </>
       )}
     </section>
@@ -108,19 +88,18 @@ function FillRow({ f }: { f: Fill }) {
   const sell = f.side === 'Sell';
   return (
     <li>
-      <span className="dot" />
-      <div className="th">
-        <time dateTime={f.ts}>{f.time}</time>
-        {f.side && <span className={`tside${sell ? ' sell' : ''}`}>{f.side}</span>}
-        {f.outcome && <span className={`sidep ${f.outcome.toLowerCase() === 'no' ? 'no' : 'yes'}`}>{f.outcome}</span>}
-        <span className="amt">{f.usdc === null ? '—' : usd(f.usdc)}</span>
-      </div>
-      <p className="m">
-        {f.market ?? '—'}
+      <time dateTime={f.ts}>{f.dayLabel} · {f.time}</time>
+      <div className="what">
+        <div className="tags">
+          {f.side && <span className="pmx-tag">{f.side}</span>}
+          {f.outcome && <span className={`pmx-side ${f.outcome.toLowerCase() === 'no' ? 'no' : ''}`}>{f.outcome}</span>}
+        </div>
+        <p className="m">{f.market ?? '—'}</p>
         {(f.shares !== null || f.price !== null) && (
-          <><br /><small>{f.shares === null ? '—' : shares(f.shares)} shares @ {f.price === null ? '—' : cents(f.price)}</small></>
+          <small>{t('pm.fills.at', { shares: f.shares === null ? '—' : shares(f.shares), price: f.price === null ? '—' : cents(f.price) })}</small>
         )}
-      </p>
+      </div>
+      {f.usdc === null ? <span className="amt">—</span> : <span className="amt"><Delta v={sell ? f.usdc : -f.usdc} /></span>}
     </li>
   );
 }
@@ -131,33 +110,28 @@ export function SweepsCard({ sweeps, showAll, onToggleAll }: { sweeps: DeskFeed[
   const items = showAll ? sweeps.items : sweeps.items.slice(0, NEWEST);
   const total = sweeps.items.length;
   const anyApprox = items.some((i) => i.approx);
+  const sub = !sweeps.available ? t('pm.tile.notInFeed')
+    : total === 0 ? t('pm.sweeps.sub')
+    : [sweeps.sinceLabel ? t('pm.sweeps.subTotals', { since: sweeps.sinceLabel }) : t('pm.sweeps.sub'), t('pm.sweeps.totals', { redeemed: usd(sweeps.redeemed), swept: usd(sweeps.swept) })].join(' · ');
   return (
-    <section className="card" aria-labelledby="h-sw">
-      <div className="chead">
-        <h2 id="h-sw">Redeems &amp; sweeps</h2>
-        <p className="sub">
-          {!sweeps.available ? 'Not in the feed' : [sweeps.sinceLabel && `Since ${sweeps.sinceLabel}`, total > 0 && `redeemed ${usd(sweeps.redeemed)} · swept ${usd(sweeps.swept)}`].filter(Boolean).join(' · ')}
-        </p>
+    <section className="pmx-card" aria-labelledby="pmx-h-sw">
+      <div className="pmx-chead">
+        <div><h2 id="pmx-h-sw">{t('pm.sweeps.title')}</h2><p className="s">{sub}</p></div>
         {total > NEWEST && (
-          <div className="right">
-            <button className="tlink" type="button" aria-expanded={showAll} onClick={onToggleAll}>{showAll ? `Newest ${NEWEST}` : `All ${total}`}</button>
-          </div>
+          <button className="pmx-more" type="button" aria-expanded={showAll} onClick={onToggleAll}>
+            {showAll ? t('pm.sweeps.newest', { n: NEWEST }) : t('pm.sweeps.all', { n: total })}
+          </button>
         )}
       </div>
       {!sweeps.available ? (
-        <MiniEmpty title="No redeems or sweeps in this feed" body="Frank’s feed doesn’t list them yet; winning payouts and sweeps to Bitstamp show here once it does." />
+        <MiniEmpty title={t('pm.sweeps.unavailable.title')} body={t('pm.sweeps.unavailable.body')} />
       ) : total === 0 ? (
-        <MiniEmpty title="No redeems or sweeps yet" body="Winning payouts and sweeps to Bitstamp will appear here." />
+        <MiniEmpty title={t('pm.sweeps.none.title')} body={t('pm.sweeps.none.body')} />
       ) : (
         <>
-          {!sweeps.recent && <Quiet>None in the last 7 days. Latest below.</Quiet>}
-          <ul className="tl">
-            {byDay(items).map((g) => [
-              <li key={`d-${g.day}`} className="day">{g.label}</li>,
-              ...g.items.map((w, i) => <SweepRow key={`${g.day}-${i}`} w={w} />),
-            ])}
-          </ul>
-          {anyApprox && <p className="foot">~ = approximate time (the desk run that saw it, or a time window). Sweeps leave the desk, so they lower book value; they count in total P&amp;L.</p>}
+          {!sweeps.recent && <p className="pmx-quiet">{t('pm.sweeps.quiet')}</p>}
+          <ul className="pmx-list">{items.map((w, i) => <SweepRow key={i} w={w} />)}</ul>
+          {anyApprox && <p className="pmx-tnote">{t('pm.sweeps.approx')}</p>}
         </>
       )}
     </section>
@@ -165,22 +139,16 @@ export function SweepsCard({ sweeps, showAll, onToggleAll }: { sweeps: DeskFeed[
 }
 
 function SweepRow({ w }: { w: SweepItem }) {
-  const time = w.approx
-    ? <span className="approx" title="Approximate: time of the desk run that saw it, or a time window">{w.time}</span>
-    : w.time;
-  if (w.type === 'redeem') {
-    return (
-      <li>
-        <span className="dot r" />
-        <div className="th"><time dateTime={w.ts}>{time}</time><span className="tside red">Redeem</span><span className="amt">{usd(w.amount)}</span></div>
-        {w.market && <p className="m">{w.market}<br /><small>Winning shares paid out to desk cash</small></p>}
-      </li>
-    );
-  }
+  const redeem = w.type === 'redeem';
   return (
     <li>
-      <span className="dot s" />
-      <div className="th"><time dateTime={w.ts}>{time}</time><span className="tside swp">Sweep → Bitstamp</span><span className="amt">{usd(w.amount)}</span></div>
+      <time dateTime={w.ts} title={w.approx ? 'Approximate' : undefined}>{w.dayLabel} · {w.time}</time>
+      <div className="what">
+        <div className="tags"><span className="pmx-tag">{redeem ? t('pm.sweeps.redeem') : t('pm.sweeps.sweep')}</span></div>
+        <p className="m">{redeem ? (w.market ?? '—') : t('pm.sweeps.sweep.name')}</p>
+        <small>{redeem ? t('pm.sweeps.redeem.note') : t('pm.sweeps.sweep.note')}</small>
+      </div>
+      <span className="amt"><Delta v={redeem ? w.amount : -w.amount} /></span>
     </li>
   );
 }

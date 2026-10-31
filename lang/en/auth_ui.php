@@ -14,7 +14,7 @@ return [
         'activity_label' => 'Activity · sample',
         'activity' => [
             ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved Garden planner → Doing'],
-            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'posted status · Deployed staging build'],
+            ['kind' => 'agent', 'who' => 'via MCP · Ava', 'what' => 'moved GP-14 → Waiting on you'],
             ['kind' => 'you', 'who' => 'you · Sam Rivera', 'what' => 'approved 2 tickets'],
         ],
         'sample' => 'Sample data',
@@ -157,5 +157,20 @@ return [
         'success_heading' => 'Password updated',
         'success_body' => 'Use your new password to log in. Other devices have been logged out.',
         'success_action' => 'Log in',
+    ],
+
+    'verify' => [
+        'title' => 'Verify your email',
+        'heading' => 'Verify your email',
+        'body' => 'We sent a link to :email. Follow it to verify your address.',
+        'tokens_note' => 'API tokens for bots and MCP need the verified email.',
+        'send_again' => 'Send the link again',
+        'busy' => 'Sending…',
+        'busy_note' => 'Sending the link, please wait.',
+        'sent' => 'A new link is on its way to :email. It works for 60 minutes.',
+        'too_many' => 'Too many requests. Wait a minute and try again.',
+        'help' => 'No email after a few minutes? Check spam first.',
+        'continue' => 'Continue to Bridge',
+        'logout' => 'Log out',
     ],
 ];

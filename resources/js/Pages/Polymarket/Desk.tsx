@@ -1,110 +1,55 @@
 import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { BookValueChart, ChartRangeSeg, LegendLine, chartFoot, visibleDays } from '../../Components/Polymarket/BookValueChart';
-import { FillsCard, FreshBadge, FreshBanner, MiniEmpty, SweepsCard, Tile, WarnIcon } from '../../Components/Polymarket/DeskBits';
-import { PositionSortSeg, PositionsTable, sortWords, type PositionSort } from '../../Components/Polymarket/PositionsTable';
+import { BookValueChart, ChartRangeSeg, chartFoot, visibleDays } from '../../Components/Polymarket/BookValueChart';
+import { Delta, FillsCard, FreshBanner, MiniEmpty, SweepsCard, Tile, WifiIcon } from '../../Components/Polymarket/DeskBits';
+import { PositionSortSeg, PositionsTable, type PositionSort } from '../../Components/Polymarket/PositionsTable';
 import { AppTopBar } from '../../Components/Shell/AppTopBar';
-import { plural, pnlClass, signedPct, signedUsd, usd, type ChartRange, type DeskFeed, type DeskProps } from '../../lib/polymarket';
+import { plural, usd, type ChartRange, type DeskFeed, type DeskProps } from '../../lib/polymarket';
+import { t } from '../../lib/strings-pm';
 import { useNarrow } from '../../lib/usage';
+import '../../../css/pm-desk.css';
 
-/** Read-only view of Frank Yang's Polymarket desk (DATA-SPEC r1). Nothing here trades, sweeps or messages. */
+/** Read-only view of the Polymarket desk. Nothing here trades, sweeps or messages. */
 export default function Desk({ feed }: DeskProps) {
   return (
     <>
       <Head title="Polymarket" />
       <AppTopBar />
-      <main className="wrap pmdesk">
-        {feed ? <DeskBody f={feed} /> : <NoFeed />}
-      </main>
+      <div className="pmx">
+        <main className="pmx-main">
+          {feed ? <DeskBody f={feed} /> : <NoFeed />}
+          <p className="pmx-foot">{t('pm.foot')}</p>
+        </main>
+      </div>
     </>
   );
+}
+
+function Pill({ tone, children }: { tone?: 'ok' | 'risk' | 'warn'; children: string }) {
+  return <span className={`pmx-pill ${tone ?? ''}`}><i aria-hidden="true" />{children}</span>;
 }
 
 function NoFeed() {
   return (
     <>
-      <div className="dhead"><div><h1>Polymarket desk</h1></div></div>
-      <div className="empty">
-        <div className="eico big"><WarnIcon /></div>
-        <h2>The desk feed isn’t available</h2>
-        <p>Bridge couldn’t read Frank’s desk feed (missing or invalid). Nothing here is guessed, so the page stays empty until the next good run.</p>
-        <button className="btn" type="button" onClick={() => router.reload()}>Try again</button>
-      </div>
-    </>
-  );
-}
-
-function DeskBody({ f }: { f: DeskFeed }) {
-  const narrow = useNarrow();
-  const [range, setRange] = useState<ChartRange>(() => (narrow ? '7' : f.chart.defaultRange));
-  const [sort, setSort] = useState<PositionSort>('value');
-  const [allSweeps, setAllSweeps] = useState(false);
-  const since = f.chart.days[0] ? `${f.chart.days[0].d} ${f.chart.days[0].mon}` : '';
-  const foot = chartFoot(f.chart, range);
-  const { open, settled, openTotals, settledTotals } = f.positions;
-
-  return (
-    <>
-      <div className="dhead">
+      <div className="pmx-head">
         <div>
-          <h1>Polymarket desk</h1>
-          <p className="summary">
-            <span>Updated <b>{f.asOfLabel}</b> · posted weekdays ~19:00</span>
-            <FreshBadge f={f.freshness} />
-          </p>
+          <h1 className="pmx-title">{t('pm.title')}</h1>
+          <p className="pmx-sub">{t('pm.updated.none')}</p>
         </div>
-        <Pills f={f} />
+        <div className="pmx-pills">
+          <Pill tone="risk">{t('pm.pill.feedUnavailable')}</Pill>
+          <Pill>{t('pm.pill.gateway.unknown')}</Pill>
+          <Pill>{t('pm.pill.decision.unknown')}</Pill>
+          <Pill>{t('pm.pill.stop.unknown')}</Pill>
+        </div>
       </div>
-
-      <FreshBanner f={f.freshness} />
-
-      {f.note && (
-        <section className="note" aria-label="Frank’s note">
-          <span className="av" aria-hidden="true">F</span>
-          <div>
-            <p className="who2"><b>Frank Yang</b> · desk note</p>
-            <blockquote>“{f.note.text}”</blockquote>
-          </div>
-          {f.note.tsLabel && <p className="nmeta">{f.note.tsLabel} run</p>}
-        </section>
-      )}
-
-      <Tiles f={f} />
-
-      <section className="card ccard" aria-labelledby="h-chart">
-        <div className="chead">
-          <h2 id="h-chart">Book value</h2>
-          <p className="sub">Every desk run · Europe/Ljubljana · nights collapsed</p>
-          <div className="right"><ChartRangeSeg range={range} since={since} onChange={setRange} /></div>
-        </div>
-        <ChartBlock f={f} range={range} narrow={narrow} />
-        {foot && <div className="cfoot"><span>{foot.left}</span><span>{foot.right}</span></div>}
+      <section className="pmx-card pmx-empty" aria-labelledby="pmx-h-na">
+        <div className="ico"><WifiIcon /></div>
+        <h2 id="pmx-h-na">{t('pm.unavailable.title')}</h2>
+        <p>{t('pm.unavailable.body')}</p>
+        <button className="pmx-btn dark" type="button" onClick={() => router.reload()}>{t('pm.banner.retry')}</button>
       </section>
-
-      <section className="card" aria-labelledby="h-pos" style={{ marginBottom: 0 }}>
-        <div className="chead">
-          <h2 id="h-pos">Open positions</h2>
-          <p className="sub">{plural(open.length, 'market')}{open.length > 0 ? ` · sorted by ${sortWords(sort)} · live prices from Polymarket` : ''}</p>
-          {open.length > 1 && <div className="right"><PositionSortSeg sort={sort} onChange={setSort} /></div>}
-        </div>
-        {open.length === 0 && <MiniEmpty title="No open positions" body="All money is in cash. Settled markets stay listed below the table." />}
-        {open.length + settled.length > 0 && <PositionsTable open={open} settled={settled} openTotals={openTotals} settledTotals={settledTotals} sort={sort} />}
-        <p className="tnote">
-          {f.costBasis ? '* Cost and P&L include Polymarket entry fees; avg entry is the price paid per share, without fees. ' : ''}
-          Prices in cents (¢) = implied probability.{settled.length > 0 ? ' Settled losses are already counted in realized P&L.' : ''}
-        </p>
-      </section>
-
-      <div className="bgrid">
-        <FillsCard fills={f.fills} />
-        <SweepsCard sweeps={f.sweeps} showAll={allSweeps} onToggleAll={() => setAllSweeps((v) => !v)} />
-      </div>
-
-      <p className="srcline">
-        <span>Source: Frank Yang’s desk feed (feed.json) as of {f.asOfLabel.startsWith('Today, ') ? f.asOfTime : f.asOfLabel}</span>
-        <span>All times Europe/Ljubljana</span>
-        <span>Read-only view · Bridge never trades</span>
-      </p>
     </>
   );
 }
@@ -112,76 +57,137 @@ function DeskBody({ f }: { f: DeskFeed }) {
 function Pills({ f }: { f: DeskFeed }) {
   const g = f.gateway;
   const gwOk = g?.status === 'ok' && g.geoblock !== true;
+  const stopLabel = f.stop.usd !== null ? t('pm.pill.stop', { value: usd(f.stop.usd) })
+    : f.stop.sinceLabel ? t('pm.pill.stop.noneSince', { since: f.stop.sinceLabel }) : t('pm.pill.stop.none');
+  const fr = f.freshness;
   return (
-    <div className="hpills">
-      {g && (
-        <span className="pill">
-          <i style={gwOk ? undefined : { background: 'var(--w1)' }} aria-hidden="true" />
-          Gateway <b>{g.status ?? '—'}</b>{g.country ? ` · ${g.country}` : ''}{g.geoblock ? ' · geoblocked' : ''}
-        </span>
-      )}
-      {f.lastDecision && <span className="pill">Last decision <b>{f.lastDecision}</b></span>}
-      {f.stop.usd !== null
-        ? <span className="pill">Stop-loss <b>{usd(f.stop.usd)}</b></span>
-        : <span className="pill">Stop-loss <b>none</b>{f.stop.sinceLabel ? ` since ${f.stop.sinceLabel}` : ''}</span>}
+    <div className="pmx-pills">
+      <Pill tone={fr.state === 'fresh' ? 'ok' : fr.state === 'late' ? 'warn' : 'risk'}>{fr.state === 'fresh' ? t('pm.pill.fresh') : fr.badge}</Pill>
+      {g
+        ? <Pill tone={gwOk ? undefined : 'risk'}>{t(g.geoblock ? 'pm.pill.gateway.geoblocked' : 'pm.pill.gateway', { status: g.status ?? '—' })}</Pill>
+        : <Pill>{t('pm.pill.gateway.unknown')}</Pill>}
+      {f.lastDecision ? <Pill>{t('pm.pill.decision', { value: f.lastDecision })}</Pill> : <Pill>{t('pm.pill.decision.unknown')}</Pill>}
+      <Pill>{stopLabel}</Pill>
     </div>
   );
 }
 
-function Tiles({ f }: { f: DeskFeed }) {
-  const b = f.book, t = f.totalPnl, r = f.realized, u = f.unrealized, hw = f.highWater, sw = f.swept;
-  const deltas = [
-    b.deltaYesterday !== null && <span key="y"><span className={`d ${pnlClass(b.deltaYesterday)}`}>{signedUsd(b.deltaYesterday)}</span> since yesterday</span>,
-    b.delta7d !== null && <span key="w"><span className={`d ${pnlClass(b.delta7d)}`}>{signedUsd(b.delta7d)}</span> vs 7 days ago</span>,
-  ].filter(Boolean);
-  // Big negative tile values stay ink; only positive ones are green (spec §5).
-  const tone = (v: number) => (v > 0.005 ? 'pos' : '');
+function DeskBody({ f }: { f: DeskFeed }) {
+  const narrow = useNarrow();
+  const [range, setRange] = useState<ChartRange>('7');
+  const [sort, setSort] = useState<PositionSort>('value');
+  const [allSweeps, setAllSweeps] = useState(false);
+  const foot = chartFoot(f.chart, range);
+  const { open, settled, openTotals, settledTotals } = f.positions;
 
   return (
     <>
-      <div className="stats pm">
-        <Tile cls="key" label="Book value" value={usd(b.value)}
-          hint={deltas.length ? deltas.flatMap((d, i) => (i ? [' · ', d] : [d])) : 'No earlier run to compare with'} />
-        {t.value === null ? (
-          <Tile label="Total P&L" nullText="—" hint={t.funded === null ? 'Needs funded amount' : 'Not in the feed'} />
-        ) : (
-          <div className="stat">
-            <p className="lbl">Total P&amp;L</p>
-            <p className={`val ${tone(t.value)}`}>{signedUsd(t.value)}{t.pct !== null && <span className={`chip ${pnlClass(t.pct)}`}>{signedPct(t.pct)}</span>}</p>
-            <p className="hint">
-              {t.funded === null ? 'Book + swept − funded' : `Book${t.swept !== null ? ` + ${usd(t.swept)} swept` : ''} − ${usd(t.funded)} funded${t.fundedSinceLabel ? ` (${t.fundedSinceLabel})` : ''}`}
-            </p>
-          </div>
-        )}
-        {r.value === null
-          ? <Tile label="Realized P&L" nullText="Not supplied" hint="Frank derives it from Polymarket activity; it shows here once the feed has it." />
-          : <Tile label="Realized P&L" cls="" value={<span className={tone(r.value)}>{signedUsd(r.value)}</span>}
-              hint={`Closed desk markets${r.sinceLabel ? ` since ${r.sinceLabel}` : ''}, from Polymarket activity`} />}
-        {u.value === null
-          ? <Tile label="Unrealized P&L" nullText="—" hint="Needs open positions with P&L" />
-          : <Tile label="Unrealized P&L" value={<span className={tone(u.value)}>{signedUsd(u.value)}</span>} hint={`${plural(u.count, 'open position')} at current prices`} />}
+      <div className="pmx-head">
+        <div>
+          <h1 className="pmx-title">{t('pm.title')}</h1>
+          <p className="pmx-sub">{t('pm.updated', { time: f.asOfLabel.startsWith('Today, ') ? f.asOfTime : f.asOfLabel })}</p>
+        </div>
+        <Pills f={f} />
       </div>
-      <div className="stats pm second">
-        {f.cash === null
-          ? <Tile label="Cash" nullText="—" hint="Not in the feed" />
-          : <Tile label="Cash" value={usd(f.cash)} hint="pUSD on Polymarket, ready to bet" />}
-        {f.openValue === null
-          ? <Tile label="Open positions" nullText="—" hint={`${plural(f.openCount, 'market')} · value not in the feed`} />
-          : <Tile label="Open positions" value={usd(f.openValue)} hint={`${plural(f.openCount, 'market')} · cost ${usd(f.openCost)}`} />}
-        {hw.value === null ? (
-          <Tile label="High-water" nullText="—" hint="Not in the feed" />
-        ) : (
-          <Tile label="High-water" value={usd(hw.value)}
-            hint={`${hw.below !== null && hw.below > 0.05 ? `Book is ${hw.below.toFixed(1)}% below` : 'Book is at high-water'}${hw.setLabel ? ` · set ${hw.setLabel}` : ''}`}>
-            <div className="hwbar" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, (b.value / hw.value) * 100)).toFixed(1)}%` }} /></div>
-          </Tile>
-        )}
-        {sw.value === null
-          ? <Tile label="Swept to Bitstamp" nullText="—" hint="Not in the feed" />
-          : <Tile label="Swept to Bitstamp" value={usd(sw.value)} hint={sw.count ? `${plural(sw.count, 'sweep')}${sw.lastLabel ? ` · last ${sw.lastLabel}` : ''}` : 'No sweeps yet'} />}
+
+      <FreshBanner f={f.freshness} />
+
+      {f.note && (
+        <>
+          <p className="pmx-via"><i aria-hidden="true" />{t('pm.via', { when: f.note.tsLabel ?? f.asOfTime })}</p>
+          <section className="pmx-card pmx-note" aria-labelledby="pmx-h-note">
+            <h2 id="pmx-h-note">{t('pm.note.title')}</h2>
+            <p>{f.note.text}</p>
+          </section>
+        </>
+      )}
+
+      <Tiles f={f} />
+
+      <section className="pmx-card pmx-sec" aria-labelledby="pmx-h-chart">
+        <div className="pmx-chead">
+          <div><h2 id="pmx-h-chart">{t('pm.chart.title')}</h2><p className="s">{t('pm.chart.sub')}</p></div>
+          <ChartRangeSeg range={range} onChange={setRange} />
+        </div>
+        <ChartBlock f={f} range={range} narrow={narrow} />
+        {foot && <div className="pmx-cfoot"><span>{foot.left}</span><span>{foot.right}</span></div>}
+      </section>
+
+      <section className="pmx-card pmx-sec" aria-labelledby="pmx-h-pos">
+        <div className="pmx-chead">
+          <div>
+            <h2 id="pmx-h-pos">{t('pm.pos.title')}<span className="n">{open.length}</span></h2>
+            <p className="s">{t('pm.pos.sub')}</p>
+          </div>
+          <PositionSortSeg sort={sort} onChange={setSort} />
+        </div>
+        {open.length === 0 && <MiniEmpty title={t('pm.pos.empty.title')} body={t('pm.pos.empty.body')} />}
+        <PositionsTable open={open} settled={settled} openTotals={openTotals} settledTotals={settledTotals} sort={sort} />
+        <p className="pmx-tnote">
+          {f.costBasis ? t('pm.pos.note.fees') : ''}
+          {t('pm.pos.note')}{settled.length > 0 ? t('pm.pos.note.settled') : ''}
+        </p>
+      </section>
+
+      <div className="pmx-two">
+        <FillsCard fills={f.fills} />
+        <SweepsCard sweeps={f.sweeps} showAll={allSweeps} onToggleAll={() => setAllSweeps((v) => !v)} />
       </div>
     </>
   );
+}
+
+function Tiles({ f }: { f: DeskFeed }) {
+  const b = f.book, tp = f.totalPnl, r = f.realized, u = f.unrealized, hw = f.highWater, sw = f.swept;
+  const deltas = [
+    b.deltaYesterday !== null && <span key="y"><Delta v={b.deltaYesterday} /> {t('pm.tile.book.since')}</span>,
+    b.delta7d !== null && <span key="w"><Delta v={b.delta7d} /> {t('pm.tile.book.vs7')}</span>,
+  ].filter(Boolean);
+  const dash = t('pm.tile.dash');
+  const openToday = f.positions.open.filter((p) => p.ends?.kind === 'today').length;
+  const openTomorrow = f.positions.open.filter((p) => p.ends?.kind === 'tomorrow').length;
+
+  return (
+    <div className="pmx-tiles">
+      <Tile label={t('pm.tile.book')} value={usd(b.value)}
+        hint={deltas.length ? deltas.flatMap((d, i) => (i ? [' · ', d] : [d])) : t('pm.tile.book.none')} />
+      {tp.value === null
+        ? <Tile label={t('pm.tile.total')} nullText={dash} hint={tp.funded === null ? t('pm.tile.total.needsFunded') : t('pm.tile.notInFeed')} />
+        : <Tile label={t('pm.tile.total')} value={<Delta v={tp.value} pct={tp.pct} />}
+            hint={tp.funded === null ? t('pm.tile.total.hint') : t('pm.tile.total.hintFull', {
+              swept: tp.swept !== null ? ` + ${usd(tp.swept)} swept` : '', funded: usd(tp.funded), since: tp.fundedSinceLabel ? ` (${tp.fundedSinceLabel})` : '' })} />}
+      {r.value === null
+        ? <Tile label={t('pm.tile.realized')} nullText={t('pm.tile.realized.none')} hint={t('pm.tile.realized.noneHint')} />
+        : <Tile label={t('pm.tile.realized')} value={<Delta v={r.value} />} hint={t('pm.tile.realized.hint', { since: r.sinceLabel ? ` since ${r.sinceLabel}` : '' })} />}
+      {u.value === null
+        ? <Tile label={t('pm.tile.unrealized')} nullText={dash} hint={t('pm.tile.unrealized.none')} />
+        : <Tile label={t('pm.tile.unrealized')} value={<Delta v={u.value} />} hint={u.count === 0 ? t('pm.tile.unrealized.none') : t('pm.tile.unrealized.hint')} />}
+      {f.cash === null
+        ? <Tile label={t('pm.tile.cash')} nullText={dash} hint={t('pm.tile.notInFeed')} />
+        : <Tile label={t('pm.tile.cash')} value={usd(f.cash)} hint={b.value > 0 ? t('pm.tile.cash.hint', { pct: Math.round((f.cash / b.value) * 100) }) : t('pm.tile.cash.hintPlain')} />}
+      <Tile label={t('pm.tile.open')} value={String(f.openCount)}
+        hint={f.openCount === 0 ? t('pm.tile.open.settledBelow')
+          : openToday > 0 ? t('pm.tile.open.resolvesToday', { n: openToday })
+          : openTomorrow > 0 ? t('pm.tile.open.resolvesTomorrow', { n: openTomorrow })
+          : t('pm.tile.open.cost', { markets: plural(f.openCount, 'market'), cost: usd(f.openCost) })} />
+      {hw.value === null ? (
+        <Tile label={t('pm.tile.high')} nullText={dash} hint={t('pm.tile.notInFeed')} />
+      ) : (
+        <Tile label={t('pm.tile.high')} value={usd(hw.value)}
+          hint={`${hw.below !== null && hw.below > 0.05 ? t('pm.tile.high.below', { amount: usd(hw.value - b.value) }) : t('pm.tile.high.at')}${hw.setLabel ? ` · ${t('pm.tile.high.set', { when: hw.setLabel })}` : ''}`}>
+          <div className="pmx-hwbar" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, (b.value / hw.value) * 100)).toFixed(1)}%` }} /></div>
+        </Tile>
+      )}
+      {sw.value === null
+        ? <Tile label={t('pm.tile.swept')} nullText={dash} hint={t('pm.tile.notInFeed')} />
+        : <Tile label={t('pm.tile.swept')} value={usd(sw.value)}
+            hint={sw.count ? t('pm.tile.swept.hint', { sweeps: plural(sw.count, 'sweep'), last: sw.lastLabel ? ` · ${sw.lastLabel}` : '' }) : t('pm.tile.swept.none')} />}
+    </div>
+  );
+}
+
+function LegendDot({ color, dashed, border }: { color: string; dashed?: boolean; border?: boolean }) {
+  return <i aria-hidden="true" style={border ? { background: color, border: '1px solid var(--chart-grid)' } : { background: dashed ? 'transparent' : color, boxShadow: dashed ? `inset 0 0 0 2px ${color}` : undefined }} />;
 }
 
 function ChartBlock({ f, range, narrow }: { f: DeskFeed; range: ChartRange; narrow: boolean }) {
@@ -190,22 +196,20 @@ function ChartBlock({ f, range, narrow }: { f: DeskFeed; range: ChartRange; narr
   const runs = c.points.filter((p) => days.has(p.day));
   const enough = runs.length + (c.live.separate && days.has(c.live.day) ? 1 : 0) >= 2;
   if (!enough) {
-    return <MiniEmpty title="Not enough runs for a line" body={`The chart needs at least 2 desk runs in the range.${range !== 'all' ? ' Try “All”.' : ''}`} />;
+    return <MiniEmpty title={t('pm.chart.empty.title')} body={t('pm.chart.empty.body') + (range !== 'all' ? t('pm.chart.empty.all') : '')} />;
   }
   const stopVisible = runs.some((p) => p.stop !== null);
   const sweepsVisible = c.sweeps.some((s) => days.has(s.day));
   const hwValue = c.highWater ?? Math.max(c.live.book, ...c.points.map((p) => p.book));
   return (
     <>
-      <ul className="clegend">
-        <li><LegendLine color="#1F3A5F" width={2.5} />{narrow ? 'Book value' : 'Book value (cash + open positions at market)'}</li>
-        <li><LegendLine color="#6B6F78" width={1.5} dash="6 5" />{narrow ? `High-water ${usd(hwValue)}` : 'High-water (running max)'}</li>
-        {c.funded !== null && <li><LegendLine color="#8A8F99" width={1.5} dash="2 4" />{narrow ? `Funded ${usd(c.funded)}` : 'Funded'}</li>}
-        {!narrow && stopVisible && c.stop && (
-          <li><LegendLine color="#F28C28" width={2} dash="7 5" />{c.stop.removed ? `Old stop-loss (${stopSpan(c.stop.fromLabel, c.stop.toLabel)})` : 'Stop-loss'}</li>
-        )}
-        {!narrow && sweepsVisible && <li><svg width="14" height="12" aria-hidden="true"><path d="M1,1 L13,1 L7,11 Z" fill="#1F3A5F" /></svg>Sweep to Bitstamp</li>}
-        {!narrow && <li><svg width="16" height="12" aria-hidden="true"><rect width="16" height="12" rx="2" fill="#F7F5F0" stroke="#E2DED4" /></svg>Weekend</li>}
+      <ul className="pmx-legend">
+        <li><LegendDot color="var(--ink-950)" />{narrow ? t('pm.chart.legend.bookShort') : t('pm.chart.legend.book')}</li>
+        <li><LegendDot color="var(--chart-5)" />{narrow ? t('pm.chart.legend.hwShort', { value: usd(hwValue) }) : t('pm.chart.legend.hw')}</li>
+        {c.funded !== null && <li><LegendDot color="var(--ink-600)" />{narrow ? t('pm.chart.legend.fundedShort', { value: usd(c.funded) }) : t('pm.chart.legend.funded')}</li>}
+        {stopVisible && c.stop && <li><LegendDot color="var(--risk)" />{c.stop.removed ? t('pm.chart.legend.oldStop', { span: stopSpan(c.stop.fromLabel, c.stop.toLabel) }) : t('pm.chart.legend.stop')}</li>}
+        {sweepsVisible && <li><LegendDot color="var(--chart-3)" />{t('pm.chart.legend.sweep')}</li>}
+        <li><LegendDot color="var(--paper)" border />{t('pm.chart.legend.weekend')}</li>
       </ul>
       <BookValueChart chart={c} range={range} narrow={narrow} />
     </>

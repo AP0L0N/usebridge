@@ -204,7 +204,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
     }
   };
 
-  /** Every UI move goes through here: entering Waiting on you without an ask asks first. */
+  /** Every UI move goes through here: entering the waiting column without an ask asks first. */
   const requestMove = (pending: Pending) => {
     const { t, to, index, via } = pending;
     if (to === t.status && via !== 'drag' && via !== 'key') return;
@@ -420,7 +420,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
 
   // ------------------------------------------------------------ mobile tabs
   const waitingCount = cols.find((c) => c.key === WAITING)?.count ?? 0;
-  // Default tab: Waiting on you when it has tickets, else In progress; after the dialog closes, the card's own column.
+  // Default tab: the waiting column when it has tickets, else In progress; after the dialog closes, the card's own column.
   const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key
     ?? (waitingCount > 0 ? WAITING : 'in_progress'));
   // A filter change on mobile lands on a tab with matches: stay if the current one has some, else the first that does (b4).
@@ -534,7 +534,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           onChanged={() => reload(['board', 'statusHistory'])} />
         <p className="bsum">
           <span className="mi"><b>{open}</b> {tr('board.open', { n: open })}</span>
-          <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { n: waitingCount })}</span>
+          <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { column: lcFirst(colLabel(WAITING)) })}</span>
           <span className="mi"><b>{blocked}</b> {tr('board.blocked', { n: blocked })}</span>
           {p.pm_name && <span className="mi hide-m">{tr('portfolio.pm')} <b className="name">{p.pm_name}</b></span>}
           <span className="mi hide-m">{tr('portfolio.lastActivity')} <b className="name">{updateTime(p.last_activity_at, now) || '—'}</b></span>
@@ -625,7 +625,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
           }} />
       )}
       {askFor && (
-        <AskPrompt ticket={askFor.t} mobile={mobile} columns={cols} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
+        <AskPrompt ticket={askFor.t} column={colLabel(WAITING)} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
           restoreFocus={askFor.via === 'drag' || askFor.via === 'key' ? () => document.querySelector<HTMLElement>(`.board [data-key="${askFor.t.key}"] .tkl`) : undefined}
           onSubmit={(ask) => {
             const a = askFor;
@@ -656,6 +656,9 @@ const IcBack = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
 const IcColumns = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
 );
+
+/** "Waiting on Tilen" → "waiting on Tilen" for the meta row (names keep their capital). */
+const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 function EmptyColumn({ k }: { k: ColumnKey }) {
   if (k === WAITING) {

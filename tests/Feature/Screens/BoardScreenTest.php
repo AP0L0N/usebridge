@@ -9,6 +9,7 @@ use App\Models\TicketEvent;
 use App\Models\User;
 use App\Services\Auth\AccountService;
 use App\Services\Tickets\TicketService;
+use App\Support\BoardColumns;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -19,7 +20,7 @@ use Tests\TestCase;
 
 /**
  * Redesigned board + ticket drawer (screen 2): the props that drive each state (empty board with the PM's real
- * status, the "Waiting on you" column label, blocked, your-input-not-picked-up, the card "via MCP" line), the move
+ * status, the waiting column's label (the workspace's own name), blocked, your-input-not-picked-up, the card "via MCP" line), the move
  * flow through the existing endpoints, and workspace isolation. Discard-on-close is client-only: nothing is
  * persisted until a submit (see tests/browser for the dialog itself).
  */
@@ -42,9 +43,10 @@ class BoardScreenTest extends TestCase
     }
 
     #[Test]
-    public function an_empty_board_keeps_the_pm_real_status_and_uses_the_waiting_on_you_label(): void
+    public function an_empty_board_keeps_the_pm_real_status_and_uses_the_workspace_waiting_label(): void
     {
         $now = Carbon::now();
+        $waiting = BoardColumns::label(BoardColumns::WAITING_TILEN, Project::acrossWorkspaces()->findOrFail(self::BH)->workspace);
         Project::query()->where('id', self::BH)->update([
             'status' => 'waiting', 'status_note' => 'Nothing needs you right now. Build is on track.',
             'status_set_by' => self::JANICE, 'status_set_at' => $now->copy()->subHours(2),
@@ -55,9 +57,9 @@ class BoardScreenTest extends TestCase
             ->where('board.project.status', 'waiting')
             ->where('board.project.status_note', 'Nothing needs you right now. Build is on track.')
             ->where('board.project.status_set_by_name', 'Dr. Janice Polito')
-            // The PM's real status, not a hardcoded one, and the default waiting column name.
+            // The PM's real status, not a hardcoded one, and the workspace's waiting column name.
             ->where('board.project.status_label', 'Waiting input')
-            ->where('board.columns', fn ($cols) => collect($cols)->pluck('label')->all() === ['Backlog', 'To do', 'In progress', 'Waiting on you', 'Review / QA', 'Done'])
+            ->where('board.columns', fn ($cols) => collect($cols)->pluck('label')->all() === ['Backlog', 'To do', 'In progress', $waiting, 'Review / QA', 'Done'])
             ->where('board.columns', fn ($cols) => collect($cols)->every(fn ($c) => $c['count'] === 0)));
     }
 
@@ -97,12 +99,12 @@ class BoardScreenTest extends TestCase
         $this->gate()->postJson("/projects/blue-harbor/tickets/$key/move", ['status' => 'in_progress', 'position' => 0])
             ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.position', 0);
 
-        // Moving into Waiting on you needs an ask; the message is "you"-worded (no Tilen).
+        // Moving into the waiting column needs an ask; the message names the column as this board shows it.
         $res = $this->postJson("/projects/blue-harbor/tickets/$key/move", ['status' => 'waiting_tilen']);
         $res->assertUnprocessable()->assertJsonValidationErrors('ask');
-        $this->assertSame(TicketService::ASK_REQUIRED, $res->json('message'));
-        $this->assertStringContainsString('Waiting on you', $res->json('message'));
-        $this->assertStringNotContainsString('Tilen', $res->json('message'));
+        $project = Project::acrossWorkspaces()->findOrFail(self::BH);
+        $this->assertSame(TicketService::askRequired($project), $res->json('message'));
+        $this->assertStringContainsString(BoardColumns::label(BoardColumns::WAITING_TILEN, $project->workspace), $res->json('message'));
 
         $this->postJson("/projects/blue-harbor/tickets/$key/move", ['status' => 'waiting_tilen', 'ask' => 'Which default?'])
             ->assertOk()->assertJsonPath('data.status', 'waiting_tilen')->assertJsonPath('data.ask', 'Which default?');

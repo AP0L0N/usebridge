@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AccountDeletionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
+use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Auth\TokenController;
@@ -58,9 +59,15 @@ Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 've
     ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
 Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
     ->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+// Email change link (mail to the new address): signed, checked in the controller so an expired link gets a message.
+Route::get('/account/email/verify/{id}/{hash}', [ProfileController::class, 'verify'])
+    ->whereNumber('id')->middleware('throttle:6,1')->name('account.email.verify');
 
 Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->group(function () {
     Route::get('/', [AccountPageController::class, 'show'])->name('account.show');
+    Route::patch('/', [ProfileController::class, 'update'])->middleware('throttle:account-update')->name('account.update');
+    Route::post('/email/resend', [ProfileController::class, 'resend'])->middleware('throttle:account-email')->name('account.email.resend');
+    Route::delete('/email/pending', [ProfileController::class, 'cancel'])->middleware('throttle:account-update')->name('account.email.cancel');
     Route::put('/password', [PasswordController::class, 'change'])->name('account.password');
     Route::get('/sessions', [SessionController::class, 'index'])->name('account.sessions');
     Route::delete('/sessions/others', [SessionController::class, 'destroyOthers'])->name('account.sessions.others');

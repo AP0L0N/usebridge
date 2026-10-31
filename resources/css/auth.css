@@ -97,6 +97,7 @@
 .auth-badge--agent .auth-badge-dot { background: var(--violet); }
 .auth-badge--sample { padding: 4px 10px; border: 1px dashed var(--ink-400); font-size: 13px; font-weight: 400; line-height: 1.4; }
 .auth-badge--sample.on-dark { background: transparent; border-color: var(--ink-600); color: var(--ink-400); }
+.auth-badge--signal { padding: 4px 10px; background: var(--signal); border-color: var(--signal); color: var(--ink-950); }
 
 /* Form column */
 .auth-form { display: flex; flex-direction: column; gap: var(--space-24); }
@@ -174,6 +175,8 @@ a.auth-btn { color: var(--surface); }
 .auth-btn:hover:not(:disabled) { background: var(--auth-ink-hover); }
 .auth-btn--secondary, a.auth-btn--secondary { background: var(--surface); color: var(--ink-950); border-color: var(--auth-line); }
 .auth-btn--secondary:hover:not(:disabled) { background: var(--auth-paper); }
+.auth-btn--ghost, a.auth-btn--ghost { background: transparent; color: var(--ink-800); border-color: transparent; }
+.auth-btn--ghost:hover:not(:disabled) { background: var(--auth-paper); }
 .auth-btn:disabled { cursor: not-allowed; background: var(--auth-disabled-bg); border-color: var(--auth-disabled-bg); color: var(--ink-400); }
 .auth-btn[aria-busy="true"]:disabled { cursor: progress; background: var(--ink-950); border-color: var(--ink-950); color: var(--surface); }
 .auth-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgb(255 255 255 / 0.35); border-top-color: var(--surface); animation: auth-spin .8s linear infinite; }

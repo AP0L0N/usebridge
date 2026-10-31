@@ -58,7 +58,7 @@ class AccountScreensTest extends TestCase
             ->where('deletion.graceDays', 7)
             ->where('deletion.counts', ['projects' => 0, 'tickets' => 0, 'tokens' => 0])
             ->where('minPassword', AccountService::MIN_PASSWORD)
-            ->where('can', ['updateProfile' => false, 'resendEmailChange' => false, 'cancelEmailChange' => false])
+            ->where('can', ['updateProfile' => true, 'resendEmailChange' => true, 'cancelEmailChange' => true])
             ->has('timezones'));
 
         // JSON clients keep the JSON answer.

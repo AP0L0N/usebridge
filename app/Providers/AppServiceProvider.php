@@ -53,6 +53,14 @@ class AppServiceProvider extends ServiceProvider
             ->by('cursor-csv:'.(Auth::guard('web')->id() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => 'Too many Cursor CSV uploads. Try again later.'], 429)));
 
+        // Account profile saves / email change cancel: 10 per minute per user. Resending the email change link (a mail to
+        // an address the user typed): 3 per 10 minutes per user.
+        RateLimiter::for('account-update', fn (Request $request) => Limit::perMinute(10)
+            ->by('account-update:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        RateLimiter::for('account-email', fn (Request $request) => Limit::perMinutes(10, 3)
+            ->by('account-email:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
+            ->response(fn () => response()->json(['message' => __('account.email.throttled')], 429)));
+
         // Reset link for the (future) reset screen; built here so no route has to exist yet (docs/MULTI-USER-PLAN.md §2).
         ResetPassword::createUrlUsing(fn ($user, string $token) => rtrim((string) config('app.url'), '/')
             .'/reset-password/'.$token.'?email='.urlencode($user->getEmailForPasswordReset()));

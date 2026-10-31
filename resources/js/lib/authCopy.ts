@@ -16,6 +16,7 @@ export type AuthCopy = {
   login: Record<string, string> & { status: Record<string, string> };
   forgot: Record<string, string>;
   reset: Record<string, string>;
+  verify: Record<string, string>;
 };
 
 /** ":min characters" + {min: 10} -> "10 characters" (plain text; for links use fillPlaceholders). */

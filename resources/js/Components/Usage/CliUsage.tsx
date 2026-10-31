@@ -65,6 +65,44 @@ function ToolTile({ t, range, noFile }: { t: CliToolStats; range: Range; noFile:
   );
 }
 
+/** Tool / model table (range totals): one row per tool, its models underneath, then Total. Replaces the per-tool tiles. */
+function ToolModelTable({ cli, caption }: { cli: CliBlock; caption: string }) {
+  const sum = (k: 'calls' | 'input' | 'output' | 'cacheRead' | 'cacheCreation' | 'total') => cli.tools.reduce((a, x) => a + x[k], 0);
+  return (
+    <div className="tscroll">
+      <table className="tbl">
+        <caption className="sr-only">{caption}</caption>
+        <thead><tr>
+          <th scope="col">Tool / model</th><th scope="col">Calls</th><th scope="col">Input</th><th scope="col">Output</th>
+          <th scope="col" className="nw">Cache read</th><th scope="col" className="nw">Cache creation</th><th scope="col">Total</th>
+        </tr></thead>
+        <tbody>
+          {cli.tools.map((tool) => (
+            <Fragment key={tool.tool}>
+              <tr>
+                <th scope="row"><span className="an"><i style={{ background: tool.color }} aria-hidden="true" />{tool.name}</span></th>
+                <td>{count(tool.calls)}</td><td><Measured value={tool.input} /></td><td><Measured value={tool.output} /></td>
+                <td className="nw"><Measured value={tool.cacheRead} /></td><td className="nw"><Measured value={tool.cacheCreation} /></td><td><b><Measured value={tool.total} /></b></td>
+              </tr>
+              {tool.models.map((m) => (
+                <tr key={m.model ?? 'none'} className="sub">
+                  <th scope="row"><ModelName m={m} /></th>
+                  <td>{count(m.calls)}</td><td>{fmt(m.input)}</td><td>{fmt(m.output)}</td>
+                  <td className="nw">{fmt(m.cacheRead)}</td><td className="nw">{fmt(m.cacheCreation)}</td><td>{fmt(m.total)}</td>
+                </tr>
+              ))}
+            </Fragment>
+          ))}
+          <tr className="tot">
+            <td>Total</td><td>{count(sum('calls'))}</td><td>{fmt(sum('input'))}</td><td>{fmt(sum('output'))}</td>
+            <td className="nw">{fmt(sum('cacheRead'))}</td><td className="nw">{fmt(sum('cacheCreation'))}</td><td>{fmt(sum('total'))}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** ≤720px: one horizontal total bar per day (all tools). */
 function NarrowDays({ days }: { days: OverviewDay[] }) {
   const max = Math.max(1, ...days.filter((d) => d.present).map((d) => d.total ?? 0));
@@ -209,16 +247,16 @@ export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading 
 
   return (
     <>
-      <h2 className="sect" id="h-cli">
-        Claude Code, Kimi Code &amp; OpenCode Go <span style={{ textTransform: 'none', letterSpacing: 0 }}>· measured tokens · {span}</span>
-      </h2>
-      <section className="card" aria-labelledby="h-cli" aria-busy={loading}>
-        <div className="chead">
-          <MeasuredBadge />
-          <span className="sub">
-            Counted from the CLI logs on the shared box, not scaled like the estimates above.
-            {cli.coverageFromLabel && <> Coverage from <b>{cli.coverageFromLabel}</b>.</>}
-          </span>
+      <section className="card" id="cli" aria-labelledby="h-cli" aria-busy={loading}>
+        <div className="chead cur-head">
+          <div className="cur-title">
+            <h2 id="h-cli">Claude Code, Kimi Code &amp; OpenCode Go</h2>
+            <span className="sub">
+              Measured tokens · {span} · counted from your coding tools’ logs, not scaled like the estimates above.
+              {cli.coverageFromLabel && <> Coverage from <b>{cli.coverageFromLabel}</b>.</>}
+            </span>
+          </div>
+          <div className="right"><MeasuredBadge /></div>
         </div>
 
         {cli.empty ? (
@@ -228,41 +266,38 @@ export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading 
           </p>
         ) : (
           <>
-            <div className="cli-tools">
-              {cli.tools.map((t) => <ToolTile key={t.tool} t={t} range={range} noFile={noFileDays(all, t.tool)} />)}
-            </div>
-
-            <div className="chead">
-              <h3 style={{ margin: 0, fontSize: 16 }}>Daily measured tokens by tool</h3>
-              {!narrow && (
-                <div className="right">
-                  {missing > 0 && <span className="hscale"><MissingKey />No data for that day ({missing}) · not the same as zero</span>}
-                  <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? 'Show as chart' : 'Show as table'}</button>
+            <div className="cli-split">
+              <ToolModelTable cli={cli} caption={`Measured tokens per tool and model, ${span}`} />
+              <div>
+                <div className="chead">
+                  <h3 style={{ margin: 0 }}>Daily measured tokens by tool</h3>
+                  {!narrow && (
+                    <div className="right">
+                      {missing > 0 && <span className="hscale"><MissingKey />No data for that day ({missing}) · not the same as zero</span>}
+                      <button type="button" className="tlink" aria-expanded={asTable} onClick={() => setAsTable((v) => !v)}>{asTable ? 'Show as chart' : 'Show as table'}</button>
+                    </div>
+                  )}
                 </div>
-              )}
+                {narrow ? (
+                  <NarrowDays days={cli.days} />
+                ) : asTable ? (
+                  <ToolDayTable cli={all} days={cli.days} tools={cli.tools} caption={`Daily measured tokens by tool, ${fromLabel} – ${toLabel}. No file = that day's collector file did not cover the tool; 0 = it did, without calls.`} />
+                ) : (
+                  <>
+                    <ChartLegend series={series} isolated={isolated} onToggle={(k) => setIsolated((cur) => (cur === k ? null : k))} kind="measured" label="Tools in the chart. Select one to isolate it." />
+                    <StackedDailyChart days={cli.days} series={series} isolated={isolated} fromLabel={fromLabel} toLabel={toLabel} kind="measured" idPrefix="cli-chart"
+                      title={`Daily measured tokens by tool, ${fromLabel} to ${toLabel}. Table view has every value.`} missing={MISSING} />
+                  </>
+                )}
+              </div>
             </div>
-            {narrow ? (
-              <NarrowDays days={cli.days} />
-            ) : asTable ? (
-              <ToolDayTable cli={all} days={cli.days} tools={cli.tools} caption={`Daily measured tokens by tool, ${fromLabel} – ${toLabel}. No file = that day's collector file did not cover the tool; 0 = it did, without calls.`} />
-            ) : (
-              <>
-                <ChartLegend series={series} isolated={isolated} onToggle={(k) => setIsolated((cur) => (cur === k ? null : k))} kind="measured" label="Tools in the chart. Select one to isolate it." />
-                <StackedDailyChart
-                  days={cli.days}
-                  series={series}
-                  isolated={isolated}
-                  fromLabel={fromLabel}
-                  toLabel={toLabel}
-                  kind="measured"
-                  idPrefix="cli-chart"
-                  title={`Daily measured tokens by tool, ${fromLabel} to ${toLabel}. Table view has every value.`}
-                  missing={MISSING}
-                />
-              </>
-            )}
 
-            {!narrow && <CliTable cli={cli} scope={span} />}
+            {!narrow && (
+              <details className="daydetail">
+                <summary>Daily detail by tool and agent</summary>
+                <CliTable cli={cli} scope={span} />
+              </details>
+            )}
             {narrow && (
               <ul className="ntop cli" style={{ marginTop: 12 }} aria-label="Measured tokens per day and tool">
                 {cli.table.map((r) => (
