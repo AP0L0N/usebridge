@@ -81,7 +81,7 @@ return [
     | null = the placeholders in resources/legal. source_url / source_sha: the AGPL §13 "Source code" link, to
     | <source_url>/tree/<sha> when the deployed commit is known (else the file .bridge-deploy-sha, if present).
     */
-    'terms_version' => env('BRIDGE_TERMS_VERSION', '2026-10-31'),
+    'terms_version' => env('BRIDGE_TERMS_VERSION', '2026-10-draft'),
     'legal_entity' => env('BRIDGE_LEGAL_ENTITY', 'Your company'),
     'legal_dir' => env('BRIDGE_LEGAL_DIR'),
     'source_url' => env('BRIDGE_SOURCE_URL', 'https://github.com/AP0L0N/usebridge'),

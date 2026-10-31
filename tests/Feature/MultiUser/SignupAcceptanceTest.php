@@ -78,9 +78,9 @@ class SignupAcceptanceTest extends TestCase
     #[Test]
     public function the_default_terms_version_comes_from_config(): void
     {
-        $this->assertSame('2026-10-31', config('bridge.terms_version'));
+        $this->assertSame('2026-10-draft', config('bridge.terms_version'));
         $this->signup(['accept_terms' => 'on'])->assertCreated();
-        $this->assertSame('2026-10-31', User::query()->where('email', 'alex@example.test')->value('terms_version'));
+        $this->assertSame('2026-10-draft', User::query()->where('email', 'alex@example.test')->value('terms_version'));
     }
 
     #[Test]
