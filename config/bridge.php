@@ -25,6 +25,9 @@ return [
     'legacy_read_only' => filter_var(env('BRIDGE_LEGACY_READ_ONLY', false), FILTER_VALIDATE_BOOL),
 
     /* Public Bridge URL, used for ticket links in API payloads (answers relay). */
+    // The live Bridge host: the staging-only ops commands refuse to run when APP_URL is this host.
+    'live_host' => strtolower((string) env('BRIDGE_LIVE_HOST', '')),
+
     'public_url' => env('BRIDGE_PUBLIC_URL', 'https://bridge.tilenpoje.eu'),
 
     'org_timezone' => 'Europe/Ljubljana',

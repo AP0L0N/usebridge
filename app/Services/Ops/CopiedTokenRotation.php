@@ -23,8 +23,6 @@ use Throwable;
  */
 final class CopiedTokenRotation
 {
-    public const LIVE_HOST = StagingOnlyGuard::LIVE_HOST;
-
     /** Why this run is refused, or null when it may go ahead: the shared StagingOnlyGuard, then the --out file checks. */
     public static function refusal(string $env, ?string $forceEnv, ?string $appUrl, ?string $out): ?string
     {

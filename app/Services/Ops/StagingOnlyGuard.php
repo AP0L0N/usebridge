@@ -9,7 +9,11 @@ namespace App\Services\Ops;
  */
 final class StagingOnlyGuard
 {
-    public const LIVE_HOST = 'bridge.tilenpoje.eu';
+    /** The live Bridge host (config bridge.live_host / env BRIDGE_LIVE_HOST; '' = no live-host check). */
+    public static function liveHost(): string
+    {
+        return self::host('https://'.trim((string) config('bridge.live_host', '')));
+    }
 
     /** Why this run is refused, or null when it may go ahead. */
     public static function refusal(string $env, ?string $forceEnv, ?string $appUrl): ?string
@@ -27,8 +31,9 @@ final class StagingOnlyGuard
         if ($host === '') {
             return 'APP_URL has no host: refusing.';
         }
-        if ($host === self::LIVE_HOST) {
-            return 'APP_URL is the live Bridge ('.self::LIVE_HOST.'): refusing.';
+        $live = self::liveHost();
+        if ($live !== '' && $host === $live) {
+            return 'APP_URL is the live Bridge ('.$live.'): refusing.';
         }
 
         return null;

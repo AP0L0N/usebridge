@@ -207,11 +207,12 @@ class OpsCommandsTest extends TestCase
         $refuse(['--out' => $out], 'not staging');
         $refuse(['--out' => $out, '--force-env' => 'local'], 'only accepts');
         $this->app['env'] = 'staging';
-        foreach (['https://bridge.tilenpoje.eu', 'https://WWW.Bridge.TilenPoje.eu/', 'http://bridge.tilenpoje.eu.:8080/x'] as $url) {
+        config(['bridge.live_host' => 'bridge.example.test']);
+        foreach (['https://bridge.example.test', 'https://WWW.Bridge.Example.Test/', 'http://bridge.example.test.:8080/x'] as $url) {
             config(['app.url' => $url]);
             $refuse(['--out' => $out], 'live Bridge');
         }
-        config(['app.url' => 'https://bridge-staging.tilenpoje.eu']);
+        config(['app.url' => 'https://bridge-staging.example.test']);
         $refuse([], '--out');
         $refuse(['--out' => $this->dir.'/missing/tokens.env'], 'not a writable directory');
         file_put_contents($out, 'keep');

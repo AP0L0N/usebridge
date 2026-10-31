@@ -3,7 +3,6 @@
 namespace Tests\Feature\MultiUser;
 
 use App\Models\User;
-use App\Services\Ops\StagingOnlyGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\Attributes\Test;
@@ -90,9 +89,10 @@ class VerifyEmailCommandTest extends TestCase
         $refused([], 'not staging');
         $refused(['--force-env' => 'local'], 'only accepts');
         $this->app['env'] = 'staging';
-        config(['app.url' => 'https://'.StagingOnlyGuard::LIVE_HOST]);
+        config(['bridge.live_host' => 'bridge.example.test']);
+        config(['app.url' => 'https://bridge.example.test']);
         $refused([], 'live Bridge');
-        config(['app.url' => 'https://www.'.strtoupper(StagingOnlyGuard::LIVE_HOST).'/']);
+        config(['app.url' => 'https://www.BRIDGE.EXAMPLE.TEST/']);
         $refused([], 'live Bridge');
         config(['app.url' => '']);
         $refused([], 'no host');
