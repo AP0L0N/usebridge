@@ -52,7 +52,7 @@ class GateFailsClosedTest extends TestCase
                 $this->assertFalse(WorkspaceGate::accepts($guess));
                 $this->from('/gate')->post('/gate', ['password' => $guess])
                     ->assertRedirect('/gate')->assertSessionHasErrors('password')->assertSessionMissing(WorkspaceGate::SESSION_KEY);
-                $this->get('/')->assertRedirect(route('login'));
+                $this->get('/')->assertOk()->assertViewIs('landing'); // still a guest: the landing, not the Portfolio
             }
         }
 
