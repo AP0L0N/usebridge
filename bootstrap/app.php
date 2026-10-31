@@ -6,7 +6,9 @@ use App\Http\Middleware\WorkspaceBoundary;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -30,4 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*', 'mcp') || $request->expectsJson(),
         );
+        // S9: a missing model is a plain 404 in JSON; never leak the model class ("No query results for model [App\\…]").
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            if ($e->getPrevious() instanceof ModelNotFoundException && ($request->is('api/*', 'mcp') || $request->expectsJson())) {
+                return response()->json(['message' => 'Not found.'], 404);
+            }
+
+            return null;
+        });
     })->create();
