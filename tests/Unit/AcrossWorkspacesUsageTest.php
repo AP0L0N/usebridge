@@ -43,6 +43,7 @@ class AcrossWorkspacesUsageTest extends TestCase
         $this->assertSame([
             'app/Models/Concerns/BelongsToWorkspace.php' => 2, // the definition + parentWorkspaceId() (console writes)
             'app/Models/Project.php' => 1,                     // ticket_prefix: globally unique for now
+            'app/Services/Auth/TokenAgents.php' => 2,          // token agent filtered by the token's explicit workspace_id + global agent id
             'app/Services/Tickets/TicketService.php' => 2,     // ticket_prefix + ticket key: globally unique for now
             'app/Services/Usage/CliUsageImporter.php' => 3,    // markers/rows/upsert, each filtered by the explicit current workspace_id
             'app/Services/Usage/CursorCsvImporter.php' => 2,   // edge-day marker + stored calls, filtered by the same explicit workspace_id

@@ -3,13 +3,16 @@
 namespace App\Services\Tickets;
 
 use App\Models\Agent;
+use App\Services\Auth\TokenAgents;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Who is writing. API: the Sanctum token's name when it is an agents.id (a differing body `actor` is a 403),
- * otherwise the body `actor` (an existing agents.id). 'tilen' is never accepted over the API: Tilen's input only
+ * otherwise the body `actor` (an existing agents.id of the token's workspace), otherwise the token's own agent
+ * (personal_access_tokens.agent_id, TokenAgents; go-live B3: `actor` is optional). 'tilen' is never accepted over the API: Tilen's input only
  * comes from the Bridge UI (web session), so it can always be told apart.
  */
 final class Actor
@@ -79,13 +82,36 @@ final class Actor
         }
 
         if ($given === null || $given === '') {
-            throw ValidationException::withMessages(['actor' => 'The actor field is required: your agent id (GET /api/agents).']);
+            // Go-live B3: no actor -> the token's own agent in its workspace (created on the token's first write if the
+            // token predates token agents). Only a session / unbound token still has to name one.
+            $agent = self::boundAgent($user);
+            if ($agent === null) {
+                throw ValidationException::withMessages(['actor' => 'The actor field is required: your agent id (GET /api/agents).']);
+            }
+
+            return new self($agent, 'agent', 'api');
         }
+        // Agent is workspace-scoped: an agent of another workspace is "unknown" here (write isolation).
         if (! Agent::query()->whereKey($given)->exists()) {
             throw ValidationException::withMessages(['actor' => "Unknown actor '$given': use an existing agent id (GET /api/agents)."]);
         }
 
         return new self($given, 'agent', 'api');
+    }
+
+    /** The current token's agent id (personal_access_tokens.agent_id), provisioned when missing; null without a bound token. */
+    private static function boundAgent(mixed $user): ?string
+    {
+        $token = $user?->currentAccessToken();
+        if (! $token instanceof PersonalAccessToken || ! $token->exists) {
+            return null;
+        }
+        $id = $token->getAttribute('agent_id');
+        if ($id !== null && Agent::query()->whereKey($id)->exists()) {
+            return (string) $id;
+        }
+
+        return TokenAgents::provision($token, app(CurrentWorkspace::class)->id())?->id;
     }
 
     /** The token's name when it names an existing agent (per-agent tokens), else null (shared CEO token). */

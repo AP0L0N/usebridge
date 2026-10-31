@@ -98,7 +98,7 @@ class AccountScreensTest extends TestCase
         $this->assertStringNotContainsString($new['plain_text'], $res->getContent());
         $this->assertStringNotContainsString(hash('sha256', $new['plain_text']), $res->getContent());
         $this->assertSame([], array_values(array_diff(array_keys($res->inertiaProps('tokens.0')), [
-            'id', 'name', 'suffix', 'masked', 'legacy', 'scope', 'abilities', 'created_at', 'last_used_at', 'expires_at',
+            'id', 'name', 'suffix', 'masked', 'legacy', 'scope', 'abilities', 'created_at', 'last_used_at', 'expires_at', 'agent_id',
         ])));
     }
 

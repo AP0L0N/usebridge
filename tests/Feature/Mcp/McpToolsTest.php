@@ -3,6 +3,7 @@
 namespace Tests\Feature\Mcp;
 
 use App\Models\Project;
+use App\Models\ProjectStatusEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Tickets\TicketService;
@@ -124,7 +125,7 @@ class McpToolsTest extends TestCase
             ->assertJsonPath('data.current.status', 'waiting')->assertJsonPath('data.current.set_by', self::JANICE);
         // MCP writes record source 'mcp' (Portfolio shows "via MCP"); the REST route keeps 'api'.
         $this->assertSame('mcp', $set['event']['source']);
-        $this->assertSame('mcp', \App\Models\ProjectStatusEvent::query()->latest('created_at')->latest('id')->value('source'));
+        $this->assertSame('mcp', ProjectStatusEvent::query()->latest('created_at')->latest('id')->value('source'));
         $rest = $this->bearer($this->janice, 'PATCH', '/api/projects/'.self::BH.'/status', ['status' => 'smooth']);
         $rest->assertOk()->assertJsonPath('data.event.source', 'api');
         // Same authorization as PATCH /api/projects/{id}/status: Janice is not Northwind's PM, only Captain archives.
@@ -135,8 +136,9 @@ class McpToolsTest extends TestCase
     #[Test]
     public function the_actor_is_resolved_like_on_the_rest_api(): void
     {
-        // Shared token: actor required, must be an agent of this workspace, never tilen.
-        $this->assertStringContainsString('actor field is required', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x']));
+        // Shared token: actor optional (go-live B3: omitted -> the token's own agent), must be an agent of this workspace, never tilen.
+        $own = $this->tool($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x'])['data'];
+        $this->assertMatchesRegularExpression('/^agent-[a-z0-9-]+-[a-z0-9]{6}$/', (string) $own['created_by']);
         $this->assertStringContainsString('Unknown actor', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x', 'actor' => 'agent-nobody']));
         $key = $this->tool($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'By Captain', 'actor' => self::CAPTAIN])['data']['key'];
         $this->assertStringContainsString("Tilen's input only comes from the Bridge UI", $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));

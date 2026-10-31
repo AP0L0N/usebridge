@@ -173,9 +173,9 @@ class WorkspaceIsolationTest extends TestCase
         $this->usage($reader)->assertForbidden();
         $this->send($usage, 'GET', '/api/projects')->assertForbidden();
         $this->usage($usage)->assertCreated();
-        // Past the ability check (then the Captain-only rule answers 403 with its own message).
-        $this->send($writer, 'POST', '/api/agents', ['id' => 'agent-x', 'name' => 'X', 'actor' => 'agent-grok'])->assertForbidden()
-            ->assertJsonPath('message', 'Only Captain ('.Actor::CAPTAIN.') can add agents.');
+        // Past the ability check: the workspace owner's write token may add agents (go-live B3), no actor needed.
+        $this->send($writer, 'POST', '/api/agents', ['id' => 'agent-x', 'name' => 'X', 'actor' => 'agent-grok'])->assertCreated();
+        $this->send($writer, 'POST', '/api/agents', ['id' => 'agent-y', 'name' => 'Y'])->assertCreated();
         $this->send($writer, 'POST', '/api/status-updates', ['project_id' => 'x', 'agent_id' => 'agent-grok', 'body' => 'b'])->assertForbidden()
             ->assertJsonPath('message', "This token lacks the 'status:write' ability.");
         $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => self::ANATOLY, 'body' => 'b'])->assertCreated();

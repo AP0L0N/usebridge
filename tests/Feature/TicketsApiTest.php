@@ -188,11 +188,16 @@ class TicketsApiTest extends TestCase
         $this->withHeaders($h)->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'hi', 'actor' => self::CAPTAIN])->assertForbidden();
         $this->withHeaders($h)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable();
 
-        // A token whose name is not an agent (the shared CEO token) still needs the body actor.
+        // A token whose name is not an agent (the shared CEO token): an explicit actor works as before; without one
+        // (go-live B3) the write is recorded as the token's own agent, provisioned on that first write, reused after.
         $ceo = $this->workspaceUser()->createToken('ceo', ['ceo'])->plainTextToken;
         $this->app['auth']->forgetGuards();
-        $this->withHeaders(['Authorization' => 'Bearer '.$ceo])->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x'])
-            ->assertUnprocessable()->assertJsonValidationErrors('actor');
+        $hc = ['Authorization' => 'Bearer '.$ceo];
+        $this->withHeaders($hc)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'As Captain', 'actor' => self::CAPTAIN])
+            ->assertCreated()->assertJsonPath('data.created_by', self::CAPTAIN);
+        $first = $this->withHeaders($hc)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x'])->assertCreated()->json('data.created_by');
+        $this->assertMatchesRegularExpression('/^agent-ceo-[a-z0-9]{6}$/', $first);
+        $this->withHeaders($hc)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'y'])->assertCreated()->assertJsonPath('data.created_by', $first);
     }
 
     #[Test]

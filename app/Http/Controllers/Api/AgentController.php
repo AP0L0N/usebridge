@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
+use App\Models\User;
 use App\Services\Tickets\Actor;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,13 +18,18 @@ class AgentController extends Controller
     }
 
     /**
-     * Captain-only: POST /api/agents {actor, id: agent-[a-z0-9-], name, role_label?}. 403 for anyone else,
-     * 422 for a missing/invalid/duplicate id. Agents are never deleted (no DELETE route).
+     * POST /api/agents {actor?, id: agent-[a-z0-9-], name, role_label?} (agents:write). Allowed for a token of the
+     * workspace owner (no actor needed: go-live B3) and, as before, for Captain. 403 for anyone else, 422 for a
+     * missing/invalid/duplicate id (ids are global). The agent belongs to the token's workspace. Agents are never
+     * deleted (no DELETE route).
      */
     public function store(Request $request): JsonResponse
     {
         $actor = Actor::fromApi($request);
-        abort_unless($actor->isCaptain(), 403, 'Only Captain ('.Actor::CAPTAIN.') can add agents.');
+        $workspace = app(CurrentWorkspace::class)->get();
+        $user = $request->user();
+        abort_unless($actor->isCaptain() || ($user instanceof User && $workspace?->isOwnedBy($user)), 403,
+            'Only the workspace owner (or Captain) can add agents.');
         $data = $request->validate([
             'id' => ['required', 'string', 'max:64', 'regex:/^agent-[a-z0-9]+(-[a-z0-9]+)*$/', 'not_in:'.Actor::TILEN.','.Actor::MIGRATION, 'unique:agents,id'],
             'name' => ['required', 'string', 'max:255'],

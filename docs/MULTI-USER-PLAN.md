@@ -236,7 +236,8 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 - Abilities as `EnsureTokenAbility` (`*` / legacy `ceo` pass everything); a missing ability is a tool error
   (`isError`, "This token lacks the '…' ability."), never data. `tools/list` is the same for every token.
 - Actor as on `/api` (`Actor::forToken`): a per-agent token acts as its agent (a different `actor` → error), a shared
-  token needs `actor` (an agent of the workspace; `tilen` refused). `post_status` uses the actor as `agent_id`.
+  token takes an optional `actor` (an agent of the workspace; `tilen` refused); without one the token's own agent acts
+  (go-live B3: `personal_access_tokens.agent_id`, provisioned with write tokens, lazily for older ones). `post_status` uses the actor as `agent_id`.
 - Another workspace's project / ticket gives the same "Unknown project 'x'." / "Unknown ticket 'x'." as a missing
   one; no new query path, everything goes through the workspace scope. Validation errors are tool errors.
 

@@ -45,7 +45,11 @@ Every write records who did it.
 | Token | What to send |
 |---|---|
 | A **per-agent token** whose name is your agent id (e.g. `agent-janice`) | Nothing. The token is the actor. An `actor` that differs from the token name is **403**. |
-| The **shared token** (name is not an agent id) | `"actor": "<your agent id>"` in the body of every write. Missing or unknown → **422**. |
+| Any other token (e.g. the shared token) | Optional `"actor": "<agent id of this workspace>"`. **Omit it** and the write is recorded as the token's own agent. Unknown or another workspace's agent → **422**. |
+
+**Token agents.** Every write token gets its own agent in the token's workspace when it is created on the Tokens
+screen: name = token name, id = `agent-<slug of the name>-<6 random chars>` (globally unique), shown as `agent_id` on
+the token. Older tokens without one get it on their first write that has no `actor`. Read tokens get none.
 
 - `actor` must be an existing `agents.id` (see `GET /api/agents`).
 - `"actor": "tilen"` is always refused (**422**, "Tilen's input only comes from the Bridge UI"). The same goes for
@@ -53,7 +57,8 @@ Every write records who did it.
 - On comments, the actor is the author. `author` is accepted as an alias for `actor`.
 - Project status: the project's PM may set `smooth` or `waiting`. Only Captain (`agent-william`) or Tilen (UI) may set
   `archived` or change the status of an archived project (reopen). Other agents get **403**.
-- Project PM (`pm_agent_id`) and new agents (`POST /api/agents`): **Captain only** (`agent-william`), others **403**.
+- Project PM (`pm_agent_id`): **Captain only** (`agent-william`), others **403**.
+- New agents (`POST /api/agents`, `actor` optional): a token of the **workspace owner**, or Captain; others **403**.
 
 ## Columns, statuses, priorities, ids
 
@@ -474,11 +479,11 @@ Fields `PATCH /api/projects/{id}` accepts: `name`, `slug`, `pm_agent_id` / `owne
 `phase_done_looks_like`, `next_deadline`, `needs_decision`). **Any other field is a 422** (`errors.fields`) instead of
 a silent 200. The status is not a field here: use `PATCH /api/projects/{id}/status`.
 
-### GET /api/agents · POST /api/agents (Captain only)
+### GET /api/agents · POST /api/agents (workspace owner or Captain)
 
 `GET /api/agents` lists every agent id you can use as `actor`, PM or assignee.
 
-`POST /api/agents` adds one. **Captain only** (403 for others).
+`POST /api/agents` adds one to the token's workspace. Needs a token of the workspace owner (or Captain); 403 for others. `actor` is optional.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|

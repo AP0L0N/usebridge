@@ -60,7 +60,7 @@ abstract class BridgeTool extends Tool
     /** Schema of the `actor` argument (write tools). */
     protected function actorField(JsonSchema $schema): Type
     {
-        return $schema->string()->description('Your agent id (list_agents). Not needed with a per-agent token; "tilen" is refused.');
+        return $schema->string()->description('Optional: an agent id of this workspace (list_agents). Omit it to write as this token\'s own agent.');
     }
 
     /** Schema of the editable ticket fields (create_ticket / update_ticket); validated with TicketService::rules(). */
@@ -80,7 +80,7 @@ abstract class BridgeTool extends Tool
         ];
     }
 
-    /** The acting agent, as on the REST API: the per-agent token's name, else the `actor` argument. */
+    /** The acting agent, as on the REST API: the per-agent token's name, else the `actor` argument, else the token's agent. */
     protected function actor(Request $request): Actor
     {
         return Actor::forToken($request->get('actor'), $request->user());

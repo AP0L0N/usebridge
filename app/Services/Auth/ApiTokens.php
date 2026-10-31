@@ -23,6 +23,8 @@ use Laravel\Sanctum\PersonalAccessToken;
  * - Expiry 30 / 90 / 365 days or none -> expires_at (Sanctum rejects expired tokens).
  * - New tokens carry sanctum.token_prefix (brg_live_) and keep the last 4 plaintext characters in token_suffix for the
  *   masked list; the token is bound to the workspace it was created in. Legacy tokens keep working, listed as legacy.
+ * - Each new token gets its own agent in the workspace (TokenAgents, name = token name): API / MCP writes without an
+ *   `actor` are recorded as that agent. Revoking keeps the agent (agents are never deleted).
  * - Revoke deletes the token row (a credential, not data), own tokens only. Creating needs a verified email.
  */
 final class ApiTokens
@@ -81,6 +83,11 @@ final class ApiTokens
         // Shown once: the part after "id|" (Sanctum finds a token without the id by its hash).
         $plain = Str::after($new->plainTextToken, '|');
         $new->accessToken->forceFill(['workspace_id' => $workspace->id, 'token_suffix' => substr($plain, -4)])->save();
+        // Go-live B3: the token's own agent (name = token name) is the actor when a write names none.
+        // Read tokens cannot write, so they get none.
+        if ($scope === 'write') {
+            TokenAgents::provision($new->accessToken);
+        }
 
         return ['token' => $new->accessToken, 'plain_text' => $plain];
     }
@@ -107,6 +114,7 @@ final class ApiTokens
             'created_at' => $t->created_at?->toIso8601String(),
             'last_used_at' => $t->last_used_at?->toIso8601String(),
             'expires_at' => $t->expires_at?->toIso8601String(),
+            'agent_id' => $t->getAttribute('agent_id'),
         ];
     }
 
