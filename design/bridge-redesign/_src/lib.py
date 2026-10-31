@@ -108,7 +108,7 @@ def dist(counts):
     bar = ''.join(f'<i class="c-{k}" style="width:{v / total * 100:.1f}%"></i>' for k, v in counts.items() if v)
     names = dict(COLS)
     names['done'] = 'Done (7 days)'
-    leg = ''.join(f'<span><i class="dot c-{k}" style="background:var(--c)"></i>{names[k]} <b>{v}</b></span>' for k, v in counts.items() if v)
+    leg = ''.join(f'<span><i class="dot c-{k}" style="background:var(--c)"></i><span>{names[k]} <b>{v}</b></span></span>' for k, v in counts.items() if v)
     return f'<div class="dist" aria-hidden="true">{bar}</div><p class="dist-legend">{leg}</p>'
 
 
