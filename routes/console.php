@@ -118,7 +118,7 @@ Artisan::command('bridge:cursor-csv-import {path : CSV from cursor.com/dashboard
 
         return 1;
     }
-    $slug = (string) ($this->option('workspace') ?: config('bridge.default_workspace', 'tilen'));
+    $slug = (string) ($this->option('workspace') ?: (config('bridge.default_workspace') ?: 'main'));
     $workspace = Workspace::query()->where('slug', $slug)->first();
     if ($workspace === null) {
         $this->error("workspace '$slug' not found");
@@ -203,7 +203,7 @@ Artisan::command('bridge:tickets-migrate {--dry-run : Compute and roll back, wri
     return 0;
 })->purpose('Carry open Questions / Required inputs / Next steps over to tickets (idempotent; --dry-run writes nothing)');
 
-// Captain's roster (29 Oct): add missing agents, set the real PM per active project. Idempotent; the
+// Roster (BridgeRoster, JSON at BRIDGE_ROSTER_PATH): add missing agents, set the PM per active project. Idempotent; the
 // 2026_10_29_120000 migration applies it on deploy, this re-runs or previews it. Only inserts agents / changes PMs.
 Artisan::command('bridge:set-pms {--dry-run : Show what would change, write nothing}', function () {
     $dry = (bool) $this->option('dry-run');
@@ -222,7 +222,7 @@ Artisan::command('bridge:set-pms {--dry-run : Show what would change, write noth
     }
 
     return $r['missing_agents'] ? 1 : 0;
-})->purpose("Add the Captain's missing agents and set each active project's real PM (idempotent)");
+})->purpose("Add the roster's missing agents and set each active project's PM from BRIDGE_ROSTER_PATH (idempotent)");
 
 // Account deletion (docs/MULTI-USER-PLAN.md §2): users whose 7-day grace is over are soft-deleted (deleted_at). Their
 // workspace rows are kept: no purge without Tilen's explicit OK. Safe to run daily.
@@ -236,10 +236,10 @@ Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be 
 
 // Ops (docs/MULTI-USER-PLAN.md §11): make a user the owner of a workspace, e.g. Tilen on a copy migrated before
 // BRIDGE_OWNER_EMAIL was required. Idempotent, transactional, nothing deleted; prints ids only, never a password or link.
-Artisan::command('bridge:set-owner {--email= : The new owner\'s login email} {--name= : Name when the user is created (default: the email\'s local part)} {--workspace=tilen : Workspace slug} {--dry-run : Show the plan, change nothing}', function (WorkspaceOwnerTransfer $transfer) {
+Artisan::command('bridge:set-owner {--email= : The new owner\'s login email} {--name= : Name when the user is created (default: the email\'s local part)} {--workspace= : Workspace slug (default: bridge.default_workspace)} {--dry-run : Show the plan, change nothing}', function (WorkspaceOwnerTransfer $transfer) {
     $dry = (bool) $this->option('dry-run');
     try {
-        $r = $transfer->apply((string) $this->option('email'), $this->option('name'), (string) $this->option('workspace'), $dry);
+        $r = $transfer->apply((string) $this->option('email'), $this->option('name'), (string) ($this->option('workspace') ?: config('bridge.default_workspace') ?: 'main'), $dry);
     } catch (InvalidArgumentException $e) {
         $this->error($e->getMessage());
 

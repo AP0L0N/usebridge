@@ -27,7 +27,7 @@ class ProjectStatusApiTest extends TestCase
         parent::tearDown();
     }
 
-    private function setStatus(array $body, string $project = self::CA)
+    private function setStatus(array $body, string $project = self::BH)
     {
         return $this->patchJson("/api/projects/$project/status", $body);
     }
@@ -35,15 +35,15 @@ class ProjectStatusApiTest extends TestCase
     #[Test]
     public function needs_the_token(): void
     {
-        $this->getJson('/api/projects/'.self::CA.'/status')->assertUnauthorized();
-        $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'smooth'])->assertUnauthorized();
+        $this->getJson('/api/projects/'.self::BH.'/status')->assertUnauthorized();
+        $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'smooth'])->assertUnauthorized();
     }
 
     #[Test]
     public function pm_sets_status_and_note_and_every_write_is_an_event(): void
     {
         $this->api();
-        $this->getJson('/api/projects/'.self::CA.'/status')->assertOk()
+        $this->getJson('/api/projects/'.self::BH.'/status')->assertOk()
             ->assertJsonPath('data.current.status', null)->assertJsonPath('data.current.status_label', 'Status not set')->assertJsonPath('data.history', []);
 
         $r = $this->setStatus(['status' => 'smooth', 'note' => 'Copy locked, build on track.', 'actor' => self::JANICE])->assertOk();
@@ -51,7 +51,7 @@ class ProjectStatusApiTest extends TestCase
             ->assertJsonPath('data.current.set_by_name', 'Dr. Janice Polito')->assertJsonPath('data.event.from_status', null)
             ->assertJsonPath('data.event.source', 'api')->assertJsonPath('data.event.set_by_type', 'agent')->assertJsonPath('warnings', []);
         $this->assertStringStartsWith('pse-', $r->json('data.event.id'));
-        $p = Project::find(self::CA);
+        $p = Project::find(self::BH);
         $this->assertSame(['smooth', 'Copy locked, build on track.', self::JANICE], [$p->status, $p->status_note, $p->status_set_by]);
         $this->assertSame(Carbon::now()->toIso8601String(), $p->status_set_at->toIso8601String());
 
@@ -62,7 +62,7 @@ class ProjectStatusApiTest extends TestCase
         $this->setStatus(['status' => 'waiting', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.current.note', null);
         $this->assertSame(3, ProjectStatusEvent::count());
 
-        $h = $this->getJson('/api/projects/'.self::CA.'/status')->assertOk()->json('data');
+        $h = $this->getJson('/api/projects/'.self::BH.'/status')->assertOk()->json('data');
         $this->assertSame(['waiting', 'smooth', 'smooth'], array_column($h['history'], 'to_status'));
         $this->assertSame([null, 'Still fine.', 'Copy locked, build on track.'], array_column($h['history'], 'note'));
         $this->assertSame('Waiting input', $h['current']['status_label']);
@@ -84,15 +84,15 @@ class ProjectStatusApiTest extends TestCase
 
         // Captain archives and reopens; PMs can't touch an archived project's status.
         $this->setStatus(['status' => 'archived', 'note' => 'Wrapped.', 'actor' => self::CAPTAIN])->assertOk();
-        $this->assertNotNull(Project::find(self::CA)->archived_at);
+        $this->assertNotNull(Project::find(self::BH)->archived_at);
         $this->setStatus(['status' => 'smooth', 'actor' => self::JANICE])->assertForbidden();
-        $this->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x', 'actor' => self::JANICE])->assertStatus(409);
+        $this->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x', 'actor' => self::JANICE])->assertStatus(409);
         $this->setStatus(['status' => 'smooth', 'actor' => self::CAPTAIN])->assertOk();
-        $p = Project::find(self::CA);
+        $p = Project::find(self::BH);
         $this->assertNull($p->archived_at);
         $this->assertNotNull($p->reopened_at);
         // Captain may set any project's status.
-        $this->setStatus(['status' => 'waiting', 'actor' => self::CAPTAIN], self::MW)->assertOk();
+        $this->setStatus(['status' => 'waiting', 'actor' => self::CAPTAIN], self::NW)->assertOk();
     }
 
     #[Test]
@@ -117,8 +117,8 @@ class ProjectStatusApiTest extends TestCase
         $this->waitingTicket();
         $this->newTicket(['status' => 'in_progress']);
         $this->setStatus(['status' => 'waiting', 'note' => 'Need the copy call.', 'actor' => self::JANICE]);
-        $d = $this->getJson('/api/projects/'.self::CA)->assertOk()->json('data');
-        $this->assertSame(['waiting', 'Need the copy call.', self::JANICE, 'CA', 1], [$d['pmStatus'], $d['pmStatusNote'], $d['pmStatusSetBy'], $d['ticketPrefix'], $d['waitingTilenCount']]);
+        $d = $this->getJson('/api/projects/'.self::BH)->assertOk()->json('data');
+        $this->assertSame(['waiting', 'Need the copy call.', self::JANICE, 'BH', 1], [$d['pmStatus'], $d['pmStatusNote'], $d['pmStatusSetBy'], $d['ticketPrefix'], $d['waitingTilenCount']]);
         $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 1, 'review' => 0, 'done' => 0], $d['ticketCounts']);
         $this->assertNotNull($d['pmStatusSetAt']);
         $this->assertNotNull($d['lastActivityAt']);

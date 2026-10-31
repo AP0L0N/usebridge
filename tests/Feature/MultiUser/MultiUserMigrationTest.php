@@ -29,8 +29,8 @@ class MultiUserMigrationTest extends TestCase
     private function legacyRows(): array
     {
         $this->backfill()->down();
-        $captain = User::query()->create(['name' => 'Captain William Diego', 'email' => 'captain@lantis.internal', 'password' => Hash::make('x')]);
-        $agentBot = User::query()->create(['name' => 'Bot', 'email' => 'bot@lantis.internal', 'password' => Hash::make('x')]);
+        $captain = User::query()->create(['name' => 'Captain William Diego', 'email' => 'captain@example.test', 'password' => Hash::make('x')]);
+        $agentBot = User::query()->create(['name' => 'Bot', 'email' => 'bot@example.test', 'password' => Hash::make('x')]);
         $captain->createToken('ceo', ['ceo']);
         $agentBot->createToken('agent-janice');
         DB::table('agents')->insert(['id' => 'agent-janice', 'name' => 'Janice', 'role_label' => 'PM']);
@@ -44,9 +44,9 @@ class MultiUserMigrationTest extends TestCase
     #[Test]
     public function fresh_install_gets_tilens_workspace_with_an_admin_owner(): void
     {
-        $ws = DB::table('workspaces')->where('slug', 'tilen')->first();
+        $ws = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->first();
         $this->assertNotNull($ws);
-        $this->assertSame('LANTIS', $ws->name);
+        $this->assertSame(config('bridge.default_workspace_name'), $ws->name);
         // usage_upload: added by 2026_10_31_130000_multi_user_auth (read & write tokens get usage:write there).
         $this->assertSame(['polymarket' => true, 'usage_upload' => true], json_decode($ws->features, true));
         $owner = User::query()->find($ws->owner_user_id);
@@ -63,7 +63,7 @@ class MultiUserMigrationTest extends TestCase
         $this->backfill()->up();
         $this->backfill()->up(); // idempotent
 
-        $ws = DB::table('workspaces')->where('slug', 'tilen')->first();
+        $ws = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->first();
         $this->assertSame(1, DB::table('workspaces')->count());
         $owner = User::query()->where('email', 'owner@example.test')->firstOrFail(); // BRIDGE_OWNER_EMAIL in phpunit.xml
         $this->assertSame($owner->id, (int) $ws->owner_user_id);
@@ -104,12 +104,12 @@ class MultiUserMigrationTest extends TestCase
     #[Test]
     public function backfill_is_a_no_op_for_the_owner_when_the_workspace_already_exists(): void
     {
-        $ownerId = DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id');
+        $ownerId = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('owner_user_id');
         config(['bridge.owner_email' => null]);
 
         $this->backfill()->up();
 
-        $this->assertSame($ownerId, DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id'));
+        $this->assertSame($ownerId, DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('owner_user_id'));
     }
 
     #[Test]
@@ -122,7 +122,7 @@ class MultiUserMigrationTest extends TestCase
 
         $owner = User::query()->where('email', 'tilen@example.test')->firstOrFail();
         $this->assertTrue((bool) $owner->is_admin);
-        $this->assertSame($owner->id, (int) DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id'));
+        $this->assertSame($owner->id, (int) DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('owner_user_id'));
         $this->assertFalse(Hash::check('', $owner->password));
     }
 
@@ -147,7 +147,7 @@ class MultiUserMigrationTest extends TestCase
     public function usage_keys_are_per_workspace_and_down_refuses_to_merge_workspaces(): void
     {
         $other = DB::table('workspaces')->insertGetId(['slug' => 'other', 'name' => 'Other', 'owner_user_id' => User::factory()->create()->id]);
-        $tilen = DB::table('workspaces')->where('slug', 'tilen')->value('id');
+        $tilen = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('id');
         foreach ([$tilen, $other] as $ws) {
             DB::table('usage_days')->insert(['workspace_id' => $ws, 'date' => '2026-10-30', 'generated_at' => '2026-10-31 00:00:00', 'est_tokens_total' => 1, 'payload' => '{}']);
             DB::table('labels')->insert(['workspace_id' => $ws, 'id' => "lb-$ws", 'name' => 'bug']);

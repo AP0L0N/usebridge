@@ -22,7 +22,7 @@ class UsageImportTest extends TestCase
         $this->token = $this->workspaceUser()->createToken('bridge-api')->plainTextToken;
     }
 
-    public static function fixture(string $date = '2026-10-19'): string
+    public static function fixture(string $date = '2037-10-19'): string
     {
         return (string) file_get_contents(base_path("tests/fixtures/usage/$date.json"));
     }
@@ -30,7 +30,7 @@ class UsageImportTest extends TestCase
     /** @return list<string> */
     public static function fixturePaths(): array
     {
-        $paths = glob(base_path('tests/fixtures/usage/2026-10-*.json'));
+        $paths = glob(base_path('tests/fixtures/usage/2037-10-*.json'));
         sort($paths);
 
         return $paths;
@@ -47,7 +47,7 @@ class UsageImportTest extends TestCase
     }
 
     /** @param callable(array): array $mutate */
-    private function mutated(callable $mutate, string $date = '2026-10-19'): string
+    private function mutated(callable $mutate, string $date = '2037-10-19'): string
     {
         return json_encode($mutate(json_decode(self::fixture($date), true)));
     }
@@ -72,7 +72,7 @@ class UsageImportTest extends TestCase
     {
         $this->send(self::fixture())
             ->assertCreated()
-            ->assertExactJson(['data' => ['date' => '2026-10-19', 'est_tokens_total' => 176291252, 'agents' => 19, 'created' => true]]);
+            ->assertExactJson(['data' => ['date' => '2037-10-19', 'est_tokens_total' => 158723575, 'agents' => 19, 'created' => true]]);
 
         $first = UsageDay::query()->sole();
         $this->assertSame(json_decode(self::fixture(), true), $first->payload);
@@ -96,15 +96,15 @@ class UsageImportTest extends TestCase
             $d['agents'][0]['est_tokens_total'] += 1000;
             $d['agents'][0]['other_est_tokens'] += 1000;
             $d['est_tokens_total'] += 1000;
-            $d['generated_at'] = '2026-10-19T17:05:00+02:00';
+            $d['generated_at'] = '2037-10-19T17:05:00+02:00';
 
             return $d;
         });
-        $this->send($body)->assertOk()->assertJsonPath('data.est_tokens_total', 176292252);
+        $this->send($body)->assertOk()->assertJsonPath('data.est_tokens_total', 158724575);
 
         $row = UsageDay::query()->sole();
-        $this->assertSame(176292252, $row->est_tokens_total);
-        $this->assertSame('2026-10-19T17:05:00+02:00', $row->payload['generated_at']);
+        $this->assertSame(158724575, $row->est_tokens_total);
+        $this->assertSame('2037-10-19T17:05:00+02:00', $row->payload['generated_at']);
     }
 
     #[Test]
@@ -114,7 +114,7 @@ class UsageImportTest extends TestCase
             $this->send((string) file_get_contents($path))->assertCreated();
         }
         $this->assertSame(7, UsageDay::count());
-        $this->assertSame(2625145391, (int) UsageDay::sum('est_tokens_total'));
+        $this->assertSame(2075941623, (int) UsageDay::sum('est_tokens_total'));
     }
 
     public static function badSchemas(): array
@@ -168,8 +168,8 @@ class UsageImportTest extends TestCase
                 return $d;
             }, 'agents.0.visible_chars'],
             'wrong timezone' => [fn (array $d) => ['timezone' => 'UTC'] + $d, 'timezone'],
-            'invalid date' => [fn (array $d) => ['date' => '2026-02-30'] + $d, 'date'],
-            'generated_at without offset' => [fn (array $d) => ['generated_at' => '2026-10-19T15:29:26'] + $d, 'generated_at'],
+            'invalid date' => [fn (array $d) => ['date' => '2037-02-30'] + $d, 'date'],
+            'generated_at without offset' => [fn (array $d) => ['generated_at' => '2037-10-19T14:41:08'] + $d, 'generated_at'],
             'total mismatch' => [fn (array $d) => ['est_tokens_total' => $d['est_tokens_total'] + 1] + $d, 'est_tokens_total'],
             'duplicate agent_id' => [function (array $d) {
                 $d['agents'][1]['agent_id'] = $d['agents'][0]['agent_id'];
@@ -203,7 +203,7 @@ class UsageImportTest extends TestCase
     #[Test]
     public function non_json_and_non_object_bodies_are_422(): void
     {
-        $this->send('{"date": "2026-10-19",')->assertStatus(422)->assertJsonStructure(['errors' => ['body']]);
+        $this->send('{"date": "2037-10-19",')->assertStatus(422)->assertJsonStructure(['errors' => ['body']]);
         $this->send('[1,2,3]')->assertStatus(422);
         $this->send('')->assertStatus(422);
         $this->assertSame(0, UsageDay::count());
@@ -246,18 +246,18 @@ class UsageImportTest extends TestCase
         $paths = self::fixturePaths();
 
         $this->artisan('bridge:usage-import', ['paths' => $paths, '--dry-run' => true])
-            ->expectsOutputToContain('2026-10-13  valid, would be created')
+            ->expectsOutputToContain('2037-10-13  valid, would be created')
             ->assertExitCode(0);
         $this->assertSame(0, UsageDay::count());
 
         $this->artisan('bridge:usage-import', ['paths' => $paths])
-            ->expectsOutputToContain('2026-10-19  created  total 176,291,252')
+            ->expectsOutputToContain('2037-10-19  created  total 158,723,575')
             ->assertExitCode(0);
         $this->assertSame(7, UsageDay::count());
         $before = UsageDay::query()->orderBy('date')->pluck('payload', 'date')->all();
 
         $this->artisan('bridge:usage-import', ['paths' => $paths])
-            ->expectsOutputToContain('2026-10-19  updated')
+            ->expectsOutputToContain('2037-10-19  updated')
             ->assertExitCode(0);
         $this->assertSame(7, UsageDay::count());
         $this->assertSame($before, UsageDay::query()->orderBy('date')->pluck('payload', 'date')->all());
@@ -267,15 +267,15 @@ class UsageImportTest extends TestCase
     public function artisan_invalid_file_exits_non_zero_and_is_not_written(): void
     {
         $bad = tempnam(sys_get_temp_dir(), 'usage');
-        file_put_contents($bad, $this->mutated(fn (array $d) => ['est_tokens_total' => 1] + $d, '2026-10-18'));
+        file_put_contents($bad, $this->mutated(fn (array $d) => ['est_tokens_total' => 1] + $d, '2037-10-18'));
 
         try {
-            $this->artisan('bridge:usage-import', ['paths' => [base_path('tests/fixtures/usage/2026-10-19.json'), $bad]])
+            $this->artisan('bridge:usage-import', ['paths' => [base_path('tests/fixtures/usage/2037-10-19.json'), $bad]])
                 ->assertExitCode(1);
         } finally {
             unlink($bad);
         }
 
-        $this->assertSame(['2026-10-19'], UsageDay::query()->pluck('date')->all());
+        $this->assertSame(['2037-10-19'], UsageDay::query()->pluck('date')->all());
     }
 }

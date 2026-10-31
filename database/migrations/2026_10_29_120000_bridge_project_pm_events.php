@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * PM history (project_pm_events) + Captain's roster (29 Oct): add missing agents (agent-enrique, agent-erin, …) and
- * set the real PM of every active project. Additive and idempotent; nothing is deleted, existing agent rows untouched.
+ * PM history (project_pm_events) + the roster (BridgeRoster, file at BRIDGE_ROSTER_PATH): add missing agents and
+ * set the PM of every active project; no roster file = nothing changes. Additive and idempotent; nothing is deleted, existing agent rows untouched.
  * The roster step is skipped on an empty database (fresh install / tests); `php artisan bridge:set-pms` re-applies it.
  */
 return new class extends Migration

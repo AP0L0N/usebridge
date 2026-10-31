@@ -1,0 +1,722 @@
+[
+ {
+  "as_of": "2037-10-03T09:26+02:00",
+  "book_value_usd": 1241.82,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-03-0926.json"
+ },
+ {
+  "as_of": "2037-10-03T10:44+02:00",
+  "book_value_usd": 1238.77,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-03-1044.json"
+ },
+ {
+  "as_of": "2037-10-03T13:11+02:00",
+  "book_value_usd": 1239.7,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-03-1311.json"
+ },
+ {
+  "as_of": "2037-10-03T19:08+02:00",
+  "book_value_usd": 1236.83,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-03-1908.json"
+ },
+ {
+  "as_of": "2037-10-04T11:47+02:00",
+  "book_value_usd": 1239.5,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-04-1147.json"
+ },
+ {
+  "as_of": "2037-10-04T15:31+02:00",
+  "book_value_usd": 1238.13,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-04-1531.json"
+ },
+ {
+  "as_of": "2037-10-04T16:27+02:00",
+  "book_value_usd": 1242.96,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-04-1627.json"
+ },
+ {
+  "as_of": "2037-10-04T17:37+02:00",
+  "book_value_usd": 1241.96,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-04-1737.json"
+ },
+ {
+  "as_of": "2037-10-04T18:54+02:00",
+  "book_value_usd": 1245.4,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-04-1854.json"
+ },
+ {
+  "as_of": "2037-10-05T09:34+02:00",
+  "book_value_usd": 1243.29,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-05-0934.json"
+ },
+ {
+  "as_of": "2037-10-05T13:25+02:00",
+  "book_value_usd": 1242.02,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-05-1325.json"
+ },
+ {
+  "as_of": "2037-10-05T13:53+02:00",
+  "book_value_usd": 1247.9,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-05-1353.json"
+ },
+ {
+  "as_of": "2037-10-05T14:21+02:00",
+  "book_value_usd": 1253.8,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-05-1421.json"
+ },
+ {
+  "as_of": "2037-10-05T16:27+02:00",
+  "book_value_usd": 1256.39,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-05-1627.json"
+ },
+ {
+  "as_of": "2037-10-06T10:30+02:00",
+  "book_value_usd": 1251.65,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-06-1030.json"
+ },
+ {
+  "as_of": "2037-10-06T14:56+02:00",
+  "book_value_usd": 1258.18,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-06-1456.json"
+ },
+ {
+  "as_of": "2037-10-06T15:38+02:00",
+  "book_value_usd": 1278.48,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-06-1538.json"
+ },
+ {
+  "as_of": "2037-10-06T17:02+02:00",
+  "book_value_usd": 1290.0,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-06-1702.json"
+ },
+ {
+  "as_of": "2037-10-06T17:44+02:00",
+  "book_value_usd": 1315.38,
+  "cash_usd": null,
+  "source": "desk-run-2037-10-06-1744.json"
+ },
+ {
+  "as_of": "2037-10-07T07:56+02:00",
+  "book_value_usd": 1311.98,
+  "cash_usd": 170.5,
+  "source": "desk-run-2037-10-07-0756.json"
+ },
+ {
+  "as_of": "2037-10-07T10:44+02:00",
+  "book_value_usd": 1304.38,
+  "cash_usd": 257.24,
+  "source": "desk-run-2037-10-07-1044.json"
+ },
+ {
+  "as_of": "2037-10-07T11:19+02:00",
+  "book_value_usd": 1318.39,
+  "cash_usd": 273.11,
+  "source": "desk-run-2037-10-07-1119.json"
+ },
+ {
+  "as_of": "2037-10-07T14:00+02:00",
+  "book_value_usd": 1317.7,
+  "cash_usd": 199.63,
+  "source": "desk-run-2037-10-07-1400.json"
+ },
+ {
+  "as_of": "2037-10-08T08:31+02:00",
+  "book_value_usd": 1338.81,
+  "cash_usd": 236.43,
+  "source": "desk-run-2037-10-08-0831.json"
+ },
+ {
+  "as_of": "2037-10-08T13:18+02:00",
+  "book_value_usd": 1344.73,
+  "cash_usd": 252.79,
+  "source": "desk-run-2037-10-08-1318.json"
+ },
+ {
+  "as_of": "2037-10-08T15:03+02:00",
+  "book_value_usd": 1339.78,
+  "cash_usd": 399.57,
+  "source": "desk-run-2037-10-08-1503.json"
+ },
+ {
+  "as_of": "2037-10-08T15:10+02:00",
+  "book_value_usd": 1353.37,
+  "cash_usd": 331.73,
+  "source": "desk-run-2037-10-08-1510.json"
+ },
+ {
+  "as_of": "2037-10-08T15:45+02:00",
+  "book_value_usd": 1374.79,
+  "cash_usd": 313.29,
+  "source": "desk-run-2037-10-08-1545.json"
+ },
+ {
+  "as_of": "2037-10-08T16:41+02:00",
+  "book_value_usd": 1380.48,
+  "cash_usd": 312.34,
+  "source": "desk-run-2037-10-08-1641.json"
+ },
+ {
+  "as_of": "2037-10-08T20:25+02:00",
+  "book_value_usd": 1394.48,
+  "cash_usd": 168.48,
+  "source": "desk-run-2037-10-08-2025.json"
+ },
+ {
+  "as_of": "2037-10-09T07:28+02:00",
+  "book_value_usd": 1397.08,
+  "cash_usd": 316.58,
+  "source": "desk-run-2037-10-09-0728.json"
+ },
+ {
+  "as_of": "2037-10-09T08:10+02:00",
+  "book_value_usd": 1397.68,
+  "cash_usd": 219.76,
+  "source": "desk-run-2037-10-09-0810.json"
+ },
+ {
+  "as_of": "2037-10-09T08:31+02:00",
+  "book_value_usd": 1397.56,
+  "cash_usd": 356.77,
+  "source": "desk-run-2037-10-09-0831.json"
+ },
+ {
+  "as_of": "2037-10-09T11:47+02:00",
+  "book_value_usd": 1397.25,
+  "cash_usd": 418.43,
+  "source": "desk-run-2037-10-09-1147.json"
+ },
+ {
+  "as_of": "2037-10-09T14:00+02:00",
+  "book_value_usd": 1398.89,
+  "cash_usd": 122.7,
+  "source": "desk-run-2037-10-09-1400.json"
+ },
+ {
+  "as_of": "2037-10-09T15:45+02:00",
+  "book_value_usd": 1400.17,
+  "cash_usd": 252.76,
+  "source": "desk-run-2037-10-09-1545.json"
+ },
+ {
+  "as_of": "2037-10-09T17:23+02:00",
+  "book_value_usd": 1411.5,
+  "cash_usd": 267.14,
+  "source": "desk-run-2037-10-09-1723.json"
+ },
+ {
+  "as_of": "2037-10-10T07:56+02:00",
+  "book_value_usd": 1438.02,
+  "cash_usd": 307.92,
+  "source": "desk-run-2037-10-10-0756.json"
+ },
+ {
+  "as_of": "2037-10-10T15:45+02:00",
+  "book_value_usd": 1428.91,
+  "cash_usd": 208.22,
+  "source": "desk-run-2037-10-10-1545.json"
+ },
+ {
+  "as_of": "2037-10-10T19:08+02:00",
+  "book_value_usd": 1451.49,
+  "cash_usd": 137.61,
+  "source": "desk-run-2037-10-10-1908.json"
+ },
+ {
+  "as_of": "2037-10-10T20:53+02:00",
+  "book_value_usd": 1452.19,
+  "cash_usd": 210.67,
+  "source": "desk-run-2037-10-10-2053.json"
+ },
+ {
+  "as_of": "2037-10-11T07:07+02:00",
+  "book_value_usd": 1452.94,
+  "cash_usd": 130.8,
+  "source": "desk-run-2037-10-11-0707.json"
+ },
+ {
+  "as_of": "2037-10-11T08:31+02:00",
+  "book_value_usd": 1471.6,
+  "cash_usd": 354.77,
+  "source": "desk-run-2037-10-11-0831.json"
+ },
+ {
+  "as_of": "2037-10-11T08:59+02:00",
+  "book_value_usd": 1462.35,
+  "cash_usd": 155.62,
+  "source": "desk-run-2037-10-11-0859.json"
+ },
+ {
+  "as_of": "2037-10-11T16:27+02:00",
+  "book_value_usd": 1477.34,
+  "cash_usd": 174.94,
+  "source": "desk-run-2037-10-11-1627.json"
+ },
+ {
+  "as_of": "2037-10-11T18:33+02:00",
+  "book_value_usd": 1474.93,
+  "cash_usd": 369.8,
+  "source": "desk-run-2037-10-11-1833.json"
+ },
+ {
+  "as_of": "2037-10-12T08:17+02:00",
+  "book_value_usd": 1483.12,
+  "cash_usd": 128.92,
+  "source": "desk-run-2037-10-12-0817.json"
+ },
+ {
+  "as_of": "2037-10-12T10:23+02:00",
+  "book_value_usd": 1480.26,
+  "cash_usd": 395.1,
+  "source": "desk-run-2037-10-12-1023.json"
+ },
+ {
+  "as_of": "2037-10-12T11:19+02:00",
+  "book_value_usd": 1479.25,
+  "cash_usd": 134.27,
+  "source": "desk-run-2037-10-12-1119.json"
+ },
+ {
+  "as_of": "2037-10-12T12:43+02:00",
+  "book_value_usd": 1487.13,
+  "cash_usd": 329.48,
+  "source": "desk-run-2037-10-12-1243.json"
+ },
+ {
+  "as_of": "2037-10-12T17:51+02:00",
+  "book_value_usd": 1490.68,
+  "cash_usd": 206.65,
+  "source": "desk-run-2037-10-12-1751.json"
+ },
+ {
+  "as_of": "2037-10-12T20:25+02:00",
+  "book_value_usd": 1486.19,
+  "cash_usd": 223.82,
+  "source": "desk-run-2037-10-12-2025.json"
+ },
+ {
+  "as_of": "2037-10-13T08:45+02:00",
+  "book_value_usd": 1494.78,
+  "cash_usd": 307.25,
+  "source": "desk-run-2037-10-13-0845.json"
+ },
+ {
+  "as_of": "2037-10-13T09:48+02:00",
+  "book_value_usd": 1492.79,
+  "cash_usd": 397.63,
+  "source": "desk-run-2037-10-13-0948.json"
+ },
+ {
+  "as_of": "2037-10-13T10:09+02:00",
+  "book_value_usd": 1504.98,
+  "cash_usd": 323.87,
+  "source": "desk-run-2037-10-13-1009.json"
+ },
+ {
+  "as_of": "2037-10-13T11:54+02:00",
+  "book_value_usd": 1496.12,
+  "cash_usd": 355.33,
+  "source": "desk-run-2037-10-13-1154.json"
+ },
+ {
+  "as_of": "2037-10-13T12:22+02:00",
+  "book_value_usd": 1514.11,
+  "cash_usd": 286.46,
+  "source": "desk-run-2037-10-13-1222.json"
+ },
+ {
+  "as_of": "2037-10-13T14:49+02:00",
+  "book_value_usd": 1508.57,
+  "cash_usd": 151.6,
+  "source": "desk-run-2037-10-13-1449.json"
+ },
+ {
+  "as_of": "2037-10-13T16:13+02:00",
+  "book_value_usd": 1528.56,
+  "cash_usd": 187.26,
+  "source": "desk-run-2037-10-13-1613.json"
+ },
+ {
+  "as_of": "2037-10-14T12:08+02:00",
+  "book_value_usd": 1521.68,
+  "cash_usd": 269.63,
+  "source": "desk-run-2037-10-14-1208.json"
+ },
+ {
+  "as_of": "2037-10-14T17:44+02:00",
+  "book_value_usd": 1497.8,
+  "cash_usd": 128.09,
+  "source": "desk-run-2037-10-14-1744.json"
+ },
+ {
+  "as_of": "2037-10-14T18:40+02:00",
+  "book_value_usd": 1495.14,
+  "cash_usd": 107.21,
+  "source": "desk-run-2037-10-14-1840.json"
+ },
+ {
+  "as_of": "2037-10-14T18:54+02:00",
+  "book_value_usd": 1487.01,
+  "cash_usd": 120.86,
+  "source": "desk-run-2037-10-14-1854.json"
+ },
+ {
+  "as_of": "2037-10-15T11:26+02:00",
+  "book_value_usd": 1471.87,
+  "cash_usd": 99.94,
+  "source": "desk-run-2037-10-15-1126.json"
+ },
+ {
+  "as_of": "2037-10-15T14:42+02:00",
+  "book_value_usd": 1464.55,
+  "cash_usd": 372.51,
+  "source": "desk-run-2037-10-15-1442.json"
+ },
+ {
+  "as_of": "2037-10-15T14:49+02:00",
+  "book_value_usd": 1439.05,
+  "cash_usd": 148.43,
+  "source": "desk-run-2037-10-15-1449.json"
+ },
+ {
+  "as_of": "2037-10-15T15:52+02:00",
+  "book_value_usd": 1428.07,
+  "cash_usd": 356.58,
+  "source": "desk-run-2037-10-15-1552.json"
+ },
+ {
+  "as_of": "2037-10-15T18:47+02:00",
+  "book_value_usd": 1406.8,
+  "cash_usd": 253.43,
+  "source": "desk-run-2037-10-15-1847.json"
+ },
+ {
+  "as_of": "2037-10-16T07:14+02:00",
+  "book_value_usd": 1398.7,
+  "cash_usd": 281.42,
+  "source": "desk-run-2037-10-16-0714.json"
+ },
+ {
+  "as_of": "2037-10-16T13:46+02:00",
+  "book_value_usd": 1379.27,
+  "cash_usd": 116.94,
+  "source": "desk-run-2037-10-16-1346.json"
+ },
+ {
+  "as_of": "2037-10-16T14:42+02:00",
+  "book_value_usd": 1352.9,
+  "cash_usd": 302.39,
+  "source": "desk-run-2037-10-16-1442.json"
+ },
+ {
+  "as_of": "2037-10-16T14:56+02:00",
+  "book_value_usd": 1328.98,
+  "cash_usd": 403.05,
+  "source": "desk-run-2037-10-16-1456.json"
+ },
+ {
+  "as_of": "2037-10-17T11:26+02:00",
+  "book_value_usd": 1331.24,
+  "cash_usd": 408.04,
+  "source": "desk-run-2037-10-17-1126.json"
+ },
+ {
+  "as_of": "2037-10-17T13:46+02:00",
+  "book_value_usd": 1330.52,
+  "cash_usd": 212.81,
+  "source": "desk-run-2037-10-17-1346.json"
+ },
+ {
+  "as_of": "2037-10-17T13:53+02:00",
+  "book_value_usd": 1315.37,
+  "cash_usd": 397.92,
+  "source": "desk-run-2037-10-17-1353.json"
+ },
+ {
+  "as_of": "2037-10-17T14:21+02:00",
+  "book_value_usd": 1292.04,
+  "cash_usd": 94.6,
+  "source": "desk-run-2037-10-17-1421.json"
+ },
+ {
+  "as_of": "2037-10-17T15:59+02:00",
+  "book_value_usd": 1261.71,
+  "cash_usd": 393.65,
+  "source": "desk-run-2037-10-17-1559.json"
+ },
+ {
+  "as_of": "2037-10-17T20:25+02:00",
+  "book_value_usd": 1252.68,
+  "cash_usd": 184.61,
+  "source": "desk-run-2037-10-17-2025.json"
+ },
+ {
+  "as_of": "2037-10-18T09:27+02:00",
+  "book_value_usd": 1238.36,
+  "cash_usd": 347.75,
+  "source": "desk-run-2037-10-18-0927.json"
+ },
+ {
+  "as_of": "2037-10-18T09:41+02:00",
+  "book_value_usd": 1236.32,
+  "cash_usd": 333.57,
+  "source": "desk-run-2037-10-18-0941.json"
+ },
+ {
+  "as_of": "2037-10-18T15:38+02:00",
+  "book_value_usd": 1217.7,
+  "cash_usd": 299.83,
+  "source": "desk-run-2037-10-18-1538.json"
+ },
+ {
+  "as_of": "2037-10-18T15:45+02:00",
+  "book_value_usd": 1217.43,
+  "cash_usd": 359.53,
+  "source": "desk-run-2037-10-18-1545.json"
+ },
+ {
+  "as_of": "2037-10-18T17:44+02:00",
+  "book_value_usd": 1211.08,
+  "cash_usd": 143.28,
+  "source": "desk-run-2037-10-18-1744.json"
+ },
+ {
+  "as_of": "2037-10-18T17:51+02:00",
+  "book_value_usd": 1200.0,
+  "cash_usd": 96.77,
+  "source": "desk-run-2037-10-18-1751.json"
+ },
+ {
+  "as_of": "2037-10-18T17:58+02:00",
+  "book_value_usd": 1174.26,
+  "cash_usd": 332.2,
+  "source": "desk-run-2037-10-18-1758.json"
+ },
+ {
+  "as_of": "2037-10-19T09:20+02:00",
+  "book_value_usd": 1168.62,
+  "cash_usd": 239.21,
+  "source": "desk-run-2037-10-19-0920.json"
+ },
+ {
+  "as_of": "2037-10-19T13:46+02:00",
+  "book_value_usd": 1169.56,
+  "cash_usd": 144.46,
+  "source": "desk-run-2037-10-19-1346.json"
+ },
+ {
+  "as_of": "2037-10-19T13:53+02:00",
+  "book_value_usd": 1170.79,
+  "cash_usd": 392.0,
+  "source": "desk-run-2037-10-19-1353.json"
+ },
+ {
+  "as_of": "2037-10-19T16:13+02:00",
+  "book_value_usd": 1152.82,
+  "cash_usd": 344.82,
+  "source": "desk-run-2037-10-19-1613.json"
+ },
+ {
+  "as_of": "2037-10-19T16:48+02:00",
+  "book_value_usd": 1134.49,
+  "cash_usd": 356.4,
+  "source": "desk-run-2037-10-19-1648.json"
+ },
+ {
+  "as_of": "2037-10-19T19:08+02:00",
+  "book_value_usd": 1116.38,
+  "cash_usd": 369.64,
+  "source": "desk-run-2037-10-19-1908.json"
+ },
+ {
+  "as_of": "2037-10-19T20:53+02:00",
+  "book_value_usd": 1106.91,
+  "cash_usd": 344.11,
+  "source": "desk-run-2037-10-19-2053.json"
+ },
+ {
+  "as_of": "2037-10-20T10:44+02:00",
+  "book_value_usd": 1123.84,
+  "cash_usd": 175.27,
+  "source": "desk-run-2037-10-20-1044.json"
+ },
+ {
+  "as_of": "2037-10-20T14:00+02:00",
+  "book_value_usd": 1111.96,
+  "cash_usd": 336.63,
+  "source": "desk-run-2037-10-20-1400.json"
+ },
+ {
+  "as_of": "2037-10-20T17:44+02:00",
+  "book_value_usd": 1125.48,
+  "cash_usd": 174.9,
+  "source": "desk-run-2037-10-20-1744.json"
+ },
+ {
+  "as_of": "2037-10-20T20:39+02:00",
+  "book_value_usd": 1118.34,
+  "cash_usd": 96.87,
+  "source": "desk-run-2037-10-20-2039.json"
+ },
+ {
+  "as_of": "2037-10-21T07:07+02:00",
+  "book_value_usd": 1103.88,
+  "cash_usd": 171.47,
+  "source": "desk-run-2037-10-21-0707.json"
+ },
+ {
+  "as_of": "2037-10-21T12:22+02:00",
+  "book_value_usd": 1104.31,
+  "cash_usd": 194.11,
+  "source": "desk-run-2037-10-21-1222.json"
+ },
+ {
+  "as_of": "2037-10-21T16:34+02:00",
+  "book_value_usd": 1096.05,
+  "cash_usd": 395.54,
+  "source": "desk-run-2037-10-21-1634.json"
+ },
+ {
+  "as_of": "2037-10-21T19:36+02:00",
+  "book_value_usd": 1091.15,
+  "cash_usd": 113.64,
+  "source": "desk-run-2037-10-21-1936.json"
+ },
+ {
+  "as_of": "2037-10-22T08:59+02:00",
+  "book_value_usd": 1098.11,
+  "cash_usd": 334.65,
+  "source": "desk-run-2037-10-22-0859.json"
+ },
+ {
+  "as_of": "2037-10-22T10:23+02:00",
+  "book_value_usd": 1103.73,
+  "cash_usd": 145.37,
+  "source": "desk-run-2037-10-22-1023.json"
+ },
+ {
+  "as_of": "2037-10-22T12:15+02:00",
+  "book_value_usd": 1090.86,
+  "cash_usd": 408.06,
+  "source": "desk-run-2037-10-22-1215.json"
+ },
+ {
+  "as_of": "2037-10-22T18:33+02:00",
+  "book_value_usd": 1097.22,
+  "cash_usd": 409.72,
+  "source": "desk-run-2037-10-22-1833.json"
+ },
+ {
+  "as_of": "2037-10-22T19:01+02:00",
+  "book_value_usd": 1099.1,
+  "cash_usd": 353.12,
+  "source": "desk-run-2037-10-22-1901.json"
+ },
+ {
+  "as_of": "2037-10-23T09:20+02:00",
+  "book_value_usd": 1090.37,
+  "cash_usd": 369.97,
+  "source": "desk-run-2037-10-23-0920.json"
+ },
+ {
+  "as_of": "2037-10-23T17:44+02:00",
+  "book_value_usd": 1105.06,
+  "cash_usd": 207.99,
+  "source": "desk-run-2037-10-23-1744.json"
+ },
+ {
+  "as_of": "2037-10-23T18:33+02:00",
+  "book_value_usd": 1101.31,
+  "cash_usd": 138.24,
+  "source": "desk-run-2037-10-23-1833.json"
+ },
+ {
+  "as_of": "2037-10-23T19:29+02:00",
+  "book_value_usd": 1097.11,
+  "cash_usd": 144.05,
+  "source": "desk-run-2037-10-23-1929.json"
+ },
+ {
+  "as_of": "2037-10-23T20:32+02:00",
+  "book_value_usd": 1099.84,
+  "cash_usd": 268.33,
+  "source": "desk-run-2037-10-23-2032.json"
+ },
+ {
+  "as_of": "2037-10-24T07:07+02:00",
+  "book_value_usd": 1091.35,
+  "cash_usd": 120.54,
+  "source": "desk-run-2037-10-24-0707.json"
+ },
+ {
+  "as_of": "2037-10-24T11:05+02:00",
+  "book_value_usd": 1083.58,
+  "cash_usd": 362.03,
+  "source": "desk-run-2037-10-24-1105.json"
+ },
+ {
+  "as_of": "2037-10-24T12:57+02:00",
+  "book_value_usd": 1076.58,
+  "cash_usd": 118.83,
+  "source": "desk-run-2037-10-24-1257.json"
+ },
+ {
+  "as_of": "2037-10-24T19:22+02:00",
+  "book_value_usd": 1086.68,
+  "cash_usd": 115.5,
+  "source": "desk-run-2037-10-24-1922.json"
+ },
+ {
+  "as_of": "2037-10-25T07:07+01:00",
+  "book_value_usd": 1078.8,
+  "cash_usd": 168.65,
+  "source": "desk-run-2037-10-25-0707.json"
+ },
+ {
+  "as_of": "2037-10-25T08:31+01:00",
+  "book_value_usd": 1071.28,
+  "cash_usd": 337.7,
+  "source": "desk-run-2037-10-25-0831.json"
+ },
+ {
+  "as_of": "2037-10-25T12:36+01:00",
+  "book_value_usd": 1069.38,
+  "cash_usd": 98.02,
+  "source": "desk-run-2037-10-25-1236.json"
+ },
+ {
+  "as_of": "2037-10-25T17:51+01:00",
+  "book_value_usd": 1079.4,
+  "cash_usd": 183.93,
+  "source": "desk-run-2037-10-25-1751.json"
+ },
+ {
+  "as_of": "2037-10-25T18:19+01:00",
+  "book_value_usd": 1074.72,
+  "cash_usd": 226.73,
+  "source": "desk-run-2037-10-25-1819.json"
+ },
+ {
+  "as_of": "2037-10-25T19:22+01:00",
+  "book_value_usd": 1067.84,
+  "cash_usd": 189.75,
+  "source": "desk-run-2037-10-25-1922.json"
+ }
+]

@@ -15,8 +15,9 @@ class BridgeApiSeeder extends Seeder
 {
     public function run(): void
     {
+        $email = (string) config('bridge.api_user_email', 'captain@example.test');
         $user = User::query()->updateOrCreate(
-            ['email' => 'captain@lantis.internal'],
+            ['email' => $email],
             [
                 'name' => 'Captain William Diego',
                 'password' => Hash::make(bin2hex(random_bytes(16))),
@@ -29,7 +30,7 @@ class BridgeApiSeeder extends Seeder
         $new = $user->createToken('ceo', ['ceo']);
         $token = $new->plainTextToken;
 
-        // Multi-user: Captain's API user is a member of Tilen's workspace and the token acts there.
+        // Multi-user: Captain's API user is a member of the default workspace and the token acts there.
         $workspace = app(CurrentWorkspace::class)->default();
         if ($workspace !== null) {
             if (! $workspace->hasMember($user)) {
@@ -48,11 +49,12 @@ class BridgeApiSeeder extends Seeder
             // keep gate password and comments
             $lines[] = $line;
         }
-        if (! str_contains(implode("\n", $lines), 'BRIDGE_GATE_PASSWORD=')) {
-            array_unshift($lines, 'BRIDGE_GATE_PASSWORD=lantis-internal');
+        $gate = (string) config('bridge.gate_password');
+        if ($gate !== '' && ! str_contains(implode("\n", $lines), 'BRIDGE_GATE_PASSWORD=')) {
+            array_unshift($lines, 'BRIDGE_GATE_PASSWORD='.$gate);
         }
         $lines[] = 'BRIDGE_API_TOKEN='.$token;
-        $lines[] = 'BRIDGE_API_USER=captain@lantis.internal';
+        $lines[] = 'BRIDGE_API_USER='.$email;
         file_put_contents($path, implode("\n", array_filter($lines, fn ($l) => $l !== null))."\n");
         @chmod($path, 0600);
     }
