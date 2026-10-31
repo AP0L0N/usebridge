@@ -13,6 +13,8 @@
   --font-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --radius-sm:8px;--radius-md:12px;--radius-lg:20px;--radius-pill:999px;--tap-min:44px;
   --shadow-soft:0 8px 12px rgb(11 12 15 / .06),0 1px 1px rgb(11 12 15 / .06);
+  /* chart series aliases (Figma Foundations 45:16): charts use only these */
+  --chart-1:var(--ink-800);--chart-2:var(--violet);--chart-3:var(--ok);--chart-4:var(--warn);--chart-5:var(--ink-400);--chart-grid:var(--line);
   /* extra colours the design context needs */
   --ok-ink:#17703F;--warn-bg:#FFF8E8;--risk-ink:#B4232A;
 
@@ -97,18 +99,18 @@
 .pmx-chartwrap{position:relative}
 .pmx-chart{display:block;width:100%;height:auto;overflow:visible}
 .pmx-chart text{font-family:var(--font-mono);font-size:12px;fill:var(--ink-600);font-variant-numeric:tabular-nums}
-.pmx-chart .grid{stroke:var(--line);stroke-width:1}
-.pmx-chart .vgrid{stroke:var(--line);stroke-width:1;opacity:.6}
-.pmx-chart .base{stroke:var(--line);stroke-width:1.5}
+.pmx-chart .grid{stroke:var(--chart-grid);stroke-width:1}
+.pmx-chart .vgrid{stroke:var(--chart-grid);stroke-width:1;opacity:.6}
+.pmx-chart .base{stroke:var(--chart-grid);stroke-width:1.5}
 .pmx-chart .xl{fill:var(--ink-600)}.pmx-chart .xl.b{fill:var(--ink-950);font-weight:600}.pmx-chart .xm{fill:var(--ink-400);font-size:11px}
 .pmx-chart .line{fill:none;stroke:var(--ink-950);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-.pmx-chart .hw{fill:none;stroke:var(--ink-400);stroke-width:1.5;stroke-dasharray:6 5}
+.pmx-chart .hw{fill:none;stroke:var(--chart-5);stroke-width:1.5;stroke-dasharray:6 5}
 .pmx-chart .fund{stroke:var(--ink-600);stroke-width:1.5;stroke-dasharray:2 4}
 .pmx-chart .stop{fill:none;stroke:var(--risk);stroke-width:1.5;stroke-dasharray:7 5}
 .pmx-chart .lbl{font-weight:600;fill:var(--ink-600)}
 .pmx-chart .lv{font-weight:600;fill:var(--ink-950)}
-.pmx-chart .sw{fill:var(--ok)}.pmx-chart .swl{fill:var(--ok-ink);font-weight:600}
-.pmx-chart .swtrack{stroke:var(--line);stroke-width:1}
+.pmx-chart .sw{fill:var(--chart-3)}.pmx-chart .swl{fill:var(--ok-ink);font-weight:600}
+.pmx-chart .swtrack{stroke:var(--chart-grid);stroke-width:1}
 .pmx-chart .ann{fill:var(--risk-ink);font-weight:600}
 .pmx-chart .wkband{fill:var(--paper)}
 .pmx-chart.narrow text{font-size:16px}.pmx-chart.narrow .xm,.pmx-chart.narrow .swl,.pmx-chart.narrow .ann{font-size:15px}
@@ -123,10 +125,12 @@
 
 /* positions table: scrolls horizontally on small screens */
 .pmx-scroll{overflow-x:auto;margin-top:20px;border:1px solid var(--line);border-radius:var(--radius-md)}
-.pmx-tbl{width:100%;min-width:860px;border-collapse:collapse;font-size:14px}
+.pmx-tbl{width:100%;min-width:max-content;border-collapse:collapse;font-size:14px}
 .pmx-tbl th{padding:12px 16px;background:var(--paper);border-bottom:1px solid var(--line);font:500 12px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-600);text-align:right;white-space:nowrap}
 .pmx-tbl td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pmx-tbl th.l,.pmx-tbl td.l{text-align:left}
+.pmx-tbl th:first-child,.pmx-tbl td:first-child,.pmx-tbl th.l,.pmx-tbl td.l{text-align:left}
+/* optional mono first column (ids, times): add class `mono` to the th and td */
+.pmx-tbl th.mono,.pmx-tbl td.mono{font-family:var(--font-mono);font-size:12px;color:var(--ink-600)}
 .pmx-tbl td.mk{white-space:normal;min-width:260px;font-weight:500}
 .pmx-tbl td.mk a{color:var(--ink-950);text-decoration:none}.pmx-tbl td.mk a:hover{text-decoration:underline}
 .pmx-tbl td.mk svg{width:13px;height:13px;margin-left:6px;color:var(--ink-400);vertical-align:-1px}

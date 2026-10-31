@@ -9,7 +9,7 @@ const H = 452, X0 = 64, TOP = 22, BASE = 362, TRACK = 424;
 const WIDE = { W: 1312, X1: 1150 }, NARROW = { W: 480, X1: 468 };
 /** Wall-clock window of a day slot: 06:00–24:00 maps across the slot, nights collapse to its edge. */
 const DAY_START = 360, DAY_LEN = 1080;
-const INK = '#0B0C0F', RISK = '#E5484D';
+const INK = 'var(--ink-950)', RISK = 'var(--risk)';
 const TIP_W = 236;
 
 type Hit = { x: number; y: number; label: string; book: number; cash: number | null; prev: number | null; hw: number; src: string; live: boolean };
@@ -200,14 +200,14 @@ export function BookValueChart({ chart, range, narrow }: { chart: ChartData; ran
           <path className="line" strokeDasharray="3 4" d={`M${xy[xy.length - 1]!.x.toFixed(1)},${xy[xy.length - 1]!.y.toFixed(1)} L${liveXY.x.toFixed(1)},${liveXY.y.toFixed(1)}`} />
         )}
         <circle cx={nowXY.x} cy={nowXY.y} r="9" fill={INK} opacity=".1" />
-        <circle cx={nowXY.x} cy={nowXY.y} r="5" fill="#fff" stroke={INK} strokeWidth="2.5" />
+        <circle cx={nowXY.x} cy={nowXY.y} r="5" fill="var(--surface)" stroke={INK} strokeWidth="2.5" />
         <text className="lv" x={nowXY.x - 10} y={nowXY.y - 16} textAnchor="end">{nowLabel}</text>
-        {peakXY && <circle cx={peakXY.x} cy={peakXY.y} r="4.5" fill="#fff" stroke="#8A8F9C" strokeWidth="2" />}
+        {peakXY && <circle cx={peakXY.x} cy={peakXY.y} r="4.5" fill="var(--surface)" stroke="var(--chart-5)" strokeWidth="2" />}
 
         {cur && (
           <>
-            <line x1={cur.x} x2={cur.x} y1={TOP} y2={BASE} stroke="#17191F" strokeOpacity=".35" strokeWidth="1" />
-            <circle cx={cur.x} cy={cur.y} r="5.5" fill={INK} stroke="#fff" strokeWidth="2" />
+            <line x1={cur.x} x2={cur.x} y1={TOP} y2={BASE} stroke="var(--ink-950)" strokeOpacity=".35" strokeWidth="1" />
+            <circle cx={cur.x} cy={cur.y} r="5.5" fill={INK} stroke="var(--surface)" strokeWidth="2" />
           </>
         )}
 

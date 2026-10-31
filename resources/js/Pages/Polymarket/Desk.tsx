@@ -187,7 +187,7 @@ function Tiles({ f }: { f: DeskFeed }) {
 }
 
 function LegendDot({ color, dashed, border }: { color: string; dashed?: boolean; border?: boolean }) {
-  return <i aria-hidden="true" style={border ? { background: color, border: '1px solid #E6E6E1' } : { background: dashed ? 'transparent' : color, boxShadow: dashed ? `inset 0 0 0 2px ${color}` : undefined }} />;
+  return <i aria-hidden="true" style={border ? { background: color, border: '1px solid var(--chart-grid)' } : { background: dashed ? 'transparent' : color, boxShadow: dashed ? `inset 0 0 0 2px ${color}` : undefined }} />;
 }
 
 function ChartBlock({ f, range, narrow }: { f: DeskFeed; range: ChartRange; narrow: boolean }) {
@@ -204,12 +204,12 @@ function ChartBlock({ f, range, narrow }: { f: DeskFeed; range: ChartRange; narr
   return (
     <>
       <ul className="pmx-legend">
-        <li><LegendDot color="#0B0C0F" />{narrow ? t('pm.chart.legend.bookShort') : t('pm.chart.legend.book')}</li>
-        <li><LegendDot color="#8A8F9C" />{narrow ? t('pm.chart.legend.hwShort', { value: usd(hwValue) }) : t('pm.chart.legend.hw')}</li>
-        {c.funded !== null && <li><LegendDot color="#4A4F5C" />{narrow ? t('pm.chart.legend.fundedShort', { value: usd(c.funded) }) : t('pm.chart.legend.funded')}</li>}
-        {stopVisible && c.stop && <li><LegendDot color="#E5484D" />{c.stop.removed ? t('pm.chart.legend.oldStop', { span: stopSpan(c.stop.fromLabel, c.stop.toLabel) }) : t('pm.chart.legend.stop')}</li>}
-        {sweepsVisible && <li><LegendDot color="#1F9D55" />{t('pm.chart.legend.sweep')}</li>}
-        <li><LegendDot color="#F6F6F3" border />{t('pm.chart.legend.weekend')}</li>
+        <li><LegendDot color="var(--ink-950)" />{narrow ? t('pm.chart.legend.bookShort') : t('pm.chart.legend.book')}</li>
+        <li><LegendDot color="var(--chart-5)" />{narrow ? t('pm.chart.legend.hwShort', { value: usd(hwValue) }) : t('pm.chart.legend.hw')}</li>
+        {c.funded !== null && <li><LegendDot color="var(--ink-600)" />{narrow ? t('pm.chart.legend.fundedShort', { value: usd(c.funded) }) : t('pm.chart.legend.funded')}</li>}
+        {stopVisible && c.stop && <li><LegendDot color="var(--risk)" />{c.stop.removed ? t('pm.chart.legend.oldStop', { span: stopSpan(c.stop.fromLabel, c.stop.toLabel) }) : t('pm.chart.legend.stop')}</li>}
+        {sweepsVisible && <li><LegendDot color="var(--chart-3)" />{t('pm.chart.legend.sweep')}</li>}
+        <li><LegendDot color="var(--paper)" border />{t('pm.chart.legend.weekend')}</li>
       </ul>
       <BookValueChart chart={c} range={range} narrow={narrow} />
     </>
