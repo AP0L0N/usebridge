@@ -118,13 +118,13 @@ class AccountDeletionTest extends TestCase
             ->assertJsonCount(1, 'projects')->assertJsonPath('projects.0.id', 'proj-marta')
             ->assertJsonCount(1, 'agents')->assertJsonPath('agents.0.id', 'agent-marta')
             ->assertJsonCount(0, 'tickets')->assertJsonCount(0, 'usage_days');
-        $this->assertStringNotContainsString(BridgeSeeder::PROJ_CONCIERGE, $res->getContent());
+        $this->assertStringNotContainsString(BridgeSeeder::PROJ_BLUE_HARBOR, $res->getContent());
 
         // Tilen exports his own (seeded) workspace and never Marta's.
         $tilen = app(CurrentWorkspace::class)->default()->owner;
         $this->app['auth']->forgetGuards();
         $mine = $this->actingAs($tilen, 'web')->getJson('/account/export')->assertOk();
-        $mine->assertJsonPath('workspace.slug', 'tilen')->assertJsonCount(2, 'projects');
+        $mine->assertJsonPath('workspace.slug', config('bridge.default_workspace'))->assertJsonCount(2, 'projects');
         $this->assertStringNotContainsString('proj-marta', $mine->getContent());
     }
 }

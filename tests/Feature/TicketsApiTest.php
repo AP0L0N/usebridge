@@ -35,11 +35,11 @@ class TicketsApiTest extends TestCase
     public function every_tickets_endpoint_needs_the_token(): void
     {
         foreach ([
-            ['get', '/api/board-columns'], ['get', '/api/tickets'], ['post', '/api/tickets'], ['get', '/api/tickets/CA-1'],
-            ['patch', '/api/tickets/CA-1'], ['post', '/api/tickets/CA-1/move'], ['post', '/api/tickets/CA-1/ack-input'],
-            ['get', '/api/projects/'.self::CA.'/board'], ['post', '/api/projects/'.self::CA.'/tickets'],
-            ['patch', '/api/projects/'.self::CA.'/status'], ['get', '/api/ticket-comments/feed'], ['get', '/api/labels'],
-            ['post', '/api/comments/1/retract'], ['get', '/api/projects/'.self::CA.'/activity'],
+            ['get', '/api/board-columns'], ['get', '/api/tickets'], ['post', '/api/tickets'], ['get', '/api/tickets/BH-1'],
+            ['patch', '/api/tickets/BH-1'], ['post', '/api/tickets/BH-1/move'], ['post', '/api/tickets/BH-1/ack-input'],
+            ['get', '/api/projects/'.self::BH.'/board'], ['post', '/api/projects/'.self::BH.'/tickets'],
+            ['patch', '/api/projects/'.self::BH.'/status'], ['get', '/api/ticket-comments/feed'], ['get', '/api/labels'],
+            ['post', '/api/comments/1/retract'], ['get', '/api/projects/'.self::BH.'/activity'],
         ] as [$method, $uri]) {
             $this->json($method, $uri)->assertUnauthorized();
         }
@@ -61,32 +61,32 @@ class TicketsApiTest extends TestCase
     #[Test]
     public function prefixes_come_from_the_name_and_are_unique(): void
     {
-        $this->assertSame('CA', Project::find(self::CA)->ticket_prefix);
-        $this->assertSame('MW', Project::find(self::MW)->ticket_prefix); // fixed in TicketPrefix::MAP
-        $this->assertSame('CA', TicketPrefix::generate('Concierge Avant'));
-        $this->assertSame('CAV', TicketPrefix::generate('Concierge Avant', ['CA']));
-        $this->assertSame('ME', TicketPrefix::generate('merkwell'));
-        $this->assertSame('MER', TicketPrefix::generate('Merkwell', ['ME']));
+        $this->assertSame('BH', Project::find(self::BH)->ticket_prefix);
+        $this->assertSame('NW', Project::find(self::NW)->ticket_prefix); // fixed by the roster file's ticket_prefixes
+        $this->assertSame('BH', TicketPrefix::generate('Blue Harbor'));
+        $this->assertSame('BHA', TicketPrefix::generate('Blue Harbor', ['BH']));
+        $this->assertSame('NO', TicketPrefix::generate('northwind'));
+        $this->assertSame('NOR', TicketPrefix::generate('Northwind', ['NO']));
         $this->assertSame('ZA', TicketPrefix::generate('Žabja Akademija'));
         $this->assertSame('P', TicketPrefix::generate('123'));
         $this->assertSame('X2', TicketPrefix::generate('X', ['X']));
-        // Captain's fixed map wins for those ids; the reserved prefixes are never generated for other projects.
-        $this->assertSame('CA', TicketPrefix::forProject('proj-concierge-avant', 'Concierge'));
-        $this->assertSame('MW', TicketPrefix::forProject('proj-merkwell', 'Merkwell'));
-        $this->assertSame('CO', TicketPrefix::forProject('proj-other', 'Concierge'));
-        $this->assertSame('CAV', TicketPrefix::forProject('proj-other', 'Concierge Avant'));
+        // The roster's fixed prefixes win for those ids; the reserved prefixes are never generated for other projects.
+        $this->assertSame('BH', TicketPrefix::forProject('proj-blue-harbor', 'Harbor'));
+        $this->assertSame('NW', TicketPrefix::forProject('proj-northwind', 'Northwind'));
+        $this->assertSame('HA', TicketPrefix::forProject('proj-other', 'Harbor'));
+        $this->assertSame('BHA', TicketPrefix::forProject('proj-other', 'Blue Harbor'));
 
         // Created via the API: same generator, optional explicit prefix.
-        $this->api()->postJson('/api/projects', ['name' => 'Concierge Atlas', 'slug' => 'concierge-atlas', 'owner_agent_id' => self::JANICE])
-            ->assertCreated()->assertJsonPath('data.ticket_prefix', 'CAT');
-        $this->postJson('/api/projects', ['name' => 'Merkwell Two', 'slug' => 'mw2', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MV'])
+        $this->api()->postJson('/api/projects', ['name' => 'Bay Harbor', 'slug' => 'bay-harbor', 'owner_agent_id' => self::JANICE])
+            ->assertCreated()->assertJsonPath('data.ticket_prefix', 'BHA');
+        $this->postJson('/api/projects', ['name' => 'Northwind Two', 'slug' => 'mw2', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MV'])
             ->assertCreated()->assertJsonPath('data.ticket_prefix', 'MV');
-        $this->postJson('/api/projects', ['name' => 'X', 'slug' => 'x', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'MW'])
+        $this->postJson('/api/projects', ['name' => 'X', 'slug' => 'x', 'owner_agent_id' => self::ANATOLY, 'ticket_prefix' => 'NW'])
             ->assertUnprocessable()->assertJsonValidationErrors('ticket_prefix');
         // The prefix may change only before the first ticket.
-        $this->patchJson('/api/projects/'.self::MW, ['ticket_prefix' => 'MK'])->assertOk()->assertJsonPath('data.ticket_prefix', 'MK');
-        $this->newTicket([], self::MW);
-        $this->patchJson('/api/projects/'.self::MW, ['ticket_prefix' => 'MX'])->assertUnprocessable();
+        $this->patchJson('/api/projects/'.self::NW, ['ticket_prefix' => 'MK'])->assertOk()->assertJsonPath('data.ticket_prefix', 'MK');
+        $this->newTicket([], self::NW);
+        $this->patchJson('/api/projects/'.self::NW, ['ticket_prefix' => 'MX'])->assertUnprocessable();
     }
 
     #[Test]
@@ -94,24 +94,24 @@ class TicketsApiTest extends TestCase
     {
         $this->api();
         $one = $this->newTicket();
-        $this->assertSame('CA-1', $one['key']);
+        $this->assertSame('BH-1', $one['key']);
         $this->assertStringStartsWith('tk-', $one['id']);
         $this->assertSame('todo', $one['status']);
         $this->assertSame('p3', $one['priority']);
         $this->assertSame(self::JANICE, $one['created_by']);
         $this->assertSame('agent', $one['created_by_type']);
         $this->assertSame(self::JANICE, $one['pm_agent_id']);
-        $this->assertSame('https://bridge.tilenpoje.eu/projects/concierge-avant/tickets/CA-1', $one['url']);
+        $this->assertSame('https://bridge.example.test/projects/blue-harbor/tickets/BH-1', $one['url']);
 
         $two = $this->newTicket();
         $this->postJson("/api/tickets/{$two['key']}/archive", ['actor' => self::JANICE])->assertOk()->assertJsonPath('data.archived', true);
-        $this->assertSame('CA-3', $this->newTicket()['key']);
-        $this->assertSame('MW-1', $this->newTicket([], self::MW)['key']);
-        $this->assertSame(3, Project::find(self::CA)->ticket_seq);
+        $this->assertSame('BH-3', $this->newTicket()['key']);
+        $this->assertSame('NW-1', $this->newTicket([], self::NW)['key']);
+        $this->assertSame(3, Project::find(self::BH)->ticket_seq);
 
         // POST /api/tickets with project_id is the same endpoint.
-        $this->postJson('/api/tickets', ['project_id' => self::CA, 'title' => 'Via flat route', 'actor' => self::JANICE])
-            ->assertCreated()->assertJsonPath('data.key', 'CA-4');
+        $this->postJson('/api/tickets', ['project_id' => self::BH, 'title' => 'Via flat route', 'actor' => self::JANICE])
+            ->assertCreated()->assertJsonPath('data.key', 'BH-4');
         $this->postJson('/api/tickets', ['project_id' => 'proj-nope', 'title' => 'x', 'actor' => self::JANICE])->assertNotFound();
         $this->postJson('/api/tickets', ['title' => 'x', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('project_id');
     }
@@ -119,7 +119,7 @@ class TicketsApiTest extends TestCase
     #[Test]
     public function create_with_every_field(): void
     {
-        $t = $this->api()->postJson('/api/projects/'.self::CA.'/tickets', [
+        $t = $this->api()->postJson('/api/projects/'.self::BH.'/tickets', [
             'title' => 'Approve staging', 'description' => "# Staging\nLink", 'status' => 'waiting_tilen',
             'assignee' => self::JANICE, 'priority' => 'p1', 'due_on' => '2026-11-02', 'blocked_reason' => 'Client copy',
             'ask' => 'Approve staging?', 'ask_context' => 'Visual QA passed.', 'ask_options' => ['Approve', 'Hold'],
@@ -135,14 +135,14 @@ class TicketsApiTest extends TestCase
         $this->assertSame(['M2 launch', 'design'], array_column($t['labels'], 'name'));
         $this->assertSame(['grey', 'grey'], array_column($t['labels'], 'color'));
         $this->assertSame('created', TicketEvent::query()->where('ticket_id', $t['id'])->value('type'));
-        $this->assertNotNull(Project::find(self::CA)->last_activity_at);
+        $this->assertNotNull(Project::find(self::BH)->last_activity_at);
     }
 
     #[Test]
     public function create_validation_and_rules(): void
     {
         $this->api();
-        $p = '/api/projects/'.self::CA.'/tickets';
+        $p = '/api/projects/'.self::BH.'/tickets';
         $this->postJson($p, ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('title');
         $this->postJson($p, ['title' => str_repeat('x', 141), 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('title');
         $this->postJson($p, ['title' => 'x', 'status' => 'blocked', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('status');
@@ -157,7 +157,7 @@ class TicketsApiTest extends TestCase
         $this->assertSame(0, Ticket::count());
 
         // Archived project: 409.
-        Project::find(self::CA)->update(['archived_at' => now()]);
+        Project::find(self::BH)->update(['archived_at' => now()]);
         $this->postJson($p, ['title' => 'x', 'actor' => self::JANICE])->assertStatus(409)->assertJsonStructure(['message']);
     }
 
@@ -165,7 +165,7 @@ class TicketsApiTest extends TestCase
     public function actor_rules(): void
     {
         $this->api();
-        $p = '/api/projects/'.self::CA.'/tickets';
+        $p = '/api/projects/'.self::BH.'/tickets';
         $this->postJson($p, ['title' => 'x'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'agent-ghost'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable()
@@ -180,18 +180,18 @@ class TicketsApiTest extends TestCase
         $plain = $this->workspaceUser()->createToken(self::JANICE)->plainTextToken;
         $h = ['Authorization' => 'Bearer '.$plain];
 
-        $t = $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'No actor needed'])
+        $t = $this->withHeaders($h)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'No actor needed'])
             ->assertCreated()->json('data');
         $this->assertSame(self::JANICE, $t['created_by']);
-        $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'Same actor', 'actor' => self::JANICE])->assertCreated();
-        $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x', 'actor' => self::ANATOLY])->assertForbidden();
+        $this->withHeaders($h)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'Same actor', 'actor' => self::JANICE])->assertCreated();
+        $this->withHeaders($h)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x', 'actor' => self::ANATOLY])->assertForbidden();
         $this->withHeaders($h)->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'hi', 'actor' => self::CAPTAIN])->assertForbidden();
-        $this->withHeaders($h)->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable();
+        $this->withHeaders($h)->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable();
 
         // A token whose name is not an agent (the shared CEO token) still needs the body actor.
         $ceo = $this->workspaceUser()->createToken('ceo', ['ceo'])->plainTextToken;
         $this->app['auth']->forgetGuards();
-        $this->withHeaders(['Authorization' => 'Bearer '.$ceo])->postJson('/api/projects/'.self::CA.'/tickets', ['title' => 'x'])
+        $this->withHeaders(['Authorization' => 'Bearer '.$ceo])->postJson('/api/projects/'.self::BH.'/tickets', ['title' => 'x'])
             ->assertUnprocessable()->assertJsonValidationErrors('actor');
     }
 
@@ -202,29 +202,29 @@ class TicketsApiTest extends TestCase
         $a = $this->newTicket(['title' => 'A', 'assignee' => self::JANICE, 'labels' => ['design']]);
         $b = $this->newTicket(['title' => 'B', 'status' => 'in_progress', 'blocked_reason' => 'API down']);
         $c = $this->waitingTicket(['title' => 'C', 'assignee' => 'tilen']);
-        $d = $this->newTicket(['title' => 'D'], self::MW);
+        $d = $this->newTicket(['title' => 'D'], self::NW);
         $e = $this->newTicket(['title' => 'E', 'status' => 'done']);
         $this->postJson("/api/tickets/{$e['key']}/archive", ['actor' => self::JANICE])->assertOk();
 
         $keys = fn (string $q) => array_column($this->getJson('/api/tickets'.$q)->assertOk()->json('data'), 'key');
-        $this->assertEqualsCanonicalizing(['CA-1', 'CA-2', 'CA-3', 'MW-1'], $keys(''));
-        $this->assertSame(['CA-1', 'CA-2', 'CA-3'], $keys('?project_id='.self::CA));
-        $this->assertSame(['CA-1', 'CA-2', 'CA-3'], array_column($this->getJson('/api/projects/'.self::CA.'/tickets')->json('data'), 'key'));
-        $this->assertSame(['CA-2'], $keys('?status=in_progress'));
-        $this->assertSame(['CA-2', 'CA-3'], $keys('?status=in_progress,waiting_tilen&project_id='.self::CA));
-        $this->assertSame(['CA-1'], $keys('?assignee='.self::JANICE));
-        $this->assertSame(['CA-3'], $keys('?assignee=tilen'));
-        $this->assertSame(['CA-1'], $keys('?label=Design'));
-        $this->assertSame(['CA-2'], $keys('?blocked=1'));
+        $this->assertEqualsCanonicalizing(['BH-1', 'BH-2', 'BH-3', 'NW-1'], $keys(''));
+        $this->assertSame(['BH-1', 'BH-2', 'BH-3'], $keys('?project_id='.self::BH));
+        $this->assertSame(['BH-1', 'BH-2', 'BH-3'], array_column($this->getJson('/api/projects/'.self::BH.'/tickets')->json('data'), 'key'));
+        $this->assertSame(['BH-2'], $keys('?status=in_progress'));
+        $this->assertSame(['BH-2', 'BH-3'], $keys('?status=in_progress,waiting_tilen&project_id='.self::BH));
+        $this->assertSame(['BH-1'], $keys('?assignee='.self::JANICE));
+        $this->assertSame(['BH-3'], $keys('?assignee=tilen'));
+        $this->assertSame(['BH-1'], $keys('?label=Design'));
+        $this->assertSame(['BH-2'], $keys('?blocked=1'));
         $this->assertSame([], $keys('?needs_pm_pickup=1'));
-        $this->assertContains('CA-4', $keys('?include_archived=1'));
+        $this->assertContains('BH-4', $keys('?include_archived=1'));
         $this->assertCount(2, $keys('?limit=2'));
         $this->getJson('/api/tickets?status=nope')->assertUnprocessable();
         $this->getJson('/api/tickets?limit=201')->assertUnprocessable();
 
         $this->travelMinutes(60);
         $this->patchJson("/api/tickets/{$d['key']}", ['priority' => 'p2', 'actor' => self::ANATOLY])->assertOk();
-        $this->assertSame(['MW-1'], $keys('?updated_since='.urlencode(Carbon::now()->subMinute()->toIso8601String())));
+        $this->assertSame(['NW-1'], $keys('?updated_since='.urlencode(Carbon::now()->subMinute()->toIso8601String())));
         $this->assertNotEmpty([$a, $b, $c]);
     }
 
@@ -234,13 +234,13 @@ class TicketsApiTest extends TestCase
         $this->api();
         $t = $this->newTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'First', 'actor' => self::JANICE])->assertCreated();
-        $byKey = $this->getJson('/api/tickets/ca-1')->assertOk()->json('data');
+        $byKey = $this->getJson('/api/tickets/bh-1')->assertOk()->json('data');
         $byId = $this->getJson("/api/tickets/{$t['id']}")->assertOk()->json('data');
         $this->assertSame($byKey['id'], $byId['id']);
         $this->assertSame('First', $byKey['comments'][0]['body']);
         $this->assertSame(['commented', 'created'], array_column($byKey['events'], 'type'));
         $this->assertSame(1, $byKey['comment_count']);
-        $this->getJson('/api/tickets/CA-99')->assertNotFound()->assertJsonStructure(['message']);
+        $this->getJson('/api/tickets/BH-99')->assertNotFound()->assertJsonStructure(['message']);
         $this->getJson('/api/tickets/tk-nope')->assertNotFound();
     }
 
@@ -291,28 +291,28 @@ class TicketsApiTest extends TestCase
         }
         $order = fn (string $status = 'todo') => Ticket::query()->where('status', $status)->whereNull('archived_at')->orderBy('position')->pluck('key')->all();
         $positions = fn (string $status = 'todo') => Ticket::query()->where('status', $status)->whereNull('archived_at')->orderBy('position')->pluck('position')->all();
-        $this->assertSame(['CA-1', 'CA-2', 'CA-3', 'CA-4'], $order());
+        $this->assertSame(['BH-1', 'BH-2', 'BH-3', 'BH-4'], $order());
 
-        $this->postJson('/api/tickets/CA-4/move', ['status' => 'todo', 'before_id' => 'CA-1', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 0);
-        $this->assertSame(['CA-4', 'CA-1', 'CA-2', 'CA-3'], $order());
-        $this->postJson('/api/tickets/CA-4/move', ['status' => 'todo', 'after_id' => 'CA-2', 'actor' => self::JANICE])->assertOk();
-        $this->assertSame(['CA-1', 'CA-2', 'CA-4', 'CA-3'], $order());
-        $this->postJson('/api/tickets/CA-3/move', ['status' => 'todo', 'position' => 0, 'actor' => self::JANICE])->assertOk();
-        $this->assertSame(['CA-3', 'CA-1', 'CA-2', 'CA-4'], $order());
-        $this->postJson('/api/tickets/CA-3/move', ['status' => 'todo', 'position' => 99, 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 3);
+        $this->postJson('/api/tickets/BH-4/move', ['status' => 'todo', 'before_id' => 'BH-1', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 0);
+        $this->assertSame(['BH-4', 'BH-1', 'BH-2', 'BH-3'], $order());
+        $this->postJson('/api/tickets/BH-4/move', ['status' => 'todo', 'after_id' => 'BH-2', 'actor' => self::JANICE])->assertOk();
+        $this->assertSame(['BH-1', 'BH-2', 'BH-4', 'BH-3'], $order());
+        $this->postJson('/api/tickets/BH-3/move', ['status' => 'todo', 'position' => 0, 'actor' => self::JANICE])->assertOk();
+        $this->assertSame(['BH-3', 'BH-1', 'BH-2', 'BH-4'], $order());
+        $this->postJson('/api/tickets/BH-3/move', ['status' => 'todo', 'position' => 99, 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 3);
 
         // Across columns: default end of target column; source renumbered.
-        $this->postJson('/api/tickets/CA-1/move', ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk();
-        $this->postJson('/api/tickets/CA-2/move', ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 1);
-        $this->postJson('/api/tickets/CA-4/move', ['status' => 'in_progress', 'before_id' => 'CA-2', 'actor' => self::JANICE])->assertOk();
-        $this->assertSame(['CA-1', 'CA-4', 'CA-2'], $order('in_progress'));
+        $this->postJson('/api/tickets/BH-1/move', ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk();
+        $this->postJson('/api/tickets/BH-2/move', ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.position', 1);
+        $this->postJson('/api/tickets/BH-4/move', ['status' => 'in_progress', 'before_id' => 'BH-2', 'actor' => self::JANICE])->assertOk();
+        $this->assertSame(['BH-1', 'BH-4', 'BH-2'], $order('in_progress'));
         $this->assertSame([0, 1, 2], $positions('in_progress'));
-        $this->assertSame(['CA-3'], $order());
+        $this->assertSame(['BH-3'], $order());
         $this->assertSame([0], $positions());
 
-        $this->postJson('/api/tickets/CA-1/move', ['status' => 'in_progress', 'before_id' => 'CA-3', 'actor' => self::JANICE])
+        $this->postJson('/api/tickets/BH-1/move', ['status' => 'in_progress', 'before_id' => 'BH-3', 'actor' => self::JANICE])
             ->assertUnprocessable()->assertJsonValidationErrors('before_id');
-        $this->postJson('/api/tickets/CA-1/move', ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->postJson('/api/tickets/BH-1/move', ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('status');
 
         $moved = TicketEvent::query()->where('type', 'moved')->latest('id')->first();
         $this->assertSame(['status' => 'todo', 'position' => 0], $moved->from);
@@ -327,10 +327,10 @@ class TicketsApiTest extends TestCase
         $t = $this->newTicket();
         $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'actor' => self::JANICE])
             ->assertUnprocessable()->assertJsonValidationErrors('ask');
-        $w = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'Pick a name?', 'ask_options' => ['Avant', 'Atlas'], 'actor' => self::JANICE])
+        $w = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'Pick a name?', 'ask_options' => ['Aurora', 'Atlas'], 'actor' => self::JANICE])
             ->assertOk()->json('data');
         $this->assertSame(Carbon::now()->toIso8601String(), $w['waiting_since']);
-        $this->assertSame(['Avant', 'Atlas'], $w['ask_options']);
+        $this->assertSame(['Aurora', 'Atlas'], $w['ask_options']);
 
         // Waiting age levels (ProjectStatus::level): 0-2 d L1, 3-6 d L2, >6 d L3.
         Carbon::setTestNow(Carbon::now()->addDays(3));
@@ -349,7 +349,7 @@ class TicketsApiTest extends TestCase
 
         // "Change answer" -> pickup again; moving out of waiting_tilen auto-acks and clears waiting_since.
         $this->travelMinutes(5);
-        $this->tilenSays($t['key'], ['input_choice' => 'Avant', 'is_tilen_input' => true])->assertCreated();
+        $this->tilenSays($t['key'], ['input_choice' => 'Aurora', 'is_tilen_input' => true])->assertCreated();
         $this->travelMinutes(5);
         $m = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->json('data');
         $this->assertFalse($m['needs_pm_pickup']);
@@ -386,7 +386,7 @@ class TicketsApiTest extends TestCase
         $this->assertSame(2, Ticket::count());
 
         // Archived project: ticket writes 409.
-        Project::find(self::CA)->update(['archived_at' => now()]);
+        Project::find(self::BH)->update(['archived_at' => now()]);
         $this->patchJson("/api/tickets/{$b['key']}", ['title' => 'x', 'actor' => self::JANICE])->assertStatus(409);
     }
 
@@ -448,8 +448,8 @@ class TicketsApiTest extends TestCase
         $arch = $this->newTicket(['title' => 'Archived']);
         $this->postJson("/api/tickets/{$arch['key']}/archive", ['actor' => self::JANICE]);
 
-        $b = $this->getJson('/api/projects/'.self::CA.'/board')->assertOk()->json('data');
-        $this->assertSame(['id' => self::CA, 'name' => 'Concierge Avant', 'slug' => 'concierge-avant', 'pm_agent_id' => self::JANICE, 'pm_name' => 'Dr. Janice Polito', 'ticket_prefix' => 'CA'],
+        $b = $this->getJson('/api/projects/'.self::BH.'/board')->assertOk()->json('data');
+        $this->assertSame(['id' => self::BH, 'name' => 'Blue Harbor', 'slug' => 'blue-harbor', 'pm_agent_id' => self::JANICE, 'pm_name' => 'Dr. Janice Polito', 'ticket_prefix' => 'BH'],
             array_intersect_key($b['project'], array_flip(['id', 'name', 'slug', 'pm_agent_id', 'pm_name', 'ticket_prefix'])));
         $this->assertArrayHasKey('status_note', $b['project']);
         $cols = collect($b['columns'])->keyBy('key');
@@ -461,7 +461,7 @@ class TicketsApiTest extends TestCase
         $this->assertSame(['Todo 1'], array_column($cols['todo']['tickets'], 'title'));
 
         $since = urlencode(Carbon::now()->subDays(30)->toIso8601String());
-        $b = $this->getJson('/api/projects/'.self::CA."/board?done_since=$since&include_archived=1")->json('data');
+        $b = $this->getJson('/api/projects/'.self::BH."/board?done_since=$since&include_archived=1")->json('data');
         $this->assertSame(2, collect($b['columns'])->firstWhere('key', 'done')['count']);
         $this->assertSame(0, $b['done_older_count']);
         $this->assertSame(['Todo 1', 'Archived'], array_column(collect($b['columns'])->firstWhere('key', 'todo')['tickets'], 'title'));
@@ -479,11 +479,11 @@ class TicketsApiTest extends TestCase
         $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE]);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'On it', 'actor' => self::JANICE]);
 
-        $all = $this->getJson('/api/projects/'.self::CA.'/activity')->assertOk()->json('data');
+        $all = $this->getJson('/api/projects/'.self::BH.'/activity')->assertOk()->json('data');
         $this->assertSame(['commented', 'moved', 'created'], array_column($all, 'type'));
-        $this->assertSame('CA-1', $all[0]['ticket_key']);
-        $this->assertSame(['commented', 'moved'], array_column($this->getJson('/api/projects/'.self::CA.'/activity?since='.urlencode($since))->json('data'), 'type'));
-        $this->assertCount(1, $this->getJson('/api/projects/'.self::CA.'/activity?limit=1')->json('data'));
+        $this->assertSame('BH-1', $all[0]['ticket_key']);
+        $this->assertSame(['commented', 'moved'], array_column($this->getJson('/api/projects/'.self::BH.'/activity?since='.urlencode($since))->json('data'), 'type'));
+        $this->assertCount(1, $this->getJson('/api/projects/'.self::BH.'/activity?limit=1')->json('data'));
         $this->assertSame(['commented', 'moved', 'created'], array_column($this->getJson("/api/tickets/{$t['key']}/events")->assertOk()->json('data'), 'type'));
     }
 
@@ -492,12 +492,12 @@ class TicketsApiTest extends TestCase
     {
         $this->api();
         $t = $this->newTicket();
-        $at = fn () => Project::find(self::CA)->last_activity_at->toIso8601String();
+        $at = fn () => Project::find(self::BH)->last_activity_at->toIso8601String();
         foreach ([
             fn () => $this->patchJson("/api/tickets/{$t['key']}", ['title' => 'New', 'actor' => self::JANICE]),
             fn () => $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'c', 'actor' => self::JANICE]),
             fn () => $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'review', 'actor' => self::JANICE]),
-            fn () => $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'smooth', 'actor' => self::JANICE]),
+            fn () => $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'smooth', 'actor' => self::JANICE]),
         ] as $write) {
             $this->travelMinutes(1);
             $write()->assertSuccessful();

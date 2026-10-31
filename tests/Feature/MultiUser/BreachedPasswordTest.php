@@ -60,7 +60,7 @@ class BreachedPasswordTest extends TestCase
         $this->travel(5)->seconds();
 
         return $this->postJson('/signup', [
-            'name' => 'Marta', 'email' => $email, 'password' => $password, 'form_token' => $token, 'website' => '',
+            'name' => 'Marta', 'email' => $email, 'password' => $password, 'form_token' => $token, 'website' => '', 'accept_terms' => true,
         ]);
     }
 

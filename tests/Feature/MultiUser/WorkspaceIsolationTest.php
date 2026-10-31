@@ -35,7 +35,7 @@ class WorkspaceIsolationTest extends TestCase
         parent::setUp();
         $this->bootTickets();
         // Tilen's side, like live: Captain's API user (member) with the 'ceo' token bound by the backfill.
-        $captain = $this->workspaceUser(['email' => 'captain@lantis.internal']);
+        $captain = $this->workspaceUser(['email' => 'captain@example.test']);
         $ceo = $captain->createToken('ceo', ['ceo']);
         $ceo->accessToken->forceFill(['workspace_id' => app(CurrentWorkspace::class)->default()->id])->save();
         $this->tilen = $ceo->plainTextToken;
@@ -45,9 +45,9 @@ class WorkspaceIsolationTest extends TestCase
         $this->other = Workspace::query()->create(['slug' => 'grok', 'name' => 'Grok', 'owner_user_id' => $owner->id]);
         $this->grok = $owner->createToken('grok-bot', ['*'])->plainTextToken;
 
-        $this->send($this->tilen, 'POST', '/api/projects/'.self::CA.'/tickets', ['title' => 'Tilen only', 'actor' => self::JANICE])->assertCreated();
-        $this->send($this->tilen, 'POST', '/api/tickets/CA-1/comments', ['body' => 'secret', 'actor' => self::JANICE])->assertCreated();
-        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'body' => 'Tilen status'])->assertCreated();
+        $this->send($this->tilen, 'POST', '/api/projects/'.self::BH.'/tickets', ['title' => 'Tilen only', 'actor' => self::JANICE])->assertCreated();
+        $this->send($this->tilen, 'POST', '/api/tickets/BH-1/comments', ['body' => 'secret', 'actor' => self::JANICE])->assertCreated();
+        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => self::ANATOLY, 'body' => 'Tilen status'])->assertCreated();
     }
 
     private function send(string $token, string $method, string $uri, array $data = []): TestResponse
@@ -76,7 +76,7 @@ class WorkspaceIsolationTest extends TestCase
     public function tilens_existing_token_keeps_full_access_to_his_workspace(): void
     {
         $this->send($this->tilen, 'GET', '/api/projects')->assertOk()->assertJsonCount(2, 'data');
-        $this->send($this->tilen, 'GET', '/api/tickets/CA-1')->assertOk()->assertJsonPath('data.title', 'Tilen only');
+        $this->send($this->tilen, 'GET', '/api/tickets/BH-1')->assertOk()->assertJsonPath('data.title', 'Tilen only');
         $this->send($this->tilen, 'GET', '/api/agents')->assertOk()->assertJsonCount(5, 'data');
         $this->usage($this->tilen)->assertCreated();
     }
@@ -85,13 +85,13 @@ class WorkspaceIsolationTest extends TestCase
     public function another_workspace_sees_nothing_of_tilens_projects_tickets_and_status(): void
     {
         $this->send($this->grok, 'GET', '/api/projects')->assertOk()->assertJsonCount(0, 'data');
-        $this->send($this->grok, 'GET', '/api/projects/'.self::CA)->assertNotFound();
-        $this->send($this->grok, 'GET', '/api/projects/concierge-avant')->assertNotFound();
-        $this->send($this->grok, 'GET', '/api/projects/'.self::CA.'/board')->assertNotFound();
-        $this->send($this->grok, 'GET', '/api/projects/'.self::CA.'/status')->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/projects/'.self::BH)->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/projects/blue-harbor')->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/projects/'.self::BH.'/board')->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/projects/'.self::BH.'/status')->assertNotFound();
         $this->send($this->grok, 'GET', '/api/tickets')->assertOk()->assertJsonCount(0, 'data');
-        $this->send($this->grok, 'GET', '/api/tickets/CA-1')->assertNotFound();
-        $this->send($this->grok, 'GET', '/api/tickets/CA-1/comments')->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/tickets/BH-1')->assertNotFound();
+        $this->send($this->grok, 'GET', '/api/tickets/BH-1/comments')->assertNotFound();
         $this->send($this->grok, 'GET', '/api/ticket-comments/feed')->assertOk()->assertJsonCount(0, 'data');
         $this->send($this->grok, 'GET', '/api/status-updates')->assertOk()->assertJsonCount(0, 'data');
         $this->send($this->grok, 'GET', '/api/agents')->assertOk()->assertJsonCount(0, 'data');
@@ -101,18 +101,18 @@ class WorkspaceIsolationTest extends TestCase
     #[Test]
     public function another_workspace_cannot_write_into_tilens(): void
     {
-        $this->send($this->grok, 'PATCH', '/api/tickets/CA-1', ['title' => 'hijack', 'actor' => self::JANICE])->assertNotFound();
-        $this->send($this->grok, 'POST', '/api/tickets/CA-1/move', ['status' => 'done', 'actor' => self::JANICE])->assertNotFound();
-        $this->send($this->grok, 'POST', '/api/tickets/CA-1/comments', ['body' => 'x', 'actor' => self::JANICE])->assertNotFound();
-        $this->send($this->grok, 'POST', '/api/projects/'.self::CA.'/tickets', ['title' => 'x', 'actor' => self::JANICE])->assertNotFound();
-        $this->send($this->grok, 'PATCH', '/api/projects/'.self::CA.'/status', ['status' => 'smooth', 'actor' => self::JANICE])->assertNotFound();
-        $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'body' => 'x'])->assertNotFound();
+        $this->send($this->grok, 'PATCH', '/api/tickets/BH-1', ['title' => 'hijack', 'actor' => self::JANICE])->assertNotFound();
+        $this->send($this->grok, 'POST', '/api/tickets/BH-1/move', ['status' => 'done', 'actor' => self::JANICE])->assertNotFound();
+        $this->send($this->grok, 'POST', '/api/tickets/BH-1/comments', ['body' => 'x', 'actor' => self::JANICE])->assertNotFound();
+        $this->send($this->grok, 'POST', '/api/projects/'.self::BH.'/tickets', ['title' => 'x', 'actor' => self::JANICE])->assertNotFound();
+        $this->send($this->grok, 'PATCH', '/api/projects/'.self::BH.'/status', ['status' => 'smooth', 'actor' => self::JANICE])->assertNotFound();
+        $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => self::ANATOLY, 'body' => 'x'])->assertNotFound();
         // Tilen's agents do not exist for it: the (workspace-aware) exists rule fails, nothing is written.
         $this->grokAgent();
         $this->send($this->grok, 'POST', '/api/projects', ['name' => 'X', 'slug' => 'x-grok', 'owner_agent_id' => self::ANATOLY, 'actor' => 'agent-grok'])
             ->assertUnprocessable()->assertJsonValidationErrors('owner_agent_id');
 
-        $this->assertSame('Tilen only', Ticket::query()->find(Ticket::findByRef('CA-1')->id)->title);
+        $this->assertSame('Tilen only', Ticket::query()->find(Ticket::findByRef('BH-1')->id)->title);
         $this->assertSame(1, Ticket::query()->count());
         $this->assertSame(2, Project::query()->count());
     }
@@ -143,7 +143,7 @@ class WorkspaceIsolationTest extends TestCase
         $this->send($this->grok, 'POST', '/api/projects', ['id' => 'proj-grok', 'name' => 'Grok Lab', 'slug' => 'grok-lab', 'owner_agent_id' => 'agent-grok', 'actor' => 'agent-grok'])->assertCreated();
 
         $this->gate()->get('/projects/grok-lab')->assertNotFound();
-        $this->gate()->get('/projects/concierge-avant')->assertOk();
+        $this->gate()->get('/projects/blue-harbor')->assertOk();
         $this->gate()->get('/')->assertOk()->assertDontSee('Grok Lab');
     }
 
@@ -178,21 +178,21 @@ class WorkspaceIsolationTest extends TestCase
             ->assertJsonPath('message', 'Only Captain ('.Actor::CAPTAIN.') can add agents.');
         $this->send($writer, 'POST', '/api/status-updates', ['project_id' => 'x', 'agent_id' => 'agent-grok', 'body' => 'b'])->assertForbidden()
             ->assertJsonPath('message', "This token lacks the 'status:write' ability.");
-        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'body' => 'b'])->assertCreated();
+        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => self::ANATOLY, 'body' => 'b'])->assertCreated();
     }
 
     #[Test]
     public function a_foreign_project_on_status_updates_answers_exactly_like_a_missing_one(): void
     {
         $this->grokAgent();
-        $foreign = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => 'agent-grok', 'body' => 'x']);
+        $foreign = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => 'agent-grok', 'body' => 'x']);
         $missing = $this->send($this->grok, 'POST', '/api/status-updates', ['project_id' => 'proj-missing', 'agent_id' => 'agent-grok', 'body' => 'x']);
 
         $foreign->assertNotFound();
         $missing->assertNotFound();
         // Same body shape; the message only echoes the caller's own id back (debug traces aside).
         $this->assertSame(array_keys($missing->json()), array_keys($foreign->json()));
-        $this->assertSame($missing->json('message'), str_replace(self::MW, 'proj-missing', $foreign->json('message')));
+        $this->assertSame($missing->json('message'), str_replace(self::NW, 'proj-missing', $foreign->json('message')));
         $this->assertSame(0, app(CurrentWorkspace::class)->runAs($this->other, fn () => StatusUpdate::query()->count()));
     }
 
@@ -210,7 +210,7 @@ class WorkspaceIsolationTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('agent_id');
         $this->assertSame($missing->json(), $foreign->json());
         // And the other way round: Tilen's token, Tilen's project, Grok's agent.
-        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::MW, 'agent_id' => 'agent-grok', 'body' => 'x'])
+        $this->send($this->tilen, 'POST', '/api/status-updates', ['project_id' => self::NW, 'agent_id' => 'agent-grok', 'body' => 'x'])
             ->assertUnprocessable()->assertJsonValidationErrors('agent_id');
 
         $this->assertSame($tilens, StatusUpdate::query()->count());
@@ -222,7 +222,7 @@ class WorkspaceIsolationTest extends TestCase
     {
         $this->grokAgent();
         $tilens = NextStep::query()->count();
-        $foreign = $this->send($this->grok, 'POST', '/api/next-steps', ['project_id' => self::MW, 'agent_id' => self::ANATOLY, 'kind' => 'blocker', 'text' => 'x'])
+        $foreign = $this->send($this->grok, 'POST', '/api/next-steps', ['project_id' => self::NW, 'agent_id' => self::ANATOLY, 'kind' => 'blocker', 'text' => 'x'])
             ->assertUnprocessable()->assertJsonValidationErrors(['project_id', 'agent_id']);
         $missing = $this->send($this->grok, 'POST', '/api/next-steps', ['project_id' => 'proj-missing', 'agent_id' => 'agent-missing', 'kind' => 'blocker', 'text' => 'x'])
             ->assertUnprocessable();

@@ -1,13 +1,22 @@
 import { Link } from '@inertiajs/react';
 import { useRef, useState, type FormEvent } from 'react';
-import { AuthShell } from '../../Components/Account/AuthShell';
-import { BusyButton, described, ErrorSummary, Field, IconCheck, PasswordInput, StrengthMeter } from '../../Components/Account/Fields';
+import { AuthLayout, ownLayout, type AuthPageProps } from '../../Components/Auth/AuthLayout';
+import { Button, ButtonLink } from '../../Components/Auth/Button';
+import { ErrorSummary, OkLine, pwToggle, StateIcon, StrengthMeter, TextField } from '../../Components/Auth/TextField';
+import { t } from '../../lib/authCopy';
 import { fieldErrors, requestJson } from '../../lib/http';
 
-type Props = { token: string; email: string; valid: boolean; minPassword: number };
+type Props = AuthPageProps & { token: string; email: string; valid: boolean; minPassword: number };
 
-/** Reset, steps set-new / expired / success: POST /reset-password; an invalid or used token answers expired. */
-export default function ResetPassword({ token, email, valid, minPassword }: Props) {
+const FIELD_IDS = { password: 'n-pw', password_confirmation: 'n-pw2' };
+const ORDER = ['password', 'password_confirmation', 'form'];
+
+/**
+ * Reset, Figma states set new / expired / success: POST /reset-password. `valid` (the token exists and is not older
+ * than 60 minutes) decides between set new and expired on load; a token that fails on submit answers expired too.
+ */
+export default function ResetPassword({ copy, token, email, valid, minPassword }: Props) {
+  const c = copy.reset;
   const [state, setState] = useState<'set-new' | 'expired' | 'success'>(valid ? 'set-new' : 'expired');
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
@@ -20,73 +29,82 @@ export default function ResetPassword({ token, email, valid, minPassword }: Prop
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const local: Record<string, string> = {};
-    if (pw.length < minPassword) local.password = `Use at least ${minPassword} characters`;
-    else if (pw !== pw2) local.password_confirmation = "The two passwords don't match";
+    if (pw.length < minPassword) local.password = t(c.password_short!, { min: minPassword });
+    else if (pw !== pw2) local.password_confirmation = copy.errors.password_mismatch;
     if (Object.keys(local).length) {
       setErrors(local);
       requestAnimationFrame(() => summary.current?.focus());
       return;
     }
+    setErrors({});
     setBusy(true);
     const res = await requestJson<{ expired?: boolean }>('POST', '/reset-password', { token, email, password: pw });
     setBusy(false);
-    if (res.ok) {
-      setState('success');
+    if (res.ok || res.data.expired) {
+      setState(res.ok ? 'success' : 'expired');
       requestAnimationFrame(() => heading.current?.focus());
-    } else if (res.data.expired) {
-      setState('expired');
-      requestAnimationFrame(() => heading.current?.focus());
-    } else {
-      setErrors(res.status === 422 ? fieldErrors(res.data.errors) : { form: res.status === 429 ? 'Too many attempts. Wait a minute and try again.' : res.data.message ?? 'Something went wrong.' });
-      requestAnimationFrame(() => summary.current?.focus());
+      return;
     }
+    setErrors(res.status === 422 ? fieldErrors(res.data.errors)
+      : { form: res.status === 429 ? c.too_many! : res.status === 0 ? copy.common.network : copy.common.generic });
+    requestAnimationFrame(() => summary.current?.focus());
   };
 
   if (state === 'expired') {
     return (
-      <AuthShell title="Link expired">
-        <section className="gcard" aria-labelledby="h-exp">
-          <div className="eico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></div>
-          <h1 id="h-exp" tabIndex={-1} ref={heading}>This link has expired</h1>
-          <p className="lede">Reset links work once, for 60 minutes. Ask for a new one and use the newest email.</p>
-          <Link className="btn wide" href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : '/forgot-password'}>Send a new link</Link>
-          <p className="alt"><Link href="/login">Back to log in</Link></p>
+      <AuthLayout title={c.expired_title!}>
+        <section className="auth-form auth-state" aria-labelledby="h-exp">
+          <StateIcon kind="warn" />
+          <div className="auth-heading">
+            <h1 id="h-exp" tabIndex={-1} ref={heading}>{c.expired_heading}</h1>
+            <p className="auth-lede auth-lede--sm">{c.expired_body}</p>
+          </div>
+          <div className="auth-state-actions">
+            <ButtonLink href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : '/forgot-password'}>{c.expired_action}</ButtonLink>
+            <p className="auth-alt"><Link href="/login">{copy.common.back_to_login}</Link></p>
+          </div>
         </section>
-      </AuthShell>
+      </AuthLayout>
     );
   }
 
   if (state === 'success') {
     return (
-      <AuthShell title="Password updated">
-        <section className="gcard" aria-labelledby="h-ok">
-          <div className="eico ok" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m5 12 5 5 9-10" /></svg></div>
-          <h1 id="h-ok" tabIndex={-1} ref={heading}>Password updated</h1>
-          <p className="lede" role="status">Use your new password to log in. Other devices have been logged out.</p>
-          <a className="btn wide" href="/login?status=password-reset">Log in</a>
+      <AuthLayout title={c.success_title!}>
+        <section className="auth-form auth-state" aria-labelledby="h-ok">
+          <StateIcon kind="ok" />
+          <div className="auth-heading">
+            <h1 id="h-ok" tabIndex={-1} ref={heading}>{c.success_heading}</h1>
+            <p className="auth-lede auth-lede--sm" role="status">{c.success_body}</p>
+          </div>
+          <div className="auth-state-actions">
+            <ButtonLink href="/login?status=password-reset">{c.success_action}</ButtonLink>
+          </div>
         </section>
-      </AuthShell>
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthShell title="Set a new password">
-      <form className="gcard" onSubmit={submit} noValidate aria-labelledby="h-new">
-        <h1 id="h-new">Set a new password</h1>
-        <p className="lede">For {email}. You'll be logged out on your other devices.</p>
-        <ErrorSummary ref={summary} errors={errors} fieldIds={{ password: 'n-pw', password_confirmation: 'n-pw2' }} what="continue" />
-        <Field id="n-pw" label="New password" error={errors.password}>
-          <PasswordInput id="n-pw" autoComplete="new-password" showLabel="new password" value={pw} disabled={busy} autoFocus
-            onChange={(e) => setPw(e.target.value)} {...described('n-pw', errors.password, false, 'n-meter')} />
-          <StrengthMeter id="n-meter" value={pw} min={minPassword} />
-        </Field>
-        <Field id="n-pw2" label="Confirm new password" error={errors.password_confirmation}>
-          <PasswordInput id="n-pw2" autoComplete="new-password" showLabel="confirmed password" value={pw2} disabled={busy}
-            onChange={(e) => setPw2(e.target.value)} {...described('n-pw2', errors.password_confirmation, false, 'n-match')} />
-          <p id="n-match" aria-live="polite" style={{ margin: 0 }}>{match && <span className="ok-line"><IconCheck />Passwords match</span>}</p>
-        </Field>
-        <BusyButton busy={busy} busyLabel="Updating…">Update password</BusyButton>
+    <AuthLayout title={c.title!}>
+      <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="h-new">
+        <div className="auth-heading">
+          <h1 id="h-new">{c.heading}</h1>
+          <p className="auth-lede auth-lede--sm">{t(c.subtitle!, { email })}</p>
+        </div>
+        <ErrorSummary ref={summary} errors={errors} fieldIds={FIELD_IDS} order={ORDER} copy={copy.common} />
+        <div className="auth-fields">
+          <TextField id="n-pw" label={c.new_password} autoComplete="new-password" value={pw} disabled={busy} autoFocus error={errors.password}
+            toggle={pwToggle(copy, c.new_password_label!)} aria-describedby="n-meter" onChange={(e) => setPw(e.target.value)}
+            below={<StrengthMeter id="n-meter" value={pw} min={minPassword} copy={copy.strength} />} />
+          <TextField id="n-pw2" label={c.confirm_password} autoComplete="new-password" value={pw2} disabled={busy} error={errors.password_confirmation}
+            toggle={pwToggle(copy, c.confirm_password_label!)} aria-describedby="n-match" onChange={(e) => setPw2(e.target.value)}
+            below={!errors.password_confirmation && <OkLine id="n-match">{match ? copy.strength.match : null}</OkLine>} />
+        </div>
+        <Button busy={busy} busyLabel={c.busy} busyNote={c.busy_note}>{c.submit}</Button>
       </form>
-    </AuthShell>
+    </AuthLayout>
   );
 }
+
+ResetPassword.layout = ownLayout;

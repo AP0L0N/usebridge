@@ -1,41 +1,31 @@
 import { Link } from '@inertiajs/react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { AuthShell } from '../../Components/Account/AuthShell';
-import { BusyButton, Callout, described, ErrorSummary, Field, PasswordInput, StrengthMeter } from '../../Components/Account/Fields';
+import { useRef, useState, type FormEvent } from 'react';
+import { AuthLayout, ownLayout, type AuthPageProps } from '../../Components/Auth/AuthLayout';
+import { Button } from '../../Components/Auth/Button';
+import { CheckRow, ErrorSummary, Notice, pwToggle, StrengthMeter, TextField } from '../../Components/Auth/TextField';
+import { fillPlaceholders } from '../../Components/SiteFooter';
+import { EMAIL_RE, t } from '../../lib/authCopy';
 import { fieldErrors, go, requestJson } from '../../lib/http';
+import { turnstileToken } from '../../lib/turnstile';
 
-type Props = { formToken: string; turnstileSiteKey: string | null; minPassword: number };
+type Acceptance = {
+  checkbox: string; smallPrint: string; termsLink: string; privacyLink: string; smallPrintTermsLink: string; smallPrintPrivacyLink: string;
+  termsUrl: string; privacyUrl: string;
+};
+type Props = AuthPageProps & { formToken: string; turnstileSiteKey: string | null; minPassword: number; acceptTerms: boolean; acceptance: Acceptance };
 
-declare global {
-  interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void; render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
-}
+const FIELD_IDS = { name: 'name', email: 'email', password: 'pw', accept_terms: 'accept-terms' };
+const ORDER = ['name', 'email', 'password', 'accept_terms', 'form', 'turnstile'];
 
-const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-
-/** Cloudflare Turnstile, only when a site key is configured: the script loads then, and renders into .cf-turnstile. */
-function Turnstile({ siteKey }: { siteKey: string }) {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Script already loaded (an earlier visit in this tab): render explicitly; else its onload scans .cf-turnstile.
-    if (window.turnstile && el.current && el.current.childElementCount === 0) {
-      window.turnstile.render(el.current, { sitekey: siteKey, 'response-field-name': 'cf-turnstile-response' });
-      return;
-    }
-    if (document.querySelector(`script[src="${TURNSTILE_SRC}"]`)) return;
-    const s = document.createElement('script');
-    s.src = TURNSTILE_SRC;
-    s.async = true;
-    s.defer = true;
-    document.head.appendChild(s);
-  }, [siteKey]);
-  return <div ref={el} className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
-}
-
-const FIELD_IDS = { name: 'name', email: 'email', password: 'pw' };
-
-/** Sign up: POST /signup with the honeypot (`website`) + signed `form_token`, plus Turnstile when configured. */
-export default function Signup({ formToken, turnstileSiteKey, minPassword }: Props) {
+/**
+ * Sign up (Figma states default / errors / loading / email taken): POST /signup with the honeypot (`website`) + signed
+ * `form_token`, plus a Turnstile token when a site key is configured. Turnstile loads only here, on submit (lib/turnstile):
+ * nothing from Cloudflare on page render. The terms + 18+ checkbox is required and never pre-ticked.
+ */
+export default function Signup({ copy, formToken, turnstileSiteKey, minPassword, acceptTerms, acceptance }: Props) {
+  const c = copy.signup;
   const [name, setName] = useState('');
+  const [accepted, setAccepted] = useState(acceptTerms);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [website, setWebsite] = useState('');
@@ -43,19 +33,20 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword }: Pro
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taken, setTaken] = useState<string | null>(null);
   const summary = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const takenRef = useRef<HTMLDivElement>(null);
+  const tsRef = useRef<HTMLDivElement>(null);
 
   const check = (): Record<string, string> => {
     const e: Record<string, string> = {};
-    if (name.trim() === '') e.name = 'Enter your name';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter an email like name@example.com';
-    if (password.length < minPassword) e.password = `Use at least ${minPassword} characters for your password`;
+    if (name.trim() === '') e.name = copy.errors.name_required;
+    if (!EMAIL_RE.test(email.trim())) e.email = copy.errors.email_invalid;
+    if (password.length < minPassword) e.password = t(copy.errors.password_short, { min: minPassword });
     return e;
   };
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
-    if (busy) return;
+    if (busy || !accepted) return;
     const local = check();
     setTaken(null);
     if (Object.keys(local).length > 0) {
@@ -63,66 +54,102 @@ export default function Signup({ formToken, turnstileSiteKey, minPassword }: Pro
       requestAnimationFrame(() => summary.current?.focus());
       return;
     }
+    setErrors({});
     setBusy(true);
-    const tsResponse = formRef.current ? new FormData(formRef.current).get('cf-turnstile-response') : null;
-    const res = await requestJson<{ redirect?: string }>('POST', '/signup', {
-      name, email, password, website, form_token: formToken,
-      ...(turnstileSiteKey ? { 'cf-turnstile-response': tsResponse ?? '' } : {}),
+    let tsResponse: string | null = null;
+    if (turnstileSiteKey && tsRef.current) {
+      tsResponse = await turnstileToken(turnstileSiteKey, tsRef.current).catch(() => null);
+      if (tsResponse === null) {
+        setBusy(false);
+        setErrors({ turnstile: c.turnstile_failed! });
+        requestAnimationFrame(() => summary.current?.focus());
+        return;
+      }
+    }
+    const res = await requestJson<{ redirect?: string; email_taken?: boolean }>('POST', '/signup', {
+      name, email, password, website, form_token: formToken, accept_terms: accepted,
+      ...(tsResponse !== null ? { 'cf-turnstile-response': tsResponse } : {}),
     });
     if (res.ok) {
       go('/welcome');
       return;
     }
     setBusy(false);
-    window.turnstile?.reset();
-    const fe = res.status === 422 ? fieldErrors(res.data.errors) : { form: res.status === 429 ? 'Too many sign-ups from this network. Try again in an hour.' : res.data.message ?? 'Something went wrong. Try again.' };
-    if (fe.email && /already|taken/i.test(fe.email)) {
+    if (res.status === 422 && res.data.email_taken) {
       setTaken(email.trim());
-      fe.email = 'This email already has an account';
+      setErrors({ email: copy.errors.email_taken });
+      requestAnimationFrame(() => takenRef.current?.focus());
+      return;
     }
+    const fe = res.status === 422 ? fieldErrors(res.data.errors)
+      : { form: res.status === 429 ? c.too_many! : res.status === 0 ? copy.common.network : res.status === 419 ? copy.common.session_expired : copy.common.generic };
+    if (fe.turnstile) fe.turnstile = c.turnstile_failed!;
     setErrors(fe);
-    if (!(fe.email && Object.keys(fe).length === 1 && /already/.test(fe.email))) requestAnimationFrame(() => summary.current?.focus());
+    requestAnimationFrame(() => summary.current?.focus());
   };
 
-  const summaryErrors = taken ? Object.fromEntries(Object.entries(errors).filter(([k]) => k !== 'email')) : errors;
+  const fieldError = (k: keyof typeof FIELD_IDS) => errors[k];
+  const summaryErrors = taken ? {} : errors;
   return (
-    <AuthShell title="Create account">
-      <form className="gcard" onSubmit={submit} noValidate aria-labelledby="h-signup" ref={formRef}>
-        <h1 id="h-signup">Create your account</h1>
-        <p className="lede">Track your own projects on a board, and let your Grok bot keep them up to date.</p>
+    <AuthLayout title={c.title!}>
+      <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="h-signup">
+        <div className="auth-heading">
+          <h1 id="h-signup">{c.heading}</h1>
+          <p className="auth-lede">{c.subtitle}</p>
+        </div>
 
-        <ErrorSummary ref={summary} errors={summaryErrors} fieldIds={FIELD_IDS} what="continue" />
+        <ErrorSummary ref={summary} errors={summaryErrors} fieldIds={FIELD_IDS} order={ORDER} copy={copy.common} />
         {taken && (
-          <Callout kind="bad" alert>
-            <span className="t">{taken} already has an account.</span> <Link href="/login">Log in</Link> instead, or <Link href="/forgot-password">reset the password</Link> if you've forgotten it.
-          </Callout>
+          <div ref={takenRef} tabIndex={-1} className="auth-focus-target">
+            <Notice kind="warn" role="alert">
+              {fillPlaceholders(c.taken!, {
+                email: <b>{taken}</b>,
+                login: <Link href="/login">{c.taken_login}</Link>,
+                reset: <Link href={`/forgot-password?email=${encodeURIComponent(taken)}`}>{c.taken_reset}</Link>,
+              })}
+            </Notice>
+          </div>
         )}
 
-        <Field id="name" label="Name" error={errors.name} hint="Shown on your boards and to your bots.">
-          <input className="qin" id="name" name="name" autoComplete="name" required value={name} disabled={busy}
-            onChange={(e) => setName(e.target.value)} {...described('name', errors.name, true)} autoFocus />
-        </Field>
-        <Field id="email" label="Email" error={errors.email}>
-          <input className="qin" id="email" type="email" name="email" autoComplete="email" required value={email} disabled={busy}
-            onChange={(e) => setEmail(e.target.value)} {...described('email', errors.email)} />
-        </Field>
-        <Field id="pw" label="Password" error={errors.password}>
-          <PasswordInput id="pw" name="password" autoComplete="new-password" required value={password} disabled={busy}
-            onChange={(e) => setPassword(e.target.value)} {...described('pw', errors.password, false, 'pw-meter')} />
-          <StrengthMeter id="pw-meter" value={password} min={minPassword} />
-        </Field>
+        <div className="auth-fields">
+          <TextField id="name" name="name" label={c.name} autoComplete="name" required value={name} disabled={busy} autoFocus
+            error={fieldError('name')} hint={c.name_hint} onChange={(e) => setName(e.target.value)} />
+          <TextField id="email" name="email" type="email" label={copy.common.email} autoComplete="email" required value={email} disabled={busy}
+            error={fieldError('email')} onChange={(e) => setEmail(e.target.value)} />
+          <TextField id="pw" name="password" label={copy.common.password} autoComplete="new-password" required value={password} disabled={busy}
+            error={fieldError('password')} toggle={pwToggle(copy, c.password_label!)} aria-describedby="pw-meter"
+            onChange={(e) => setPassword(e.target.value)}
+            below={<StrengthMeter id="pw-meter" value={password} min={minPassword} copy={copy.strength} />} />
+        </div>
 
         {/* honeypot: people never see or fill it; bots that fill every field are refused */}
         <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, overflow: 'hidden' }}>
           <label htmlFor="website">Website</label>
           <input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
-        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} />}
+        {/* the Turnstile widget renders here on submit, and only shows if Cloudflare needs the person to act */}
+        {turnstileSiteKey && <div ref={tsRef} className="auth-turnstile" />}
 
-        <p className="fine">Bridge stores your projects and usage only to show them to you. You verify your email before you create API tokens for bots.</p>
-        <BusyButton busy={busy} busyLabel="Creating account…">Create account</BusyButton>
-        <p className="alt">Already have an account? <Link href="/login">Log in</Link></p>
+        <p className="auth-fine">{c.storage_note}</p>
+        <div className="auth-terms">
+          <CheckRow id="accept-terms" name="accept_terms" required checked={accepted} disabled={busy} onChange={setAccepted}
+            invalid={Boolean(errors.accept_terms)} describedBy={errors.accept_terms ? 'accept-terms-err' : undefined}>
+            {fillPlaceholders(acceptance.checkbox, {
+              terms: <a href={acceptance.termsUrl} target="_blank" rel="noopener">{acceptance.termsLink}</a>,
+              privacy: <a href={acceptance.privacyUrl} target="_blank" rel="noopener">{acceptance.privacyLink}</a>,
+            })}
+          </CheckRow>
+          {errors.accept_terms && <p className="auth-msg auth-msg--error" id="accept-terms-err"><span className="auth-dot" aria-hidden="true" />{errors.accept_terms}</p>}
+        </div>
+        <Button busy={busy} busyLabel={c.busy} busyNote={c.busy_note} disabled={!accepted}>{c.submit}</Button>
+        <p className="auth-fine" id="signup-small-print">{fillPlaceholders(acceptance.smallPrint, {
+          terms: <a href={acceptance.termsUrl} target="_blank" rel="noopener">{acceptance.smallPrintTermsLink}</a>,
+          privacy: <a href={acceptance.privacyUrl} target="_blank" rel="noopener">{acceptance.smallPrintPrivacyLink}</a>,
+        })}</p>
+        <p className="auth-alt">{c.have_account} <Link href="/login">{c.login}</Link></p>
       </form>
-    </AuthShell>
+    </AuthLayout>
   );
 }
+
+Signup.layout = ownLayout;

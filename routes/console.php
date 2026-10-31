@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\Project;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Auth\AccountDeletion;
 use App\Services\BridgeRoster;
 use App\Services\Ops\CopiedTokenRotation;
+use App\Services\Ops\StagingOnlyGuard;
 use App\Services\Ops\WorkspaceOwnerTransfer;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
@@ -17,9 +19,11 @@ use App\Services\Usage\InvalidUsageDay;
 use App\Services\Usage\UsageDayImporter;
 use App\Services\Usage\UsageDayValidator;
 use App\Support\Workspaces\CurrentWorkspace;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -114,7 +118,7 @@ Artisan::command('bridge:cursor-csv-import {path : CSV from cursor.com/dashboard
 
         return 1;
     }
-    $slug = (string) ($this->option('workspace') ?: config('bridge.default_workspace', 'tilen'));
+    $slug = (string) ($this->option('workspace') ?: (config('bridge.default_workspace') ?: 'main'));
     $workspace = Workspace::query()->where('slug', $slug)->first();
     if ($workspace === null) {
         $this->error("workspace '$slug' not found");
@@ -199,7 +203,7 @@ Artisan::command('bridge:tickets-migrate {--dry-run : Compute and roll back, wri
     return 0;
 })->purpose('Carry open Questions / Required inputs / Next steps over to tickets (idempotent; --dry-run writes nothing)');
 
-// Captain's roster (29 Oct): add missing agents, set the real PM per active project. Idempotent; the
+// Roster (BridgeRoster, JSON at BRIDGE_ROSTER_PATH): add missing agents, set the PM per active project. Idempotent; the
 // 2026_10_29_120000 migration applies it on deploy, this re-runs or previews it. Only inserts agents / changes PMs.
 Artisan::command('bridge:set-pms {--dry-run : Show what would change, write nothing}', function () {
     $dry = (bool) $this->option('dry-run');
@@ -218,7 +222,7 @@ Artisan::command('bridge:set-pms {--dry-run : Show what would change, write noth
     }
 
     return $r['missing_agents'] ? 1 : 0;
-})->purpose("Add the Captain's missing agents and set each active project's real PM (idempotent)");
+})->purpose("Add the roster's missing agents and set each active project's PM from BRIDGE_ROSTER_PATH (idempotent)");
 
 // Account deletion (docs/MULTI-USER-PLAN.md §2): users whose 7-day grace is over are soft-deleted (deleted_at). Their
 // workspace rows are kept: no purge without Tilen's explicit OK. Safe to run daily.
@@ -232,10 +236,10 @@ Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be 
 
 // Ops (docs/MULTI-USER-PLAN.md §11): make a user the owner of a workspace, e.g. Tilen on a copy migrated before
 // BRIDGE_OWNER_EMAIL was required. Idempotent, transactional, nothing deleted; prints ids only, never a password or link.
-Artisan::command('bridge:set-owner {--email= : The new owner\'s login email} {--name= : Name when the user is created (default: the email\'s local part)} {--workspace=tilen : Workspace slug} {--dry-run : Show the plan, change nothing}', function (WorkspaceOwnerTransfer $transfer) {
+Artisan::command('bridge:set-owner {--email= : The new owner\'s login email} {--name= : Name when the user is created (default: the email\'s local part)} {--workspace= : Workspace slug (default: bridge.default_workspace)} {--dry-run : Show the plan, change nothing}', function (WorkspaceOwnerTransfer $transfer) {
     $dry = (bool) $this->option('dry-run');
     try {
-        $r = $transfer->apply((string) $this->option('email'), $this->option('name'), (string) $this->option('workspace'), $dry);
+        $r = $transfer->apply((string) $this->option('email'), $this->option('name'), (string) ($this->option('workspace') ?: config('bridge.default_workspace') ?: 'main'), $dry);
     } catch (InvalidArgumentException $e) {
         $this->error($e->getMessage());
 
@@ -281,3 +285,33 @@ Artisan::command('bridge:rotate-copied-tokens {--out= : New file for NAME=id|tok
 
     return 0;
 })->purpose('Staging only: give every API token a new plaintext, written to a new 0600 file');
+
+// Ops: on staging (or a local copy with --force-env=staging) mark one user's email as verified, e.g. while mail only
+// goes to the log. Same environment guard as bridge:rotate-copied-tokens (StagingOnlyGuard). Prints only the user id
+// and "verified" / "would verify": never the email, a link or a token.
+Artisan::command('bridge:verify-email {--email= : The user\'s login email} {--force-env= : "staging" to run outside APP_ENV=staging (never on production)} {--dry-run : Show what would happen, change nothing}', function () {
+    $refusal = StagingOnlyGuard::refusal((string) app()->environment(), $this->option('force-env'), config('app.url'));
+    if ($refusal !== null) {
+        $this->error($refusal);
+
+        return 1;
+    }
+    $email = Str::lower(trim((string) $this->option('email')));
+    $user = $email === '' ? null : User::query()->where('email', $email)->first();
+    if ($user === null) {
+        $this->error('No user with that email.');
+
+        return 1;
+    }
+    if ($this->option('dry-run')) {
+        $this->line($user->id.' would verify');
+
+        return 0;
+    }
+    if (! $user->hasVerifiedEmail() && $user->markEmailAsVerified()) {
+        event(new Verified($user));
+    }
+    $this->line($user->id.' verified');
+
+    return 0;
+})->purpose('Staging only: mark a user\'s email as verified (prints the user id only)');

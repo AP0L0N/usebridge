@@ -12,6 +12,7 @@ use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
 use App\Http\Controllers\Pages\AccountPageController;
 use App\Http\Controllers\Pages\AuthPageController;
+use App\Http\Controllers\Pages\LegalPageController;
 use App\Http\Controllers\Pages\OnboardingController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
@@ -25,8 +26,15 @@ use App\Http\Middleware\LegacyReadOnly;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
+use App\Http\Middleware\ShowLandingToGuests;
 use App\Models\Workspace;
+use App\Support\Legal\LegalPages;
 use Illuminate\Support\Facades\Route;
+
+// Legal pages (EN + SL): public, no login and no gate; the footer on every page links to them.
+foreach (LegalPages::PAGES as $id => $page) {
+    Route::get($page['path'], LegalPageController::class)->defaults('legalPage', $id)->name('legal.'.$id);
+}
 
 Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
 Route::post('/gate', [GateController::class, 'unlock'])->name('gate.unlock');
@@ -79,8 +87,10 @@ Route::middleware(['auth', EnsureWorkspaceGate::class])->group(function () {
     Route::put('/projects/{slug}/column-labels', [ProjectSetupController::class, 'updateColumnLabels'])->name('projects.column-labels.update');
 });
 
+// `/` shows the public landing page to pure guests, the Portfolio to everyone else (ShowLandingToGuests runs before the gate).
+Route::get('/', PortfolioController::class)->middleware([ShowLandingToGuests::class, EnsureWorkspaceGate::class])->name('portfolio');
+
 Route::middleware(EnsureWorkspaceGate::class)->group(function () {
-    Route::get('/', PortfolioController::class)->name('portfolio');
     Route::get('/portfolio', fn () => redirect()->route('portfolio'));
     Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
@@ -107,9 +117,9 @@ Route::middleware(EnsureWorkspaceGate::class)->group(function () {
         ->name('usage.agent');
     // Cursor dashboard CSV export (individual plan): workspace owner or the AUTH-1 gate session; 404 for others.
     Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
-    // Polymarket desk: only workspaces with the polymarket feature (Tilen's); 404 elsewhere.
+    // Polymarket desk: only workspaces with the polymarket feature (Tilen's), and only their owner; 404 for everyone else.
     Route::get('/polymarket', [PolymarketController::class, 'index'])
-        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET)->name('polymarket');
+        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner')->name('polymarket');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/agents', '/');

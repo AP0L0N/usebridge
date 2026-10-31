@@ -1,133 +1,103 @@
 # Bridge
 
-LANTIS CEO overview (Captain William Diego / Tilen). Portfolio, cockpit, ops stub, agents, CEO queue.
+**Bridge** ([usebridge.si](https://usebridge.si)) is a kanban and status board for teams that run AI coding agents.
+Agents (and the people who steer them) keep tickets, project status and short status updates in one place. You see at a
+glance which project is moving, which one is waiting on you, and what the agents spent to get there.
+
+## Features
+
+- **Kanban boards per project**: tickets with keys like `NW-12`, fixed columns you can rename, labels, assignees
+  (agents or people), comments, "needs PM pickup", archiving instead of deletes, and an activity feed.
+- **Status board (Portfolio)**: every project's current status (smooth / waiting input / archived), the latest status
+  update and who it is waiting on.
+- **Usage view**: measured token usage per day, tool, agent and model for **Claude Code**, **Kimi Code**,
+  **OpenCode Go** and **Cursor**. Coding tools come from collector files posted to the API. Cursor comes from the
+  dashboard **CSV export** (individual plan), shown as one "Cursor (all agents)" account, with no invented per-agent split.
+  The view tells "no file that day" apart from zero usage.
+- **REST API** for agents (Sanctum bearer tokens): projects, boards, tickets, comments, status updates, agents and
+  labels. See [docs/API-TICKETS.md](docs/API-TICKETS.md).
+- **MCP server** at `/mcp` (streamable HTTP, JSON-RPC 2.0) with tools such as `list_projects`, `get_board`,
+  `list_tickets`, `create_ticket`, `move_ticket`, `comment_ticket`, `post_status` and `set_project_status`.
+- **Per-user API tokens**: `read` or `read & write`, expiry of 30 / 90 / 365 days or none. The plaintext is shown once,
+  the list is masked, and tokens can be revoked.
+- **Multi-user workspaces**: open sign-up with email verification and a bot check (honeypot + minimum fill time,
+  optional Cloudflare Turnstile), login lockout, breached-password check (HIBP range API, fail-open), "log out of all
+  devices", data export and account deletion with a grace period. Every workspace is isolated: no admin bypass, and
+  another workspace's data answers 404. The instance admin only sees a user list with disable / enable.
+
+Design notes: [docs/MULTI-USER-PLAN.md](docs/MULTI-USER-PLAN.md) (architecture, API and security model).
 
 ## Stack
 
-- **Laravel 13** + **Inertia** + **React** + **TypeScript**
-- SQLite for local/`php artisan test`; **MySQL** for production
-- AUTH-1 shared workspace gate (session) — single password, no per-agent ACL
+Laravel 13, Inertia, React and TypeScript (Vite), Sanctum, `laravel/mcp`. SQLite for local development and tests,
+MySQL in production.
 
-## Former SPA
+## Local setup
 
-Previously a Vite+React SPA (repo history / `/workspace/lantis-command/app`). This tree replaces that SPA with a Laravel app. Seed data and Ink Command UI tokens were ported from the SPA.
-
-
-## Web UI auth (AUTH-1)
-
-Shared workspace password via `BRIDGE_GATE_PASSWORD` (default `lantis-internal`). Stored in `.bridge-deploy-secrets` (chmod 600, not committed). Do not print secrets in chat.
-
-Primary nav: Portfolio · Ops · Agents · Queue. Project cockpits are reached from Portfolio cards (`/projects/{slug}`) — no Cockpit nav link.
-
-## REST API (Sanctum)
-
-**Tickets (Kanban) API for PM agents: see [docs/API-TICKETS.md](docs/API-TICKETS.md).**
-
-Bearer token auth on `/api/*`. CEO personal access token is created by `BridgeApiSeeder` and written to `.bridge-deploy-secrets` as `BRIDGE_API_TOKEN` (plaintext once; never commit/print).
-
-```
-Authorization: Bearer <token>
-Accept: application/json
-Content-Type: application/json
-```
-
-Base URL (live): `https://bridge.tilenpoje.eu`
-
-Token lives in `.bridge-deploy-secrets` as `BRIDGE_API_TOKEN` (server: `/var/www/bridge/.bridge-deploy-secrets`) — never commit or paste into chat.
-
-### Example: POST status update
+Requirements: PHP 8.4, Composer, Node.js (with npm).
 
 ```bash
-# token from secrets file — do not echo it into logs/chat
-TOKEN=$(sed -n 's/^BRIDGE_API_TOKEN=//p' .bridge-deploy-secrets)
-
-curl -sS -X POST "https://bridge.tilenpoje.eu/api/status-updates" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "Accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project_id": "proj-concierge-avant",
-    "agent_id": "agent-william",
-    "body": "Reviewed write path — status history looks good."
-  }'
-```
-
-Seed IDs: projects `proj-merkwell`, `proj-concierge-avant`; agents include `agent-william`, `agent-anatoly`, `agent-janice`, `agent-tommy`, `agent-shodan`.
-
-### Example: create CEO queue item
-
-```bash
-curl -sS -X POST "https://bridge.tilenpoje.eu/api/ceo-queue-items" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "Accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "reason": "Concierge needsDecision still open — needs Tilen call.",
-    "suggested_action": "Approve or reject phase-2 scope freeze.",
-    "project_id": "proj-concierge-avant"
-  }'
-```
-
-| Method | Path | Notes |
-|--------|------|-------|
-| GET/POST | `/api/projects` | list / create |
-| GET/PATCH/DELETE | `/api/projects/{id}` | show / update / destroy |
-| GET/POST | `/api/milestones` | `?project_id=` |
-| PATCH/DELETE | `/api/milestones/{id}` | |
-| GET/POST | `/api/work-items` | `?project_id=` |
-| PATCH/DELETE | `/api/work-items/{id}` | |
-| GET/POST | `/api/risks` | `?project_id=` |
-| PATCH/DELETE | `/api/risks/{id}` | |
-| GET/POST | `/api/status-updates` | |
-| DELETE | `/api/status-updates/{id}` | |
-| GET/POST | `/api/agents` | read + limited write |
-| PATCH | `/api/agents/{id}` | |
-| GET/POST | `/api/ceo-queue-items` | |
-| POST | `/api/ceo-queue-items/{id}/dismiss` | |
-| POST | `/api/ceo-queue-items/{id}/assign` | body `{ "agent_id": "..." }` |
-| GET | `/api/ops-digest` | read-only stub / empty |
-
-No Lead Orbit write paths. Ops digest stays empty until a real feed exists.
-
-## Local
-
-```bash
-cp .env.example .env   # if needed
+composer install
+npm install
+cp .env.example .env
 php artisan key:generate
 touch database/database.sqlite
-php artisan migrate --seed
-npm install
-npm run build
-php artisan serve
+php artisan migrate
+php artisan serve        # http://localhost:8000
+npm run dev              # Vite dev server, in a second terminal
 ```
 
-## Production DB
+The multi-user backfill migration needs an owner email. Set placeholders like these in `.env` (all `BRIDGE_*`
+variables are listed in `.env.example`):
 
-Set in `.env`:
-
+```dotenv
+APP_URL=http://localhost:8000
+BRIDGE_OWNER_EMAIL=owner@example.test
+BRIDGE_WORKSPACE_SLUG=main
+BRIDGE_WORKSPACE_NAME="My workspace"
+# Optional
+BRIDGE_PUBLIC_URL=            # base URL for ticket links in API payloads (default: APP_URL)
+BRIDGE_ROSTER_PATH=           # JSON roster file outside the repo (agents and project PMs); empty = none
+BRIDGE_GATE_PASSWORD=         # transitional shared workspace password; empty = off
+TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+MAIL_MAILER=log               # verification / reset mails go to the log
 ```
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=bridge
-DB_USERNAME=bridge
-DB_PASSWORD=...
-```
 
-## Deploy note
-
-Live DocumentRoot: `/var/www/bridge/public` on Xerxes (`https://bridge.tilenpoje.eu`).
-
-## Tests / build
+Run the tests and the type check:
 
 ```bash
 php artisan test
-npm run build
+npx tsc --noEmit
 ```
 
-## Out of scope (v1)
+## Connecting an agent over MCP
 
-Lead Orbit / Merkwell CRM connector — Ops stays an honest empty/gap state. No invented clients or revenue.
+1. Sign up, verify your email and create a token under **Account → API tokens & MCP** (`read` or `read & write`).
+2. Add Bridge to your MCP client, for example in Cursor's `~/.cursor/mcp.json` under `mcpServers.bridge` or in Claude
+   Code's `.mcp.json`:
+
+```json
+{"url": "https://your-host/mcp", "headers": {"Authorization": "Bearer <token>"}}
+```
+
+Claude Code: `claude mcp add --transport http bridge https://your-host/mcp --header "Authorization: Bearer <token>"`.
+
+The same token works for the REST API (`Authorization: Bearer <token>`, `Accept: application/json`). Rate limit: 120
+requests per minute per token.
+
+## Contributing
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Before opening a PR:
+
+- keep `php artisan test` green and `npx tsc --noEmit` clean, and add tests for new behaviour;
+- use made-up data only: fixtures, seeders, docs and screenshots must not contain real client names, people, emails,
+  hosts, tokens or usage exports;
+- never commit `.env` files, database dumps, keys or other secrets.
+
+## Security
+
+Please do not open public issues for vulnerabilities. Report them privately as described in [SECURITY.md](SECURITY.md).
 
 ## Licence
 

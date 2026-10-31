@@ -1,6 +1,6 @@
 # Bridge r1: design spec
 
-Designer: Tommy Suarez · Implementer: Xerxes · Status: awaiting Tilen's approval. Mocks only. All project data is **sample data** drawn from Tilen's real project names. It is not a source of truth.
+Designer: Tommy Suarez · Implementer: Xavier · Status: awaiting Tilen's approval. Mocks only. All project data is **sample data** with made-up project names. It is not a source of truth.
 
 ## 1. Scope
 There are only two screens: **Portfolio** (dashboard) and **Project view**. Removed completely: deadlines, phases, goals, milestones, work items, risks, blockers, Ops, Agents and Queue. The old nav strip is gone; the project view's back link is the only navigation.
@@ -65,8 +65,8 @@ The mocks keep Tilen's names: **Smooth sailing / Waiting input / Archived**. Mar
 
 ## 7. States mocked
 - Dashboard: default (mixed), search with an archived hit, archived shown, no results, empty portfolio.
-- Project: many updates and inputs (AdriaEdition), no open inputs (Concierge Avant, also showing the Reopened case).
-- Not mocked, Xerxes to build: loading (skeleton rows at the same heights) and error (an inline banner above the list with retry).
+- Project: many updates and inputs (Northwind), no open inputs (Cobalt Works, also showing the Reopened case).
+- Not mocked, Xavier to build: loading (skeleton rows at the same heights) and error (an inline banner above the list with retry).
 
 ## 8. Responsive
 - **≥ 721px:** layout as described. The project view is a `1fr / 400px` grid with the inputs panel on the right.

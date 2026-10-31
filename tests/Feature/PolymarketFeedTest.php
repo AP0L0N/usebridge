@@ -35,7 +35,7 @@ class PolymarketFeedTest extends TestCase
 
     public static function fixturePath(string $name): string
     {
-        return base_path("tests/fixtures/polymarket/$name.json");
+        return base_path("tests/fixtures/markets/$name.json");
     }
 
     /** @return array<string, mixed>|list<mixed> */
@@ -85,7 +85,7 @@ class PolymarketFeedTest extends TestCase
     #[Test]
     public function body_above_1_mb_is_413(): void
     {
-        $series = array_fill(0, 12000, ['as_of' => '2026-10-03T16:05+02:00', 'book_value_usd' => 635.1, 'cash_usd' => null, 'source' => str_repeat('x', 40)]);
+        $series = array_fill(0, 12000, ['as_of' => '2037-10-03T16:05+02:00', 'book_value_usd' => 1000.5, 'cash_usd' => null, 'source' => str_repeat('x', 40)]);
         $body = self::body(null, $series);
         $this->assertGreaterThan(1048576, strlen($body));
 
@@ -94,51 +94,51 @@ class PolymarketFeedTest extends TestCase
     }
 
     #[Test]
-    public function real_feed_and_series_import_then_reposting_is_idempotent(): void
+    public function feed_and_series_import_then_reposting_is_idempotent(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-10-25 22:00:00', 'Europe/Ljubljana'));
+        Carbon::setTestNow(Carbon::parse('2037-10-25 22:00:00', 'Europe/Ljubljana'));
         $this->send(self::body())
             ->assertCreated()
             ->assertExactJson(['data' => [
                 'snapshot' => 'created',
-                'as_of' => '2026-10-25T21:52+01:00',
-                'series' => ['received' => 128, 'inserted' => 128, 'updated' => 0, 'unchanged' => 0, 'total' => 128],
+                'as_of' => '2037-10-25T20:47+01:00',
+                'series' => ['received' => 120, 'inserted' => 120, 'updated' => 0, 'unchanged' => 0, 'total' => 120],
             ]]);
 
         $snap = PolymarketSnapshot::query()->sole();
-        $this->assertSame('2026-10-25 20:52:00', substr((string) $snap->as_of, 0, 19));
-        $this->assertSame('2026-10-25T21:52+01:00', $snap->as_of_raw);
+        $this->assertSame('2037-10-25 19:47:00', substr((string) $snap->as_of, 0, 19));
+        $this->assertSame('2037-10-25T20:47+01:00', $snap->as_of_raw);
         $this->assertArrayNotHasKey('history', $snap->payload);
-        $this->assertSame(719.36, $snap->payload['book_value_usd']);
+        $this->assertSame(1093.3, $snap->payload['book_value_usd']);
         $this->assertSame(64, strlen($snap->payload_sha256));
 
         // DST: +02:00 and +01:00 points are stored as UTC.
         $first = PolymarketSeriesPoint::query()->orderBy('ts')->first();
-        $this->assertSame('2026-10-03 14:05:00', substr((string) $first->ts, 0, 19));
-        $this->assertSame('2026-10-03T16:05+02:00', $first->ts_raw);
-        $this->assertSame(317.55, (float) $first->stop_usd);
+        $this->assertSame('2037-10-03 07:26:00', substr((string) $first->ts, 0, 19));
+        $this->assertSame('2037-10-03T09:26+02:00', $first->ts_raw);
+        $this->assertSame(562.59, (float) $first->stop_usd);
         $last = PolymarketSeriesPoint::query()->orderByDesc('ts')->first();
-        $this->assertSame('2026-10-25 17:13:00', substr((string) $last->ts, 0, 19));
-        $this->assertSame(162.9, (float) $last->cash_usd);
+        $this->assertSame('2037-10-25 18:22:00', substr((string) $last->ts, 0, 19));
+        $this->assertSame(189.75, (float) $last->cash_usd);
         $this->assertNull($last->stop_usd);
-        $this->assertSame('odds-desk-2026-10-25-1813.json', $last->source);
+        $this->assertSame('desk-run-2037-10-25-1922.json', $last->source);
         // history[] stop_usd: set on 3–6 Oct runs only.
-        $this->assertSame(18, PolymarketSeriesPoint::query()->whereNotNull('stop_usd')->count());
+        $this->assertSame(19, PolymarketSeriesPoint::query()->whereNotNull('stop_usd')->count());
 
         $stamps = $this->pointStamps();
         $snapUpdated = (string) $snap->updated_at;
 
-        Carbon::setTestNow(Carbon::parse('2026-10-25 22:30:00', 'Europe/Ljubljana'));
+        Carbon::setTestNow(Carbon::parse('2037-10-25 22:30:00', 'Europe/Ljubljana'));
         $this->send(self::body())
             ->assertOk()
             ->assertExactJson(['data' => [
                 'snapshot' => 'unchanged',
-                'as_of' => '2026-10-25T21:52+01:00',
-                'series' => ['received' => 128, 'inserted' => 0, 'updated' => 0, 'unchanged' => 128, 'total' => 128],
+                'as_of' => '2037-10-25T20:47+01:00',
+                'series' => ['received' => 120, 'inserted' => 0, 'updated' => 0, 'unchanged' => 120, 'total' => 120],
             ]]);
 
         $this->assertSame(1, PolymarketSnapshot::count());
-        $this->assertSame(128, PolymarketSeriesPoint::count());
+        $this->assertSame(120, PolymarketSeriesPoint::count());
         $this->assertSame($stamps, $this->pointStamps());
         $again = PolymarketSnapshot::query()->sole();
         $this->assertSame($snapUpdated, (string) $again->updated_at);
@@ -151,28 +151,28 @@ class PolymarketFeedTest extends TestCase
         $this->send(self::body())->assertCreated();
 
         $newer = self::fixture('feed');
-        $newer['as_of'] = '2026-10-26T08:05+01:00';
-        $newer['book_value_usd'] = 730.01;
+        $newer['as_of'] = '2037-10-26T08:05+01:00';
+        $newer['book_value_usd'] = 1104.6;
         $series = self::fixture('book_series');
-        $series[] = ['as_of' => '2026-10-26T08:05+01:00', 'book_value_usd' => 730.01, 'cash_usd' => 162.9, 'source' => 'odds-desk-2026-10-26-0805.json'];
-        $series[0]['cash_usd'] = 635.1; // a corrected value on an existing point
+        $series[] = ['as_of' => '2037-10-26T08:05+01:00', 'book_value_usd' => 1104.6, 'cash_usd' => 190.1, 'source' => 'desk-run-2037-10-26-0805.json'];
+        $series[0]['cash_usd'] = 1000.5; // a corrected value on an existing point
 
         $this->send(self::body($newer, $series))
             ->assertOk()
             ->assertJsonPath('data.snapshot', 'replaced')
-            ->assertJsonPath('data.series', ['received' => 129, 'inserted' => 1, 'updated' => 1, 'unchanged' => 127, 'total' => 129]);
-        $this->assertSame(730.01, PolymarketSnapshot::query()->sole()->payload['book_value_usd']);
-        $this->assertSame(635.1, (float) PolymarketSeriesPoint::query()->orderBy('ts')->first()->cash_usd);
+            ->assertJsonPath('data.series', ['received' => 121, 'inserted' => 1, 'updated' => 1, 'unchanged' => 119, 'total' => 121]);
+        $this->assertSame(1104.6, PolymarketSnapshot::query()->sole()->payload['book_value_usd']);
+        $this->assertSame(1000.5, (float) PolymarketSeriesPoint::query()->orderBy('ts')->first()->cash_usd);
 
         $older = self::fixture('feed');
-        $older['as_of'] = '2026-10-25T18:13+01:00';
+        $older['as_of'] = '2037-10-25T18:13+01:00';
         $this->send(self::body($older, []))
             ->assertOk()
             ->assertJsonPath('data.snapshot', 'kept_newer')
             ->assertJsonPath('data.series.received', 0);
         $row = PolymarketSnapshot::query()->sole();
-        $this->assertSame('2026-10-26T08:05+01:00', $row->as_of_raw);
-        $this->assertSame(730.01, $row->payload['book_value_usd']);
+        $this->assertSame('2037-10-26T08:05+01:00', $row->as_of_raw);
+        $this->assertSame(1104.6, $row->payload['book_value_usd']);
     }
 
     #[Test]
@@ -180,25 +180,25 @@ class PolymarketFeedTest extends TestCase
     {
         $snap = self::fixture('feed');
         $snap['history'] = [
-            ['ts' => '2026-10-03T16:05+02:00', 'book_value_usd' => 635.1, 'stop_usd' => 317.55],
-            ['ts' => '2026-10-03T18:05+02:00', 'book_value_usd' => 635.1, 'stop_usd' => 300],
+            ['ts' => '2037-10-03T16:05+02:00', 'book_value_usd' => 1000.5, 'stop_usd' => 450.25],
+            ['ts' => '2037-10-03T18:05+02:00', 'book_value_usd' => 1000.5, 'stop_usd' => 410],
         ];
-        $series = [['as_of' => '2026-10-03T16:05+02:00', 'book_value_usd' => 635.1, 'cash_usd' => null, 'source' => 'a.json']];
+        $series = [['as_of' => '2037-10-03T16:05+02:00', 'book_value_usd' => 1000.5, 'cash_usd' => null, 'source' => 'a.json']];
 
         $this->send(self::body($snap, $series))
             ->assertCreated()
             ->assertJsonPath('data.series', ['received' => 1, 'inserted' => 2, 'updated' => 0, 'unchanged' => 0, 'total' => 2]);
         $pts = PolymarketSeriesPoint::query()->orderBy('ts')->get();
-        $this->assertSame(317.55, (float) $pts[0]->stop_usd);
+        $this->assertSame(450.25, (float) $pts[0]->stop_usd);
         $this->assertSame('a.json', $pts[0]->source);
-        $this->assertSame(300.0, (float) $pts[1]->stop_usd);
-        $this->assertSame(635.1, (float) $pts[1]->book_value_usd);
+        $this->assertSame(410.0, (float) $pts[1]->stop_usd);
+        $this->assertSame(1000.5, (float) $pts[1]->book_value_usd);
         $this->assertNull($pts[1]->cash_usd);
 
         // A later post without history keeps the stops; a changed history stop updates just that column.
         $this->send(self::body(array_diff_key($snap, ['history' => 1]), $series))
             ->assertOk()->assertJsonPath('data.series.unchanged', 1);
-        $this->assertSame(317.55, (float) PolymarketSeriesPoint::query()->orderBy('ts')->first()->stop_usd);
+        $this->assertSame(450.25, (float) PolymarketSeriesPoint::query()->orderBy('ts')->first()->stop_usd);
 
         $snap['history'][0]['stop_usd'] = null;
         $this->send(self::body($snap, $series))
@@ -240,9 +240,9 @@ class PolymarketFeedTest extends TestCase
             'missing series' => [fn () => json_encode(['snapshot' => self::fixture('feed')]), 'series'],
             'unknown top key' => [fn () => json_encode(['snapshot' => self::fixture('feed'), 'series' => [], 'x' => 1]), 'x'],
             'snapshot not object' => [fn () => json_encode(['snapshot' => [1, 2], 'series' => []]), 'snapshot'],
-            'as_of without offset' => [$feed(fn ($d) => ['as_of' => '2026-10-25T21:52'] + $d), 'snapshot.as_of'],
+            'as_of without offset' => [$feed(fn ($d) => ['as_of' => '2037-10-25T21:52'] + $d), 'snapshot.as_of'],
             'missing as_of' => [$feed(fn ($d) => array_diff_key($d, ['as_of' => 1])), 'snapshot.as_of'],
-            'book value string' => [$feed(fn ($d) => ['book_value_usd' => '719.36'] + $d), 'snapshot.book_value_usd'],
+            'book value string' => [$feed(fn ($d) => ['book_value_usd' => '1093.30'] + $d), 'snapshot.book_value_usd'],
             'missing positions' => [$feed(fn ($d) => array_diff_key($d, ['positions' => 1])), 'snapshot.positions'],
             'positions object' => [$feed(fn ($d) => ['positions' => ['a' => 1]] + $d), 'snapshot.positions'],
             'position without market' => [$feed(function ($d) {
@@ -251,7 +251,7 @@ class PolymarketFeedTest extends TestCase
                 return $d;
             }), 'snapshot.positions.2.market'],
             'position numeric string' => [$feed(function ($d) {
-                $d['positions'][0]['value_usd'] = '200.59';
+                $d['positions'][0]['value_usd'] = '12.34';
 
                 return $d;
             }), 'snapshot.positions.0.value_usd'],
@@ -279,7 +279,7 @@ class PolymarketFeedTest extends TestCase
             }), 'snapshot.history.3.stop_usd'],
             'series not array' => [fn () => json_encode(['snapshot' => self::fixture('feed'), 'series' => ['a' => 1]]), 'series'],
             'series point without offset' => [$series(function ($s) {
-                $s[5]['as_of'] = '2026-10-04 10:05';
+                $s[5]['as_of'] = '2037-10-04 10:05';
 
                 return $s;
             }), 'series.5.as_of'],
@@ -316,7 +316,7 @@ class PolymarketFeedTest extends TestCase
     #[Test]
     public function too_many_series_points_is_422(): void
     {
-        $series = array_fill(0, 20001, ['as_of' => '2026-10-03T16:05+02:00', 'book_value_usd' => 1]);
+        $series = array_fill(0, 20001, ['as_of' => '2037-10-03T16:05+02:00', 'book_value_usd' => 1]);
         $this->artisanImport(self::fixture('feed'), $series)->assertExitCode(1);
         $this->assertSame(0, PolymarketSeriesPoint::count());
     }
@@ -337,19 +337,19 @@ class PolymarketFeedTest extends TestCase
         $args = ['snapshot' => self::fixturePath('feed'), 'series' => self::fixturePath('book_series')];
 
         $this->artisan('bridge:polymarket-import', $args + ['--dry-run' => true])
-            ->expectsOutputToContain('dry run, nothing written · would be: snapshot created (as_of 2026-10-25T21:52+01:00) · series: 128 received, 128 inserted')
+            ->expectsOutputToContain('dry run, nothing written · would be: snapshot created (as_of 2037-10-25T20:47+01:00) · series: 120 received, 120 inserted')
             ->assertExitCode(0);
         $this->assertSame(0, PolymarketSnapshot::count());
         $this->assertSame(0, PolymarketSeriesPoint::count());
 
         $this->artisan('bridge:polymarket-import', $args)
-            ->expectsOutputToContain('snapshot created (as_of 2026-10-25T21:52+01:00)')
+            ->expectsOutputToContain('snapshot created (as_of 2037-10-25T20:47+01:00)')
             ->assertExitCode(0);
         $this->assertSame(1, PolymarketSnapshot::count());
-        $this->assertSame(128, PolymarketSeriesPoint::count());
+        $this->assertSame(120, PolymarketSeriesPoint::count());
 
         $this->artisan('bridge:polymarket-import', $args)
-            ->expectsOutputToContain('snapshot unchanged (as_of 2026-10-25T21:52+01:00) · series: 128 received, 0 inserted, 0 updated, 128 unchanged, 128 total')
+            ->expectsOutputToContain('snapshot unchanged (as_of 2037-10-25T20:47+01:00) · series: 120 received, 0 inserted, 0 updated, 120 unchanged, 120 total')
             ->assertExitCode(0);
 
         // Same importer as the API: a post of the same files is unchanged too.
@@ -366,11 +366,11 @@ class PolymarketFeedTest extends TestCase
         $this->send(self::body())->assertCreated();
         $stamps = $this->pointStamps();
         $newer = self::fixture('feed');
-        $newer['as_of'] = '2026-10-26T08:05+01:00';
-        $this->artisanImport($newer, [['as_of' => '2026-10-26T08:05+01:00', 'book_value_usd' => 700]], true)
-            ->expectsOutputToContain('would be: snapshot replaced (as_of 2026-10-26T08:05+01:00) · series: 1 received, 1 inserted')
+        $newer['as_of'] = '2037-10-26T08:05+01:00';
+        $this->artisanImport($newer, [['as_of' => '2037-10-26T08:05+01:00', 'book_value_usd' => 1010]], true)
+            ->expectsOutputToContain('would be: snapshot replaced (as_of 2037-10-26T08:05+01:00) · series: 1 received, 1 inserted')
             ->assertExitCode(0);
-        $this->assertSame('2026-10-25T21:52+01:00', PolymarketSnapshot::query()->sole()->as_of_raw);
+        $this->assertSame('2037-10-25T20:47+01:00', PolymarketSnapshot::query()->sole()->as_of_raw);
         $this->assertSame($stamps, $this->pointStamps());
     }
 }

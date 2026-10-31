@@ -1,62 +1,88 @@
 import { Link } from '@inertiajs/react';
 import { useRef, useState, type FormEvent } from 'react';
-import { AuthShell } from '../../Components/Account/AuthShell';
-import { BusyButton, Callout, described, Field } from '../../Components/Account/Fields';
+import { AuthLayout, ownLayout, type AuthPageProps } from '../../Components/Auth/AuthLayout';
+import { Button } from '../../Components/Auth/Button';
+import { Notice, StateIcon, TextField } from '../../Components/Auth/TextField';
+import { EMAIL_RE, t } from '../../lib/authCopy';
 import { fieldErrors, requestJson } from '../../lib/http';
 
-/** Reset, steps request + sent: POST /forgot-password answers the same whether or not the account exists. */
-export default function ForgotPassword() {
+/** Reset, Figma states request + sent: POST /forgot-password answers the same whether or not the account exists. */
+export default function ForgotPassword({ copy }: AuthPageProps) {
+  const c = copy.forgot;
   const [email, setEmail] = useState(() => new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('email') ?? '');
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [again, setAgain] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+
+  const send = async (to: string): Promise<boolean> => {
+    setBusy(true);
+    const res = await requestJson('POST', '/forgot-password', { email: to });
+    setBusy(false);
+    if (res.ok) return true;
+    if (res.status === 422) setError(fieldErrors(res.data.errors).email ? copy.errors.email_invalid : copy.common.generic);
+    else setFormError(res.status === 429 ? c.too_many! : res.status === 0 ? copy.common.network : copy.common.generic);
+    return false;
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Enter an email like name@example.com');
-      return;
-    }
-    setBusy(true);
-    const res = await requestJson('POST', '/forgot-password', { email: email.trim() });
-    setBusy(false);
-    if (!res.ok) {
-      setError(res.status === 429 ? 'Too many requests. Wait a minute and try again.' : fieldErrors(res.data.errors).email ?? res.data.message ?? 'Something went wrong.');
+    setFormError(null);
+    if (!EMAIL_RE.test(email.trim())) {
+      setError(copy.errors.email_invalid);
       return;
     }
     setError(null);
-    setSentTo(email.trim());
-    requestAnimationFrame(() => heading.current?.focus());
+    if (await send(email.trim())) {
+      setSentTo(email.trim());
+      setAgain(false);
+      requestAnimationFrame(() => heading.current?.focus());
+    }
+  };
+
+  const sendAgain = async () => {
+    setFormError(null);
+    if (sentTo && (await send(sentTo))) setAgain(true);
   };
 
   if (sentTo) {
     return (
-      <AuthShell title="Check your email">
-        <section className="gcard" aria-labelledby="h-sent">
-          <div className="eico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg></div>
-          <h1 id="h-sent" tabIndex={-1} ref={heading}>Check your email</h1>
-          <p className="lede" role="status">If <b>{sentTo}</b> has a Bridge account, a reset link is on its way. It works for 60 minutes.</p>
-          <p className="fine">No email after a few minutes? Check spam, or <button type="button" className="lnk" onClick={() => setSentTo(null)}>send it again</button>.</p>
-          <p className="alt"><Link href="/login">Back to log in</Link></p>
+      <AuthLayout title={c.sent_title!}>
+        <section className="auth-form auth-state" aria-labelledby="h-sent">
+          <StateIcon kind="ok" />
+          <div className="auth-heading">
+            <h1 id="h-sent" tabIndex={-1} ref={heading}>{c.sent_heading}</h1>
+            <p className="auth-lede auth-lede--sm" role="status">{t(c.sent_body!, { email: sentTo })}</p>
+          </div>
+          {formError && <Notice kind="risk" role="alert">{formError}</Notice>}
+          {again && <Notice kind="ok" role="status">{c.sent_again}</Notice>}
+          <div className="auth-state-actions">
+            <p className="auth-fine">{c.sent_help}</p>
+            <Button type="button" variant="secondary" busy={busy} busyLabel={c.busy} onClick={sendAgain}>{c.send_again}</Button>
+            <p className="auth-alt"><Link href="/login">{copy.common.back_to_login}</Link></p>
+          </div>
         </section>
-      </AuthShell>
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthShell title="Reset password">
-      <form className="gcard" onSubmit={submit} noValidate aria-labelledby="h-req">
-        <h1 id="h-req">Reset your password</h1>
-        <p className="lede">Enter the email you signed up with and we'll send a link to set a new password.</p>
-        {error && <Callout kind="bad" alert>{error}</Callout>}
-        <Field id="r-email" label="Email">
-          <input className="qin" id="r-email" type="email" name="email" autoComplete="email" required value={email} disabled={busy}
-            onChange={(e) => setEmail(e.target.value)} {...described('r-email', error ?? undefined)} autoFocus />
-        </Field>
-        <BusyButton busy={busy} busyLabel="Sending…">Send reset link</BusyButton>
-        <p className="alt">Remembered it? <Link href="/login">Log in</Link></p>
+    <AuthLayout title={c.title!}>
+      <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="h-req">
+        <div className="auth-heading">
+          <h1 id="h-req">{c.heading}</h1>
+          <p className="auth-lede auth-lede--sm">{c.subtitle}</p>
+        </div>
+        {formError && <Notice kind="risk" role="alert">{formError}</Notice>}
+        <TextField id="r-email" name="email" type="email" label={copy.common.email} autoComplete="email" required value={email} disabled={busy}
+          error={error ?? undefined} onChange={(e) => setEmail(e.target.value)} autoFocus />
+        <Button busy={busy} busyLabel={c.busy} busyNote={c.busy_note}>{c.submit}</Button>
+        <p className="auth-alt">{c.remembered} <Link href="/login">{c.login}</Link></p>
       </form>
-    </AuthShell>
+    </AuthLayout>
   );
 }
+
+ForgotPassword.layout = ownLayout;

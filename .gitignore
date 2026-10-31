@@ -33,3 +33,20 @@ Thumbs.db
 /build-r1/
 /server-snapshot/
 /build-r2/
+
+# Never commit data dumps, env variants, keys, deploy secrets or private docs
+*.sql
+*.sql.gz
+*.dump
+.env.*
+!.env.example
+/shots/
+design/**/png
+design/**/share
+*.pem
+*.key
+.bridge-*
+/private-docs/
+
+# Deployed commit for the footer source link (written by the deploy)
+.bridge-deploy-sha

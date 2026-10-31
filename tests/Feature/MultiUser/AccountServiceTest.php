@@ -54,7 +54,7 @@ class AccountServiceTest extends TestCase
                 $this->assertArrayHasKey($field, $e->errors());
             }
         }
-        $this->assertSame(1, Workspace::query()->where('slug', '!=', 'tilen')->count());
+        $this->assertSame(1, Workspace::query()->where('slug', '!=', config('bridge.default_workspace'))->count());
     }
 
     #[Test]

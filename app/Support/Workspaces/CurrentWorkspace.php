@@ -3,6 +3,7 @@
 namespace App\Support\Workspaces;
 
 use App\Models\Workspace;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * The workspace this request (or console run) acts in; drives the BelongsToWorkspace global scope.
@@ -74,10 +75,24 @@ final class CurrentWorkspace
         return $this->workspace?->hasFeature($feature) ?? false;
     }
 
+    /**
+     * A web feature only the workspace owner sees (Polymarket): on for the workspace, and the logged-in user, if any,
+     * owns it. An AUTH-1 gate session (no user; the owner's shared password) counts as the owner; members never see it.
+     */
+    public function hasOwnerFeature(string $feature): bool
+    {
+        if (! $this->hasFeature($feature)) {
+            return false;
+        }
+        $user = Auth::guard('web')->user();
+
+        return $user === null || $this->workspace?->owner_user_id === $user->getAuthIdentifier();
+    }
+
     /** Tilen's workspace (bridge.default_workspace); null before the backfill migration ran. */
     public function default(): ?Workspace
     {
-        $slug = (string) config('bridge.default_workspace', 'tilen');
+        $slug = (string) (config('bridge.default_workspace') ?: 'main');
         if ($this->default === null || $this->default->slug !== $slug) {
             $this->default = Workspace::query()->where('slug', $slug)->first();
         }

@@ -6,6 +6,18 @@ export type Shared = {
   features?: { polymarket?: boolean; admin?: boolean };
   flash?: { success?: string | null; error?: string | null };
   gateUnlocked?: boolean;
+  footer?: Footer;
+};
+
+/** LegalPages::footer: the site footer (copy from lang/{en,sl}/legal.php); switch only on the legal pages. */
+export type Footer = {
+  locale: 'en' | 'sl';
+  navLabel: string;
+  links: { label: string; href: string }[];
+  source: { label: string; href: string };
+  copyright: string;
+  getSource: string;
+  switch: { label: string; en: string; sl: string } | null;
 };
 
 /** The account as LoginController::user returns it (own account only). */

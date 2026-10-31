@@ -1,61 +1,57 @@
-/* Bridge design tokens: the single place to restyle the landing page. landing.css consumes only these variables. */
+/*
+ * Bridge design tokens: the ONE token file (names follow the Figma variables). Pages consume only these variables.
+ *
+ *   ink-950 #0B0C0F  primary text, ink surfaces, primary button
+ *   ink-800 #1C1E24  secondary text, mark tile, dark lines
+ *   ink-600 #4A4F5C  body text on light
+ *   ink-400 #8A8F9C  muted text on dark, meta
+ *   line    #E6E6E1  hairlines and borders on light
+ *   paper   #F6F6F3  page background
+ *   surface #FFFFFF  cards, inverted button on dark
+ *   stage-950 #08090B dark stage (hero, final CTA)
+ *   signal  #C8F135  FILL ONLY, and only for the primary hero CTA and "Waiting on you" highlights
+ *   violet  #7C5CFF  bot / agent cues (dots)
+ *   ok #1F9D55 · warn #D98A00 · risk #E5484D  status colours
+ *   radius-sm/md/lg 8/12/20, radius-pill; tap-min 44; spacing --space-N in px
+ *
+ * --bh-* are the tokens of the hero animation component (public/landing/hero/), mapped onto the above.
+ */
 :root {
-    /* Brand */
-    --ink: #0B0C0F;
-    --ink-2: #1C1E24;
-    --ink-3: #2A2D35;
-    --lime: #C8F135;          /* fill only: never text on light backgrounds */
-    --lime-hover: #D6F76B;
-    --violet: #7C5CFF;        /* agent / bot cues (fills, borders) */
-    --violet-text: #5B3FE0;   /* violet as text on light surfaces (>= 4.5:1) */
-    --violet-on-ink: #A895FF; /* violet as text on ink surfaces (>= 4.5:1) */
-    --violet-tint: #EFEBFF;
-
-    /* Surfaces */
-    --paper: #F6F5F1;
-    --card: #FFFFFF;
-    --line: #E4E2DC;
-    --line-on-ink: #2E3139;
-
-    /* Text */
-    --text: var(--ink);
-    --text-muted: #5A5D66;
-    --text-on-ink: #FFFFFF;
-    --text-muted-on-ink: #A9ADB8;
-
-    /* Status */
-    --placeholder-border: #B9B5AA;
-    --placeholder-bg: #FBFAF7;
-    --placeholder-text: #6B6D74;
-    --focus: #5B3FE0;
-    --focus-on-ink: #C8F135;
+    /* Colour */
+    --ink-950: #0B0C0F;
+    --ink-800: #1C1E24;
+    --ink-600: #4A4F5C;
+    --ink-400: #8A8F9C;
+    --line: #E6E6E1;
+    --paper: #F6F6F3;
+    --surface: #FFFFFF;
+    --stage-950: #08090B;
+    --signal: #C8F135;
+    --violet: #7C5CFF;
+    --ok: #1F9D55;
+    --warn: #D98A00;
+    --risk: #E5484D;
 
     /* Type */
     --font-ui: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --fs-xs: 0.75rem;
-    --fs-sm: 0.875rem;
-    --fs-base: 1rem;
-    --fs-lg: 1.125rem;
-    --fs-xl: 1.25rem;
-    --fs-h3: 1.25rem;
-    --fs-h2: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
-    --fs-h1: clamp(2.25rem, 1.4rem + 4vw, 4rem);
-    --lh-tight: 1.1;
-    --lh-snug: 1.25;
-    --lh-body: 1.6;
-    --tracking-tight: -0.025em;
 
     /* Spacing */
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-6: 24px;
-    --space-8: 32px;
-    --space-12: 48px;
-    --space-16: 64px;
-    --space-24: 96px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-10: 10px;
+    --space-12: 12px;
+    --space-14: 14px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-28: 28px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-64: 64px;
+    --space-96: 96px;
 
     /* Shape */
     --radius-sm: 8px;
@@ -63,18 +59,30 @@
     --radius-lg: 20px;
     --radius-pill: 999px;
     --tap-min: 44px;
-    --content-max: 1200px;
-    --gutter: 24px;
-    --shadow-card: 0 1px 2px rgb(11 12 15 / 0.05), 0 8px 24px rgb(11 12 15 / 0.06);
-    --shadow-float: 0 24px 60px rgb(0 0 0 / 0.35);
+    --content-max: 1120px;
+    --shadow-soft: 0 1px 2px rgb(11 12 15 / 0.06), 0 8px 24px rgb(11 12 15 / 0.06);
+    --shadow-hairline: 0 1px 2px rgb(11 12 15 / 0.06);
 
-    /* Motion */
-    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-    --dur: 180ms;
-}
-
-@media (max-width: 600px) {
-    :root {
-        --gutter: 16px;
-    }
+    /* Hero animation component (--bh-*) */
+    --bh-stage-950: var(--stage-950);
+    --bh-ink-950: var(--ink-950);
+    --bh-ink-800: var(--ink-800);
+    --bh-ink-600: var(--ink-600);
+    --bh-ink-400: var(--ink-400);
+    --bh-line: var(--line);
+    --bh-paper: var(--paper);
+    --bh-surface: var(--surface);
+    --bh-lime: var(--signal);
+    --bh-violet: var(--violet);
+    --bh-ok: var(--ok);
+    --bh-warn: var(--warn);
+    --bh-risk: var(--risk);
+    --bh-r-sm: var(--radius-sm);
+    --bh-r-md: var(--radius-md);
+    --bh-r-lg: var(--radius-lg);
+    --bh-shadow-card: 0 1px 2px rgba(11, 12, 15, .06), 0 1px 1px rgba(11, 12, 15, .03);
+    --bh-shadow-lift: 0 14px 28px -10px rgba(11, 12, 15, .28), 0 4px 10px -4px rgba(11, 12, 15, .14);
+    --bh-shadow-board: 0 40px 90px -30px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
+    --bh-font: var(--font-ui);
+    --bh-mono: var(--font-mono);
 }

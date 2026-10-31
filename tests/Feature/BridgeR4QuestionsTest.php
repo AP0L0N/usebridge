@@ -22,7 +22,7 @@ class BridgeR4QuestionsTest extends TestCase
         parent::setUp();
         Carbon::setTestNow('2026-10-16 12:00:00');
         $this->seed(BridgeSeeder::class);
-        // Start every test with Merkwell smooth so question effects are isolated.
+        // Start every test with Northwind smooth so question effects are isolated.
         RequiredInput::query()->delete();
     }
 
@@ -46,7 +46,7 @@ class BridgeR4QuestionsTest extends TestCase
     {
         return Question::create([
             'id' => 'q-'.uniqid(),
-            'project_id' => 'proj-merkwell',
+            'project_id' => 'proj-northwind',
             'text' => 'Ship it?',
             'type' => 'yesno',
             'asked_by' => 'Tommy',
@@ -54,7 +54,7 @@ class BridgeR4QuestionsTest extends TestCase
         ]);
     }
 
-    private function merkwell(): array
+    private function northwind(): array
     {
         $ps = null;
         $this->get('/')->assertInertia(function (Assert $p) use (&$ps) {
@@ -62,7 +62,7 @@ class BridgeR4QuestionsTest extends TestCase
             $ps = $p->toArray()['props']['projects'];
         });
 
-        return collect($ps)->firstWhere('id', 'proj-merkwell');
+        return collect($ps)->firstWhere('id', 'proj-northwind');
     }
 
     #[Test]
@@ -105,7 +105,7 @@ class BridgeR4QuestionsTest extends TestCase
     {
         $this->api();
         $r = $this->postJson('/api/questions', [
-            'project_id' => 'proj-merkwell', 'text' => 'Switch links to #1D5FA0?', 'type' => 'yesno',
+            'project_id' => 'proj-northwind', 'text' => 'Switch links to #1D5FA0?', 'type' => 'yesno',
             'asked_by' => 'Tommy', 'context' => 'AA contrast',
         ])->assertCreated()
             ->assertJsonPath('data.state', 'open')->assertJsonPath('data.type', 'yesno')
@@ -127,24 +127,24 @@ class BridgeR4QuestionsTest extends TestCase
     #[Test]
     public function project_alias_creates_questions_by_id_or_slug(): void
     {
-        $this->postJson('/api/projects/proj-merkwell/questions', ['text' => 'x', 'type' => 'text', 'asked_by' => 'Tommy'])->assertUnauthorized();
+        $this->postJson('/api/projects/proj-northwind/questions', ['text' => 'x', 'type' => 'text', 'asked_by' => 'Tommy'])->assertUnauthorized();
 
         $this->api();
-        $this->assertSame('/api/projects/merkwell/questions', route('api.projects.questions.store', 'merkwell', false));
-        $this->postJson('/api/projects/proj-merkwell/questions', ['text' => 'By id?', 'type' => 'yesno', 'asked_by' => 'Tommy', 'context' => 'ctx'])
-            ->assertCreated()->assertJsonPath('data.project_id', 'proj-merkwell')->assertJsonPath('data.state', 'open')
+        $this->assertSame('/api/projects/northwind/questions', route('api.projects.questions.store', 'northwind', false));
+        $this->postJson('/api/projects/proj-northwind/questions', ['text' => 'By id?', 'type' => 'yesno', 'asked_by' => 'Tommy', 'context' => 'ctx'])
+            ->assertCreated()->assertJsonPath('data.project_id', 'proj-northwind')->assertJsonPath('data.state', 'open')
             ->assertJsonPath('data.context', 'ctx');
-        $r = $this->postJson('/api/projects/merkwell/questions', ['text' => 'By slug?', 'type' => 'text', 'asked_by' => 'Xerxes'])
-            ->assertCreated()->assertJsonPath('data.project_id', 'proj-merkwell')->assertJsonPath('data.type', 'text');
+        $r = $this->postJson('/api/projects/northwind/questions', ['text' => 'By slug?', 'type' => 'text', 'asked_by' => 'Xavier'])
+            ->assertCreated()->assertJsonPath('data.project_id', 'proj-northwind')->assertJsonPath('data.type', 'text');
         $this->assertStringStartsWith('q-', $r->json('data.id'));
         // project_id in the body is ignored; the URL wins.
-        $this->postJson('/api/projects/merkwell/questions', ['project_id' => 'proj-concierge-avant', 'text' => 'URL wins', 'type' => 'yesno', 'asked_by' => 'Tommy'])
-            ->assertCreated()->assertJsonPath('data.project_id', 'proj-merkwell');
-        $this->getJson('/api/questions?project_id=proj-merkwell')->assertJsonCount(3, 'data');
+        $this->postJson('/api/projects/northwind/questions', ['project_id' => 'proj-blue-harbor', 'text' => 'URL wins', 'type' => 'yesno', 'asked_by' => 'Tommy'])
+            ->assertCreated()->assertJsonPath('data.project_id', 'proj-northwind');
+        $this->getJson('/api/questions?project_id=proj-northwind')->assertJsonCount(3, 'data');
 
-        $this->postJson('/api/projects/merkwell/questions', [])->assertStatus(422)
+        $this->postJson('/api/projects/northwind/questions', [])->assertStatus(422)
             ->assertJsonValidationErrors(['text', 'type', 'asked_by'])->assertJsonMissingValidationErrors(['project_id']);
-        $this->postJson('/api/projects/merkwell/questions', [
+        $this->postJson('/api/projects/northwind/questions', [
             'text' => str_repeat('a', 1001), 'type' => 'maybe', 'asked_by' => str_repeat('a', 121), 'context' => str_repeat('c', 501),
         ])->assertStatus(422)->assertJsonValidationErrors(['text', 'type', 'asked_by', 'context']);
         $this->postJson('/api/projects/nope/questions', ['text' => 'x', 'type' => 'text', 'asked_by' => 'Tommy'])->assertNotFound();
@@ -179,12 +179,12 @@ class BridgeR4QuestionsTest extends TestCase
         $open = $this->question();
         $answered = $this->question(['state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()]);
         $closed = $this->question(['state' => 'closed']);
-        $other = $this->question(['project_id' => 'proj-concierge-avant']);
+        $other = $this->question(['project_id' => 'proj-blue-harbor']);
 
         $this->getJson('/api/questions')->assertJsonCount(4, 'data');
         $this->getJson('/api/questions?state=all')->assertJsonCount(4, 'data');
-        $this->getJson('/api/questions?project_id=proj-merkwell')->assertJsonCount(3, 'data');
-        $this->getJson('/api/questions?project_id=proj-merkwell&state=open')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $open->id);
+        $this->getJson('/api/questions?project_id=proj-northwind')->assertJsonCount(3, 'data');
+        $this->getJson('/api/questions?project_id=proj-northwind&state=open')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $open->id);
         $this->getJson('/api/questions?state=open')->assertJsonCount(2, 'data');
         $this->getJson('/api/questions?state=closed')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $closed->id);
         $this->getJson('/api/questions?state=answered')->assertJsonCount(1, 'data')
@@ -197,70 +197,70 @@ class BridgeR4QuestionsTest extends TestCase
     public function web_answer_route_sets_answered_state(): void
     {
         $q = $this->question();
-        $this->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertRedirect('/login');
+        $this->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertRedirect('/login');
         $this->assertSame('open', $q->fresh()->state);
 
         $this->gate();
-        $this->from('/projects/merkwell')->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'other'])
+        $this->from('/projects/northwind')->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'other'])
             ->assertSessionHasErrors('answer_text');
         $this->assertSame('open', $q->fresh()->state);
 
-        $this->from('/projects/merkwell')->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'no'])
-            ->assertStatus(303)->assertRedirect('/projects/merkwell');
+        $this->from('/projects/northwind')->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'no'])
+            ->assertStatus(303)->assertRedirect('/projects/northwind');
         $fresh = $q->fresh();
         $this->assertSame('answered', $fresh->state);
         $this->assertSame('no', $fresh->answer_choice);
         $this->assertTrue($fresh->answered_at->equalTo(now()));
 
         $t = $this->question(['type' => 'text']);
-        $this->post("/projects/merkwell/questions/{$t->id}/answer", ['answer_text' => ''])->assertSessionHasErrors('answer_text');
-        $this->post("/projects/merkwell/questions/{$t->id}/answer", ['answer_text' => 'Use the tips post'])->assertStatus(303);
+        $this->post("/projects/northwind/questions/{$t->id}/answer", ['answer_text' => ''])->assertSessionHasErrors('answer_text');
+        $this->post("/projects/northwind/questions/{$t->id}/answer", ['answer_text' => 'Use the tips post'])->assertStatus(303);
         $this->assertSame('Use the tips post', $t->fresh()->answer_text);
 
         // Wrong project or closed question: 404.
-        $this->post("/projects/concierge-avant/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertNotFound();
+        $this->post("/projects/blue-harbor/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertNotFound();
         $c = $this->question(['state' => 'closed']);
-        $this->post("/projects/merkwell/questions/{$c->id}/answer", ['answer_choice' => 'yes'])->assertNotFound();
+        $this->post("/projects/northwind/questions/{$c->id}/answer", ['answer_choice' => 'yes'])->assertNotFound();
     }
 
     #[Test]
     public function open_questions_make_the_project_wait_for_input(): void
     {
         $this->gate();
-        $this->assertSame('smooth', $this->merkwell()['status']);
+        $this->assertSame('smooth', $this->northwind()['status']);
 
         $this->question(['state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()]);
         $this->question(['state' => 'closed']);
-        $this->assertSame('smooth', $this->merkwell()['status']);
+        $this->assertSame('smooth', $this->northwind()['status']);
 
         $q = $this->question();
         $q->forceFill(['created_at' => now()->subDays(4)])->save();
-        $m = $this->merkwell();
+        $m = $this->northwind();
         $this->assertSame('waiting', $m['status']);
         $this->assertSame(2, $m['level']);
         $this->assertSame(4, $m['ageDays']);
 
         // Oldest open item wins across inputs and questions.
-        RequiredInput::create(['id' => 'in-x', 'project_id' => 'proj-merkwell', 'text' => 'x', 'waiting_on' => 'Tilen', 'since' => now()->subDays(8)]);
-        $this->assertSame(3, $this->merkwell()['level']);
+        RequiredInput::create(['id' => 'in-x', 'project_id' => 'proj-northwind', 'text' => 'x', 'waiting_on' => 'Tilen', 'since' => now()->subDays(8)]);
+        $this->assertSame(3, $this->northwind()['level']);
         RequiredInput::query()->delete();
 
-        $this->assertSame(['waiting', 2], [$this->merkwell()['status'], $this->merkwell()['level']]);
+        $this->assertSame(['waiting', 2], [$this->northwind()['status'], $this->northwind()['level']]);
 
-        $this->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'skip'])->assertStatus(303);
-        $this->assertSame('smooth', $this->merkwell()['status']);
+        $this->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'skip'])->assertStatus(303);
+        $this->assertSame('smooth', $this->northwind()['status']);
     }
 
     #[Test]
     public function portfolio_counts_open_questions(): void
     {
         $this->gate();
-        $this->assertSame(0, $this->merkwell()['openQuestions']);
+        $this->assertSame(0, $this->northwind()['openQuestions']);
         $this->question();
         $this->question();
         $this->question(['state' => 'closed']);
         $this->question(['state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()]);
-        $this->assertSame(2, $this->merkwell()['openQuestions']);
+        $this->assertSame(2, $this->northwind()['openQuestions']);
     }
 
     #[Test]
@@ -276,8 +276,8 @@ class BridgeR4QuestionsTest extends TestCase
             $this->question(['id' => $id, 'state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()->subHours($h)]);
         }
         // Kanban: questions are superseded by Waiting on Tilen tickets; the board no longer lists them, the rows stay.
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openQuestions')->missing('answeredQuestions'));
-        $this->assertSame(2, Question::query()->where('project_id', 'proj-merkwell')->where('state', 'open')->count());
+        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openQuestions')->missing('answeredQuestions'));
+        $this->assertSame(2, Question::query()->where('project_id', 'proj-northwind')->where('state', 'open')->count());
         $answered = ProjectStatus::recentlyDone(Question::query()->where('state', 'answered')->get(), 'answered_at');
         $this->assertSame(['recent', 'edge'], $answered->pluck('id')->all());
     }

@@ -10,19 +10,23 @@ use Laravel\Sanctum\Sanctum;
 /** Shared setup for the tickets tests: seeded agents/projects, a fixed clock, API + gate helpers. */
 trait TicketHelpers
 {
-    protected const JANICE = BridgeSeeder::AGENT_JANICE; // PM of Concierge Avant (CA)
+    use RosterFile;
 
-    protected const ANATOLY = BridgeSeeder::AGENT_ANATOLY; // PM of Merkwell (ME)
+    protected const JANICE = BridgeSeeder::AGENT_JANICE; // PM of Blue Harbor (BH)
+
+    protected const ANATOLY = BridgeSeeder::AGENT_ANATOLY; // PM of Northwind (NW)
 
     protected const CAPTAIN = BridgeSeeder::AGENT_WILLIAM;
 
-    protected const CA = BridgeSeeder::PROJ_CONCIERGE;
+    protected const BH = BridgeSeeder::PROJ_BLUE_HARBOR;
 
-    protected const MW = BridgeSeeder::PROJ_MERKWELL;
+    protected const NW = BridgeSeeder::PROJ_NORTHWIND;
 
     protected function bootTickets(string $now = '2026-10-29 10:00:00'): void
     {
         Carbon::setTestNow($now);
+        // Fixed prefixes, like an operator's roster file (BRIDGE_ROSTER_PATH): NW is not what "Northwind" generates.
+        $this->useRoster(['ticket_prefixes' => [self::NW => 'NW', self::BH => 'BH']]);
         $this->seed(BridgeSeeder::class);
     }
 
@@ -38,7 +42,7 @@ trait TicketHelpers
         return $this->withSession(['bridge_gate_unlocked' => true]);
     }
 
-    protected function newTicket(array $data = [], string $project = self::CA): array
+    protected function newTicket(array $data = [], string $project = self::BH): array
     {
         return $this->postJson("/api/projects/$project/tickets", ['title' => 'Draft the brief', 'actor' => self::JANICE, ...$data])
             ->assertCreated()->json('data');
@@ -49,7 +53,7 @@ trait TicketHelpers
         return $this->newTicket(['status' => 'waiting_tilen', 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No'], ...$data]);
     }
 
-    protected function tilenSays(string $key, array $data, string $slug = 'concierge-avant'): TestResponse
+    protected function tilenSays(string $key, array $data, string $slug = 'blue-harbor'): TestResponse
     {
         return $this->gate()->postJson("/projects/$slug/tickets/$key/comments", $data);
     }

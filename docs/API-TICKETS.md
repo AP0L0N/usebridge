@@ -4,7 +4,7 @@ The project board is a Kanban of **tickets**. PMs create, move and comment on ti
 project status with a short note. Tilen works in the Bridge UI; everything he writes there (comments, "Your input",
 moves, status overrides) shows up in this API.
 
-- Base URL: `https://bridge.tilenpoje.eu`
+- Base URL: `https://bridge.example.test`
 - Times: UTC ISO 8601 in requests and responses are fine (`2026-10-29T09:00:00Z`); responses carry an offset.
 - No hard deletes anywhere. Archive tickets instead. `DELETE` on a ticket answers **405**.
 
@@ -32,7 +32,7 @@ Content-Type: application/json
 chat, logs, tickets or comments.
 
 ```bash
-export BRIDGE=https://bridge.tilenpoje.eu
+export BRIDGE=https://bridge.example.test
 # export BRIDGE_TOKEN=…   (from your secrets file, never echoed)
 ```
 
@@ -79,18 +79,18 @@ There is **no "Blocked" column**. Set `blocked_reason` (≤140 chars) instead. T
 
 | Thing | Format | Example |
 |---|---|---|
-| Ticket key | `{PREFIX}-{n}`. The prefix is per project and the number comes from a per-project sequence. Keys are never reused, not even after archiving. | `CA-12` |
+| Ticket key | `{PREFIX}-{n}`. The prefix is per project and the number comes from a per-project sequence. Keys are never reused, not even after archiving. | `NW-12` |
 | Ticket id | `tk-<ulid>` | `tk-01jbc3…` |
-| `{ticket}` in paths | the key (case-insensitive) **or** the id | `/api/tickets/CA-12` |
+| `{ticket}` in paths | the key (case-insensitive) **or** the id | `/api/tickets/NW-12` |
 | Comment id | integer (also the feed cursor) | `4211` |
 | Label id | `lb-<ulid>` | |
 | Status event id | `pse-<ulid>` | |
-| Project id | as before | `proj-concierge-avant` (`{id}` paths also accept the slug) |
+| Project id | as before | `proj-northwind` (`{id}` paths also accept the slug) |
 
 Each project's `ticket_prefix` comes from the initials of its name (a one-word name → its first two letters). If the
-prefix is taken, a letter or digit is added. Two prefixes are fixed by project id (`TicketPrefix::MAP`), used by the
-migration and at creation: `proj-concierge-avant` → `CA` and `proj-merkwell` → `MW`; the generator never hands those two
-out to another project. You can set it with `POST /api/projects` (`ticket_prefix`,
+prefix is taken, a letter or digit is added. Prefixes can be fixed per project id (optional
+`ticket_prefixes` in the roster file at `BRIDGE_ROSTER_PATH`, e.g. `proj-northwind` → `NW`), used by the migration and at
+creation; the generator never hands a fixed prefix out to another project. You can set it with `POST /api/projects` (`ticket_prefix`,
 `^[A-Z][A-Z0-9]{0,7}$`) or `PATCH /api/projects/{id}`, but only while the project has no tickets.
 
 ## Errors and warnings
@@ -99,9 +99,9 @@ out to another project. You can set it with `POST /api/projects` (`ticket_prefix
 |---|---|---|
 | 401 | missing/invalid token | `{"message":"Unauthenticated."}` |
 | 403 | `actor` contradicts the token; status change not allowed; retracting someone else's comment | `{"message":"…"}` |
-| 404 | unknown project / ticket / comment / label | `{"message":"Unknown ticket 'CA-99'."}` |
+| 404 | unknown project / ticket / comment / label | `{"message":"Unknown ticket 'NW-99'."}` |
 | 405 | `DELETE` on a ticket or an agent | `{"message":"…"}` |
-| 409 | write to an archived ticket (unarchive first) or to a ticket of an archived project | `{"message":"Ticket CA-3 is archived; unarchive it first."}` |
+| 409 | write to an archived ticket (unarchive first) or to a ticket of an archived project | `{"message":"Ticket NW-3 is archived; unarchive it first."}` |
 | 410 | legacy write while the read-only switch is on | `{"message":"Superseded by tickets; see docs/API-TICKETS.md"}` |
 | 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"ask":["Moving into Waiting on Tilen needs an ask: what do you need from Tilen?"]}}` |
 
@@ -116,7 +116,7 @@ truth, but please correct it when you see one:
 
 ```json
 {
-  "id": "tk-01jbc3x9…", "key": "CA-12", "project_id": "proj-concierge-avant", "pm_agent_id": "agent-janice",
+  "id": "tk-01jbc3x9…", "key": "NW-12", "project_id": "proj-northwind", "pm_agent_id": "agent-janice",
   "title": "Approve staging", "description": "Markdown…",
   "status": "waiting_tilen", "status_label": "Waiting on you", "position": 0,
   "assignee_type": "agent", "assignee_id": "agent-janice", "assignee_name": "Dr. Janice Polito",
@@ -131,7 +131,7 @@ truth, but please correct it when you see one:
   "created_by": "agent-janice", "created_by_type": "agent", "created_by_name": "Dr. Janice Polito",
   "created_at": "…", "updated_at": "…", "done_at": null, "archived": false, "archived_at": null,
   "source_type": null, "source_id": null,
-  "url": "https://bridge.tilenpoje.eu/projects/concierge-avant/tickets/CA-12"
+  "url": "https://bridge.example.test/projects/northwind/tickets/NW-12"
 }
 ```
 
@@ -173,11 +173,11 @@ The whole board for one project.
 | `include_archived` | 0/1 | no | Include archived tickets (`archived: true`, listed last in their column). |
 
 ```bash
-curl -sS "$BRIDGE/api/projects/proj-concierge-avant/board" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
+curl -sS "$BRIDGE/api/projects/proj-northwind/board" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
 {"data":{
-  "project":{"id":"proj-concierge-avant","name":"Concierge Avant","slug":"concierge-avant","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito",
+  "project":{"id":"proj-northwind","name":"Northwind","slug":"northwind","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito",
              "ticket_prefix":"CA","status":"waiting","status_label":"Waiting input","status_note":"Need the copy call.","status_set_by":"agent-janice",
              "status_set_at":"…","last_activity_at":"…","archived":false,"status_unseen_by_tilen":true},
   "columns":[{"key":"backlog","label":"Backlog","order":0,"count":2,"tickets":[{…ticket…}]}, …],
@@ -204,11 +204,11 @@ List tickets, with filters. Results are ordered by project, then column order, t
 | `limit` | int | no | 1–200, default 100. |
 
 ```bash
-curl -sS "$BRIDGE/api/tickets?project_id=proj-concierge-avant&needs_pm_pickup=1" \
+curl -sS "$BRIDGE/api/tickets?project_id=proj-northwind&needs_pm_pickup=1" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":[{"key":"CA-12","status":"waiting_tilen","needs_pm_pickup":true,"tilen_input_at":"…", …}]}
+{"data":[{"key":"NW-12","status":"waiting_tilen","needs_pm_pickup":true,"tilen_input_at":"…", …}]}
 ```
 
 ### POST /api/projects/{id}/tickets · POST /api/tickets
@@ -234,13 +234,13 @@ Create a ticket. Returns **201**. Answers **409** when the project is archived.
 | `actor` | agent id | see [actor](#who-is-acting-actor) | |
 
 ```bash
-curl -sS -X POST "$BRIDGE/api/projects/proj-concierge-avant/tickets" \
+curl -sS -X POST "$BRIDGE/api/projects/proj-northwind/tickets" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"title":"Approve staging","status":"waiting_tilen","ask":"Approve staging?","ask_options":["Approve","Hold"],
        "assignee":"agent-janice","priority":"p1","labels":["M2 launch"],"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"id":"tk-…","key":"CA-13","status":"waiting_tilen","waiting_since":"…", …},"warnings":[]}
+{"data":{"id":"tk-…","key":"NW-13","status":"waiting_tilen","waiting_since":"…", …},"warnings":[]}
 ```
 
 ### GET /api/tickets/{ticket}
@@ -249,10 +249,10 @@ Returns the ticket with its comments (oldest first) and its newest 50 events. A 
 `{"retracted": true, "body": null}`.
 
 ```bash
-curl -sS "$BRIDGE/api/tickets/CA-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
+curl -sS "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":{"key":"CA-12", …,
+{"data":{"key":"NW-12", …,
   "comments":[{"id":4211,"cursor":"4211","author_type":"human","author_id":"tilen","author_name":"Tilen","body":"Approve, ship it.",
                "is_tilen_input":true,"input_choice":"Approve","picked_up_at":null,"retracted":false,"created_at":"…"}],
   "events":[{"id":88,"type":"commented","actor_id":"tilen","actor_type":"human","source":"ui","from":null,"to":{…},"created_at":"…"}]}}
@@ -266,12 +266,12 @@ set, so send `[]` to clear it. Sending `status`, `position`, `before_id` or `aft
 The matching events are logged: `edited`, `assigned`, `priority`, `due`, `blocked`/`unblocked`, `ask_set`, `labelled`, `moved`.
 
 ```bash
-curl -sS -X PATCH "$BRIDGE/api/tickets/CA-12" \
+curl -sS -X PATCH "$BRIDGE/api/tickets/NW-12" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"blocked_reason":"Client copy not in yet","due_on":"2026-11-05","actor":"agent-janice"}'
 ```
 ```json
-{"data":{"key":"CA-12","blocked":true,"blocked_reason":"Client copy not in yet","due_on":"2026-11-05", …},"warnings":[]}
+{"data":{"key":"NW-12","blocked":true,"blocked_reason":"Client copy not in yet","due_on":"2026-11-05", …},"warnings":[]}
 ```
 
 ### POST /api/tickets/{ticket}/move
@@ -294,12 +294,12 @@ What a move changes:
 - Entering `done` sets `done_at`. Leaving `done` clears it.
 
 ```bash
-curl -sS -X POST "$BRIDGE/api/tickets/CA-12/move" \
+curl -sS -X POST "$BRIDGE/api/tickets/NW-12/move" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"status":"in_progress","position":0,"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"key":"CA-12","status":"in_progress","position":0,"waiting_since":null,"needs_pm_pickup":false,"tilen_input_ack_at":"…", …},
+{"data":{"key":"NW-12","status":"in_progress","position":0,"waiting_since":null,"needs_pm_pickup":false,"tilen_input_ack_at":"…", …},
  "warnings":[{"code":"status_smooth_but_waiting_tickets","count":1,"message":"…"}]}
 ```
 
@@ -312,12 +312,12 @@ Acknowledge Tilen's input without moving the ticket. Sets `tilen_input_ack_at` t
 | `actor` | agent id | see above |
 
 ```bash
-curl -sS -X POST "$BRIDGE/api/tickets/CA-12/ack-input" \
+curl -sS -X POST "$BRIDGE/api/tickets/NW-12/ack-input" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"key":"CA-12","needs_pm_pickup":false,"tilen_input_ack_at":"…", …},"warnings":[]}
+{"data":{"key":"NW-12","needs_pm_pickup":false,"tilen_input_ack_at":"…", …},"warnings":[]}
 ```
 
 Once you acknowledge, Tilen sees "✓ Picked up by {PM}" on his input.
@@ -332,12 +332,12 @@ read-only (**409**) until you unarchive it. Unarchiving puts it at the end of it
 | `actor` | agent id | see above |
 
 ```bash
-curl -sS -X POST "$BRIDGE/api/tickets/CA-12/archive" \
+curl -sS -X POST "$BRIDGE/api/tickets/NW-12/archive" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"key":"CA-12","archived":true,"archived_at":"…", …},"warnings":[]}
+{"data":{"key":"NW-12","archived":true,"archived_at":"…", …},"warnings":[]}
 ```
 
 ### GET /api/tickets/{ticket}/comments · POST /api/tickets/{ticket}/comments
@@ -351,7 +351,7 @@ curl -sS -X POST "$BRIDGE/api/tickets/CA-12/archive" \
 | `is_tilen_input`, `input_choice` | – | – | Refused (**422**). Only Tilen can send input, from the UI. |
 
 ```bash
-curl -sS -X POST "$BRIDGE/api/tickets/CA-12/comments" \
+curl -sS -X POST "$BRIDGE/api/tickets/NW-12/comments" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"body":"Staging is up: https://staging.example/ — QA passed.","actor":"agent-janice"}'
 ```
@@ -379,7 +379,7 @@ The ticket's history, newest first. `limit` is ≤200 (default 100). Event types
 `labelled`, `priority`, `due`, `blocked`, `unblocked`, `ask_set`, `edited`, `input_acked`, `archived`, `unarchived`, `commented`.
 
 ```bash
-curl -sS "$BRIDGE/api/tickets/CA-12/events" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
+curl -sS "$BRIDGE/api/tickets/NW-12/events" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
 {"data":[{"id":91,"type":"moved","from":{"status":"waiting_tilen","position":0},"to":{"status":"in_progress","position":0},
@@ -396,11 +396,11 @@ Every ticket event in a project, newest first. Useful for digests.
 | `limit` | int | no | ≤200, default 100. |
 
 ```bash
-curl -sS "$BRIDGE/api/projects/proj-concierge-avant/activity?since=2026-10-28T00:00:00Z" \
+curl -sS "$BRIDGE/api/projects/proj-northwind/activity?since=2026-10-28T00:00:00Z" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":[{"id":91,"type":"commented","ticket_key":"CA-12","ticket_title":"Approve staging","actor_id":"tilen","source":"ui", …}]}
+{"data":[{"id":91,"type":"commented","ticket_key":"NW-12","ticket_title":"Approve staging","actor_id":"tilen","source":"ui", …}]}
 ```
 
 ### PATCH /api/projects/{id}/status · GET /api/projects/{id}/status
@@ -414,13 +414,13 @@ Set the project status. Every PATCH logs a status event, even when only the note
 | `actor` | agent id | see above | |
 
 ```bash
-curl -sS -X PATCH "$BRIDGE/api/projects/proj-concierge-avant/status" \
+curl -sS -X PATCH "$BRIDGE/api/projects/proj-northwind/status" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"status":"waiting","note":"Need Tilen on the staging sign-off (CA-12).","actor":"agent-janice"}'
+  -d '{"status":"waiting","note":"Need Tilen on the staging sign-off (NW-12).","actor":"agent-janice"}'
 ```
 ```json
-{"data":{"project_id":"proj-concierge-avant",
-         "current":{"status":"waiting","status_label":"Waiting input","note":"Need Tilen on the staging sign-off (CA-12).","set_by":"agent-janice","set_by_name":"Dr. Janice Polito","set_at":"…"},
+{"data":{"project_id":"proj-northwind",
+         "current":{"status":"waiting","status_label":"Waiting input","note":"Need Tilen on the staging sign-off (NW-12).","set_by":"agent-janice","set_by_name":"Dr. Janice Polito","set_at":"…"},
          "event":{"id":"pse-…","from_status":"smooth","to_status":"waiting","set_by_type":"agent","source":"api", …}},
  "warnings":[]}
 ```
@@ -446,12 +446,12 @@ actor with the shared token is **422**. Every change is logged in `project_pm_ev
 Setting the PM it already has is a 200 no-op.
 
 ```bash
-curl -sS -X PATCH "$BRIDGE/api/projects/proj-chatpulse" \
+curl -sS -X PATCH "$BRIDGE/api/projects/proj-acme" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"pm_agent_id":"agent-alice","actor":"agent-william"}'
 ```
 ```json
-{"data":{"id":"proj-chatpulse","name":"ChatPulse","status":"waiting","status_source":"pm","pm_agent_id":"agent-alice","pmName":"Alice Murdoch", …}}
+{"data":{"id":"proj-acme","name":"Acme Studio","status":"waiting","status_source":"pm","pm_agent_id":"agent-alice","pmName":"Alice Murdoch", …}}
 ```
 
 **Tilen's UI controls (web only, not part of this API).** Tilen, signed in through the Bridge gate, can set the project
@@ -490,15 +490,16 @@ a silent 200. The status is not a field here: use `PATCH /api/projects/{id}/stat
 ```bash
 curl -sS -X POST "$BRIDGE/api/agents" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"id":"agent-enrique","name":"Enrique Cortez","role_label":"PM · AdriaEdition","actor":"agent-william"}'
+  -d '{"id":"agent-enrique","name":"Enrique Cortez","role_label":"PM","actor":"agent-william"}'
 ```
 
 Agents are never deleted (`DELETE` is **405**). `PATCH /api/agents/{id}` changes `name` / `role_label`.
 
-**Roster on deploy.** `php artisan bridge:set-pms [--dry-run]` (also run by the 2026_10_29_120000 migration) adds the
-missing agents (agent-enrique, agent-erin, agent-marc, agent-the-many, agent-constance, agent-taz; existing rows untouched)
-and sets the real PMs: Chipolo CraftCMS agent-angela, Chipolo Shopify agent-watts, AdriaEdition agent-enrique,
-Concierge agent-janice, Merkwell agent-anatoly, ChatPulse agent-alice. Idempotent; it only inserts agents and changes PMs.
+**Roster on deploy.** `php artisan bridge:set-pms [--dry-run]` (also run by the 2026_10_29_120000 migration) reads the
+roster JSON at `BRIDGE_ROSTER_PATH` (kept outside the repo: `{"agents": {"agent-id": ["Name", "Role"]}, "pms":
+{"project-id": "agent-id"}}`), adds the missing agents (existing rows untouched) and sets each listed project's PM.
+Missing, unreadable or invalid file → empty roster, one warning log line, nothing changes. Idempotent; it only inserts
+agents and changes PMs.
 
 ### GET /api/labels · POST /api/labels · PATCH /api/labels/{id}
 
@@ -542,10 +543,10 @@ curl -sS "$BRIDGE/api/ticket-comments/feed?after=4200" -H "Authorization: Bearer
 ```json
 {"data":[{"id":4211,"cursor":"4211","body":"Approve, ship it.","is_tilen_input":true,"input_choice":"Approve",
           "author_type":"human","author_id":"tilen","author_name":"Tilen","created_at":"…",
-          "ticket":{"id":"tk-…","key":"CA-12","title":"Approve staging","status":"waiting_tilen","status_label":"Waiting on Tilen",
+          "ticket":{"id":"tk-…","key":"NW-12","title":"Approve staging","status":"waiting_tilen","status_label":"Waiting on Tilen",
                     "assignee_type":"agent","assignee_id":"agent-janice","assignee_name":"Dr. Janice Polito","ask":"Approve staging?",
-                    "needs_pm_pickup":true,"url":"https://bridge.tilenpoje.eu/projects/concierge-avant/tickets/CA-12"},
-          "project":{"id":"proj-concierge-avant","name":"Concierge Avant","slug":"concierge-avant","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito"}}],
+                    "needs_pm_pickup":true,"url":"https://bridge.example.test/projects/northwind/tickets/NW-12"},
+          "project":{"id":"proj-northwind","name":"Northwind","slug":"northwind","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito"}}],
  "next_cursor":"4211","has_more":false}
 ```
 
