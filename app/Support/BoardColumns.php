@@ -8,8 +8,8 @@ use App\Support\Workspaces\CurrentWorkspace;
 /**
  * The fixed Kanban column set (SPEC §1). Ticket.status is one of these keys; the order is the board order.
  * Agents read it from GET /api/board-columns, so labels are never hard-coded on their side. Labels are never stored:
- * LABELS, then the workspace's own waiting_tilen name (workspaces.settings.waiting_label), then a project's own
- * column_labels (which win).
+ * LABELS, then the workspace's own waiting_tilen name (workspaces.settings.waiting_label, else "Waiting on <owner's
+ * first name>"), then a project's own column_labels (which win). The key waiting_tilen is kept for compatibility.
  */
 final class BoardColumns
 {
@@ -41,15 +41,16 @@ final class BoardColumns
     }
 
     /**
-     * Default labels of a workspace ($workspace, else the current one): LABELS with its own waiting_tilen name, if set.
+     * Default labels of a workspace ($workspace, else the current one): LABELS with its own waiting_tilen name
+     * (Workspace::waitingColumnLabel). No workspace: LABELS ("Waiting on you").
      *
      * @return array<string, string>
      */
     public static function defaults(?Workspace $workspace = null): array
     {
-        $waiting = ($workspace ?? app(CurrentWorkspace::class)->get())?->waitingLabel();
+        $workspace ??= app(CurrentWorkspace::class)->get();
 
-        return $waiting === null ? self::LABELS : [...self::LABELS, self::WAITING_TILEN => $waiting];
+        return $workspace === null ? self::LABELS : [...self::LABELS, self::WAITING_TILEN => $workspace->waitingColumnLabel()];
     }
 
     public static function label(string $key, ?Workspace $workspace = null): string

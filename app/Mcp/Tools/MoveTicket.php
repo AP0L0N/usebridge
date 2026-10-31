@@ -26,7 +26,7 @@ class MoveTicket extends BridgeTool
             'position' => $schema->integer()->min(0)->description('0-based position in the column (default: end).'),
             'before_id' => $schema->string()->description('Place before this ticket id.'),
             'after_id' => $schema->string()->description('Place after this ticket id.'),
-            'ask' => $schema->string()->max(280)->description('Question for Tilen (needed for waiting_tilen).'),
+            'ask' => $schema->string()->max(280)->description('Question for the workspace owner (needed for waiting_tilen).'),
             'ask_context' => $schema->string()->max(500),
             'ask_options' => $schema->array()->items($schema->string()->max(60))->max(4),
             'actor' => $this->actorField($schema),

@@ -15,6 +15,7 @@ use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
 use App\Models\UsageDay;
+use App\Services\Tickets\Actor;
 use App\Support\Workspaces\CurrentWorkspace;
 use App\Support\Workspaces\MissingWorkspace;
 use Illuminate\Support\Carbon;
@@ -51,6 +52,8 @@ final class WorkspaceExport
         $out = [
             'exported_at' => Carbon::now()->toIso8601String(),
             'workspace' => ['slug' => $workspace->slug, 'name' => $workspace->name, 'created_at' => $workspace->created_at?->toIso8601String()],
+            // Who the actor ids in created_by / author_id / actor_id / set_by are (agents and people of this workspace).
+            'actor_names' => Actor::names(),
         ];
         foreach (self::SECTIONS as $key => $model) {
             $query = $model::query();

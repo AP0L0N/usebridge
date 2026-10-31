@@ -3,6 +3,8 @@
 namespace App\Services\Tickets;
 
 use App\Models\Agent;
+use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Auth\TokenAgents;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
@@ -12,8 +14,9 @@ use Laravel\Sanctum\PersonalAccessToken;
 /**
  * Who is writing. API: the Sanctum token's name when it is an agents.id (a differing body `actor` is a 403),
  * otherwise the body `actor` (an existing agents.id of the token's workspace), otherwise the token's own agent
- * (personal_access_tokens.agent_id, TokenAgents; go-live B3: `actor` is optional). 'tilen' is never accepted over the API: Tilen's input only
- * comes from the Bridge UI (web session), so it can always be told apart.
+ * (personal_access_tokens.agent_id, TokenAgents; go-live B3: `actor` is optional). 'tilen' is never accepted over
+ * the API: human input only comes from the Bridge UI (web session), so it can always be told apart. Web users act
+ * as themselves (HumanActors: 'user:<id>', or the legacy 'tilen' for the default workspace's owner).
  */
 final class Actor
 {
@@ -23,7 +26,7 @@ final class Actor
 
     public const MIGRATION = 'migration';
 
-    public const TILEN_ONLY_UI = "Tilen's input only comes from the Bridge UI";
+    public const TILEN_ONLY_UI = 'Human input only comes from the Bridge UI';
 
     public function __construct(
         public readonly string $id,
@@ -31,9 +34,22 @@ final class Actor
         public readonly string $source, // api|ui|mcp
     ) {}
 
+    /** The legacy owner of the default workspace (pre-multi-user data). Web requests use forUser(). */
     public static function tilen(): self
     {
         return new self(self::TILEN, 'human', 'ui');
+    }
+
+    /** A signed-in web user writing in $workspace (default: the current one). */
+    public static function forUser(User $user, ?Workspace $workspace = null): self
+    {
+        return new self(HumanActors::idFor($user, $workspace), 'human', 'ui');
+    }
+
+    /** A human actor with this id (e.g. the workspace owner from HumanActors::ownerId()). */
+    public static function human(string $id): self
+    {
+        return new self($id, 'human', 'ui');
     }
 
     public static function migration(): self
@@ -50,6 +66,17 @@ final class Actor
     public function isTilen(): bool
     {
         return $this->id === self::TILEN;
+    }
+
+    /** Any human (web UI) actor of a workspace: the legacy 'tilen' or 'user:<id>'. */
+    public function isHuman(): bool
+    {
+        return self::isHumanId($this->id);
+    }
+
+    public static function isHumanId(?string $id): bool
+    {
+        return HumanActors::isHumanId($id);
     }
 
     public function isCaptain(): bool
@@ -126,26 +153,29 @@ final class Actor
         return $name !== '' && Agent::query()->whereKey($name)->exists() ? $name : null;
     }
 
-    /** 'tilen' -> Tilen, 'migration' -> Migration, agent id -> agent name, free text unchanged. */
+    /**
+     * 'tilen' -> the workspace owner's first name, 'user:<id>' -> that user's name, 'migration' -> Migration,
+     * agent id -> agent name, free text unchanged.
+     */
     public static function label(?string $id, ?array $names = null): ?string
     {
         if ($id === null) {
             return null;
         }
         if ($id === self::TILEN) {
-            return 'Tilen';
+            return $names[self::TILEN] ?? HumanActors::ownerFirstName();
         }
         if ($id === self::MIGRATION) {
             return 'Migration';
         }
         $names ??= self::names();
 
-        return $names[$id] ?? $id;
+        return $names[$id] ?? (HumanActors::isUserId($id) ? HumanActors::userLabel($id) : $id);
     }
 
-    /** @return array<string, string> agents.id => name */
+    /** @return array<string, string> agents.id => name, plus the workspace's humans (HumanActors::names) */
     public static function names(): array
     {
-        return Agent::query()->pluck('name', 'id')->all();
+        return [...Agent::query()->pluck('name', 'id')->all(), ...HumanActors::names()];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Tickets\HumanActors;
 use App\Support\Legal\LegalPages;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
@@ -41,7 +42,12 @@ class HandleInertiaRequests extends Middleware
         ];
     }
 
-    /** @return array{id: int, name: string, email: string, initials: string, is_admin: bool, email_verified: bool}|null */
+    /**
+     * actor_id: how the user's board writes are recorded in the current workspace (HumanActors::idFor), so the UI can
+     * tell "You" apart in threads and status lines.
+     *
+     * @return array{id: int, name: string, email: string, initials: string, is_admin: bool, email_verified: bool, actor_id: string}|null
+     */
     private static function user(): ?array
     {
         $user = Auth::guard('web')->user();
@@ -56,10 +62,11 @@ class HandleInertiaRequests extends Middleware
             'initials' => self::initials($user->name),
             'is_admin' => (bool) $user->is_admin,
             'email_verified' => $user->hasVerifiedEmail(),
+            'actor_id' => HumanActors::idFor($user),
         ];
     }
 
-    /** "Sam Rivera" -> "SR", "Tilen" -> "T" (avatar in the account menu). */
+    /** "Sam Rivera" -> "SR", "Ada" -> "A" (avatar in the account menu). */
     public static function initials(string $name): string
     {
         $words = preg_split('/\s+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];

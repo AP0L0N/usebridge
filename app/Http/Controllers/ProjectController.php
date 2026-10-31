@@ -12,6 +12,7 @@ use App\Services\InputResolution;
 use App\Services\QuestionAnswer;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
+use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\TicketView;
 use App\Support\BoardColumns;
@@ -38,7 +39,7 @@ class ProjectController extends Controller
         return Inertia::render('Board', [
             'board' => fn () => (new BoardView($view))->build($project, $doneSince),
             'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
-            'people' => fn () => self::people(),
+            'people' => fn () => self::people(HumanActors::viewerId()),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,
             // Column labels editor: logged-in workspace members only.
@@ -49,29 +50,46 @@ class ProjectController extends Controller
         ]);
     }
 
-    /** Ticket detail for the modal: detail() plus when Tilen last opened it (the thread's "New" divider). */
+    /** Ticket detail for the modal: detail() plus when the signed-in user last opened it (the thread's "New" divider). */
     public static function ticketDetail(Ticket $ticket, TicketView $view): array
     {
-        return [...$view->detail($ticket), 'tilen_last_seen_at' => $ticket->tilenReadState?->last_seen_at?->toIso8601String()];
+        return [...$view->detail($ticket), 'tilen_last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String()];
     }
 
-    /** Agents (+ Tilen) for avatars, role tags and the assignee picker. @return list<array{id:string,name:string,role:string,type:string}> */
-    public static function people(): array
+    /**
+     * The workspace's people (the viewer first, role "You"; then the owner and members) and agents, for avatars, role
+     * tags and the assignee picker. Human ids are actor ids (HumanActors). @return list<array{id:string,name:string,role:string,type:string}>
+     */
+    public static function people(string $viewer): array
     {
+        $workspace = HumanActors::workspace();
+        $humans = collect(HumanActors::users($workspace))
+            ->map(function ($u) use ($workspace, $viewer) {
+                $id = HumanActors::idFor($u, $workspace);
+
+                return [
+                    'id' => $id,
+                    'name' => (string) Actor::label($id, [Actor::TILEN => HumanActors::ownerFirstName($workspace), $id => $u->name]),
+                    'role' => $id === $viewer ? 'You' : ($workspace?->isOwnedBy($u) ? 'Owner' : 'Member'),
+                    'type' => 'human',
+                ];
+            })
+            ->sortBy(fn (array $h) => $h['id'] === $viewer ? 0 : 1)->values()->all();
+
         return [
-            ['id' => Actor::TILEN, 'name' => 'Tilen', 'role' => 'You', 'type' => 'human'],
+            ...$humans,
             ...Agent::query()->orderBy('name')->get(['id', 'name', 'role_label'])
                 ->map(fn (Agent $a) => ['id' => $a->id, 'name' => $a->name, 'role' => (string) $a->role_label, 'type' => 'agent'])->all(),
         ];
     }
 
-    /** Web-session tick/untick (CSRF-protected web route). resolved_by = 'tilen'. */
+    /** Web-session tick/untick (CSRF-protected web route). resolved_by = the signed-in user's actor id. */
     public function resolveInput(Request $request, string $slug, string $id): RedirectResponse
     {
         $data = $request->validate(['resolved' => ['required', 'boolean']]);
         $project = Project::query()->where('slug', $slug)->firstOrFail();
         $input = RequiredInput::query()->where('project_id', $project->id)->findOrFail($id);
-        $data['resolved'] ? InputResolution::resolve($input, InputResolution::TILEN) : InputResolution::reopen($input);
+        $data['resolved'] ? InputResolution::resolve($input, Actor::forUser($request->user())->id) : InputResolution::reopen($input);
 
         return back(303);
     }
@@ -87,11 +105,11 @@ class ProjectController extends Controller
         return back(303);
     }
 
-    /** Tilen's archive/unarchive (UI only): logged in project_status_events as tilen/human/ui, nothing is deleted. */
+    /** Archive/unarchive from the UI: logged in project_status_events as the signed-in user/human/ui, nothing is deleted. */
     public function archive(Request $request, ProjectStatusService $status, string $slug): JsonResponse|RedirectResponse
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
-        $status->archive($project, Actor::tilen());
+        $status->archive($project, Actor::forUser($request->user()));
 
         return $this->archiveResponse($request, $status, $project);
     }
@@ -99,7 +117,7 @@ class ProjectController extends Controller
     public function unarchive(Request $request, ProjectStatusService $status, string $slug): JsonResponse|RedirectResponse
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
-        $status->unarchive($project, Actor::tilen());
+        $status->unarchive($project, Actor::forUser($request->user()));
 
         return $this->archiveResponse($request, $status, $project);
     }

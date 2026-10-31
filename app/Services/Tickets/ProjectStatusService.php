@@ -11,7 +11,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * PM-set project status (SPEC §3). Every write — also a note-only update — appends a project_status_events row.
- * `archived` (and reopening an archived project) is Captain (agent-william) via API or Tilen in the UI only;
+ * `archived` (and reopening an archived project) is Captain (agent-william) via API or a person in the UI only;
  * the project's PM may set smooth|waiting. archived_at follows the status so the old archive logic keeps working.
  */
 final class ProjectStatusService
@@ -27,11 +27,11 @@ final class ProjectStatusService
 
     public function canSet(Project $project, string $to, Actor $actor): ?string
     {
-        if ($actor->isTilen() || $actor->isCaptain()) {
+        if ($actor->isHuman() || $actor->isCaptain()) {
             return null;
         }
         if ($to === 'archived' || $project->isArchived()) {
-            return 'Only Captain (agent-william) or Tilen can archive or reopen a project.';
+            return 'Only Captain (agent-william) or a person in the Bridge UI can archive or reopen a project.';
         }
         if ($actor->id !== $project->owner_agent_id) {
             return "Only the project's PM ({$project->owner_agent_id}) or Captain can set its status.";

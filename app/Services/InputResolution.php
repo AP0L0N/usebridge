@@ -8,8 +8,6 @@ use Illuminate\Support\Carbon;
 /** Tick / untick a Required input. Status is derived on read, so it recalculates immediately. */
 final class InputResolution
 {
-    public const TILEN = 'tilen';
-
     public static function resolve(RequiredInput $input, string $by): RequiredInput
     {
         if ($input->resolved_at === null) {

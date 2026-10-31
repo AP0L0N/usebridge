@@ -107,7 +107,7 @@ final class LegacyCarryOver
                     'skip' => 'Skip',
                     default => '(no answer text)',
                 };
-                $this->tickets->comment($ticket, Actor::tilen(), $body, true, $choice, $q->answered_at ?? $q->updated_at, checkWritable: false);
+                $this->tickets->comment($ticket, Actor::human(HumanActors::ownerId($project->workspace)), $body, true, $choice, $q->answered_at ?? $q->updated_at, checkWritable: false);
                 $c['questions_answered']++;
             } else {
                 $c['questions_open']++;
@@ -162,7 +162,7 @@ final class LegacyCarryOver
             $assignee = match (true) {
                 $s->agent_id && $this->agents->contains('id', $s->agent_id) => ['assignee_type' => 'agent', 'assignee_id' => $s->agent_id],
                 $ownerAgent !== null => ['assignee_type' => 'agent', 'assignee_id' => $ownerAgent],
-                filled($s->owner) => ['assignee_type' => 'human', 'assignee_id' => $tilenOwned ? Actor::TILEN : trim($s->owner)],
+                filled($s->owner) => ['assignee_type' => 'human', 'assignee_id' => $tilenOwned ? HumanActors::ownerId($project->workspace) : trim($s->owner)],
                 default => $pm,
             };
             $ticket = $this->create($project, [

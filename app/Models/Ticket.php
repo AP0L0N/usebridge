@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
-use App\Services\Tickets\Actor;
+use App\Services\Tickets\HumanActors;
 use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -63,17 +63,19 @@ class Ticket extends Model
         return $this->hasMany(TicketEvent::class);
     }
 
-    public function tilenReadState(): HasOne
+    /** The read state of the human viewing (HumanActors::viewerId: the web user, else the workspace owner). */
+    public function viewerReadState(): HasOne
     {
-        return $this->hasOne(TicketReadState::class)->where('user', 'tilen');
+        return $this->hasOne(TicketReadState::class)->where('user', HumanActors::viewerId());
     }
 
-    public function isWaitingOnTilen(): bool
+    /** In the waiting_tilen column ("Waiting on <owner>"). */
+    public function isWaitingOnOwner(): bool
     {
         return $this->status === BoardColumns::WAITING_TILEN;
     }
 
-    /** Tilen sent input the PM hasn't acknowledged yet (ack missing or older than the latest input). */
+    /** A human sent input (tilen_input_at) the PM hasn't acknowledged yet (ack missing or older than the latest input). */
     public function needsPmPickup(): bool
     {
         return $this->tilen_input_at !== null
@@ -87,17 +89,19 @@ class Ticket extends Model
     }
 
     /**
-     * Query twin of TicketView::unread(): an agent comment newer than Tilen's last_seen_at, on a ticket that involves him
-     * (waiting on him, or he has commented). Drives GET /api/tickets?unread_for_tilen=1.
+     * Query twin of TicketView::unread(): an agent comment newer than the human's last_seen_at, on a ticket that
+     * involves them (waiting on the owner, or they have commented). $human = actor id, default the viewer
+     * (HumanActors::viewerId). Drives GET /api/tickets?unread_for_tilen=1.
      */
-    public function scopeUnreadForTilen(Builder $q): Builder
+    public function scopeUnreadFor(Builder $q, ?string $human = null): Builder
     {
+        $human ??= HumanActors::viewerId();
         $seen = fn ($r) => $r->selectRaw('1')->from('ticket_read_states')
-            ->whereColumn('ticket_read_states.ticket_id', 'ticket_comments.ticket_id')->where('ticket_read_states.user', Actor::TILEN);
+            ->whereColumn('ticket_read_states.ticket_id', 'ticket_comments.ticket_id')->where('ticket_read_states.user', $human);
 
         return $q
             ->where(fn (Builder $w) => $w->where('status', BoardColumns::WAITING_TILEN)
-                ->orWhereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_id', Actor::TILEN)))
+                ->orWhereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_id', $human)))
             ->whereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_type', 'agent')
                 ->where(fn ($w) => $w->whereNotExists($seen)
                     ->orWhereExists(fn ($r) => $seen($r)->whereColumn('ticket_comments.created_at', '>', 'ticket_read_states.last_seen_at'))));

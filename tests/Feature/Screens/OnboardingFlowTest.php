@@ -16,7 +16,7 @@ use Tests\TestCase;
 
 /**
  * The first-project onboarding (Figma "Onboarding"): header + stepper copy, step 1 (create), step 2 (the BoardColumns
- * set, "Waiting on you", inline rename) and step 3 (MCP URL from APP_URL, tokens link). Done: OnboardingDoneTest.
+ * set, "Waiting on <owner's first name>", inline rename) and step 3 (MCP URL from APP_URL, tokens link). Done: OnboardingDoneTest.
  */
 class OnboardingFlowTest extends TestCase
 {
@@ -97,17 +97,17 @@ class OnboardingFlowTest extends TestCase
     }
 
     #[Test]
-    public function step_2_lists_the_six_board_columns_in_order_with_waiting_on_you(): void
+    public function step_2_lists_the_six_board_columns_in_order_with_waiting_on_the_owner(): void
     {
         $expected = [
             ['key' => 'backlog', 'label' => 'Backlog', 'order' => 0],
             ['key' => 'todo', 'label' => 'To do', 'order' => 1],
             ['key' => 'in_progress', 'label' => 'In progress', 'order' => 2],
-            ['key' => 'waiting_tilen', 'label' => 'Waiting on you', 'order' => 3],
+            ['key' => 'waiting_tilen', 'label' => 'Waiting on Sam', 'order' => 3],
             ['key' => 'review', 'label' => 'Review / QA', 'order' => 4],
             ['key' => 'done', 'label' => 'Done', 'order' => 5],
         ];
-        $this->assertSame($expected, BoardColumns::all());
+        $this->assertSame($expected, BoardColumns::all(null, $this->sam->homeWorkspace()));
         $this->assertSame(array_column($expected, 'key'), BoardColumns::keys());
 
         $this->createProject($this->sam)->assertCreated();
@@ -133,12 +133,12 @@ class OnboardingFlowTest extends TestCase
     {
         $this->createProject($this->sam)->assertCreated();
         Project::acrossWorkspaces()->where('slug', 'example-project')->firstOrFail()
-            ->forceFill(['column_labels' => ['waiting_tilen' => 'Waiting on Sam']])->save();
+            ->forceFill(['column_labels' => ['waiting_tilen' => 'Needs Sam']])->save();
 
         $this->app['auth']->forgetGuards();
         $this->actingAs($this->sam)->get('/welcome')->assertInertia(fn (Assert $p) => $p
-            ->where('columns.3', ['key' => 'waiting_tilen', 'label' => 'Waiting on Sam', 'order' => 3])
-            ->where('defaultColumns.3.label', 'Waiting on you'));
+            ->where('columns.3', ['key' => 'waiting_tilen', 'label' => 'Needs Sam', 'order' => 3])
+            ->where('defaultColumns.3.label', 'Waiting on Sam'));
     }
 
     #[Test]
@@ -157,7 +157,7 @@ class OnboardingFlowTest extends TestCase
         $this->labels($this->sam, 'example-project', ['someday' => 'Someday'])->assertStatus(422)->assertJsonValidationErrors('column_labels');
 
         // The default name clears the own label again.
-        $this->labels($this->sam, 'example-project', ['backlog' => 'Backlog', 'waiting_tilen' => 'Waiting on you'])->assertOk();
+        $this->labels($this->sam, 'example-project', ['backlog' => 'Backlog', 'waiting_tilen' => 'Waiting on Sam'])->assertOk();
         $this->assertNull(Project::acrossWorkspaces()->where('slug', 'example-project')->value('column_labels'));
     }
 

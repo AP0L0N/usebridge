@@ -22,7 +22,8 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 
 /**
- * Tilen's ticket writes from the Bridge UI (logged-in session, CSRF). Actor 'tilen', type human, source ui.
+ * Ticket writes from the Bridge UI (logged-in session, CSRF) as the signed-in user: Actor::forUser ('user:<id>', or the
+ * legacy 'tilen' for the default workspace's owner), type human, source ui.
  * Every endpoint answers JSON when the request wants it (Accept: application/json), otherwise redirects back.
  */
 class TicketController extends Controller
@@ -47,7 +48,7 @@ class TicketController extends Controller
             'title' => ['required', 'string', 'max:140'],
             'status' => ['nullable', Rule::in([BoardColumns::BACKLOG, BoardColumns::TODO])],
         ]);
-        $ticket = $this->tickets->create($project, ['title' => $data['title'], 'status' => $data['status'] ?? BoardColumns::BACKLOG], Actor::tilen());
+        $ticket = $this->tickets->create($project, ['title' => $data['title'], 'status' => $data['status'] ?? BoardColumns::BACKLOG], $this->actor($request));
 
         return $this->respond($request, $ticket, 201);
     }
@@ -57,7 +58,7 @@ class TicketController extends Controller
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
         $data = $request->validate(TicketService::rules(false));
 
-        return $this->respond($request, $this->tickets->update($ticket, $data, Actor::tilen()));
+        return $this->respond($request, $this->tickets->update($ticket, $data, $this->actor($request)));
     }
 
     /** {status*, position|before_id|after_id, ask… (required when entering waiting_tilen without an ask)}. */
@@ -70,7 +71,7 @@ class TicketController extends Controller
             ...TicketService::askRules(),
         ]);
 
-        return $this->respond($request, $this->tickets->move($ticket, $data, Actor::tilen()));
+        return $this->respond($request, $this->tickets->move($ticket, $data, $this->actor($request)));
     }
 
     /**
@@ -97,7 +98,7 @@ class TicketController extends Controller
             }
             $body = $choice;
         }
-        $comment = $this->tickets->comment($ticket, Actor::tilen(), $body, $isInput, $choice);
+        $comment = $this->tickets->comment($ticket, $this->actor($request), $body, $isInput, $choice);
 
         if ($request->expectsJson()) {
             return response()->json(['data' => (new TicketView)->comment($comment->fresh(), $ticket->fresh())], 201);
@@ -110,36 +111,36 @@ class TicketController extends Controller
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
 
-        return $this->respond($request, $this->tickets->archive($ticket, Actor::tilen()));
+        return $this->respond($request, $this->tickets->archive($ticket, $this->actor($request)));
     }
 
     public function unarchive(Request $request, string $slug, string $key): JsonResponse|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
 
-        return $this->respond($request, $this->tickets->unarchive($ticket, Actor::tilen()));
+        return $this->respond($request, $this->tickets->unarchive($ticket, $this->actor($request)));
     }
 
-    /** Tilen opened the ticket: clears unread_for_tilen. */
+    /** The signed-in user opened the ticket: clears their unread_for_tilen (read state per user actor id). */
     public function seen(Request $request, string $slug, string $key): JsonResponse|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
-        TicketReadState::query()->updateOrCreate(['user' => Actor::TILEN, 'ticket_id' => $ticket->id], ['last_seen_at' => Carbon::now()]);
+        TicketReadState::query()->updateOrCreate(['user' => $this->actor($request)->id, 'ticket_id' => $ticket->id], ['last_seen_at' => Carbon::now()]);
 
         return $this->respond($request, $ticket);
     }
 
-    /** Tilen opened the project: last_seen_at + status_seen_at (the status-change toast shows once). */
+    /** The signed-in user opened the project: last_seen_at + status_seen_at (the status-change toast shows once). */
     public function projectSeen(Request $request, string $slug): JsonResponse|RedirectResponse
     {
         $project = $this->projectBySlug($slug);
         $now = Carbon::now();
-        ProjectReadState::query()->updateOrCreate(['user' => Actor::TILEN, 'project_id' => $project->id], ['last_seen_at' => $now, 'status_seen_at' => $now]);
+        ProjectReadState::query()->updateOrCreate(['user' => $this->actor($request)->id, 'project_id' => $project->id], ['last_seen_at' => $now, 'status_seen_at' => $now]);
 
         return $request->expectsJson() ? response()->json(['data' => (new BoardView)->project($project->fresh())]) : back(303);
     }
 
-    /** Tilen's status override {status, note}: set_by tilen, human, source ui. Archive/reopen allowed. */
+    /** Status override {status, note}: set_by = the signed-in user's actor id, human, source ui. Archive/reopen allowed. */
     public function status(Request $request, ProjectStatusService $status, string $slug): JsonResponse|RedirectResponse
     {
         $project = $this->projectBySlug($slug);
@@ -147,7 +148,7 @@ class TicketController extends Controller
             'status' => ['required', Rule::in(Project::STATUSES)],
             'note' => ['nullable', 'string', 'max:280'],
         ]);
-        $event = $status->set($project, $data['status'], TicketService::clean($data['note'] ?? null), Actor::tilen());
+        $event = $status->set($project, $data['status'], TicketService::clean($data['note'] ?? null), $this->actor($request));
         if (! $request->expectsJson()) {
             return back(303);
         }
@@ -157,6 +158,12 @@ class TicketController extends Controller
             'data' => ['project_id' => $project->id, 'current' => $status->current($project->fresh(), $view), 'event' => $status->event($event, $view)],
             'warnings' => TicketService::warnings($project),
         ]);
+    }
+
+    /** The signed-in web user as actor (the web routes require a login). */
+    private function actor(Request $request): Actor
+    {
+        return Actor::forUser($request->user());
     }
 
     private function respond(Request $request, Ticket $ticket, int $code = 200): JsonResponse|RedirectResponse

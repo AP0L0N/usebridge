@@ -60,7 +60,7 @@ abstract class BridgeTool extends Tool
     /** Schema of the `actor` argument (write tools). */
     protected function actorField(JsonSchema $schema): Type
     {
-        return $schema->string()->description('Optional: an agent id of this workspace (list_agents). Omit it to write as this token\'s own agent.');
+        return $schema->string()->description('Optional: an agent id of this workspace (list_agents). Omit it to write as this token\'s own agent; people (UI-only actors) are refused.');
     }
 
     /** Schema of the editable ticket fields (create_ticket / update_ticket); validated with TicketService::rules(). */
@@ -69,12 +69,12 @@ abstract class BridgeTool extends Tool
         return [
             'description' => $schema->string()->max(20000),
             'status' => $schema->string()->enum(BoardColumns::keys())->description('Column key (create default: '.BoardColumns::TODO.').'),
-            'assignee' => $schema->string()->description('Agent id, "tilen", or free text; empty to unassign.'),
+            'assignee' => $schema->string()->description('Agent id, "owner" (the workspace owner), a person id (user:…), or free text; empty to unassign.'),
             'priority' => $schema->string()->enum(Ticket::PRIORITIES),
             'due_on' => $schema->string()->format('date')->description('YYYY-MM-DD'),
             'blocked_reason' => $schema->string()->max(140),
             'labels' => $schema->array()->items($schema->string()->max(24))->max(20)->description('Label names (replaces the set).'),
-            'ask' => $schema->string()->max(280)->description('Question for Tilen; required to enter waiting_tilen.'),
+            'ask' => $schema->string()->max(280)->description('Question for the workspace owner; required to enter waiting_tilen.'),
             'ask_context' => $schema->string()->max(500),
             'ask_options' => $schema->array()->items($schema->string()->max(60))->max(4)->description('Up to 4 answer choices.'),
         ];

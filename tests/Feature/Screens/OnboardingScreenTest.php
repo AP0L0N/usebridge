@@ -39,8 +39,8 @@ class OnboardingScreenTest extends TestCase
             ->where('project', null)
             ->where('hasToken', false)
             ->where('emailVerified', false)
-            ->where('columns', BoardColumns::all())
-            ->where('defaultColumns', BoardColumns::all())
+            ->where('columns', BoardColumns::all(null, $this->sam->homeWorkspace()))
+            ->where('defaultColumns', BoardColumns::all(null, $this->sam->homeWorkspace()))
             ->where('createProjectUrl', route('projects.store'))
             // no project yet: step 1's answer carries the URL
             ->where('saveColumnsUrl', null));

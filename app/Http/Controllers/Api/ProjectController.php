@@ -9,6 +9,7 @@ use App\Models\RequiredInput;
 use App\Services\BridgeRoster;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
+use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\ProjectStatusService;
 use App\Support\TicketPrefix;
 use App\Support\Workspaces\WorkspaceRule;
@@ -140,7 +141,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * r0 compat: needs_decision text -> one open input waiting on Tilen ("in-nd-{project}");
+     * r0 compat: needs_decision text -> one open input waiting on the workspace owner ("in-nd-{project}");
      * setting it to null/empty marks that input done.
      */
     private function syncNeedsDecision(Project $project, mixed $value, bool $present): void
@@ -154,12 +155,12 @@ class ProjectController extends Controller
                 $existing->update(['text' => (string) $value]);
             } else {
                 RequiredInput::query()->updateOrCreate(['id' => 'in-nd-'.$project->id], [
-                    'project_id' => $project->id, 'text' => (string) $value, 'waiting_on' => 'Tilen',
+                    'project_id' => $project->id, 'text' => (string) $value, 'waiting_on' => HumanActors::ownerFirstName(),
                     'since' => Carbon::now(), 'resolved_at' => null, 'resolved_by' => null,
                 ]);
             }
         } elseif ($existing) {
-            $existing->update(['resolved_at' => Carbon::now(), 'resolved_by' => 'tilen']);
+            $existing->update(['resolved_at' => Carbon::now(), 'resolved_by' => HumanActors::ownerId()]);
         }
     }
 
@@ -178,8 +179,9 @@ class ProjectController extends Controller
             'level' => $pmSet ? $s['pmLevel'] : $s['level'],
             'ageDays' => $pmSet ? $s['pmAgeDays'] : $s['ageDays'],
             'derived_status' => $s['status'],
-            // tilen = Tilen set the current status in the UI, pm = an agent (PM/Captain) did, derived = never set.
-            'status_source' => ! $pmSet ? 'derived' : ($p->status_set_by === Actor::TILEN ? 'tilen' : 'pm'),
+            // human = a person set the current status in the UI ('tilen' when it is the legacy owner id of the default
+            // workspace, unchanged there), pm = an agent (PM/Captain) did, derived = never set.
+            'status_source' => ! $pmSet ? 'derived' : ($p->status_set_by === Actor::TILEN ? 'tilen' : (Actor::isHumanId($p->status_set_by) ? 'human' : 'pm')),
             'owner_agent_id' => $p->owner_agent_id,
             'pm_agent_id' => $p->owner_agent_id,
             'ticket_prefix' => $p->ticket_prefix,

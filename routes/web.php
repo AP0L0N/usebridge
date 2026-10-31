@@ -101,7 +101,7 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
         ->middleware(LegacyReadOnly::class)->name('projects.inputs.resolve');
     Route::post('/projects/{slug}/questions/{id}/answer', [ProjectController::class, 'answerQuestion'])
         ->middleware(LegacyReadOnly::class)->name('projects.questions.answer');
-    // Tickets: board writes from the web UI (actor 'tilen', source ui). JSON with Accept: application/json, else redirect back.
+    // Tickets: board writes from the web UI as the signed-in user (Actor::forUser, source ui). JSON with Accept: application/json, else redirect back.
     Route::get('/projects/{slug}/tickets/{key}', [TicketController::class, 'show'])->name('projects.tickets.show');
     Route::post('/projects/{slug}/tickets', [TicketController::class, 'store'])->name('projects.tickets.store');
     Route::patch('/projects/{slug}/tickets/{key}', [TicketController::class, 'update'])->name('projects.tickets.update');
@@ -120,7 +120,7 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
         ->name('usage.agent');
     // Cursor dashboard CSV export (individual plan): the workspace owner only; 404 for others.
     Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
-    // Polymarket desk: only workspaces with the polymarket feature (Tilen's), and only their owner; 404 for everyone else.
+    // Polymarket desk: only workspaces with the polymarket feature, and only their owner; 404 for everyone else.
     Route::get('/polymarket', [PolymarketController::class, 'index'])
         ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner')->name('polymarket');
     // r0 screens removed in r1.

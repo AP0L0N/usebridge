@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Tickets\HumanActors;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,7 +18,7 @@ class Workspace extends Model
 
     public const FEATURE_POLYMARKET = 'polymarket';
 
-    /** POST /api/usage/days from a collector (Tilen's box): read & write tokens get usage:write only with this. */
+    /** POST /api/usage/days from a collector (the default workspace owner's box): read & write tokens get usage:write only with this. */
     public const FEATURE_USAGE_UPLOAD = 'usage_upload';
 
     public const SETTING_WAITING_LABEL = 'waiting_label';
@@ -44,12 +45,18 @@ class Workspace extends Model
         return ($this->features[$feature] ?? false) === true;
     }
 
-    /** This workspace's own name for the waiting_tilen column; null = BoardColumns' default. */
+    /** This workspace's own stored name for the waiting_tilen column; null = the default (waitingColumnLabel). */
     public function waitingLabel(): ?string
     {
         $label = $this->settings[self::SETTING_WAITING_LABEL] ?? null;
 
         return is_string($label) && trim($label) !== '' ? $label : null;
+    }
+
+    /** The waiting_tilen column's name: settings.waiting_label, else "Waiting on <owner's first name>" ("Waiting on you"). */
+    public function waitingColumnLabel(): string
+    {
+        return $this->waitingLabel() ?? HumanActors::defaultWaitingLabel($this);
     }
 
     /** The workspace owner (owner_user_id), e.g. for owner-only features like Polymarket. */

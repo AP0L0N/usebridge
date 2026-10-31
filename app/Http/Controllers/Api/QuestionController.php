@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
-/** Bridge r4 Questions for Tilen API (Sanctum, same style as next-steps). */
+/** Bridge r4 Questions (for the workspace owner) API (Sanctum, same style as next-steps). */
 class QuestionController extends Controller
 {
     /** Filters: project_id, state=open|answered|closed|all (default all, so agents can read answers). */

@@ -18,9 +18,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Every ticket write (API agents, Tilen in the UI, the carry-over command) goes through here, so the rules live once:
+ * Every ticket write (API agents, people in the UI, the carry-over command) goes through here, so the rules live once:
  * - key = {prefix}-{seq} from projects.ticket_seq, bumped under a row lock, never reused.
- * - waiting_tilen needs an ask; entering it sets waiting_since, leaving clears it and auto-acks Tilen's input.
+ * - waiting_tilen ("Waiting on <owner>") needs an ask; entering it sets waiting_since, leaving clears it and auto-acks
+ *   the owner input (tilen_input_at).
  * - done_at is set on entering done and cleared on leaving. Positions are dense (0..n-1) per column.
  * - every change appends ticket_events and bumps projects.last_activity_at. No hard deletes.
  */
@@ -245,7 +246,7 @@ final class TicketService
             }
             if ($fromStatus === BoardColumns::WAITING_TILEN) {
                 $ticket->waiting_since = null;
-                // Leaving Waiting on Tilen means the PM picked up Tilen's input.
+                // Leaving the waiting column means the PM picked up the owner input.
                 if ($ticket->needsPmPickup()) {
                     $ticket->tilen_input_ack_at = $now;
                     $this->event($ticket, 'input_acked', null, ['tilen_input_at' => $ticket->tilen_input_at->toIso8601String(), 'via' => 'move'], $actor);
@@ -274,7 +275,7 @@ final class TicketService
             array_splice($ids, $index, 0, [$ticket->id]);
         }
         if ($ticket->status === BoardColumns::WAITING_TILEN) {
-            // Waiting on Tilen is always oldest waiting_since first; manual positions are ignored.
+            // The waiting column is always oldest waiting_since first; manual positions are ignored.
             $ids = $this->columnIds($ticket->project_id, $ticket->status);
         }
         $this->writePositions($ids);
@@ -377,7 +378,7 @@ final class TicketService
     {
         $this->ensureWritable($ticket);
         if (! $ticket->needsPmPickup()) {
-            throw ValidationException::withMessages(['ticket' => "Nothing to acknowledge on {$ticket->key}: no Tilen input waiting for pickup."]);
+            throw ValidationException::withMessages(['ticket' => "Nothing to acknowledge on {$ticket->key}: no owner input waiting for pickup."]);
         }
 
         return DB::transaction(function () use ($ticket, $actor) {
@@ -428,15 +429,15 @@ final class TicketService
     // ---------------------------------------------------------------- comments
 
     /**
-     * Post a comment. A Tilen input comment (is_tilen_input, Tilen only) sets tickets.tilen_input_at, so the
-     * ticket needs PM pickup until acked or moved; the status never changes. "Change answer" = another input comment.
+     * Post a comment. An owner input comment (is_tilen_input, human actors in the UI only) sets tickets.tilen_input_at,
+     * so the ticket needs PM pickup until acked or moved; the status never changes. "Change answer" = another input comment.
      */
     public function comment(Ticket $ticket, Actor $actor, string $body, bool $isInput = false, ?string $choice = null, ?CarbonInterface $at = null, bool $checkWritable = true): TicketComment
     {
         if ($checkWritable) {
             $this->ensureWritable($ticket);
         }
-        if (($isInput || $choice !== null) && ! $actor->isTilen()) {
+        if (($isInput || $choice !== null) && ! $actor->isHuman()) {
             throw ValidationException::withMessages(['is_tilen_input' => Actor::TILEN_ONLY_UI.'.']);
         }
 
@@ -514,7 +515,8 @@ final class TicketService
     // ---------------------------------------------------------------- helpers
 
     /**
-     * Assignee from `assignee` shorthand (agent id | 'tilen' | free-text human) or assignee_type + assignee_id.
+     * Assignee from `assignee` shorthand (agent id | 'owner' (legacy 'tilen') | 'user:<id>' of a member | free-text
+     * human) or assignee_type + assignee_id. 'owner'/'tilen' store the owner's actor id (HumanActors::ownerId).
      *
      * @return array{0:?string,1:?string}|null null = not given (leave unchanged)
      */
@@ -542,7 +544,20 @@ final class TicketService
             return ['agent', $id];
         }
 
-        return ['human', strcasecmp($id, Actor::TILEN) === 0 ? Actor::TILEN : $id];
+        return ['human', $this->humanAssignee($id, 'assignee_id')];
+    }
+
+    /** Owner shorthand -> owner id; 'user:<id>' must be someone in this workspace; other text stays as is. */
+    private function humanAssignee(string $id, string $field): string
+    {
+        if (($owner = HumanActors::ownerAlias($id)) !== null) {
+            return $owner;
+        }
+        if (HumanActors::isUserId($id) && ! HumanActors::isMemberId($id)) {
+            throw ValidationException::withMessages([$field => "Unknown person '$id' in this workspace."]);
+        }
+
+        return $id;
     }
 
     private function assigneeFromText(?string $text, string $field): array
@@ -551,14 +566,11 @@ final class TicketService
         if ($text === null) {
             return [null, null];
         }
-        if (strcasecmp($text, Actor::TILEN) === 0) {
-            return ['human', Actor::TILEN];
-        }
-        if (Agent::query()->whereKey($text)->exists()) {
+        if (HumanActors::ownerAlias($text) === null && Agent::query()->whereKey($text)->exists()) {
             return ['agent', $text];
         }
 
-        return ['human', $text];
+        return ['human', $this->humanAssignee($text, $field)];
     }
 
     /** 409 for edits on an archived ticket or a ticket of an archived project. */
@@ -604,7 +616,7 @@ final class TicketService
         return $n > 0 ? [[
             'code' => 'status_smooth_but_waiting_tickets',
             'count' => $n,
-            'message' => "Project status is Smooth sailing but $n ticket".($n === 1 ? '' : 's').' wait on Tilen.',
+            'message' => "Project status is Smooth sailing but $n ticket".($n === 1 ? '' : 's').' wait on '.HumanActors::ownerFirstName($project->workspace).'.',
         ]] : [];
     }
 

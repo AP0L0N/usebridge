@@ -136,7 +136,7 @@ class ProjectSetupTest extends TestCase
             ->where('board.columns.3.label', 'Waiting on client')
             ->where('board.columns.4.label', 'Client review')
             ->where('columnLabelsUrl', route('projects.column-labels.update', 'acme-studio'))
-            ->where('defaultColumns', BoardColumns::all()));
+            ->where('defaultColumns', BoardColumns::all(null, $this->ada->homeWorkspace())));
         $this->actingAs($this->ada)->get('/')->assertInertia(fn (Assert $p) => $p
             ->where('projects.0.columnLabels.backlog', 'Ideas'));
         $this->actingAs($this->ada)->get('/welcome')->assertInertia(fn (Assert $p) => $p->where('columns.0.label', 'Ideas'));

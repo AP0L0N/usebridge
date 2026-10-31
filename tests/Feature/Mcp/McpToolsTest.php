@@ -141,7 +141,7 @@ class McpToolsTest extends TestCase
         $this->assertMatchesRegularExpression('/^agent-[a-z0-9-]+-[a-z0-9]{6}$/', (string) $own['created_by']);
         $this->assertStringContainsString('Unknown actor', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x', 'actor' => 'agent-nobody']));
         $key = $this->tool($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'By Captain', 'actor' => self::CAPTAIN])['data']['key'];
-        $this->assertStringContainsString("Tilen's input only comes from the Bridge UI", $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));
+        $this->assertStringContainsString("Human input only comes from the Bridge UI", $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));
         $this->bearer($this->read, 'GET', "/api/tickets/$key")->assertJsonPath('data.created_by', self::CAPTAIN);
 
         // Per-agent token: acts as its agent; a different actor is refused.

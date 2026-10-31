@@ -6,7 +6,7 @@ use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One PM/Tilen status write (also note-only updates). Append-only. */
+/** One PM / person (UI) status write (also note-only updates). Append-only. */
 class ProjectStatusEvent extends Model
 {
     use BelongsToWorkspace;

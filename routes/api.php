@@ -34,7 +34,7 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     Route::post('status-updates', [StatusUpdateController::class, 'store'])->name('api.status-updates.store');
     Route::delete('status-updates/{id}', [StatusUpdateController::class, 'destroy'])->name('api.status-updates.destroy');
     Route::get('next-steps', [NextStepController::class, 'index'])->name('api.next-steps.index');
-    // r4 Questions for Tilen. GET ?project_id=&state=open|answered|closed|all (default all).
+    // r4 Questions for the workspace owner. GET ?project_id=&state=open|answered|closed|all (default all).
     Route::get('questions', [QuestionController::class, 'index'])->name('api.questions.index');
     // Legacy writes answer 410 once BRIDGE_LEGACY_READ_ONLY is on (tickets cutover); reads keep working.
     Route::middleware(LegacyReadOnly::class)->group(function () {
@@ -51,7 +51,7 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
         Route::post('ceo-queue-items/{id}/assign', [CeoQueueCompatController::class, 'assign'])->name('api.ceo-queue.assign');
     });
 
-    // Tickets (Kanban, docs/API-TICKETS.md). Writes need the acting agent (token name or `actor`); 'tilen' is refused.
+    // Tickets (Kanban, docs/API-TICKETS.md). Writes need the acting agent (token name or `actor`); human actors are refused.
     // {ticket} is the key (CA-12) or the id (tk-…). No delete routes anywhere: archive instead (DELETE answers 405).
     Route::get('board-columns', [BoardController::class, 'columns'])->name('api.board-columns');
     Route::get('projects/{id}/board', [BoardController::class, 'board'])->name('api.projects.board');
@@ -87,7 +87,7 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
         ->name('api.usage.days.store');
 
     // Polymarket desk: {snapshot: feed.json, series: book_series.json} (raw JSON body, <= 1 MB). Only workspaces with the
-    // polymarket feature (Tilen's) and only a token of the workspace OWNER: 404 for everyone else (as on the web), before
+    // polymarket feature and only a token of the workspace OWNER: 404 for everyone else (as on the web), before
     // the body is looked at. Every api/polymarket/* route must carry this middleware (PolymarketApiOwnerOnlyTest).
     Route::post('polymarket/feed', [PolymarketFeedController::class, 'store'])
         ->middleware([RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner', GuardPolymarketUpload::class])

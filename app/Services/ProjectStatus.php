@@ -165,14 +165,14 @@ class ProjectStatus
             ->sortByDesc(fn ($i) => $i->{$doneAttr}->getTimestamp())->values();
     }
 
-    /** 'tilen' -> 'Tilen'; 'token:x' -> 'x'; agent names unchanged. */
+    /** Human actor ids ('tilen', 'user:<id>') -> their label (Actor::label); 'token:x' -> 'x'; agent names unchanged. */
     public static function resolverLabel(?string $by): ?string
     {
         if ($by === null) {
             return null;
         }
-        if ($by === 'tilen') {
-            return 'Tilen';
+        if (Actor::isHumanId($by)) {
+            return Actor::label($by);
         }
 
         return str_starts_with($by, 'token:') ? substr($by, 6) : $by;

@@ -169,7 +169,7 @@ class TicketsApiTest extends TestCase
         $this->postJson($p, ['title' => 'x'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'agent-ghost'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable()
-            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Tilen's input only comes from the Bridge UI"));
+            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Human input only comes from the Bridge UI"));
         $this->postJson($p, ['title' => 'x', 'actor' => 'Tilen'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->assertSame(0, Ticket::count());
     }
@@ -401,7 +401,7 @@ class TicketsApiTest extends TestCase
         $this->api();
         $t = $this->newTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'actor' => 'tilen'])->assertUnprocessable()
-            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Tilen's input only comes from the Bridge UI"));
+            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Human input only comes from the Bridge UI"));
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'author' => 'tilen'])->assertUnprocessable();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'is_tilen_input' => true, 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('is_tilen_input');
         $this->postJson("/api/tickets/{$t['key']}/comments", ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('body');

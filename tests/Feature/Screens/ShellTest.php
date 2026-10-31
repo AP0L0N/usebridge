@@ -34,7 +34,7 @@ class ShellTest extends TestCase
         $this->actingAs($this->sam)->get('/')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->where('auth.user', [
                 'id' => $this->sam->id, 'name' => 'Sam Rivera', 'email' => 'sam@example.test', 'initials' => 'SR',
-                'is_admin' => false, 'email_verified' => false,
+                'is_admin' => false, 'email_verified' => false, 'actor_id' => 'user:'.$this->sam->id,
             ])
             ->where('features.polymarket', false)
             ->where('features.admin', false));

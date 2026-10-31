@@ -56,7 +56,8 @@ class TicketCommentController extends Controller
 
     /**
      * GET /api/ticket-comments/feed: Captain's answers relay.
-     * after=<comment id> | since=ISO (after wins), author=tilen|agents|all (default tilen), inputs_only, project_id, limit ≤200.
+     * after=<comment id> | since=ISO (after wins), author=tilen|agents|all (default tilen: people's comments), inputs_only,
+     * project_id, limit ≤200.
      */
     public function feed(Request $request, CommentFeed $feed): JsonResponse
     {

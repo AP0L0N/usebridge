@@ -28,7 +28,8 @@ final class CommentFeed
             $q->where('created_at', '>=', TicketView::time($f['since']));
         }
         match ($f['author'] ?? 'tilen') {
-            'tilen' => $q->where('author_id', Actor::TILEN),
+            // People in the UI (any human actor).
+            'tilen' => $q->where(fn ($w) => $w->where('author_id', Actor::TILEN)->orWhere('author_id', 'like', HumanActors::USER_PREFIX.'%')),
             'agents' => $q->where('author_type', 'agent'),
             default => null,
         };

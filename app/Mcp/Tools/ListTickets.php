@@ -24,7 +24,7 @@ class ListTickets extends BridgeTool
             'project' => $schema->string()->description('Project id or slug (list_projects).'),
             'status' => $schema->string()->description('Column key(s), comma-separated: '.implode(', ', BoardColumns::keys()).'.'),
             'label' => $schema->string()->description('Label name.'),
-            'assignee' => $schema->string()->description('Agent id, "tilen", or "none" for unassigned.'),
+            'assignee' => $schema->string()->description('Agent id, "owner" (the workspace owner), a person id (user:…), or "none" for unassigned.'),
             'q' => $schema->string()->description('Text in the title or key.'),
             'limit' => $schema->integer()->min(1)->max(200)->description('Default '.self::DEFAULT_LIMIT.'.'),
         ];

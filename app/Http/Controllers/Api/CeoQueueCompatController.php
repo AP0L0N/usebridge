@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\RequiredInput;
+use App\Services\Tickets\HumanActors;
 use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,9 +14,9 @@ use Illuminate\Support\Str;
 
 /**
  * r0 /api/ceo-queue-items kept working for agents (they post here in practice).
- * In r1 a project queue item IS a Required input waiting on Tilen:
+ * In r1 a project queue item IS a Required input waiting on the workspace owner (waiting_on = their first name):
  *   POST            -> open input (text = suggested_action), id "in-q-{ceoId}"
- *   POST {id}/dismiss -> input marked done (resolved_by tilen)
+ *   POST {id}/dismiss -> input marked done (resolved_by = the owner's actor id)
  *   POST {id}/assign  -> input now waiting on that agent
  * Items without project_id have nowhere to show in r1 -> 422.
  */
@@ -39,7 +40,7 @@ class CeoQueueCompatController extends Controller
             'project_id' => $i->project_id,
             'reason' => $i->text,
             'suggested_action' => $i->text,
-            'status' => $i->resolved_at ? 'dismissed' : ($i->waiting_on === 'Tilen' ? 'open' : 'assigned'),
+            'status' => $i->resolved_at ? 'dismissed' : ($i->waiting_on === HumanActors::ownerFirstName() ? 'open' : 'assigned'),
             'waiting_on' => $i->waiting_on,
             'surfaced_at' => $i->since->toDateString(),
         ];
@@ -76,10 +77,10 @@ class CeoQueueCompatController extends Controller
             'id' => 'in-q-'.$ceoId,
             'project_id' => $data['project_id'],
             'text' => mb_substr($data['suggested_action'] ?: $data['reason'], 0, 2000),
-            'waiting_on' => ($data['status'] ?? 'open') === 'assigned' && $agent ? $agent : 'Tilen',
+            'waiting_on' => ($data['status'] ?? 'open') === 'assigned' && $agent ? $agent : HumanActors::ownerFirstName(),
             'since' => isset($data['surfaced_at']) ? Carbon::parse($data['surfaced_at']) : $now,
             'resolved_at' => ($data['status'] ?? null) === 'dismissed' ? $now : null,
-            'resolved_by' => ($data['status'] ?? null) === 'dismissed' ? 'tilen' : null,
+            'resolved_by' => ($data['status'] ?? null) === 'dismissed' ? HumanActors::ownerId() : null,
         ]);
 
         return response()->json(['data' => $this->present($input)], 201);
@@ -88,7 +89,7 @@ class CeoQueueCompatController extends Controller
     public function dismiss(string $id): JsonResponse
     {
         $i = $this->find($id);
-        $i->update(['resolved_at' => $i->resolved_at ?? Carbon::now(), 'resolved_by' => $i->resolved_by ?? 'tilen']);
+        $i->update(['resolved_at' => $i->resolved_at ?? Carbon::now(), 'resolved_by' => $i->resolved_by ?? HumanActors::ownerId()]);
 
         return response()->json(['data' => $this->present($i->fresh())]);
     }

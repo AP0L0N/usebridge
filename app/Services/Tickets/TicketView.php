@@ -14,7 +14,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * JSON shapes for tickets, comments and events (API responses and, from the UI run on, Inertia props).
- * Build one per request: it caches agent names.
+ * Build one per request: it caches agent and human names.
+ * unread_for_tilen is for the human viewing: the signed-in web user, or the workspace owner over the API / MCP.
  */
 final class TicketView
 {
@@ -24,7 +25,7 @@ final class TicketView
         return [
             'project',
             'labels',
-            'tilenReadState',
+            'viewerReadState',
             'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'is_tilen_input', 'retracted_at', 'created_at']),
         ];
     }
@@ -34,10 +35,14 @@ final class TicketView
 
     private CarbonInterface $now;
 
+    /** Actor id of the human reading (HumanActors::viewerId). */
+    private string $viewer;
+
     public function __construct(?array $names = null, ?CarbonInterface $now = null)
     {
         $this->names = $names ?? Actor::names();
         $this->now = $now ?? Carbon::now();
+        $this->viewer = HumanActors::viewerId();
     }
 
     public function name(?string $id): ?string
@@ -53,7 +58,7 @@ final class TicketView
     public function ticket(Ticket $t): array
     {
         $t->loadMissing(self::with());
-        $waiting = $t->isWaitingOnTilen();
+        $waiting = $t->isWaitingOnOwner();
         $days = $waiting && $t->waiting_since ? ProjectStatus::ageDays($t->waiting_since, $this->now) : null;
         $live = $t->comments->whereNull('retracted_at');
         $unread = $this->unread($t, $live);
@@ -83,10 +88,10 @@ final class TicketView
             'waiting_since' => $t->waiting_since?->toIso8601String(),
             'waiting_age_days' => $days,
             'waiting_level' => $days === null ? null : ProjectStatus::level($days),
-            'tilen_input_at' => $t->tilen_input_at?->toIso8601String(),
-            'tilen_input_ack_at' => $t->tilen_input_ack_at?->toIso8601String(),
+            'tilen_input_at' => $inputAt = $t->tilen_input_at?->toIso8601String(),
+            'tilen_input_ack_at' => $ackAt = $t->tilen_input_ack_at?->toIso8601String(),
             'needs_pm_pickup' => $t->needsPmPickup(),
-            'tilen_answered_ask' => $this->answeredAsk($t),
+            'tilen_answered_ask' => $answered = $this->answeredAsk($t),
             'labels' => $t->labels->map->toView()->values()->all(),
             'comment_count' => $live->count(),
             'last_comment_at' => $live->max('created_at')?->toIso8601String(),
@@ -114,16 +119,16 @@ final class TicketView
     }
 
     /**
-     * Agent comments Tilen hasn't seen (newer than ticket_read_states.last_seen_at), counted only on tickets that
-     * involve him (waiting on him, or he has commented) — SPEC §4 "New reply from {agent}".
+     * Agent comments the viewer hasn't seen (newer than their ticket_read_states.last_seen_at), counted only on tickets
+     * that involve them (waiting on the owner, or they have commented) — SPEC §4 "New reply from {agent}".
      */
     private function unread(Ticket $t, $live)
     {
-        $involved = $t->isWaitingOnTilen() || $live->contains(fn ($c) => $c->author_id === Actor::TILEN);
+        $involved = $t->isWaitingOnOwner() || $live->contains(fn ($c) => $c->author_id === $this->viewer);
         if (! $involved) {
             return collect();
         }
-        $seen = $t->tilenReadState?->last_seen_at;
+        $seen = $t->viewerReadState?->last_seen_at;
 
         return $live->where('author_type', 'agent')
             ->filter(fn ($c) => $seen === null || $c->created_at->gt($seen))
@@ -161,7 +166,7 @@ final class TicketView
             'retracted_at' => $c->retracted_at?->toIso8601String(),
             'is_tilen_input' => $c->is_tilen_input,
             'input_choice' => $retracted ? null : $c->input_choice,
-            // Tilen input comments: picked up once the PM acked (or moved the ticket) at/after this comment.
+            // Owner input comments: picked up once the PM acked (or moved the ticket) at/after this comment.
             'picked_up_at' => $c->is_tilen_input && $ack !== null && $ack->gte($c->created_at) ? $ack->toIso8601String() : null,
             'edited_at' => $c->edited_at?->toIso8601String(),
             'created_at' => $c->created_at?->toIso8601String(),
@@ -227,7 +232,7 @@ final class TicketView
         if (! empty($f['assignee'])) {
             $f['assignee'] === 'none'
                 ? $q->whereNull('assignee_id')
-                : $q->where('assignee_id', strcasecmp($f['assignee'], Actor::TILEN) === 0 ? Actor::TILEN : $f['assignee']);
+                : $q->where('assignee_id', HumanActors::ownerAlias($f['assignee']) ?? $f['assignee']);
         }
         if (! empty($f['label'])) {
             $q->whereHas('labels', fn ($l) => $l->whereRaw('LOWER(name) = ?', [mb_strtolower($f['label'])]));
@@ -241,7 +246,7 @@ final class TicketView
             $q->needsPmPickup();
         }
         if (! empty($f['unread_for_tilen'])) {
-            $q->unreadForTilen();
+            $q->unreadFor();
         }
         if (! empty($f['blocked'])) {
             $q->whereNotNull('blocked_reason');
@@ -257,9 +262,9 @@ final class TicketView
     }
 
     /**
-     * QA M1: Tilen already answered the current ask (the PM may have acked it while the ticket stays in Waiting on
-     * Tilen). False once the PM sets a new ask or moves the ticket back into Waiting on Tilen after his answer, so a
-     * blank Your input form shows only for a new ask. Queries only acked tickets waiting on Tilen (few).
+     * QA M1: the current ask is already answered (the PM may have acked it while the ticket stays in the waiting
+     * column). False once the PM sets a new ask or moves the ticket back into the waiting column after the answer, so a
+     * blank Your input form shows only for a new ask. Queries only acked tickets in the waiting column (few).
      */
     public function answeredAsk(Ticket $t): bool
     {

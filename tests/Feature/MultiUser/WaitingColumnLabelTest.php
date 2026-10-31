@@ -21,7 +21,8 @@ use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
 /**
- * The waiting_tilen column name (CoS decision 31 Oct, docs/MULTI-USER-PLAN.md §3): new workspaces show "Waiting on you";
+ * The waiting_tilen column name (docs/MULTI-USER-PLAN.md §3): new workspaces show "Waiting on <owner's first name>"
+ * (B2; "Waiting on you" only without an owner);
  * workspaces that existed at migration 2026_10_31_160000 keep their old name (workspaces.settings.waiting_label); a
  * project's own column_labels still win. The key stays waiting_tilen; labels are derived in code, never stored.
  */
@@ -31,7 +32,8 @@ class WaitingColumnLabelTest extends TestCase
 
     private const MIGRATION = 'migrations/2026_10_31_160000_workspace_settings.php';
 
-    private const NEW_LABEL = 'Waiting on you';
+    /** Dana Demo owns Acme Studio. */
+    private const NEW_LABEL = 'Waiting on Dana';
 
     private User $dana;
 
@@ -94,10 +96,11 @@ class WaitingColumnLabelTest extends TestCase
     }
 
     #[Test]
-    public function a_new_workspace_shows_waiting_on_you_on_the_web_rest_and_mcp(): void
+    public function a_new_workspace_shows_waiting_on_its_owner_on_the_web_rest_and_mcp(): void
     {
         $this->assertNull($this->acme->waitingLabel());
-        $this->assertSame(self::NEW_LABEL, BoardColumns::LABELS[BoardColumns::WAITING_TILEN]);
+        $this->assertSame(self::NEW_LABEL, $this->acme->waitingColumnLabel());
+        $this->assertSame('Waiting on you', BoardColumns::LABELS[BoardColumns::WAITING_TILEN]); // no workspace at all
 
         $this->web()->get('/projects/demo-site')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.3.key', 'waiting_tilen')->where('board.columns.3.label', self::NEW_LABEL));
@@ -107,14 +110,14 @@ class WaitingColumnLabelTest extends TestCase
         $this->bearer($this->danaToken, 'GET', '/api/board-columns')->assertOk()
             ->assertJsonPath('data.3', ['key' => 'waiting_tilen', 'label' => self::NEW_LABEL, 'order' => 3]);
         $this->bearer($this->danaToken, 'POST', '/api/projects/proj-demo/tickets', ['title' => 'Approve the logo', 'status' => 'waiting_tilen'])
-            ->assertUnprocessable()->assertJsonPath('errors.ask.0', 'Moving into Waiting on you needs an ask: what do you need answered?');
+            ->assertUnprocessable()->assertJsonPath('errors.ask.0', 'Moving into Waiting on Dana needs an ask: what do you need answered?');
         $key = $this->bearer($this->danaToken, 'POST', '/api/projects/proj-demo/tickets', ['title' => 'Approve the logo', 'status' => 'waiting_tilen', 'ask' => 'Logo A or B?'])
             ->assertCreated()->assertJsonPath('data.status', 'waiting_tilen')->assertJsonPath('data.status_label', self::NEW_LABEL)->json('data.key');
         $this->bearer($this->danaToken, 'GET', "/api/tickets/$key")->assertJsonPath('data.status_label', self::NEW_LABEL);
 
         $this->assertSame(self::NEW_LABEL, $this->tool($this->danaToken, 'get_ticket', ['key' => $key])['data']['status_label']);
         $other = $this->tool($this->danaToken, 'create_ticket', ['project' => 'proj-demo', 'title' => 'Pick a font'])['data']['key'];
-        $this->assertStringContainsString('Moving into Waiting on you needs an ask', $this->toolError($this->danaToken, 'move_ticket', ['key' => $other, 'status' => 'waiting_tilen']));
+        $this->assertStringContainsString('Moving into Waiting on Dana needs an ask', $this->toolError($this->danaToken, 'move_ticket', ['key' => $other, 'status' => 'waiting_tilen']));
     }
 
     #[Test]
@@ -189,6 +192,6 @@ class WaitingColumnLabelTest extends TestCase
 
         $later = app(AccountService::class)->register('Lee Later', 'later@example.test', 'later-studio-planner-27', 'Later Studio');
         $this->assertNull(Workspace::query()->where('owner_user_id', $later->id)->firstOrFail()->waitingLabel());
-        $this->assertSame(self::NEW_LABEL, BoardColumns::label('waiting_tilen', Workspace::query()->where('owner_user_id', $later->id)->firstOrFail()));
+        $this->assertSame('Waiting on Lee', BoardColumns::label('waiting_tilen', Workspace::query()->where('owner_user_id', $later->id)->firstOrFail()));
     }
 }

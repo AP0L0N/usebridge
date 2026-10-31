@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * The project board payload (GET /api/projects/{id}/board; the UI run reuses it as Inertia props).
- * Waiting on Tilen is ordered oldest waiting_since first; every other column by position.
+ * The waiting column (waiting_tilen) is ordered oldest waiting_since first; every other column by position.
  * Done shows tickets done since `done_since` (default 7 days) plus done_older_count. Column labels are the project's
  * own (projects.column_labels) over the defaults; keys and order never change.
  */
@@ -23,7 +23,11 @@ final class BoardView
 
     public function project(Project $p): array
     {
-        $seen = ProjectReadState::query()->where('user', Actor::TILEN)->where('project_id', $p->id)->first();
+        $viewer = HumanActors::viewerId();
+        $seen = ProjectReadState::query()->where('user', $viewer)->where('project_id', $p->id)->first();
+        // For the "status changed" toast: set after the viewer last saw it (and not by the viewer).
+        $unseen = $p->status_set_at !== null && $p->status_set_by !== $viewer
+            && ($seen?->status_seen_at === null || $p->status_set_at->gt($seen->status_seen_at));
 
         return [
             'id' => $p->id,
@@ -41,9 +45,7 @@ final class BoardView
             'status_set_at' => $p->status_set_at?->toIso8601String(),
             'last_activity_at' => $p->last_activity_at?->toIso8601String(),
             'archived' => $p->isArchived(),
-            // For the "status changed" toast: set after Tilen last saw it (and not by Tilen himself).
-            'status_unseen_by_tilen' => $p->status_set_at !== null && $p->status_set_by !== Actor::TILEN
-                && ($seen?->status_seen_at === null || $p->status_set_at->gt($seen->status_seen_at)),
+            'status_unseen_by_tilen' => $unseen,
         ];
     }
 
