@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\FindsTickets;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\RequiredInput;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class ProjectController extends Controller
 {
+    use FindsTickets;
+
     /** r0 fields that agents may still send; accepted and ignored (removed in r1). */
     private const LEGACY_FIELDS = ['goal', 'phase', 'phase_done_looks_like', 'next_deadline', 'needs_decision'];
 
@@ -35,7 +38,8 @@ class ProjectController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        $project = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->findOrFail($id);
+        // Id or slug (S10), scoped to the token's workspace like every other project lookup.
+        $project = $this->projectById($id)->load(['statusUpdates', 'requiredInputs', 'questions']);
 
         return response()->json(['data' => [
             ...$this->present($project),
@@ -64,7 +68,7 @@ class ProjectController extends Controller
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $project = Project::query()->findOrFail($id);
+        $project = $this->projectById($id);
         $unknown = array_values(array_diff(array_keys($request->all()), [...self::UPDATE_FIELDS, ...self::LEGACY_FIELDS]));
         if ($unknown) {
             throw ValidationException::withMessages(['fields' => 'Unknown field(s): '.implode(', ', $unknown)
@@ -130,7 +134,7 @@ class ProjectController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        Project::query()->findOrFail($id)->delete();
+        $this->projectById($id)->delete();
 
         return response()->json(null, 204);
     }
