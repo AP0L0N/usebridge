@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shell and roles · Bridge</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<script src="proto.js"></script>
+</head>
+<body data-states="user:Regular user (Sam)|owner:Owner (Mia)|admin:Admin · Users|user-menu:User account menu open|owner-menu:Owner account menu open|mobile-nav:Mobile nav open (≤720px)">
+<a class="sr-only" href="#main">Skip to content</a>
+<header class="topbar" data-active="portfolio"></header>
+<main id="main" class="page">
+  <div data-hide="admin">
+    <div class="page-head">
+      <div><h1 class="title">Portfolio</h1>
+        <p class="summary"><b>3</b> active projects · <b>1</b> waiting input<span data-show="owner owner-menu"> · your projects only</span></p></div>
+      <div class="tools"><span class="sub">View as</span>
+        <div class="seg" role="group" aria-label="View as"><button type="button" data-goto="user">Regular user (Sam)</button><button type="button" data-goto="owner">Owner (Mia)</button></div></div>
+    </div>
+    <div class="pgrid"><article class="pcard is-w1">
+  <div class="pcard-body">
+    <div class="pcard-head"><div><h3 class="pcard-name"><a href="board.html">Northwind Portal</a></h3><p class="pcard-pm">PM Juno</p></div><span class="badge is-w1" aria-label="Waiting input, less than 1 day"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h10M5 17.5h10M6 2.5c0 4 4 5 4 7.5s-4 3.5-4 7.5M14 2.5c0 4-4 5-4 7.5s4 3.5 4 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Waiting input <span class="pips" aria-hidden="true"><i></i><i class="off"></i><i class="off"></i></span><span class="age"><1d</span></span></div>
+    <p class="pcard-set">Set by <b>Juno</b> · Today, 07:40</p><p class="pcard-quote">“Two decisions waiting on you: link expiry default and the cart sign-off. Build is on track otherwise.”</p>
+    <div class="dist" aria-hidden="true"><i class="c-backlog" style="width:18.8%"></i><i class="c-todo" style="width:18.8%"></i><i class="c-progress" style="width:18.8%"></i><i class="c-waiting" style="width:12.5%"></i><i class="c-review" style="width:12.5%"></i><i class="c-done" style="width:18.8%"></i></div><p class="dist-legend"><span><i class="dot c-backlog" style="background:var(--c)"></i>Backlog <b>3</b></span><span><i class="dot c-todo" style="background:var(--c)"></i>To do <b>3</b></span><span><i class="dot c-progress" style="background:var(--c)"></i>In progress <b>3</b></span><span><i class="dot c-waiting" style="background:var(--c)"></i>Waiting on <span data-me>Sam</span> <b>2</b></span><span><i class="dot c-review" style="background:var(--c)"></i>Review / QA <b>2</b></span><span><i class="dot c-done" style="background:var(--c)"></i>Done (7 days) <b>3</b></span></p>
+  </div>
+  <div class="pcard-foot"><span class="badge sm is-accent"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h10M5 17.5h10M6 2.5c0 4 4 5 4 7.5s-4 3.5-4 7.5M14 2.5c0 4-4 5-4 7.5s4 3.5 4 7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>2 for you</span><span>Last activity <b>Today, 07:58</b></span></div>
+</article><article class="pcard is-ok">
+  <div class="pcard-body">
+    <div class="pcard-head"><div><h3 class="pcard-name"><a href="board.html">Lumen Docs</a></h3><p class="pcard-pm">PM Iris</p></div><span class="badge is-ok"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m6.8 10.2 2.2 2.2 4.2-4.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Smooth sailing</span></div>
+    <p class="pcard-set">Set by <b>Iris</b> · Today, 06:50</p><p class="pcard-quote">“Docs site port at page 16 of 22.”</p>
+    <div class="dist" aria-hidden="true"><i class="c-backlog" style="width:13.3%"></i><i class="c-todo" style="width:26.7%"></i><i class="c-progress" style="width:20.0%"></i><i class="c-done" style="width:40.0%"></i></div><p class="dist-legend"><span><i class="dot c-backlog" style="background:var(--c)"></i>Backlog <b>2</b></span><span><i class="dot c-todo" style="background:var(--c)"></i>To do <b>4</b></span><span><i class="dot c-progress" style="background:var(--c)"></i>In progress <b>3</b></span><span><i class="dot c-done" style="background:var(--c)"></i>Done (7 days) <b>6</b></span></p>
+  </div>
+  <div class="pcard-foot"><span></span><span>Last activity <b>Today, 06:50</b></span></div>
+</article><article class="pcard is-unset">
+  <div class="pcard-body">
+    <div class="pcard-head"><div><h3 class="pcard-name"><a href="board.html">Orchard Analytics</a></h3><p class="pcard-pm">PM Rhea</p></div><span class="badge is-unset">Status not set</span></div>
+    <p class="pcard-set">The PM hasn’t set a status yet</p>
+    <div class="dist" aria-hidden="true"><i class="c-todo" style="width:66.7%"></i><i class="c-progress" style="width:33.3%"></i></div><p class="dist-legend"><span><i class="dot c-todo" style="background:var(--c)"></i>To do <b>2</b></span><span><i class="dot c-progress" style="background:var(--c)"></i>In progress <b>1</b></span></p>
+  </div>
+  <div class="pcard-foot"><span></span><span>Last activity <b>Mon 26 Oct, 11:00</b></span></div>
+</article></div>
+  </div>
+  <div data-show="admin">
+    <div class="page-head"><div><p class="crumb" style="margin:0">Admin</p><h1 class="title">Users</h1><p class="summary"><b>5</b> users · <b>4</b> active · <b>1</b> disabled</p></div></div>
+    <section class="card" aria-labelledby="h-users">
+  <div class="card-head"><h2 id="h-users">Users</h2><span class="count">5</span><span class="sub">Everyone with a Bridge account. Disabling blocks sign-in and API tokens; nothing is deleted.</span></div>
+  <div class="table-wrap"><table class="table stack">
+    <thead><tr><th class="l" scope="col">User</th><th class="l" scope="col">Role</th><th scope="col">Projects</th><th scope="col">Agents</th><th scope="col">Last active</th><th scope="col">Action</th></tr></thead>
+    <tbody><tr><th scope="row"><span class="who"><span class="avatar">MN</span><span><b>Mia Novak</b><span>mia@example.com</span></span></span></th>
+<td class="l" data-label="Role"><span class="role-chip">Owner</span></td><td data-label="Projects">3</td><td data-label="Agents">3</td><td data-label="Last active">Today, 09:02</td><td data-label="Action"><span class="muted">You</span></td></tr><tr><th scope="row"><span class="who"><span class="avatar">SR</span><span><b>Sam Rivera</b><span>sam@example.com</span></span></span></th>
+<td class="l" data-label="Role"><span class="chip">User</span></td><td data-label="Projects">6</td><td data-label="Agents">6</td><td data-label="Last active">Today, 08:10</td><td data-label="Action"><button type="button" class="btn btn-sm btn-danger-quiet" aria-label="Disable Sam Rivera">Disable</button></td></tr><tr><th scope="row"><span class="who"><span class="avatar">AK</span><span><b>Alex Kim</b><span>alex@example.com</span></span></span></th>
+<td class="l" data-label="Role"><span class="chip">User</span></td><td data-label="Projects">1</td><td data-label="Agents">1</td><td data-label="Last active">Yesterday, 18:30</td><td data-label="Action"><button type="button" class="btn btn-sm btn-danger-quiet" aria-label="Disable Alex Kim">Disable</button></td></tr><tr><th scope="row"><span class="who"><span class="avatar">JL</span><span><b>Jordan Lee</b><span>jordan@example.com</span></span></span></th>
+<td class="l" data-label="Role"><span class="chip l-rose">Disabled</span></td><td data-label="Projects">2</td><td data-label="Agents">0</td><td data-label="Last active">Mon 12 Oct</td><td data-label="Action"><button type="button" class="btn btn-sm">Enable</button></td></tr><tr><th scope="row"><span class="who"><span class="avatar">PS</span><span><b>Priya Shah</b><span>priya@example.com</span></span></span></th>
+<td class="l" data-label="Role"><span class="chip">User</span></td><td data-label="Projects">0</td><td data-label="Agents">0</td><td data-label="Last active">Never · invited Fri 30 Oct</td><td data-label="Action"><button type="button" class="btn btn-sm btn-danger-quiet" aria-label="Disable Priya Shah">Disable</button></td></tr></tbody>
+  </table></div>
+  <p class="foot">Disabling signs the person out everywhere and stops their API tokens. Their projects and usage stay; you can enable them again.</p>
+</section>
+  </div>
+  <section class="callout" style="margin-top:var(--s-8)"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 9v5M10 6.2v.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><div>
+    <p><b>What differs by role.</b> Regular user: nav is Portfolio and Usage only; Portfolio, boards and Usage show only their own projects and agents. <code>/polymarket</code> and <code>/admin</code> respond 404.</p>
+    <p>Owner: adds Polymarket and Admin to the nav and an Owner chip in the account menu. Admin lists users with role, projects, agents and last active, and can disable and enable.</p>
+    <p>Mobile (≤720px): the nav collapses to the current page ▾ menu left of the theme toggle; the account name and Sample data chip hide, the avatar stays.</p>
+  </div></section>
+</main>
+<script>
+window.onProtoState = function (id) {
+  var owner = ['owner', 'admin', 'owner-menu'].indexOf(id) >= 0;
+  document.querySelector('header.topbar').dataset.active = id === 'admin' ? 'admin' : 'portfolio';
+  window.protoRole(owner ? 'owner' : 'user');
+  document.querySelectorAll('.seg [data-goto]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.goto === 'owner') === owner)); });
+  if (id === 'user-menu' || id === 'owner-menu') window.protoOpenMenu('.acct');
+  if (id === 'mobile-nav') window.protoOpenMenu('.navm');
+};
+</script>
+</body>
+</html>
