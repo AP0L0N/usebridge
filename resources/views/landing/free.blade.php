@@ -1,4 +1,4 @@
-@php $pending = config('bridge.landing_pending'); @endphp
+@php $pending = config('bridge.landing_drafts'); @endphp
 <section class="section section--center" id="free" aria-labelledby="free-title">
     <div class="inner stack">
         <h2 class="h2" id="free-title">Free for everyone. No plans, no trial, no card.</h2>

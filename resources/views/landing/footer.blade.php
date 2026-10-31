@@ -18,7 +18,7 @@
                 <h2>Open source</h2>
                 <ul>
                     <li><a href="https://github.com/AP0L0N/usebridge" rel="noopener">Source code (AGPL-3.0-or-later)</a></li>
-                    @if (config('bridge.landing_pending'))
+                    @if (config('bridge.landing_drafts'))
                         <li><span class="off" data-placeholder="coffee-link">Buy me a coffee</span></li>
                     @endif
                 </ul>

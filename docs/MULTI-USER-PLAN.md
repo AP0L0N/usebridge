@@ -471,7 +471,7 @@ token values repeat those three locally.
 | Polymarket desk (owner only) | `pm-desk.css` (`.pmx`) | KPIs, book chart, positions, fills, sweeps; non-owner 404 |
 | Auth: sign up / log in / reset, all states | `auth.css` on tokens.css | AuthLayout (dot-grid stage + 400 px column, GuestTopBar narrow), Button / TextField / Badge / Wordmark; Turnstile module/sign-up kept |
 | Onboarding steps 1–3 + ready banner | `onboarding.css` | stepper (done ink / current lime / next outline) + cards, auth components reused |
-| Landing page | `landing.css` + hero | public, no login; amber placeholder blocks behind `BRIDGE_LANDING_PENDING` (off = absent) |
+| Landing page | `landing.css` + hero | public, no login; draft blocks (origin story, why free, no-ads card, coffee section, FAQ 1) behind `BRIDGE_LANDING_SHOW_DRAFTS` (default off = not rendered) |
 | Legal pages + footer | §13(a), `SiteFooter` + Blade partial | one footer on every page, EN \| SL |
 
 Tests with the redesigns: usage screens, Polymarket desk states (owner-only 404, props, stale, unavailable, no

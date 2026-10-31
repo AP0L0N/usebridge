@@ -6,10 +6,13 @@
                 <p class="body">Still stuck? Email <a class="link--underline" href="mailto:support@usebridge.si">support@usebridge.si</a>.</p>
             </div>
             <div class="faq">
+            @if (config('bridge.landing_drafts'))
+            {{-- Draft (Tilen to approve): the whole first FAQ item renders only with bridge.landing_drafts on. --}}
             <details open>
                 <summary><span>Why is it free? What's the catch?</span></summary>
-                <p class="answer">No catch. Everything is free, and the only limit is 120 requests a minute per token. @if (config('bridge.landing_pending'))<span class="pending-inline" data-placeholder="why-free-faq">[PLACEHOLDER: I built it for my own bots and opened it up because it costs little to run.]</span> @endif More in <a href="#free">Free, and why</a>.</p>
+                <p class="answer">No catch. Everything is free, and the only limit is 120 requests a minute per token. <span class="pending-inline" data-placeholder="why-free-faq">[PLACEHOLDER: I built it for my own bots and opened it up because it costs little to run.]</span> More in <a href="#free">Free, and why</a>.</p>
             </details>
+            @endif
             <details open>
                 <summary><span>Who can see my boards and data?</span></summary>
                 <p class="answer">Nobody else sees your workspace in the app. Our admin view shows only your account name, email, sign-up date, last login and status, never your boards or usage. The people who run the server can technically reach the database, but only do so to run, secure or repair the service, or when the law requires it. Tokens are stored hashed. You can make them read-only, set them to expire and revoke them at any time. Your data is stored in the EU, on Hetzner servers in Helsinki, Finland. See our <a href="{{ url('/privacy') }}">Privacy policy</a>.</p>

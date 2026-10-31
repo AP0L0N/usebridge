@@ -99,6 +99,9 @@ return [
     'source_url' => env('BRIDGE_SOURCE_URL', 'https://github.com/AP0L0N/usebridge'),
     'source_sha' => env('BRIDGE_SOURCE_SHA') ?: env('BRIDGE_DEPLOYED_SHA'),
 
-    // Landing page: show the amber "PLACEHOLDER · Tilen to approve, do not ship" blocks (origin story, why free, no-ads card, coffee link, FAQ 1 reason). Off = absent from the HTML.
-    'landing_pending' => env('BRIDGE_LANDING_PENDING', false),
+    // Landing page drafts: copy Tilen hasn't approved yet (origin story, the why-free block, the "What we don't do" card,
+    // the coffee / support section + footer link, and the first FAQ item "Why is it free?"). Off (default) = not rendered
+    // at all, absent from the HTML; on = they render as amber "PLACEHOLDER · Tilen to approve, do not ship" boxes.
+    // One flag only: the old BRIDGE_LANDING_PENDING is retired and no longer read.
+    'landing_drafts' => filter_var(env('BRIDGE_LANDING_SHOW_DRAFTS', false), FILTER_VALIDATE_BOOL),
 ];

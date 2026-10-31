@@ -52,7 +52,6 @@ class LandingPageTest extends TestCase
             'Connect a bot in three steps.',
             'Free for everyone. No plans, no trial, no card.',
             'Read the code that runs your boards.',
-            'If Bridge saves you time, buy me a coffee.',
             'Questions before you connect a bot',
             'Give your bots one board to report to.',
         ]);
@@ -163,9 +162,50 @@ class LandingPageTest extends TestCase
     }
 
     #[Test]
+    public function the_five_draft_blocks_are_not_rendered_at_all_when_the_drafts_flag_is_off(): void
+    {
+        config(['bridge.landing_drafts' => false]);
+        $html = $this->html();
+
+        foreach ([
+            // origin story
+            'I built Bridge to run my own team of AI bots', 'origin story',
+            // why-free block
+            'it costs me little to open it up', 'why free',
+            // "What we don't do" card
+            'What we don\'t do', 'What we don&#039;t do', 'No ads.', 'no-ads',
+            // coffee / support section and footer link
+            'id="support"', 'support-title', 'If Bridge saves you time', 'Coffees help pay', 'Buy me a coffee', 'buymeacoffee', 'coffee-link',
+            // first FAQ item, dropped entirely
+            'Why is it free?', 'What&#039;s the catch?', 'What\'s the catch?', 'No catch.', 'Free, and why', 'why-free-faq',
+            // and the placeholder chrome itself
+            'PLACEHOLDER', 'data-placeholder', 'Tilen to approve',
+        ] as $text) {
+            $this->assertStringNotContainsString($text, $html, $text);
+        }
+
+        // The layout still reads: the free section keeps its two cards, the FAQ starts with an open item, and no nav
+        // link points at a section that isn't on the page.
+        $this->assertStringContainsString('cards cards--2', $html);
+        $this->assertMatchesRegularExpression('#<div class="faq">\s*<details open>\s*<summary><span>Who can see my boards and data\?</span>#', $html);
+        preg_match_all('#href="\#([a-z0-9-]+)"#', $html, $m);
+        foreach (array_unique($m[1]) as $anchor) {
+            $this->assertStringContainsString('id="'.$anchor.'"', $html, "#$anchor has no target");
+        }
+    }
+
+    #[Test]
+    public function the_drafts_flag_reads_bridge_landing_show_drafts_and_defaults_off(): void
+    {
+        $src = file_get_contents(config_path('bridge.php'));
+        $this->assertStringContainsString("env('BRIDGE_LANDING_SHOW_DRAFTS', false)", $src);
+        $this->assertStringNotContainsString("env('BRIDGE_LANDING_PENDING'", $src);
+    }
+
+    #[Test]
     public function the_pending_blocks_render_when_the_flag_is_on(): void
     {
-        config(['bridge.landing_pending' => true]);
+        config(['bridge.landing_drafts' => true]);
         $html = $this->html();
 
         foreach (array_keys(self::PENDING) as $key) {
@@ -248,7 +288,7 @@ class LandingPageTest extends TestCase
         $this->assertStringContainsString('Sign up free', $html);
         $this->assertStringContainsString('href="/brand/favicon-32.png"', $html);
         $this->assertStringContainsString('href="/brand/favicon-180.png"', $html);
-        $this->assertSame(7, substr_count($html, '<details'));
+        $this->assertSame(6, substr_count($html, '<details')); // FAQ 1 "Why is it free?" is a draft, off by default
         $this->assertStringContainsString('min-height: var(--tap-min)', file_get_contents(resource_path('css/landing.css')));
     }
 }

@@ -64,7 +64,7 @@ html { scroll-behavior: smooth; scroll-padding-top: var(--space-24); }
 .btn--signal:hover { background: color-mix(in srgb, var(--signal) 88%, var(--surface)); }
 .btn--block { width: 100%; }
 
-/* Pending (placeholder) boxes: rendered only when bridge.landing_pending is on */
+/* Pending (placeholder) boxes: rendered only when bridge.landing_drafts is on */
 .pending { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-12) var(--space-16); border: 1px dashed var(--warn); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warn) 9%, transparent); color: var(--ink-800); }
 .pending .mono { color: var(--ink-800); }
 .pending p { font-size: 15px; letter-spacing: -0.005em; }

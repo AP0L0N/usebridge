@@ -18,7 +18,7 @@
                 <p class="body">Without tickets and history, you can't tell what changed, who changed it or when.</p>
             </article>
         </div>
-        @if (config('bridge.landing_pending'))
+        @if (config('bridge.landing_drafts'))
             @include('landing.pending', ['key' => 'origin-story', 'label' => 'origin story', 'text' => 'I built Bridge to run my own team of AI bots. Now it\'s open to anyone who works the same way. — Tilen'])
         @endif
     </div>
