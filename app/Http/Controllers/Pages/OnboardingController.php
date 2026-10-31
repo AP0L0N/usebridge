@@ -11,9 +11,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * GET /welcome: the new user's 3-step checklist (docs/MULTI-USER-PLAN.md §8 onboarding). The step state is derived
- * (has a project, has a token), nothing is stored. Step 1 posts to POST /projects (projects.store), step 2 to
- * PUT /projects/{slug}/column-labels (projects.column-labels.update) of the first project.
+ * GET /welcome: the new user's 3 steps (docs/MULTI-USER-PLAN.md §8 onboarding, Figma "Onboarding"). The step state is
+ * derived (has a project), nothing is stored. Step 1 posts to POST /projects (projects.store), step 2 to
+ * PUT /projects/{slug}/column-labels (projects.column-labels.update) of the first project; step 3 links to the tokens
+ * page, "Skip for now" to the Portfolio with ?ready={slug} (its banner + connect card, PortfolioController).
  */
 class OnboardingController extends Controller
 {
@@ -32,6 +33,11 @@ class OnboardingController extends Controller
             'createProjectUrl' => route('projects.store'),
             // Null until there is a project; step 1's answer carries the URL for the project it created.
             'saveColumnsUrl' => $first === null ? null : route('projects.column-labels.update', $first->slug),
+            // The MCP server on APP_URL (the same URL as Account, API tokens & MCP), never the request's host.
+            'mcpUrl' => AccountPageController::mcpUrl(),
+            'tokensUrl' => route('account.tokens', absolute: false),
+            'portfolioUrl' => route('portfolio', absolute: false),
+            'copy' => __('onboarding'),
         ]);
     }
 }

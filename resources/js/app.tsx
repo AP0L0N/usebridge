@@ -5,6 +5,7 @@ import '../css/kanban.css';
 import '../css/account.css';
 import '../css/legal.css';
 import '../css/auth.css';
+import '../css/onboarding.css';
 import { createInertiaApp } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
