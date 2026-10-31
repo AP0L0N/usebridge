@@ -89,7 +89,12 @@ class SignupToFirstProjectFlowTest extends TestCase
 
         // 3. Unverified: the verify notice (browser) with a resend that works and is throttled (6 per minute).
         $this->get('/email/verify')->assertOk()->assertInertia(fn (Assert $p) => $p
-            ->component('Auth/VerifyEmail')->where('email', 'alex@example.test')->where('resendUrl', '/email/verification-notification'));
+            ->component('Auth/VerifyEmail')->where('email', 'alex@example.test')->where('resendUrl', '/email/verification-notification')
+            ->where('copy.verify.heading', 'Verify your email')
+            ->where('copy.verify.tokens_note', 'API tokens for bots and MCP need the verified email.')
+            ->where('copy.verify.too_many', 'Too many requests. Wait a minute and try again.')
+            ->where('copy.verify.sent', 'A new link is on its way to :email. It works for 60 minutes.')
+            ->where('copy.stage.hero', 'One bridge between you and your bots.'));
         for ($i = 0; $i < 6; $i++) {
             $this->postJson('/email/verification-notification')->assertOk();
         }

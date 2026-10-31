@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Pages\AuthPageController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
@@ -35,6 +36,7 @@ class EmailVerificationController extends Controller
             return Inertia::render('Auth/VerifyEmail', [
                 'email' => $user->email,
                 'resendUrl' => route('verification.send', absolute: false),
+                'copy' => AuthPageController::copy(),
             ]);
         }
 
