@@ -15,6 +15,10 @@ use stdClass;
  * optional `model` (null, or 1–128 characters without control characters); files from before the
  * collector reported models have none. One row per (tool, agent_id, model), where null and an absent
  * `model` are the same "not recorded" model. Decodes with objects so `{}` and `[]` stay distinguishable.
+ *
+ * Optional top-level `covered_tools`: distinct CliUsageDay::TOOLS (at most MAX_COVERED) this file is authoritative
+ * for on its date, even with zero rows; when given, every row's tool must be in it (see CliUsageImporter). Optional
+ * row keys `cost_cents` (number 0–1e12, may be fractional) and `max_mode_calls` (integer 0–calls), sent by Cursor.
  */
 final class CliUsageValidator
 {
@@ -28,9 +32,15 @@ final class CliUsageValidator
 
     public const TOP_KEYS = ['date', 'timezone', 'generated_at', 'source', 'coverage_from', 'tools', 'method'];
 
+    public const OPTIONAL_TOP_KEYS = ['covered_tools'];
+
     public const ROW_KEYS = ['tool', 'agent_id', 'name', 'input', 'output', 'cache_read', 'cache_creation', 'calls'];
 
-    public const OPTIONAL_ROW_KEYS = ['model'];
+    public const OPTIONAL_ROW_KEYS = ['model', 'cost_cents', 'max_mode_calls'];
+
+    public const MAX_COVERED = 10;
+
+    public const COST_CAP = 1_000_000_000_000; // 1e12 cents
 
     public const MODEL_MAX = 128;
 
@@ -81,9 +91,10 @@ final class CliUsageValidator
 
     private function checkTop(stdClass $doc, string $prefix): void
     {
-        if (! $this->keys($doc, self::TOP_KEYS, $prefix)) {
+        if (! $this->keys($doc, self::TOP_KEYS, $prefix, self::OPTIONAL_TOP_KEYS)) {
             return;
         }
+        $covered = $this->coveredTools($doc, $prefix);
 
         if (! is_string($doc->date) || ! UsageDayValidator::isRealDate($doc->date)) {
             $this->fail($prefix.'date', 'Must be a real calendar date (YYYY-MM-DD).');
@@ -133,6 +144,8 @@ final class CliUsageValidator
             }
             if (! is_string($row->tool) || ! in_array($row->tool, CliUsageDay::TOOLS, true)) {
                 $this->fail("$path.tool", 'Must be one of: '.implode(', ', CliUsageDay::TOOLS).'.');
+            } elseif ($covered !== null && ! in_array($row->tool, $covered, true)) {
+                $this->fail("$path.tool", 'Must be one of covered_tools.');
             }
             if (! is_string($row->agent_id) || preg_match('/^[A-Za-z0-9_-]{1,64}$/', $row->agent_id) !== 1) {
                 $this->fail("$path.agent_id", 'Must be 1–64 characters of A–Z, a–z, 0–9, "-" or "_".');
@@ -147,6 +160,18 @@ final class CliUsageValidator
             if (is_int($row->calls) && $row->calls < 1) {
                 $this->fail("$path.calls", 'Must be at least 1 (the collector writes no zero rows).');
             }
+            if (property_exists($row, 'cost_cents')) {
+                $cost = $row->cost_cents;
+                if (! (is_int($cost) || is_float($cost)) || ! is_finite((float) $cost) || $cost < 0 || $cost > self::COST_CAP) {
+                    $this->fail("$path.cost_cents", 'Must be a number between 0 and 1e12.');
+                }
+            }
+            if (property_exists($row, 'max_mode_calls')) {
+                $max = $row->max_mode_calls;
+                if (! is_int($max) || $max < 0 || (is_int($row->calls) && $max > $row->calls)) {
+                    $this->fail("$path.max_mode_calls", 'Must be an integer between 0 and calls.');
+                }
+            }
             if (is_string($row->tool) && is_string($row->agent_id) && ($model === null || is_string($model))) {
                 $key = $row->tool."\0".$row->agent_id."\0".($model ?? '');
                 if (isset($seen[$key])) {
@@ -155,6 +180,34 @@ final class CliUsageValidator
                 $seen[$key] = true;
             }
         }
+    }
+
+    /** @return list<string>|null the valid covered_tools, null when absent or invalid (then rows are not checked against it) */
+    private function coveredTools(stdClass $doc, string $prefix): ?array
+    {
+        if (! property_exists($doc, 'covered_tools')) {
+            return null;
+        }
+        $covered = $doc->covered_tools;
+        if (! is_array($covered) || ! array_is_list($covered) || count($covered) > self::MAX_COVERED) {
+            $this->fail($prefix.'covered_tools', 'Must be an array of at most '.self::MAX_COVERED.' tools.');
+
+            return null;
+        }
+        foreach ($covered as $tool) {
+            if (! is_string($tool) || ! in_array($tool, CliUsageDay::TOOLS, true)) {
+                $this->fail($prefix.'covered_tools', 'Each entry must be one of: '.implode(', ', CliUsageDay::TOOLS).'.');
+
+                return null;
+            }
+        }
+        if (count(array_unique($covered)) !== count($covered)) {
+            $this->fail($prefix.'covered_tools', 'Must not repeat a tool.');
+
+            return null;
+        }
+
+        return $covered;
     }
 
     /** Exact key set (plus optional keys): reports unknown and missing keys; false when the shape is unusable. */

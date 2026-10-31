@@ -33,7 +33,7 @@ export type OverviewProps = {
 };
 
 // Measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days): real counts from the CLI logs, not estimates.
-export type CliTool = 'claude_code' | 'kimi_code' | 'opencode_go';
+export type CliTool = 'claude_code' | 'kimi_code' | 'opencode_go' | 'cursor';
 export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number };
 /** One model inside a tool / day cell / agent, total desc; model null = not recorded in the log (label "model not recorded"). */
 export type CliModelRow = CliSums & { model: string | null; label: string };
@@ -43,6 +43,8 @@ export type CliTableRow = CliSums & { date: string; label: string; tool: CliTool
 export type CliBlock = {
   empty: boolean; coverageFrom: string | null; coverageFromLabel: string | null; daysWithRows: number;
   total: number; calls: number; tools: CliToolStats[]; series: Series[]; days: OverviewDay[]; table: CliTableRow[];
+  /** date => tools a file covered that day (marker): covered + no rows = zero, missing = no file. */
+  importedTools: Record<string, CliTool[]>;
 };
 
 /** How a token figure is rendered: estimate (tilde, "estimated") or measured (plain, "measured"). */

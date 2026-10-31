@@ -3,6 +3,7 @@
 namespace App\Services\Usage;
 
 use App\Models\CliUsageDay;
+use App\Models\CliUsageImport;
 use App\Models\UsageDay;
 use App\Support\OrgDate;
 use Carbon\CarbonImmutable;
@@ -31,7 +32,9 @@ use Carbon\CarbonImmutable;
  *   or later days are "no data". Total = input + output + cache read + cache creation. Rows are stored
  *   per model; tools, table cells and their agents also carry a `models` breakdown (total desc) that sums
  *   to the row it sits in. Model '' (rows from before models were collected, or a log without one) is
- *   `model: null` with the label "model not recorded".
+ *   `model: null` with the label "model not recorded". `tools` always lists the collector's three tools; Cursor
+ *   only when it has rows in the range. `importedTools`: date => tools a file covered that day (CliUsageImport
+ *   markers): a covered tool without rows is a true zero, a tool missing there had no file.
  */
 final class UsageReport
 {
@@ -47,7 +50,7 @@ final class UsageReport
     public const UNMATCHED_LABEL = 'No routine (ad-hoc)';
 
     /** Fixed chart colours per CLI tool (from the AgentColors palette, so they sit well next to the agents). */
-    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F', 'opencode_go' => '#44954A'];
+    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F', 'opencode_go' => '#44954A', 'cursor' => '#484890'];
 
     private CarbonImmutable $now;
 
@@ -197,7 +200,11 @@ final class UsageReport
         $tools = [];
         /** @var array<string, array<string, array<string, true>>> tool => model => date => true */
         $modelDays = [];
+        $toolsWithRows = $rows->pluck('tool')->unique()->all();
         foreach (CliUsageDay::TOOLS as $tool) {
+            if (! in_array($tool, CliUsageDay::LEGACY_COLLECTOR_TOOLS, true) && ! in_array($tool, $toolsWithRows, true)) {
+                continue;
+            }
             $tools[$tool] = ['tool' => $tool, 'name' => CliUsageDay::TOOL_LABELS[$tool], 'color' => self::TOOL_COLORS[$tool]] + $sum() + ['days' => 0, 'models' => []];
         }
         /** @var array<string, array<string, array{sum: array<string, int>, agents: array<string, array<string, mixed>>, models: array<string, array<string, mixed>>}>> date => tool => … */
@@ -275,7 +282,26 @@ final class UsageReport
             'series' => $series,
             'days' => $days,
             'table' => $table,
+            'importedTools' => $this->importedTools($dates),
         ];
+    }
+
+    /**
+     * @param  list<string>  $dates
+     * @return array<string, list<string>> date => covered tools (TOOLS order), every date of the range
+     */
+    private function importedTools(array $dates): array
+    {
+        $out = array_fill_keys($dates, []);
+        $markers = CliUsageImport::query()->whereBetween('date', [$dates[0], end($dates)])->get(['date', 'tool']);
+        foreach ($markers as $m) {
+            $d = substr((string) $m->getRawOriginal('date'), 0, 10);
+            if (isset($out[$d])) {
+                $out[$d][] = $m->tool;
+            }
+        }
+
+        return array_map(fn ($tools) => array_values(array_intersect(CliUsageDay::TOOLS, $tools)), $out);
     }
 
     /** @return array<string, mixed>|null props for Usage/Agent, null when the agent never appears in any stored day */

@@ -179,11 +179,19 @@ Row (extends `cli_usage`; replaces the earlier `cost_usd`/`requests` proposal �
 `input` = inputTokens, `cache_creation` = cacheWriteTokens, `calls` = event count, `cost_cents` = Σ chargedCents
 (optional), `max_mode_calls` (optional). `CliUsageDay::TOOLS += 'cursor'`.
 
-**Ingest change (needed)**: `CliUsageImporter` deletes **all** cli rows of the date before inserting, so a separate
-Cursor POST would wipe that day's Claude Code/Kimi/OpenCode rows. New rule: **replace per (workspace, date, tool)** for
-the tools in the file — the tools present in `rows`, plus an optional `tools: [...]` list so a file can say "Kimi ran,
-zero rows". Each imported (date, tool) writes a `cli_usage_imports` marker: marker + no rows = zero, no marker = "no
-file for that day". Cadence: nightly for yesterday + re-POST of the last 2 days (late events).
+**Ingest change (done, branch `wip/usage-per-tool`)**: `CliUsageImporter` used to delete **all** cli rows of the date
+before inserting, so a separate Cursor POST would have wiped that day's Claude Code/Kimi/OpenCode rows. Now it
+**replaces per (workspace, date, tool)** for the tools the file covers, in one transaction. A collector object takes an
+optional top-level **`covered_tools: [...]`** (distinct `CliUsageDay::TOOLS`, max 10; not `tools`, which is the rows
+key) = "this file is authoritative for these tools on this date, even with zero rows"; a row whose tool is not listed →
+422. Without it the covered set is the tools in the rows, plus `CliUsageDay::LEGACY_COLLECTOR_TOOLS` (claude_code,
+kimi_code, opencode_go) when no row is `cursor`, so today's `cli_usage.py` files (empty ones too) behave exactly as
+before. Captain's Cursor file should send `"covered_tools": ["cursor"]`. Rows may carry `cost_cents` (number 0–1e12)
+and `max_mode_calls` (int 0–`calls`), stored in nullable `cli_usage_days` columns. Each covered (workspace, date, tool)
+upserts a `cli_usage_imports` marker (`rows`, `total`, `imported_at`; backfilled from existing rows): marker + no rows
+= zero, no marker = "no file for that day". The Usage page props carry `cli.importedTools` (date → covered tools); the
+Cursor tile shows up once Cursor has rows in the range (no other UI yet). Cadence: nightly for yesterday + re-POST of the
+last 2 days (late events).
 
 ## 8. Screens → backend
 

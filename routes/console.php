@@ -55,7 +55,7 @@ Artisan::command('bridge:usage-import {paths* : Day files (YYYY-MM-DD.json)} {--
 })->purpose('Import Bridge usage day files (strictly validated, upsert by date)');
 
 // Standalone collector files (bridge-usage/data/cli/YYYY-MM-DD.json, cli_usage.py): measured Claude Code / Kimi Code
-// tokens. Same validator + replace-per-day as the `cli_usage` key of a day file; for backfill on the server.
+// tokens. Same validator + replace per date and covered tool as the `cli_usage` key of a day file; for backfill on the server.
 Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.json)} {--dry-run : Validate only, write nothing}', function (CliUsageImporter $importer) {
     $dry = (bool) $this->option('dry-run');
     $failed = 0;
@@ -93,7 +93,7 @@ Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.
     }
 
     return $failed === 0 ? 0 : 1;
-})->purpose('Import measured Claude Code / Kimi Code usage files (strictly validated, replace by date)');
+})->purpose('Import measured Claude Code / Kimi Code usage files (strictly validated, replace by date and covered tool)');
 
 // Same validator + importer as POST /api/polymarket/feed, from two files (one-off seed / backfill on the server).
 Artisan::command('bridge:polymarket-import {snapshot : feed.json} {series : book_series.json} {--dry-run : Validate only, write nothing}', function (PolymarketFeedImporter $importer) {

@@ -44,6 +44,7 @@ class AcrossWorkspacesUsageTest extends TestCase
             'app/Models/Concerns/BelongsToWorkspace.php' => 2, // the definition + parentWorkspaceId() (console writes)
             'app/Models/Project.php' => 1,                     // ticket_prefix: globally unique for now
             'app/Services/Tickets/TicketService.php' => 2,     // ticket_prefix + ticket key: globally unique for now
+            'app/Services/Usage/CliUsageImporter.php' => 3,    // markers/rows/upsert, each filtered by the explicit current workspace_id
         ], $this->uses('/acrossWorkspaces\s*\(/'));
     }
 
