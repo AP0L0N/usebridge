@@ -19,15 +19,34 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 2. **Owner admin = user list + disable/enable ONLY.** Tilen cannot see other users' boards, tickets, statuses, usage or
    any data; no impersonation. Enforced in API + query layer (§5).
 
-**Working defaults (CoS, 31 Oct, not confirmed by Tilen)** — we build to these; each is cheap to change:
+**Decisions by the Chief of Staff (Captain W. Diego), 31 Oct** — his calls, not Tilen's:
+
+1. **MCP uses `laravel/mcp`** (runtime dependency, `Mcp::web`, streamable HTTP; §6).
+2. **Staging first**: The Many runs a Bridge staging site on xerxes (`bridge-staging.tilenpoje.eu`, its own DB copy);
+   all multi-user work goes there first.
+3. **Production only after a migration rehearsal** on a copy of the live DB, with row counts compared before/after.
+4. **Breached passwords**: checked against the HIBP k-anonymity range API (sign-up, reset, change); **fail-open** when
+   HIBP is down or slow.
+5. **Per-project token scopes are v2.**
+6. **His working defaults (table below) are confirmed** (by him; still cheap to change).
+7. **Turnstile is the bot check**; keys pending (Cloudflare).
+8. **Workspace `LANTIS`, slug `tilen`.**
+
+Still open with Tilen: Cursor plan type, mail provider and sender, Cloudflare access (Turnstile keys), owner login
+email (`BRIDGE_OWNER_EMAIL`). Until they are answered, config decides:
+- no `TURNSTILE_*` keys → sign-up bot check is honeypot + minimum fill time only;
+- `MAIL_MAILER=log` → verification / reset links are written to the log, not sent;
+- owner email comes from `BRIDGE_OWNER_EMAIL`; the backfill migration refuses to run without it.
+
+**Working defaults (CoS, 31 Oct; confirmed by the CoS, decision 6 above)** — we build to these; each is cheap to change:
 
 | Topic | Default |
 |---|---|
 | MCP | `/mcp`, streamable HTTP, `Authorization: Bearer`, rate limit per token |
-| Token scopes v1 | `read` / `read & write` (mapping §4); per-project scoping later |
+| Token scopes v1 | `read` / `read & write` (mapping §4); per-project scoping v2 (CoS decision 5) |
 | Token expiry | 30 / 90 / 365 days or none |
 | Polymarket, Admin for non-owners | 404 |
-| Passwords | ≥ 10 chars, strength meter, no composition rules; breached check optional/open (code: 10) |
+| Passwords | ≥ 10 chars, strength meter, no composition rules; breached check via HIBP range API, fail-open (CoS decision 4) |
 | Lockout | 5 failed logins → account locked 15 min |
 | 2FA | later |
 | Email verification | required before creating tokens (and MCP); not for using the boards |
@@ -41,10 +60,10 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 |---|---|---|---|
 | 1 | Cursor data source | Admin API `filtered-usage-events` via Captain; CSV fallback (§7) | working default; Cursor plan open |
 | 2 | Cursor agent attribution | `serviceAccountId`/`userEmail` → agent map kept by Captain; else *Unattributed* | working default |
-| 3 | Scopes, expiry | read / read&write; 30/90/365/none; per-project later | working default |
-| 4 | MCP endpoint | `/mcp`, streamable HTTP, Bearer, per-token limit, tools §6 | working default; dependency open |
+| 3 | Scopes, expiry | read / read&write; 30/90/365/none; per-project v2 | default confirmed (CoS) |
+| 4 | MCP endpoint | `/mcp`, streamable HTTP, Bearer, per-token limit, tools §6; `laravel/mcp` | **decided** (CoS) |
 | 5 | Email verification | before tokens/MCP, not before use | relayed (1) + default |
-| 6 | Password policy | 10 chars, meter, 5 → 15 min lock, 2FA later; breached check | default; breached open |
+| 6 | Password policy | 10 chars, meter, 5 → 15 min lock, 2FA later; breached check (HIBP, fail-open) | default; breached **decided** (CoS) |
 | 7 | Owner admin | list + disable/enable only; no data, no delete, no impersonation; open sign-up | **decided** (relayed) |
 | 8 | Data separation | everything existing → Tilen; shared-box CLI logs stay Tilen's (other users' tools aren't on the box) | default |
 | 9 | 404 or 403 | 404 | default |
@@ -287,12 +306,13 @@ out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification); (7
 
 ## 12. Open questions for Tilen
 
+Answered by the Chief of Staff on 31 Oct (§0): MCP → `laravel/mcp`; staging on xerxes (`bridge-staging.tilenpoje.eu`);
+HIBP breached check, fail-open; per-project scopes v2; working defaults confirmed; Turnstile; workspace `LANTIS` / slug
+`tilen`. Still open:
+
 1. Cursor: which plan is LANTIS on — Team (admin API key, held by Captain) or individual (CSV)?
-2. MCP: add `laravel/mcp` or hand-roll?
-3. Mail provider and sender (e.g. `bridge@tilenpoje.eu`, SPF/DKIM); who holds the credentials (The Many)?
-4. Turnstile keys (Cloudflare dashboard) — OK to use Cloudflare?
-5. Staging: second vhost `bridge-staging.tilenpoje.eu` with a dump copy, set up by The Many?
-6. `BRIDGE_OWNER_EMAIL` (Tilen's login email) and workspace name `LANTIS` / slug `tilen`?
-7. Breached-password check (HIBP k-anonymity call on signup/reset): yes/no?
-8. Per-project token scopes: when?
-9. Confirm the working defaults in §0 (CoS, not yet confirmed by Tilen).
+2. Mail provider and sender (e.g. `bridge@tilenpoje.eu`, SPF/DKIM); who holds the credentials (The Many)? Until then
+   `MAIL_MAILER=log`.
+3. Cloudflare access for the Turnstile keys (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`). Until then honeypot +
+   minimum fill time only.
+4. Owner login email for `BRIDGE_OWNER_EMAIL` (the backfill refuses without it).
