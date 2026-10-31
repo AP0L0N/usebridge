@@ -9,3 +9,6 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Cursor CSV fixtures keep their exact bytes (BOM + CRLF in v1.csv)
+tests/fixtures/cursor/*.csv -text
