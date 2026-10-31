@@ -59,3 +59,21 @@ export function activityDay(iso: string | null, nowIso: string): string {
   const y = parts(now).y === p.y ? '' : ` ${p.y}`;
   return `${p.wd} ${+p.d} ${p.mon}${y}`;
 }
+
+/** Tokens / admin dates: 29 Jan 2027. */
+export function longDate(iso: string | null): string {
+  if (!iso) return '—';
+  const p = parts(new Date(iso));
+  return `${+p.d} ${p.mon} ${p.y}`;
+}
+
+/** Whole days from now until iso (negative = past), by calendar day in Europe/Ljubljana. */
+export function daysUntil(iso: string, nowIso: string): number {
+  return -dayDiff(new Date(iso), new Date(nowIso));
+}
+
+/** Lockout: 14:35 (the local time a lock ends). */
+export function clockTime(iso: string): string {
+  const p = parts(new Date(iso));
+  return `${p.hh}:${p.mm}`;
+}

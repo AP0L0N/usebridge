@@ -185,7 +185,7 @@ export function dueLabel(date: string): string {
 export const PRIORITY_LABEL: Record<Priority, string> = { p1: 'P1 · High', p2: 'P2 · Medium', p3: 'P3 · Normal' };
 
 /** CSRF for the gate-session JSON endpoints: Laravel's XSRF-TOKEN cookie (fresh), else the meta tag. */
-function csrfHeaders(): Record<string, string> {
+export function csrfHeaders(): Record<string, string> {
   const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
   if (m) return { 'X-XSRF-TOKEN': decodeURIComponent(m[1]) };
   const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;

@@ -2,6 +2,7 @@ import '../css/bridge.css';
 import '../css/usage.css';
 import '../css/polymarket.css';
 import '../css/kanban.css';
+import '../css/account.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
