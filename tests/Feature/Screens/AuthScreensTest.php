@@ -80,7 +80,7 @@ class AuthScreensTest extends TestCase
 
         $this->postJson('/signup', [
             'name' => 'Sam Rivera', 'email' => 'sam@example.test', 'password' => 'garden-planner-27',
-            SignupBotCheck::HONEYPOT => '', 'form_token' => $token,
+            SignupBotCheck::HONEYPOT => '', 'form_token' => $token, 'accept_terms' => true,
         ])->assertCreated();
         $this->assertAuthenticated();
     }

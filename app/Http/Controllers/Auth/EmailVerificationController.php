@@ -8,6 +8,8 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Email verification (MustVerifyEmail + the built-in VerifyEmail notification, docs/MULTI-USER-PLAN.md §2). The link
@@ -15,10 +17,26 @@ use Illuminate\Http\Request;
  */
 class EmailVerificationController extends Controller
 {
-    /** verification.notice: where the `verified` middleware sends unverified users. */
-    public function notice(Request $request): JsonResponse
+    /**
+     * verification.notice: where unverified users land after login. JSON clients keep the JSON; a browser gets the
+     * VerifyEmail screen (resend, throttled 6/min), guests go to login and verified users to their boards.
+     */
+    public function notice(Request $request): JsonResponse|RedirectResponse|Response
     {
         $user = $request->user();
+        if (! $request->wantsJson()) {
+            if ($user === null) {
+                return redirect()->guest(route('login'));
+            }
+            if ($user->hasVerifiedEmail()) {
+                return redirect()->route('portfolio');
+            }
+
+            return Inertia::render('Auth/VerifyEmail', [
+                'email' => $user->email,
+                'resendUrl' => route('verification.send', absolute: false),
+            ]);
+        }
 
         return response()->json([
             'verified' => $user?->hasVerifiedEmail() ?? false,

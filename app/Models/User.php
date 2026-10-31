@@ -43,6 +43,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'disabled_at' => 'datetime',
             'pending_email_at' => 'datetime',
             'delete_requested_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
+            'age_confirmed_at' => 'datetime',
         ];
     }
 

@@ -39,7 +39,7 @@ class SignupTest extends TestCase
 
         return $this->withServerVariables(['REMOTE_ADDR' => $ip])->postJson('/signup', [
             'name' => 'Marta', 'email' => 'marta@example.test', 'password' => 'correct horse battery',
-            'form_token' => $token, 'website' => '', ...$data,
+            'form_token' => $token, 'website' => '', 'accept_terms' => true, ...$data,
         ]);
     }
 

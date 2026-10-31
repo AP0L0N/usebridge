@@ -33,3 +33,6 @@ Thumbs.db
 /build-r1/
 /server-snapshot/
 /build-r2/
+
+# Deployed commit for the footer source link (written by the deploy)
+.bridge-deploy-sha

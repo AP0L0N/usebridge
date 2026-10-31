@@ -25,6 +25,9 @@ return [
     'legacy_read_only' => filter_var(env('BRIDGE_LEGACY_READ_ONLY', false), FILTER_VALIDATE_BOOL),
 
     /* Public Bridge URL, used for ticket links in API payloads (answers relay). */
+    // The live Bridge host: the staging-only ops commands refuse to run when APP_URL is this host.
+    'live_host' => strtolower((string) env('BRIDGE_LIVE_HOST', '')),
+
     'public_url' => env('BRIDGE_PUBLIC_URL', 'https://bridge.tilenpoje.eu'),
 
     'org_timezone' => 'Europe/Ljubljana',
@@ -44,4 +47,17 @@ return [
     */
     'hibp_enabled' => filter_var(env('BRIDGE_HIBP_ENABLED', true), FILTER_VALIDATE_BOOL),
     'hibp_timeout' => 3,
+
+    /*
+    | Legal (sign-up acceptance, legal pages, footer). terms_version: stored on the user when they accept at sign-up.
+    | legal_entity: the operator shown in the footer (":entity"). legal_dir: directory with the final legal texts
+    | (terms.en.md, privacy.en.md, imprint.en.md, pogoji.sl.md, zasebnost.sl.md, impresum.sl.md), kept outside the repo;
+    | null = the placeholders in resources/legal. source_url / source_sha: the AGPL §13 "Source code" link, to
+    | <source_url>/tree/<sha> when the deployed commit is known (else the file .bridge-deploy-sha, if present).
+    */
+    'terms_version' => env('BRIDGE_TERMS_VERSION', '2026-10-31'),
+    'legal_entity' => env('BRIDGE_LEGAL_ENTITY', 'Your company'),
+    'legal_dir' => env('BRIDGE_LEGAL_DIR'),
+    'source_url' => env('BRIDGE_SOURCE_URL', 'https://github.com/AP0L0N/usebridge'),
+    'source_sha' => env('BRIDGE_SOURCE_SHA', env('BRIDGE_DEPLOYED_SHA')),
 ];
