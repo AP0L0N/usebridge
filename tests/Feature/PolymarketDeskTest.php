@@ -39,7 +39,7 @@ class PolymarketDeskTest extends TestCase
     #[Test]
     public function gate_is_required(): void
     {
-        $this->get('/polymarket')->assertRedirect(route('gate.show'));
+        $this->get('/polymarket')->assertRedirect(route('login'));
     }
 
     #[Test]

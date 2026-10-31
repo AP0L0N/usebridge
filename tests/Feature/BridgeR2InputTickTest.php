@@ -71,7 +71,7 @@ class BridgeR2InputTickTest extends TestCase
     #[Test]
     public function ui_route_requires_the_gate_and_scopes_to_the_project(): void
     {
-        $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertRedirect(route('gate.show'));
+        $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertRedirect(route('login'));
         $this->assertNull(RequiredInput::find('in-a')->resolved_at);
 
         $this->withSession(['bridge_gate_unlocked' => true]);

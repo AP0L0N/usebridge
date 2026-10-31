@@ -13,8 +13,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Web pages: a logged-in user acts in their own workspace (owned, else their only membership; 403 without one).
  * Otherwise AUTH-1: shared workspace password gate (session), acting in Tilen's workspace (bridge.default_workspace)
- * until the login screens replace the gate (docs/MULTI-USER-PLAN.md §2). A login wins over an unlocked gate. Being
- * is_admin changes nothing here: an admin sees only their own workspace (§5).
+ * until Tilen retires the gate (docs/MULTI-USER-PLAN.md §2). A login wins over an unlocked gate. Guests go to the login
+ * screen (which links "Workspace password" to the gate). Being is_admin changes nothing here: an admin sees only their
+ * own workspace (§5).
  */
 class EnsureWorkspaceGate
 {
@@ -40,9 +41,9 @@ class EnsureWorkspaceGate
         }
 
         if ($request->header('X-Inertia')) {
-            return Inertia::location(route('gate.show'));
+            return Inertia::location(route('login'));
         }
 
-        return redirect()->guest(route('gate.show'));
+        return redirect()->guest(route('login'));
     }
 }

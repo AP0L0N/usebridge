@@ -20,9 +20,10 @@ class GateAndPagesTest extends TestCase
     }
 
     #[Test]
-    public function guests_are_sent_to_gate(): void
+    public function guests_are_sent_to_login_and_the_gate_still_works(): void
     {
-        $this->get('/')->assertRedirect(route('gate.show'));
+        $this->get('/')->assertRedirect(route('login'));
+        $this->get(route('gate.show'))->assertOk()->assertInertia(fn ($p) => $p->component('Gate'));
     }
 
     #[Test]

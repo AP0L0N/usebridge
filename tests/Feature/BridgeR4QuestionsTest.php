@@ -197,7 +197,7 @@ class BridgeR4QuestionsTest extends TestCase
     public function web_answer_route_sets_answered_state(): void
     {
         $q = $this->question();
-        $this->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertRedirect('/gate');
+        $this->post("/projects/merkwell/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertRedirect('/login');
         $this->assertSame('open', $q->fresh()->state);
 
         $this->gate();

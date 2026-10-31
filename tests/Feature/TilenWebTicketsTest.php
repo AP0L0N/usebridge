@@ -35,8 +35,8 @@ class TilenWebTicketsTest extends TestCase
     #[Test]
     public function web_ticket_routes_need_the_gate(): void
     {
-        $this->post('/projects/concierge-avant/tickets', ['title' => 'x'])->assertRedirect(route('gate.show'));
-        $this->get('/projects/concierge-avant/tickets/CA-1')->assertRedirect(route('gate.show'));
+        $this->post('/projects/concierge-avant/tickets', ['title' => 'x'])->assertRedirect(route('login'));
+        $this->get('/projects/concierge-avant/tickets/CA-1')->assertRedirect(route('login'));
         $this->assertSame(0, Ticket::count());
     }
 

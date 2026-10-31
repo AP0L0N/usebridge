@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\SignupController;
 use App\Http\Controllers\Auth\TokenController;
 use App\Http\Controllers\CursorCsvController;
 use App\Http\Controllers\GateController;
+use App\Http\Controllers\Pages\AuthPageController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
@@ -29,8 +30,12 @@ Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
 Route::post('/gate', [GateController::class, 'unlock'])->name('gate.unlock');
 Route::post('/gate/lock', [GateController::class, 'lock'])->name('gate.lock');
 
-// Accounts (docs/MULTI-USER-PLAN.md §2, §8): JSON for the screens to come. The AUTH-1 gate keeps working beside them;
-// a logged-in user acts in their own workspace (EnsureWorkspaceGate).
+// Accounts (docs/MULTI-USER-PLAN.md §2, §8): Inertia screens (GET) over the JSON writes. Guests land on /login; the
+// AUTH-1 gate keeps working beside it ("Workspace password"); a logged-in user acts in their own workspace.
+Route::get('/login', [AuthPageController::class, 'login'])->name('login.show');
+Route::get('/signup', [AuthPageController::class, 'signup'])->name('signup.show');
+Route::get('/forgot-password', [AuthPageController::class, 'forgot'])->name('password.request');
+Route::get('/reset-password/{token}', [AuthPageController::class, 'reset'])->name('password.reset');
 Route::get('/signup/form', [SignupController::class, 'form'])->name('signup.form');
 Route::post('/signup', [SignupController::class, 'store'])->middleware('throttle:signup')->name('signup');
 Route::post('/login', [LoginController::class, 'login'])->name('login');

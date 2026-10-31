@@ -43,6 +43,7 @@ export default function Gate() {
             <p className="err" role="alert">Wrong password.</p>
           )}
           <button className="btn" type="submit" disabled={processing}>Enter Bridge</button>
+          <p className="alt">Have your own account? <a href="/login">Log in with your email</a></p>
         </form>
       </main>
     </>

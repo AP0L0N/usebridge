@@ -63,8 +63,8 @@ class UsageViewTest extends TestCase
     #[Test]
     public function gate_is_required(): void
     {
-        $this->get('/usage')->assertRedirect(route('gate.show'));
-        $this->get('/usage/agents/'.self::THE_MANY)->assertRedirect(route('gate.show'));
+        $this->get('/usage')->assertRedirect(route('login'));
+        $this->get('/usage/agents/'.self::THE_MANY)->assertRedirect(route('login'));
     }
 
     #[Test]

@@ -187,7 +187,7 @@ class KanbanPagesTest extends TestCase
     #[Test]
     public function the_seen_endpoints_need_the_gate(): void
     {
-        $this->post('/projects/concierge-avant/seen')->assertRedirect(route('gate.show'));
-        $this->post('/projects/concierge-avant/tickets/CA-1/seen')->assertRedirect(route('gate.show'));
+        $this->post('/projects/concierge-avant/seen')->assertRedirect(route('login'));
+        $this->post('/projects/concierge-avant/tickets/CA-1/seen')->assertRedirect(route('login'));
     }
 }

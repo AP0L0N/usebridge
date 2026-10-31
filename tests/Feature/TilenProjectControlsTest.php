@@ -157,9 +157,9 @@ class TilenProjectControlsTest extends TestCase
     #[Test]
     public function web_controls_redirect_to_the_gate_without_a_session(): void
     {
-        $this->patch('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertRedirect(route('gate.show'));
-        $this->post('/projects/'.self::SLUG.'/archive')->assertRedirect(route('gate.show'));
-        $this->post('/projects/'.self::SLUG.'/unarchive')->assertRedirect(route('gate.show'));
+        $this->patch('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertRedirect(route('login'));
+        $this->post('/projects/'.self::SLUG.'/archive')->assertRedirect(route('login'));
+        $this->post('/projects/'.self::SLUG.'/unarchive')->assertRedirect(route('login'));
         $this->assertCount(0, $this->events());
     }
 

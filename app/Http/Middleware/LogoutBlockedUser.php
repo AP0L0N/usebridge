@@ -25,7 +25,7 @@ class LogoutBlockedUser
 
             return $request->expectsJson()
                 ? response()->json(['message' => $message], 401)
-                : redirect()->route('gate.show');
+                : redirect()->route('login')->with('error', $message);
         }
 
         return $next($request);
