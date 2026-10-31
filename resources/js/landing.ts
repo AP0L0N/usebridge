@@ -1,22 +1,28 @@
 // Landing page progressive enhancement (the page works without it): mobile menu toggle and the sticky CTA.
 
 const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
-const nav = document.getElementById('site-nav');
+const sheet = document.getElementById('site-menu');
+const closer = document.querySelector<HTMLButtonElement>('[data-menu-close]');
 
-if (toggle && nav) {
+if (toggle && sheet) {
     const setOpen = (open: boolean): void => {
         toggle.setAttribute('aria-expanded', String(open));
-        nav.classList.toggle('is-open', open);
+        sheet.classList.toggle('is-open', open);
+        document.body.classList.toggle('menu-locked', open);
+        if (open) closer?.focus();
+        else toggle.focus();
     };
-    toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
-    nav.addEventListener('click', (event) => {
-        if ((event.target as HTMLElement).closest('a')) setOpen(false);
+    toggle.addEventListener('click', () => setOpen(true));
+    closer?.addEventListener('click', () => setOpen(false));
+    sheet.addEventListener('click', (event) => {
+        if ((event.target as HTMLElement).closest('a')) {
+            toggle.setAttribute('aria-expanded', 'false');
+            sheet.classList.remove('is-open');
+            document.body.classList.remove('menu-locked');
+        }
     });
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
-            setOpen(false);
-            toggle.focus();
-        }
+        if (event.key === 'Escape' && sheet.classList.contains('is-open')) setOpen(false);
     });
 }
 

@@ -27,10 +27,13 @@
 <body class="landing">
     <a class="skip-link" href="#main">Skip to content</a>
 
-    @include('landing.header')
-
-    <main id="main">
-        @include('landing.hero')
+    <div class="stage on-stage">
+        @include('landing.header')
+        <main id="main">
+            @include('landing.hero')
+        </main>
+    </div>
+    <main>
         @include('landing.problem')
         @include('landing.how')
         @include('landing.see')
@@ -45,7 +48,7 @@
     @include('landing.footer')
 
     <div class="sticky-cta" data-sticky-cta inert>
-        <a class="btn btn-primary" href="{{ route('signup.show') }}">Create a free account</a>
+        <a class="btn btn--primary" href="{{ route('signup.show') }}">Create a free account</a>
     </div>
 </body>
 </html>

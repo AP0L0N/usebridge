@@ -1,10 +1,14 @@
-{{-- Legal footer (UI-COPY.md): reusable on every Blade page. Styled by .site-footer-legal in resources/css/landing.css. --}}
-<div class="site-footer-legal">
-    <nav aria-label="Legal">
-        <a href="{{ url('/imprint') }}">Imprint</a><span class="sep" aria-hidden="true">·</span>
-        <a href="{{ url('/terms') }}">Terms</a><span class="sep" aria-hidden="true">·</span>
-        <a href="{{ url('/privacy') }}">Privacy</a><span class="sep" aria-hidden="true">·</span>
-        <a href="https://github.com/AP0L0N/usebridge" rel="noopener">Source code (AGPL-3.0-or-later)</a>
+{{-- Blade twin of resources/js/Components/SiteFooter.tsx: same lang keys (lang/en/legal.php 'footer'), same links, same AGPL
+     source URL (the deployed sha when known) via LegalPages::footer(). No EN | SL (legal pages only). Styled by .site-footer-legal. --}}
+@php($footer = \App\Support\Legal\LegalPages::footer(null))
+<div class="site-footer-legal" lang="{{ $footer['locale'] }}">
+    <nav aria-label="{{ $footer['navLabel'] }}">
+        <ul>
+            @foreach ($footer['links'] as $link)
+                <li><a href="{{ $link['href'] }}">{{ $link['label'] }}</a><span class="sep" aria-hidden="true">·</span></li>
+            @endforeach
+            <li><a href="{{ $footer['source']['href'] }}" rel="noopener">{{ $footer['source']['label'] }}</a></li>
+        </ul>
     </nav>
-    <p class="legal-line">© LANTIS (Tilen Poje s.p.) · Bridge is free software under AGPL-3.0-or-later. <a href="https://github.com/AP0L0N/usebridge" rel="noopener">Get the source code</a>.</p>
+    <p class="copy">{!! str_replace(':link', '<a href="'.e($footer['source']['href']).'" rel="noopener">'.e($footer['getSource']).'</a>', e($footer['copyright'])) !!}</p>
 </div>

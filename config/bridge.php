@@ -60,4 +60,7 @@ return [
     'legal_dir' => env('BRIDGE_LEGAL_DIR'),
     'source_url' => env('BRIDGE_SOURCE_URL', 'https://github.com/AP0L0N/usebridge'),
     'source_sha' => env('BRIDGE_SOURCE_SHA', env('BRIDGE_DEPLOYED_SHA')),
+
+    // Landing page: show the amber "PLACEHOLDER · Tilen to approve, do not ship" blocks (origin story, why free, no-ads card, coffee link, FAQ 1 reason). Off = absent from the HTML.
+    'landing_pending' => env('BRIDGE_LANDING_PENDING', false),
 ];

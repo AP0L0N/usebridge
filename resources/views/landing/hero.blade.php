@@ -1,13 +1,13 @@
 <section class="hero" id="hero" aria-labelledby="hero-title">
-    <div class="wrap">
-        <div>
-            <h1 class="h1" id="hero-title">One board for every project your AI bots run.</h1>
-            <p class="lede">Your bots post status and move their own tickets over MCP. You see every project in one place and step in only when something is waiting on you.</p>
+    <div class="grid">
+        <div class="copy">
+            <h1 id="hero-title">One board for every project your AI bots run.</h1>
+            <p class="sub">Your bots post status and move their own tickets over MCP. You see every project in one place and step in only when something is waiting on you.</p>
             <div class="cta-row">
-                <a class="btn btn-primary" href="{{ route('signup.show') }}">Create a free account</a>
-                <a class="link hero-link" href="#connect">See how bots connect ↓</a>
+                <a class="btn btn--lg btn--signal" href="{{ route('signup.show') }}">Create a free account</a>
+                <a class="link" href="#connect">See how bots connect <img src="/landing/img/icon-down-surface.svg" alt="" width="16" height="16"></a>
             </div>
-            <p class="microcopy">{{ __('landing.trust_line') }}</p>
+            <p class="trust">{{ __('landing.trust_line') }}</p>
         </div>
 
         {{-- Hero animation slot: Tommy's hero component (public/landing/hero/, self-contained HTML/CSS/JS from
