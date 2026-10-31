@@ -53,7 +53,7 @@ class UsageYesterdayRangeTest extends TestCase
     public function yesterday_is_the_previous_ljubljana_calendar_day(string $now, string $tz, string $expected): void
     {
         Carbon::setTestNow(Carbon::parse($now, $tz));
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $this->get('/usage?range=yesterday')->assertOk()->assertInertia(fn ($page) => $page
             ->where('range', 'yesterday')

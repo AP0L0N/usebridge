@@ -5,7 +5,6 @@ export type Shared = {
   auth?: { user: AuthUser | null };
   features?: { polymarket?: boolean; admin?: boolean };
   flash?: { success?: string | null; error?: string | null };
-  gateUnlocked?: boolean;
   footer?: Footer;
 };
 

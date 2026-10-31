@@ -58,8 +58,6 @@ BRIDGE_WORKSPACE_NAME="My workspace"
 # Optional
 BRIDGE_PUBLIC_URL=            # base URL for ticket links in API payloads (default: APP_URL)
 BRIDGE_ROSTER_PATH=           # JSON roster file outside the repo (agents and project PMs); empty = none
-BRIDGE_GATE_PASSWORD=         # transitional shared workspace password: set BRIDGE_GATE_PASSWORD in .env; empty = gate rejects everyone
-BRIDGE_GATE_ENABLED=true      # false = gate retired (/gate 404s, everyone logs in)
 BRIDGE_OWNER_WAITING_LABEL=   # waiting_tilen column label for workspaces existing at migration time (new ones: "Waiting on you")
 TURNSTILE_SITE_KEY=           # Turnstile widget: execution on submit; Pre-clearance OFF in the Cloudflare dashboard
 TURNSTILE_SECRET_KEY=

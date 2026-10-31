@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-/** GET /polymarket: gate, empty state, DeskReport figures from the synthetic feed (DATA-SPEC r1 §3–§5). */
+/** GET /polymarket: login required, empty state, DeskReport figures from the synthetic feed (DATA-SPEC r1 §3–§5). */
 class PolymarketDeskTest extends TestCase
 {
     use RefreshDatabase;
@@ -28,7 +28,7 @@ class PolymarketDeskTest extends TestCase
 
     private function unlock(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
     }
 
     private function importFeed(?array $snapshot = null, ?array $series = null): void
@@ -37,7 +37,7 @@ class PolymarketDeskTest extends TestCase
     }
 
     #[Test]
-    public function gate_is_required(): void
+    public function login_is_required(): void
     {
         $this->get('/polymarket')->assertRedirect(route('login'));
     }

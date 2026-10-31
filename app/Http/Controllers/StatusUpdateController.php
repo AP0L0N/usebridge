@@ -8,7 +8,7 @@ use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
-/** Web (gate-session) write path; kept for compatibility, same rules as the API. */
+/** Web (session) write path; kept for compatibility, same rules as the API. */
 class StatusUpdateController extends Controller
 {
     public function store(Request $request, string $slug, StatusUpdateIngest $ingest): RedirectResponse

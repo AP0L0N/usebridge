@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * r4: one set of answer rules for the API PATCH and the gate-session answer route.
+ * r4: one set of answer rules for the API PATCH and the web answer route.
  * - yesno: answer_choice yes|no|skip|other required; 'other' requires answer_text.
  * - text:  answer_text required; answer_choice not allowed.
  * Answering sets state=answered and answered_at=now; reopening clears every answer field.

@@ -65,18 +65,18 @@ a{color:var(--accent)}
 .ownr{font-size:13px;font-weight:700;background:var(--w1);color:var(--w1-ink);border-radius:99px;padding:2px 10px;white-space:nowrap}
 .acct .aid .ownr{align-self:flex-start;margin-top:6px}
 
-/* ---- auth pages: the Workspace gate card, evolved ---- */
-.gate form,.gate .gcard{background:var(--card);border-radius:var(--r);padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 0 var(--line)}
-.gate .gcard h1,.gate form h1{font-size:30px}
-.gate .lede{margin:-8px 0 0;color:var(--ink2)}
-.gate .alt{margin:0;padding-top:16px;border-top:1px solid var(--line);color:var(--ink2);font-size:15px;text-align:center}
-.gate .alt a{font-weight:700}
-.gate .eico{margin:0}
-.gate input.qin{padding:0 14px}
+/* ---- auth pages: the centred card ---- */
+.authpage form,.authpage .gcard{background:var(--card);border-radius:var(--r);padding:32px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 0 var(--line)}
+.authpage .gcard h1,.authpage form h1{font-size:30px}
+.authpage .lede{margin:-8px 0 0;color:var(--ink2)}
+.authpage .alt{margin:0;padding-top:16px;border-top:1px solid var(--line);color:var(--ink2);font-size:15px;text-align:center}
+.authpage .alt a{font-weight:700}
+.authpage .eico{margin:0}
+.authpage input.qin{padding:0 14px}
 .fine{margin:0;font-size:14px;color:var(--ink3)}.fine a{color:var(--ink2);font-weight:700}
 .fine .lnk{font-size:inherit;padding:0}
-/* .gate p (bridge.css) is ink2; keep field messages in their own colours */
-.gate .ferr{color:var(--w3)}.gate .fhint,.gate .fine{color:var(--ink3)}
+/* .authpage p (bridge.css) is ink2; keep field messages in their own colours */
+.authpage .ferr{color:var(--w3)}.authpage .fhint,.authpage .fine{color:var(--ink3)}
 .eico.ok{background:var(--ok-bg);color:var(--ok)}
 
 /* ---- fields ---- */
@@ -289,8 +289,8 @@ fieldset.opts2 legend{padding:0;margin:0 0 6px;font-size:15px;font-weight:700;co
 @media (max-width:720px){
  .acct{margin-left:0}.acct .an{display:none}.acct .car{display:none}
  .acct .menu{width:min(260px,calc(100vw - 32px))}
- .gate{padding:16px;place-items:start center}.gate form,.gate .gcard{padding:22px;margin-top:8px}
- .gate .gcard h1,.gate form h1{font-size:26px}
+ .authpage{padding:16px;place-items:start center}.authpage form,.authpage .gcard{padding:22px;margin-top:8px}
+ .authpage .gcard h1,.authpage form h1{font-size:26px}
  .sethead{padding:24px 0 12px}
  .setgrid{grid-template-columns:minmax(0,1fr);gap:16px}
  .subnav{position:sticky;top:0;z-index:4;background:var(--paper);margin:0 -16px;padding:8px 0}

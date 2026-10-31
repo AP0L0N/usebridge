@@ -33,7 +33,7 @@ export function activeHref(url: string): string | null {
   return '/';
 }
 
-/** The nav entries this viewer may see (the server still answers 404 for the gated routes). */
+/** The nav entries this viewer may see (the server still answers 404 for the hidden routes). */
 export function navFor(features: Shared['features']): NavItem[] {
   return NAV.filter((n) => !n.feature || features?.[n.feature] === true);
 }

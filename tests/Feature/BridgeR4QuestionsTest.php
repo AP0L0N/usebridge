@@ -37,11 +37,6 @@ class BridgeR4QuestionsTest extends TestCase
         Sanctum::actingAs($this->workspaceUser(), ['*']);
     }
 
-    private function gate(): void
-    {
-        $this->withSession(['bridge_gate_unlocked' => true]);
-    }
-
     private function question(array $attrs = []): Question
     {
         return Question::create([
@@ -200,7 +195,7 @@ class BridgeR4QuestionsTest extends TestCase
         $this->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'yes'])->assertRedirect('/login');
         $this->assertSame('open', $q->fresh()->state);
 
-        $this->gate();
+        $this->asOwner();
         $this->from('/projects/northwind')->post("/projects/northwind/questions/{$q->id}/answer", ['answer_choice' => 'other'])
             ->assertSessionHasErrors('answer_text');
         $this->assertSame('open', $q->fresh()->state);
@@ -226,7 +221,7 @@ class BridgeR4QuestionsTest extends TestCase
     #[Test]
     public function open_questions_make_the_project_wait_for_input(): void
     {
-        $this->gate();
+        $this->asOwner();
         $this->assertSame('smooth', $this->northwind()['status']);
 
         $this->question(['state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()]);
@@ -254,7 +249,7 @@ class BridgeR4QuestionsTest extends TestCase
     #[Test]
     public function portfolio_counts_open_questions(): void
     {
-        $this->gate();
+        $this->asOwner();
         $this->assertSame(0, $this->northwind()['openQuestions']);
         $this->question();
         $this->question();
@@ -266,7 +261,7 @@ class BridgeR4QuestionsTest extends TestCase
     #[Test]
     public function board_no_longer_lists_questions_and_keeps_their_rows(): void
     {
-        $this->gate();
+        $this->asOwner();
         $older = $this->question(['text' => 'older']);
         $older->forceFill(['created_at' => now()->subDay()])->save();
         $newer = $this->question(['text' => 'newer']);

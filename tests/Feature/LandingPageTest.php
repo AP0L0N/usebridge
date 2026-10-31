@@ -12,7 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
-/** Logged-out landing page at `/`; users and unlocked gate sessions still get the Portfolio. */
+/** Logged-out landing page at `/`; logged-in users get the Portfolio. */
 class LandingPageTest extends TestCase
 {
     use RefreshDatabase;
@@ -77,11 +77,11 @@ class LandingPageTest extends TestCase
     }
 
     #[Test]
-    public function an_unlocked_gate_session_still_gets_the_portfolio(): void
+    public function the_signed_in_owner_still_gets_the_portfolio(): void
     {
         $this->seed(BridgeSeeder::class);
 
-        $this->gate()->get('/')->assertOk()
+        $this->asOwner()->get('/')->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('Portfolio'));
     }
 

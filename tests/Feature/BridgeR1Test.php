@@ -98,7 +98,7 @@ class BridgeR1Test extends TestCase
     #[Test]
     public function archive_unarchive_and_auto_unarchive_with_reopened_tag(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->post('/projects/northwind/archive')->assertRedirect();
         $p = Project::find('proj-northwind');
         $this->assertNotNull($p->archived_at);
@@ -128,7 +128,7 @@ class BridgeR1Test extends TestCase
     #[Test]
     public function portfolio_props_include_archived_for_search_and_search_corpus(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         Project::find('proj-northwind')->update(['archived_at' => now()]);
         $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Portfolio')

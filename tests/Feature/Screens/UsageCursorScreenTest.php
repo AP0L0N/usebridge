@@ -39,7 +39,7 @@ class UsageCursorScreenTest extends TestCase
     #[Test]
     public function the_owner_sees_the_upload_panel_cursor_tool_cost_and_coverage(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->get('/usage?range=30')->assertInertia(fn (Assert $p) => $p
             ->where('cli.cursorUpload', ['allowed' => true, 'lastImportAt' => null])
             ->where('cli.importedTools.2026-10-25', []));
@@ -78,7 +78,7 @@ class UsageCursorScreenTest extends TestCase
     #[Test]
     public function another_users_usage_page_has_none_of_the_owners_cursor_data(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->uploadV2();
         $this->flushSession();
 

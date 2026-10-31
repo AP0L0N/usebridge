@@ -73,7 +73,7 @@ class CliUsageTest extends TestCase
 
     private function unlock(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
     }
 
     private function importFixtures(): void

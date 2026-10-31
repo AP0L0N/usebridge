@@ -102,7 +102,7 @@ class LegalPagesTest extends TestCase
     }
 
     #[Test]
-    public function the_footer_is_on_login_signup_gate_reset_and_logged_in_pages_without_the_switch(): void
+    public function the_footer_is_on_login_signup_reset_and_logged_in_pages_without_the_switch(): void
     {
         $check = fn (Assert $p) => $p->where('footer.locale', 'en')->where('footer.links', self::EN_LINKS)
             ->where('footer.source.href', 'https://github.com/AP0L0N/usebridge')->where('footer.switch', null);
@@ -110,7 +110,6 @@ class LegalPagesTest extends TestCase
         $this->get('/login')->assertOk()->assertInertia(fn (Assert $p) => $check($p->component('Auth/Login')));
         $this->get('/signup')->assertOk()->assertInertia(fn (Assert $p) => $check($p->component('Auth/Signup')));
         $this->get('/forgot-password')->assertOk()->assertInertia(fn (Assert $p) => $check($p->component('Auth/ForgotPassword')));
-        $this->get('/gate')->assertOk()->assertInertia(fn (Assert $p) => $check($p->component('Gate')));
 
         // Logged in (the backfilled owner, BRIDGE_OWNER_EMAIL in phpunit.xml): the app shell and onboarding.
         $owner = User::query()->where('email', 'owner@example.test')->firstOrFail();

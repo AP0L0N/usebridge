@@ -25,7 +25,7 @@ type Props = {
   doneAll: boolean;
   ticket: Detail | null;
   now: string;
-  /** PUT /projects/{slug}/column-labels for a logged-in member; null for the gate session (no editor). */
+  /** PUT /projects/{slug}/column-labels for a logged-in member; null when the viewer may not edit them. */
   columnLabelsUrl: string | null;
   defaultColumns: ColumnDef[];
 };

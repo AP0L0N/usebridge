@@ -132,7 +132,7 @@ class AdminIsolationTest extends TestCase
     }
 
     #[Test]
-    public function the_gate_does_not_widen_a_logged_in_users_view(): void
+    public function a_leftover_gate_flag_does_not_widen_a_members_view(): void
     {
         $this->app['auth']->forgetGuards();
         $this->actingAs($this->marta, 'web')->withSession(['bridge_gate_unlocked' => true])->get('/projects/blue-harbor')->assertNotFound();

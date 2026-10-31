@@ -28,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
                 return null;
             }
 
-            return route('login'); // the login screen (it links the AUTH-1 gate as "Workspace password")
+            return route('login'); // the login screen
         });
 
         // Open sign-up: 5 per IP and hour (relayed decision 1).
@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
                 : 'api-user:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => 'Too many API requests for this token. Try again in a minute.'], 429)));
 
-        // Cursor CSV upload (POST /usage/cursor-csv): 10 per hour per user, else per IP (gate session).
+        // Cursor CSV upload (POST /usage/cursor-csv): 10 per hour per user, else per IP.
         RateLimiter::for('cursor-csv', fn (Request $request) => Limit::perHour(10)
             ->by('cursor-csv:'.(Auth::guard('web')->id() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => 'Too many Cursor CSV uploads. Try again later.'], 429)));

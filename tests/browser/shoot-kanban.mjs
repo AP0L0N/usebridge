@@ -1,12 +1,12 @@
-// Kanban screenshots against the LOCAL server (sqlite in /tmp). Gate password read from .env, never printed.
+// Kanban screenshots against the LOCAL server (sqlite in /tmp). Signs in with BRIDGE_TEST_EMAIL / BRIDGE_TEST_PASSWORD (local synthetic account), never printed.
 // Usage: node tests/browser/shoot-kanban.mjs [name-prefix …]   (writes shots/kanban/*.png; prints the per-shot checks)
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
-import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 const REPO = process.cwd(), BASE = 'http://127.0.0.1:8792', OUT = process.env.SHOTS_DIR ?? REPO + '/shots/kanban/';
-// Gate password from the environment (or the repo .env); never a literal. Empty = the gate rejects everyone.
-const PW = process.env.BRIDGE_GATE_PASSWORD || (existsSync(REPO + '/.env') ? readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '') : '');
-if (!PW) { console.error('Set BRIDGE_GATE_PASSWORD (env or .env)'); process.exit(2); }
+// Login of a local synthetic account from the environment; never a literal, never printed.
+const EMAIL = process.env.BRIDGE_TEST_EMAIL || '';
+const PW = process.env.BRIDGE_TEST_PASSWORD || '';
+if (!EMAIL || !PW) { console.error('Set BRIDGE_TEST_EMAIL and BRIDGE_TEST_PASSWORD'); process.exit(2); }
 const only = process.argv.slice(2);
 const reseed = () => execSync('php artisan db:seed --class=KanbanSampleSeeder --force -q', { cwd: REPO, env: { ...process.env, DB_DATABASE: '/tmp/kanban.sqlite' } });
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
@@ -16,7 +16,7 @@ async function ctxFor(w, h) {
   const p = await ctx.newPage();
   p.on('pageerror', (e) => console.log('PAGEERROR', w, e.message));
   p.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', w, m.text()); });
-  await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
+  await p.goto(BASE + '/login'); await p.fill('#email', EMAIL); await p.fill('#pw', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
   return { ctx, p };
 }
 async function settle(p) { await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(400); }

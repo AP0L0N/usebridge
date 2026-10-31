@@ -6,7 +6,6 @@ use App\Models\CliUsageImport;
 use App\Models\User;
 use App\Services\Usage\CursorCsvImporter;
 use App\Services\Usage\InvalidUsageDay;
-use App\Support\WorkspaceGate;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,12 +14,12 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * POST /usage/cursor-csv (multipart `file`): the Cursor dashboard CSV export into the current workspace
- * (CursorCsvImporter). Allowed for the owner of the current workspace (workspace_user role owner) and for the AUTH-1
- * gate session (acts in Tilen's workspace); 404 for everyone else. 10 per hour per user / IP (route throttle).
+ * (CursorCsvImporter). Allowed for the owner of the current workspace (workspace_user role owner); 404 for everyone
+ * else. 10 per hour per user (route throttle).
  */
 class CursorCsvController extends Controller
 {
-    /** Whether this request may upload a Cursor CSV into the current workspace (EnsureWorkspaceGate has set it). */
+    /** Whether this request may upload a Cursor CSV into the current workspace (EnsureUserWorkspace has set it). */
     public static function allowed(Request $request): bool
     {
         $workspace = app(CurrentWorkspace::class)->get();
@@ -28,11 +27,9 @@ class CursorCsvController extends Controller
             return false;
         }
         $user = Auth::guard('web')->user();
-        if ($user instanceof User) {
-            return $workspace->users()->whereKey($user->id)->wherePivot('role', 'owner')->exists();
-        }
 
-        return WorkspaceGate::unlocked($request);
+        return $user instanceof User
+            && $workspace->users()->whereKey($user->id)->wherePivot('role', 'owner')->exists();
     }
 
     /** ISO time of the last Cursor import in the current workspace, null when none. */

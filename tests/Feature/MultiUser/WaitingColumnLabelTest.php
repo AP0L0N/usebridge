@@ -122,8 +122,8 @@ class WaitingColumnLabelTest extends TestCase
     {
         $legacy = $this->legacyLabel();
 
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.label', $legacy));
-        $this->gate()->get('/')->assertInertia(fn (Assert $p) => $p->where('columns.3.label', $legacy));
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.label', $legacy));
+        $this->asOwner()->get('/')->assertInertia(fn (Assert $p) => $p->where('columns.3.label', $legacy));
 
         $this->api();
         $this->getJson('/api/board-columns')->assertJsonPath('data.3.label', $legacy);
@@ -153,7 +153,7 @@ class WaitingColumnLabelTest extends TestCase
         // The same on the existing workspace: the project's label wins over its legacy default.
         $this->legacyLabel();
         Project::acrossWorkspaces()->whereKey(self::BH)->update(['column_labels' => json_encode(['waiting_tilen' => 'Waiting on client'])]);
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.label', 'Waiting on client'));
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.label', 'Waiting on client'));
         $this->assertSame('Moving into Waiting on client needs an ask: what do you need answered?', TicketService::askRequired(Project::acrossWorkspaces()->findOrFail(self::BH)));
     }
 

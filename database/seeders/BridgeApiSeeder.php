@@ -46,12 +46,8 @@ class BridgeApiSeeder extends Seeder
             if ($line === '' || str_starts_with($line, 'BRIDGE_API_TOKEN=')) {
                 continue;
             }
-            // keep gate password and comments
+            // keep the other lines (comments, other keys)
             $lines[] = $line;
-        }
-        $gate = (string) config('bridge.gate_password');
-        if ($gate !== '' && ! str_contains(implode("\n", $lines), 'BRIDGE_GATE_PASSWORD=')) {
-            array_unshift($lines, 'BRIDGE_GATE_PASSWORD='.$gate);
         }
         $lines[] = 'BRIDGE_API_TOKEN='.$token;
         $lines[] = 'BRIDGE_API_USER='.$email;

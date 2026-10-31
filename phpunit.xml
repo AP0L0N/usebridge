@@ -32,7 +32,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="BRIDGE_GATE_PASSWORD" value="test-gate-password"/>
         <env name="BRIDGE_WORKSPACE_SLUG" value="studio"/>
         <env name="BRIDGE_WORKSPACE_NAME" value="Studio Nine"/>
         <env name="BRIDGE_PUBLIC_URL" value="https://bridge.example.test"/>

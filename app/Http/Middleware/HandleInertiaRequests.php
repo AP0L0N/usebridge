@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Legal\LegalPages;
-use App\Support\WorkspaceGate;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,11 +23,10 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
-            'gateUnlocked' => WorkspaceGate::unlocked($request),
-            // The logged-in user's own account for the top bar (null for guests and AUTH-1 gate sessions). Never a token.
+            // The logged-in user's own account for the top bar (null for guests). Never a token.
             'auth' => fn () => ['user' => self::user()],
-            // Lazy: resolved at render time, after the gate set the workspace (false on the gate page). polymarket: the
-            // workspace owner (or the gate session) only. admin: the Admin nav item, only for a logged-in is_admin user
+            // Lazy: resolved at render time, after EnsureUserWorkspace set the workspace (false for guests). polymarket: the
+            // workspace owner only. admin: the Admin nav item, only for a logged-in is_admin user
             // (RequireAdmin answers 404 to everyone else).
             'features' => fn () => [
                 Workspace::FEATURE_POLYMARKET => app(CurrentWorkspace::class)->hasOwnerFeature(Workspace::FEATURE_POLYMARKET),

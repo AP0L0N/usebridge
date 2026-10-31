@@ -47,7 +47,7 @@ export type CliBlock = {
   total: number; calls: number; tools: CliToolStats[]; series: Series[]; days: OverviewDay[]; table: CliTableRow[];
   /** date => tools a file covered that day (marker): covered + no rows = zero, missing = no file. */
   importedTools: Record<string, CliTool[]>;
-  /** Cursor CSV upload (POST /usage/cursor-csv): only the workspace owner (or the gate session) may. */
+  /** Cursor CSV upload (POST /usage/cursor-csv): only the workspace owner may. */
   cursorUpload?: { allowed: boolean; lastImportAt: string | null };
 };
 

@@ -55,15 +55,11 @@ privately; this plan covers product decisions, architecture, API and the securit
 7. **Turnstile is the bot check**; keys pending (Cloudflare).
 8. **Backfilled workspace name and slug from config**: `BRIDGE_WORKSPACE_NAME` (default "My workspace") and
    `BRIDGE_WORKSPACE_SLUG` (default `main`); an already-migrated database sets the slug it was migrated with.
-9. **The AUTH-1 gate fails closed** (31 Oct, his call; done §11): `bridge.gate_password` = `BRIDGE_GATE_PASSWORD` with
-   no default; unset or empty → the gate rejects every password (constant-time compare against a non-empty configured
-   value only; the gate page says "not configured", with no hint of a default). New flag `BRIDGE_GATE_ENABLED`
-   (default true); false → `/gate` 404s and gate sessions unlock nothing, including sessions unlocked before (they go
-   to the login screen). API tokens are unaffected. The old hard-coded literal is gone from the working tree
-   (`.env.example` empty, `phpunit.xml` a synthetic test value, browser scripts read `BRIDGE_GATE_PASSWORD` from the
-   environment). **The shared gate is retired when multi-user launches in production (`BRIDGE_GATE_ENABLED=false`).**
-   **Deploy prerequisite:** staging and production `.env` must set `BRIDGE_GATE_PASSWORD` explicitly before this
-   ships, or the gate locks everyone out (logins and API tokens keep working).
+9. **The AUTH-1 shared workspace password is removed** (31 Oct, Tilen's call, before launch): no `/gate` routes, page,
+   middleware branch, `bridge_gate_unlocked` session flag or `BRIDGE_GATE_*` config. Only a normal account login reaches
+   the app (guests → `/login`); a session that still carries the old flag gets nothing. `/api` and `/mcp` token auth is
+   unchanged. The owner signs in with the `BRIDGE_OWNER_EMAIL` account (see §11 "Owner login"). Staging and production
+   can drop `BRIDGE_GATE_PASSWORD` / `BRIDGE_GATE_ENABLED` from `.env` (no longer read).
 10. **The `waiting_tilen` column is "Waiting on you" for new workspaces** (31 Oct, his call; done §11). The key
     `waiting_tilen` is unchanged in the API. Verified: labels are derived in code (`BoardColumns`), no table stores
     the label text (tickets store the key; `projects.column_labels` only holds a project's own names), so no row is
@@ -164,10 +160,8 @@ Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pendin
   Tilen decides (§13). Export first: a JSON download of the
   workspace (projects, tickets, comments, statuses, usage) from the Danger zone.
 - Password reset: built-in broker, 60 min, 60 s throttle (done in `AccountService`). CSRF, `same_site=lax`,
-  `SESSION_SECURE_COOKIE=true` on live. Transition: the login screen is now the entry for guests (§11 UI); the AUTH-1
-  gate keeps working for the existing workspace ("Workspace password" link on `/login`) **until it is retired**:
-  `BRIDGE_GATE_ENABLED=false` (at the production multi-user launch, §0 decision 9) → `/gate` 404s and every gate
-  session, unlocked or not, unlocks nothing. It fails closed: no `BRIDGE_GATE_PASSWORD` → every password is rejected.
+  `SESSION_SECURE_COOKIE=true` on live. Guests land on the login screen (§11 UI); the shared AUTH-1 workspace
+  password was removed before launch (§0 decision 9).
 
 ## 3. Migrating current data
 
@@ -297,8 +291,8 @@ edge day)". Re-uploading the same file is idempotent. Limits: 10 MB, 200,000 row
 number (at most 20 errors), and nothing is written (one transaction). The result reports days imported / zero / kept,
 rows, total tokens and the date range (`--dry-run` reports the same and writes nothing).
 
-**Who may upload.** `POST /usage/cursor-csv`: the owner of the current workspace (`workspace_user.role = owner`) or
-the AUTH-1 gate session (acts in Tilen's workspace); everyone else 404; 10 uploads per hour per user (gate: per IP).
+**Who may upload.** `POST /usage/cursor-csv`: the owner of the current workspace (`workspace_user.role = owner`);
+everyone else 404; 10 uploads per hour per user.
 The Usage page props carry `cli.cursorUpload: {allowed, lastImportAt}`. Cursor rows show through `UsageReport` like
 the other tools (tool "Cursor", agent "Cursor (all agents)").
 
@@ -339,7 +333,7 @@ collector files with `covered_tools: ["cursor"]`, attributing via a `serviceAcco
 
 ## 9. Step order
 
-Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities, step 1
+Done: schema, backfill, scoping, Polymarket owner-only switch, per-workspace keys, `AccountService`, token abilities, step 1
 backend auth, breached-password check, the MCP endpoint, the UI and the web first project + column labels (§11). Next, each with tests, deployable alone:
 1. ~~Backend auth~~ — done (§11, JSON only). Left from it for later steps: `PATCH /account` + email change
    (`pending_email` columns exist, flow not built), `GET /reset-password/{token}` screen, sessions list device parsing.
@@ -357,8 +351,7 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
      up, create a first project (no PM), rename its columns, verify, create tokens and use MCP. Left from it: a PM
      for web-created projects (needs a first agent, step 5), hide / add / reorder columns, a "New project" entry
      outside onboarding, editing name / slug / prefix / description from the web.
-   - Retire the AUTH-1 gate (Tilen's call): remove `/gate*`, `bridge_gate_unlocked`, the gate branch of
-     `EnsureWorkspaceGate` / `CursorCsvController::allowed`, the "Workspace password" link; then read states per user.
+   - Read states per user (the shared AUTH-1 password is gone; web writes are still recorded as actor `tilen`).
    - Live: Turnstile keys (The Many), `MAIL_*` (SMTP + DNS for `usebridge.si`, The Many), `SESSION_DRIVER=database` before the Sessions
      card means anything.
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
@@ -373,8 +366,7 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
   the slug it was migrated with.
 - `BRIDGE_OWNER_WAITING_LABEL` — the exact current waiting label, stored for pre-existing workspaces at migration
   (empty = derived from the default workspace owner's first name).
-- `BRIDGE_GATE_PASSWORD` — set explicitly before this ships (unset/empty = the gate rejects everyone); flip
-  `BRIDGE_GATE_ENABLED=false` at the launch to retire the gate (§0 decision 9).
+- `BRIDGE_GATE_PASSWORD` / `BRIDGE_GATE_ENABLED` — no longer read (the shared password is removed); delete them.
 - `BRIDGE_PUBLIC_URL` — public base for ticket links in API payloads (empty = `APP_URL`).
 - `BRIDGE_LIVE_HOST` — the live host `bridge:rotate-copied-tokens` refuses on staging database copies.
 - `BRIDGE_ROSTER_PATH` — roster JSON outside the repo (agents, per-project PMs, fixed ticket prefixes).
@@ -401,37 +393,44 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
 
 ## 11. Groundwork done (branch `feat/multi-user`)
 
+**Owner login (no shared password any more).** The backfill migration (`2026_10_31_110000_multi_user_backfill`) makes
+the `BRIDGE_OWNER_EMAIL` user the owner + admin of the default workspace; when no user has that email it creates one
+with an unusable random password (and an unverified email). That owner then sets a password with **Forgot password**
+on `/login` (needs working `MAIL_*`; with `MAIL_MAILER=log` the link is in the application log on the server). An
+owner who is already in `users` keeps his password. Wrong owner on an older copy: `php artisan bridge:set-owner
+--email=… --dry-run`, then without `--dry-run`. Staging only: `bridge:verify-email --email=…` marks the email verified.
+
 Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 
 | Piece | Where |
 |---|---|
 | Schema, backfill, per-workspace keys | `2026_10_31_100000/110000/120000_multi_user_*` |
 | `Workspace`, `CurrentWorkspace`, `WorkspaceScope` + `BelongsToWorkspace` (17 models), `MissingWorkspace` | `app/Models`, `app/Support/Workspaces` |
-| `WorkspaceBoundary`, gate → Tilen's workspace, `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `routes/api.php` |
+| `WorkspaceBoundary`, `EnsureUserWorkspace` (login → own workspace), `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `routes/api.php` |
 | `WorkspaceRule::exists`, bulk inserts set `workspace_id` | controllers, importers, `BridgeRoster`, `TicketService` |
-| Polymarket feature gate | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
+| Polymarket feature switch (owner only) | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
 | `AccountService` (register + workspace + verification mail, reset, change password; `MIN_PASSWORD = 10`) | `app/Services/Auth` |
 | Auth columns: `users` lockout/last login/disabled/pending email/timezone/delete grace/soft delete, `token_suffix`; existing users marked verified; `usage_upload` feature on Tilen's workspace | `2026_10_31_130000_multi_user_auth` |
 | Login: `LoginService` (5 fails → 15 min lock, unknown emails identical via `RateLimiter`, 10/min per IP, disabled / deletion pending → 403, `last_login_at`, regenerate), `POST /login`, `/logout`, `/login/cancel-deletion` | `LoginService`, `Auth\LoginController` |
 | Sessions: `DeviceSessions` (list own rows, hashed ids; others; all + remember token), `GET/DELETE /account/sessions[/others]`; password change ends other sessions, reset ends all and clears the lock; `POST /forgot-password` (neutral), `/reset-password`, `PUT /account/password` | `DeviceSessions`, `Auth\SessionController`, `Auth\PasswordController` |
 | Verification: `User implements MustVerifyEmail`, signed `GET /email/verify/{id}/{hash}`, `POST /email/verification-notification`; `RequireVerifiedEmail` (JSON 403) on token creation and `/mcp` | `Auth\EmailVerificationController`, `RequireVerifiedEmail` |
 | Tokens: `ApiTokens` (read/write → abilities, usage/polymarket by feature; 30/90/365/none; `brg_live_` default via `SANCTUM_TOKEN_PREFIX`; `token_suffix`; bound to the workspace; masked list, legacy = no suffix; revoke own), `GET/POST/DELETE /account/tokens` | `ApiTokens`, `Auth\TokenController`, `config/sanctum.php` |
-| Disabled / deletion pending: `ResolveTokenWorkspace` 403 (tokens blocked, not revoked), `LogoutBlockedUser` (web), logged-in web users act in their own workspace (`User::homeWorkspace`, login wins over the gate) | `app/Http/Middleware` |
+| Disabled / deletion pending: `ResolveTokenWorkspace` 403 (tokens blocked, not revoked), `LogoutBlockedUser` (web), logged-in web users act in their own workspace (`User::homeWorkspace`) | `app/Http/Middleware` |
 | Admin: `GET /admin/users` → `[id, name, email, created_at, last_login_at, status]` only; `POST /admin/users/{id}/disable\|enable` (not self; disable deletes sessions); 404 unless logged-in `is_admin` | `AdminUsers`, `Admin\UserController`, `RequireAdmin` |
 | Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
-| Gate fails closed (CoS decision 9): no default password, `BRIDGE_GATE_ENABLED`, every gate-session reader through one helper; tests `GateFailsClosedTest` | `App\Support\WorkspaceGate`, `GateController`, `EnsureWorkspaceGate`, `config/bridge.php` |
+| Shared AUTH-1 password removed (decision 9): login only, a stale gate flag gets nothing; tests `WebAccessAndPagesTest` | `EnsureUserWorkspace`, `routes/web.php` |
 | Waiting column label (CoS decision 10): `BoardColumns` default "Waiting on you", `workspaces.settings.waiting_label` per workspace (backfilled for existing ones), project `column_labels` win; portfolio gets the workspace defaults, the ask dialog the board's label; tests `WaitingColumnLabelTest` | `BoardColumns::defaults()`, `Workspace::waitingLabel()`, `TicketService::askRequired()`, `2026_10_31_160000_workspace_settings` |
 | Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
-| Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner or gate, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
+| Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner only, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
 | Mail: sender from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` (empty → `support@usebridge.si` / "Bridge"), `.env.example` `MAIL_MAILER=log`; verification / reset links only in the mail log | `config/mail.php`, `tests/Feature/MultiUser/MailConfigTest.php` |
 | Security fix (existence oracle / cross-workspace agent): `POST /api/status-updates` checked `project_id` / `agent_id` with unscoped `exists:` rules, so another workspace's project answered 404 but an unknown one 422, and a token could file a status under another workspace's agent id. Now the project is looked up in the current workspace (unknown and foreign both 404, project checked first), then `agent_id` via `WorkspaceRule::exists` (unknown and foreign both 422, nothing written). Audit of every REST/web controller and FormRequest: `NextStepController` store/update had the same unscoped `exists:projects` / `exists:agents` → `WorkspaceRule::exists`; no other `exists:` / `Rule::exists` / raw `DB::table` lookup on an owned table remains (`DeviceSessions` reads `sessions` by user id). `/api` rate limit: 120/min per token id (`throttle:api-token`, a first-party session per user), JSON 429 | `Api\StatusUpdateController`, `Api\NextStepController`, `AppServiceProvider`, `routes/api.php`, `WorkspaceIsolationTest` |
-| First project + column labels (§8 onboarding 1–2): migration `2026_10_31_140000_multi_user_projects_web` (`projects.owner_agent_id` nullable, FK kept; + `description`, + `column_labels` JSON; down() refuses while a project has no PM, a description or labels). Web `POST /projects` (`projects.store`, logged-in owner/member, own workspace, 30/min) {name, slug (lowercase-dashes, ≤ 64), ticket_prefix (`TicketPrefix::PATTERN`), description?} → 201 {id, name, slug, ticket_prefix, description, column_labels_url}; slug / prefix still globally unique: taken → 422 on that field "This slug is already taken." / "This ticket prefix is already taken." (never says where; a lost race answers the same). `PUT /projects/{slug}/column-labels` (`projects.column-labels.update`) {column_labels: {key: label}}: known keys only, 1–40 chars after trim, unsent keys keep theirs, a default label is not stored; another workspace's project 404, gate session 401. Labels flow into `BoardView` (board props and the API board), Portfolio `columnLabels`, `/welcome`. `POST /api/projects` unchanged (owner_agent_id required, same keys) | `ProjectSetupController`, `BoardColumns::all($labels)`, `Project::boardColumns()`, `tests/Feature/MultiUser/ProjectSetupTest.php` |
+| First project + column labels (§8 onboarding 1–2): migration `2026_10_31_140000_multi_user_projects_web` (`projects.owner_agent_id` nullable, FK kept; + `description`, + `column_labels` JSON; down() refuses while a project has no PM, a description or labels). Web `POST /projects` (`projects.store`, logged-in owner/member, own workspace, 30/min) {name, slug (lowercase-dashes, ≤ 64), ticket_prefix (`TicketPrefix::PATTERN`), description?} → 201 {id, name, slug, ticket_prefix, description, column_labels_url}; slug / prefix still globally unique: taken → 422 on that field "This slug is already taken." / "This ticket prefix is already taken." (never says where; a lost race answers the same). `PUT /projects/{slug}/column-labels` (`projects.column-labels.update`) {column_labels: {key: label}}: known keys only, 1–40 chars after trim, unsent keys keep theirs, a default label is not stored; another workspace's project 404, guests 401. Labels flow into `BoardView` (board props and the API board), Portfolio `columnLabels`, `/welcome`. `POST /api/projects` unchanged (owner_agent_id required, same keys) | `ProjectSetupController`, `BoardColumns::all($labels)`, `Project::boardColumns()`, `tests/Feature/MultiUser/ProjectSetupTest.php` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
-Step 1 notes: all routes are JSON in the `web` group (CSRF applies; the screens of step 4 call them); the AUTH-1 gate still
-works for the existing pages. A soft-deleted user's email stays taken (unique). Deleted users keep their workspace
+Step 1 notes: all routes are JSON in the `web` group (CSRF applies; the screens of step 4 call them); web pages need a
+normal login. A soft-deleted user's email stays taken (unique). Deleted users keep their workspace
 (no workspace marker column yet; the soft-deleted owner is the marker). Changing the password also rotates the remember
 token, so this device's "keep me logged in" cookie ends too (its session continues). Still global by design (later step): client-chosen
 ids (`unique:` on `projects` / `agents` / `status_updates` / `next_steps` ids) and project slug / ticket prefix, so a
@@ -445,14 +444,14 @@ breakpoints, reduced motion). Every write goes to the JSON routes above; the new
 
 | Screen | Route → component | Notes |
 |---|---|---|
-| Shell | shared props `auth.user {id, name, email, initials, is_admin, email_verified}` (null for guests / gate), `features.polymarket`, `features.admin` | `TopBar`: account menu (Account, API tokens & MCP, Log out = `POST /logout`), Owner chip + Admin nav for `is_admin`, Polymarket only with the feature; gate sessions keep "Tilen" |
-| Log in | `GET /login` → `Auth/Login` {gateAvailable} | guests are redirected here (was `/gate`); wrong (tries left), locked (countdown to `locked_until`, reset link), disabled, deletion pending → "Cancel deletion and log in" (`POST /login/cancel-deletion`); "Workspace password" → `/gate` |
+| Shell | shared props `auth.user {id, name, email, initials, is_admin, email_verified}` (null for guests), `features.polymarket`, `features.admin` | `TopBar`: account menu (Account, API tokens & MCP, Log out = `POST /logout`), Owner chip + Admin nav for `is_admin`, Polymarket only with the feature; gate sessions keep "Tilen" |
+| Log in | `GET /login` → `Auth/Login` | guests are redirected here; wrong (tries left), locked (countdown to `locked_until`, reset link), disabled, deletion pending → "Cancel deletion and log in" (`POST /login/cancel-deletion`); "Workspace password" → `/gate` |
 | Sign up | `GET /signup` → `Auth/Signup` {formToken, turnstileSiteKey, minPassword} | honeypot `website` + `form_token` always; the Turnstile script loads only when `turnstile.site_key` is set (secret never in props); email taken banner; lands on `/welcome` |
 | Reset | `GET /forgot-password` → `Auth/ForgotPassword`; `GET /reset-password/{token}?email=` (`password.reset`, the mail link) → `Auth/ResetPassword` {token, email, valid} | request → sent (neutral), set new (meter, match line) → success, expired (also for an unknown email) |
 | Account | `GET /account` → `Account/Settings` {account, sessions, timezones, minPassword, deletion {graceDays, counts}, can} (JSON clients keep the JSON) | verify-email banner (resend), profile (read-only until `account.update`), password, sessions (this device, others, log out others with password, all devices), danger zone (export download, delete with typed email, 7-day grace → `/login?status=deletion-requested`) |
 | Tokens & MCP | `GET /account/tokens` → `Account/Tokens` {tokens (masked), mcpUrl, emailVerified, expiryDays} (JSON clients keep the JSON) | create read / read & write, 30/90/365/never (verified only), show-once plaintext from the POST response with copy, revoke (alertdialog), MCP URL / header / JSON snippets |
 | Onboarding | `GET /welcome` (auth) → `Onboarding` {name, project, hasToken, emailVerified, columns (first project's labels), defaultColumns, createProjectUrl, saveColumnsUrl (null until a project exists)} | derived steps; step 1 name / slug / prefix (follow the name until edited) / description: empty, errors (summary + field, "already taken"), loading, created (Back shows it); step 2 renames the columns with the URL from step 1's answer |
-| Board settings | `GET /projects/{slug}` + {columnLabelsUrl (logged-in only, null for the gate), defaultColumns}; `board.project.description` | "Column labels" button → sheet / dialog (default per column, "Use default names", per-field errors) → toast + board reload; description under the name |
+| Board settings | `GET /projects/{slug}` + {columnLabelsUrl (logged-in members only), defaultColumns}; `board.project.description` | "Column labels" button → sheet / dialog (default per column, "Use default names", per-field errors) → toast + board reload; description under the name |
 | Admin | `GET /admin/users` → `Admin/Users` {users (exactly `AdminUsers::KEYS`), meId} (JSON clients keep the JSON); 404 for non-admins | status chips, disable (confirm) / enable; no counts, no invited state |
 | Usage | `/usage` (`Usage/Overview`) | Cursor models section: stats, per-model table, daily chart by model, one account "Cursor (all agents)", cost when the CSV had one (`costCents`, only where a row has `cost_cents`); "no file that day" vs zero per tool from `cli.importedTools` (coding tools and Cursor); owner's upload panel (`cli.cursorUpload.allowed`) with summary, kept partial edge days and 422 line errors |
 
@@ -511,11 +510,9 @@ otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with
 | Env | Default | Meaning |
 |---|---|---|
 | `BRIDGE_OWNER_EMAIL` | – (required before the backfill migration) | owner of the backfilled workspace |
-| `BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` | `main` / "My workspace" | backfilled workspace (gate sessions and console writes act in it); a migrated database must keep its slug |
+| `BRIDGE_WORKSPACE_SLUG` / `BRIDGE_WORKSPACE_NAME` | `main` / "My workspace" | backfilled workspace (console writes act in it); a migrated database must keep its slug |
 | `BRIDGE_PUBLIC_URL` | `APP_URL` | base for ticket links in API payloads |
 | `BRIDGE_LIVE_HOST` | empty (no host check) | the live host `bridge:rotate-copied-tokens` refuses |
-| `BRIDGE_GATE_PASSWORD` | none — **set explicitly** (unset/empty = the gate rejects everyone) | transitional AUTH-1 workspace password (§0 decision 9) |
-| `BRIDGE_GATE_ENABLED` | `true` | `false` = gate retired: `/gate` 404s, gate sessions unlock nothing (production multi-user launch) |
 | `BRIDGE_OWNER_WAITING_LABEL` | empty ("Waiting on " + default workspace owner's first name) | `waiting_tilen` label stored on workspaces existing at migration `2026_10_31_160000` (§0 decision 10) |
 | `BRIDGE_LEGAL_ENTITY` | "Your company" | operator name in the footer © line (`:entity`) |
 | `BRIDGE_TERMS_VERSION` | `2026-10-draft` | stored as `users.terms_version` at sign-up |
@@ -529,7 +526,7 @@ otherwise, warning in the log); (11) after deploy, `POST /mcp` `tools/list` with
 ## 13. Legal, retention and purge (31 Oct)
 
 - **(a) Legal pages + footer.** Public `/terms`, `/privacy`, `/imprint` and `/sl/pogoji`, `/sl/zasebnost`, `/sl/impresum`
-  (no login, no gate); placeholder text until the final texts drop into `BRIDGE_LEGAL_DIR` (markdown, rendered with
+  (no login); placeholder text until the final texts drop into `BRIDGE_LEGAL_DIR` (markdown, rendered with
   HTML stripped). Each page shows "For users in Slovenia, the Slovenian version prevails" and an EN | SL switch (legal
   pages only; the app stays English). One footer on every page (`SiteFooter`, nav landmark): Imprint · Terms · Privacy
   · Source code (AGPL-3.0-or-later), and the © line with `:entity` and the source link (deployed commit when known).

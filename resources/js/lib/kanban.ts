@@ -192,7 +192,7 @@ export function dueLabel(date: string): string {
 
 export const PRIORITY_LABEL: Record<Priority, string> = { p1: 'P1 · High', p2: 'P2 · Medium', p3: 'P3 · Normal' };
 
-/** CSRF for the gate-session JSON endpoints: Laravel's XSRF-TOKEN cookie (fresh), else the meta tag. */
+/** CSRF for the session JSON endpoints: Laravel's XSRF-TOKEN cookie (fresh), else the meta tag. */
 export function csrfHeaders(): Record<string, string> {
   const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
   if (m) return { 'X-XSRF-TOKEN': decodeURIComponent(m[1]) };
@@ -206,7 +206,7 @@ export class ApiError extends Error {
   }
 }
 
-/** JSON write to a Bridge web endpoint (gate session). Throws ApiError with the server's message on failure. */
+/** JSON write to a Bridge web endpoint (logged-in session). Throws ApiError with the server's message on failure. */
 export async function send<T = unknown>(method: 'POST' | 'PATCH', url: string, body: Record<string, unknown> = {}): Promise<T> {
   let res: Response;
   try {

@@ -54,12 +54,10 @@ class ShellTest extends TestCase
     }
 
     #[Test]
-    public function the_gate_session_keeps_polymarket_but_has_no_account_menu_or_admin(): void
+    public function a_leftover_gate_flag_shows_the_landing_page_and_no_app(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/')->assertInertia(fn (Assert $p) => $p
-            ->where('auth.user', null)
-            ->where('features.polymarket', true)
-            ->where('features.admin', false));
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/')->assertOk()->assertViewIs('landing');
+        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')->assertRedirect('/login');
         $this->withSession(['bridge_gate_unlocked' => true])->get('/admin/users')->assertNotFound();
     }
 

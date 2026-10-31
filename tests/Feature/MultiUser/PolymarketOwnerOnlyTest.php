@@ -15,9 +15,9 @@ use Tests\TestCase;
 
 /**
  * Polymarket is a per-workspace feature: on for Tilen's workspace (backfill), hidden (404, no nav) everywhere else. On
- * the web only the workspace owner (or the gate session) sees it: members and every other user get 404 and no nav item.
+ * the web only the workspace owner sees it: members and every other user get 404 and no nav item.
  */
-class PolymarketGateTest extends TestCase
+class PolymarketOwnerOnlyTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -43,9 +43,9 @@ class PolymarketGateTest extends TestCase
     {
         $this->ingest($this->workspaceUser()->createToken('captain', ['ceo'])->plainTextToken)->assertCreated();
 
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')->assertOk()
+        $this->asOwner()->get('/polymarket')->assertOk()
             ->assertInertia(fn (Assert $p) => $p->component('Polymarket/Desk')->where('features.polymarket', true));
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/usage')
+        $this->asOwner()->get('/usage')
             ->assertInertia(fn (Assert $p) => $p->where('features.polymarket', true));
     }
 
@@ -62,25 +62,25 @@ class PolymarketGateTest extends TestCase
         $this->ingest($this->otherWorkspaceToken(['polymarket' => true]))->assertCreated();
 
         $this->assertSame(0, PolymarketSnapshot::query()->where('workspace_id', app(CurrentWorkspace::class)->default()->id)->count());
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')
+        $this->asOwner()->get('/polymarket')
             ->assertInertia(fn (Assert $p) => $p->where('feed', null));
     }
 
     #[Test]
-    public function switching_the_feature_off_hides_page_and_nav_for_the_gate_session(): void
+    public function switching_the_feature_off_hides_page_and_nav_for_the_owner(): void
     {
         $tilen = app(CurrentWorkspace::class)->default();
         $tilen->forceFill(['features' => ['polymarket' => false]])->save();
 
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/polymarket')->assertNotFound();
-        $this->withSession(['bridge_gate_unlocked' => true])->get('/usage')
+        $this->asOwner()->get('/polymarket')->assertNotFound();
+        $this->asOwner()->get('/usage')
             ->assertInertia(fn (Assert $p) => $p->where('features.polymarket', false));
     }
 
     #[Test]
-    public function the_gate_page_shares_no_features(): void
+    public function guest_pages_share_no_features(): void
     {
-        $this->get('/gate')->assertInertia(fn (Assert $p) => $p->component('Gate')->where('features.polymarket', false));
+        $this->get('/login')->assertInertia(fn (Assert $p) => $p->component('Auth/Login')->where('features.polymarket', false));
     }
 
     #[Test]

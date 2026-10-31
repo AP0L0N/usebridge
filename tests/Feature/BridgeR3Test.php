@@ -39,7 +39,7 @@ class BridgeR3Test extends TestCase
     #[Test]
     public function portfolio_card_levels_follow_r3_thresholds(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         RequiredInput::query()->delete();
         RequiredInput::create(['id' => 'x', 'project_id' => 'proj-northwind', 'text' => 'x', 'waiting_on' => 'D', 'since' => now()->subDays(4)]);
         $this->get('/')->assertInertia(fn (Assert $p) => $p->component('Portfolio')
@@ -49,7 +49,7 @@ class BridgeR3Test extends TestCase
     #[Test]
     public function cleared_inputs_older_than_two_days_are_hidden(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         foreach ([['recent', 47], ['edge', 48], ['old', 49]] as [$id, $h]) {
             RequiredInput::create(['id' => $id, 'project_id' => 'proj-northwind', 'text' => $id, 'waiting_on' => 'D',
                 'since' => now()->subDays(5), 'resolved_at' => now()->subHours($h), 'resolved_by' => 'tilen']);
@@ -63,7 +63,7 @@ class BridgeR3Test extends TestCase
     #[Test]
     public function timeline_pages_in_seven_day_steps(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         StatusUpdate::query()->where('project_id', 'proj-northwind')->delete();
         foreach ([1, 6, 8, 13, 20] as $d) {
             StatusUpdate::create(['id' => "u$d", 'project_id' => 'proj-northwind', 'agent_id' => StatusUpdate::first()?->agent_id ?? 'agent-anatoly', 'body' => "d$d", 'created_at' => now()->subDays($d)]);
@@ -105,7 +105,7 @@ class BridgeR3Test extends TestCase
         $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-northwind', 'kind' => 'blocker', 'text' => 'Waiting on DNS'])->assertCreated();
         $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-northwind', 'kind' => 'blocker', 'text' => 'dup'])->assertStatus(422);
 
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('nextSteps'));
 
         $this->patchJson('/api/next-steps/ns-block-1', ['kind' => 'in_progress', 'text' => 'DNS done, verifying'])

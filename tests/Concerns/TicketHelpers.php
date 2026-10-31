@@ -7,7 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
-/** Shared setup for the tickets tests: seeded agents/projects, a fixed clock, API + gate helpers. */
+/** Shared setup for the tickets tests: seeded agents/projects, a fixed clock, API + login helpers. */
 trait TicketHelpers
 {
     use RosterFile;
@@ -37,11 +37,6 @@ trait TicketHelpers
         return $this;
     }
 
-    protected function gate(): static
-    {
-        return $this->withSession(['bridge_gate_unlocked' => true]);
-    }
-
     protected function newTicket(array $data = [], string $project = self::BH): array
     {
         return $this->postJson("/api/projects/$project/tickets", ['title' => 'Draft the brief', 'actor' => self::JANICE, ...$data])
@@ -55,7 +50,7 @@ trait TicketHelpers
 
     protected function tilenSays(string $key, array $data, string $slug = 'blue-harbor'): TestResponse
     {
-        return $this->gate()->postJson("/projects/$slug/tickets/$key/comments", $data);
+        return $this->asOwner()->postJson("/projects/$slug/tickets/$key/comments", $data);
     }
 
     protected function travelMinutes(int $m): void

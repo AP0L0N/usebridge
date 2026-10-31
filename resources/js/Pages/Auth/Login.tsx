@@ -34,7 +34,7 @@ export function waitText(seconds: number, c: AuthCopy['login'], short = false): 
  * Log in (Figma states default / wrong / locked / loading): POST /login; 422 tries_left, 429 retry_after (seconds
  * left on the lock, counted down here), 403 disabled / deletion pending.
  */
-export default function Login({ copy, gateAvailable }: AuthPageProps & { gateAvailable: boolean }) {
+export default function Login({ copy }: AuthPageProps) {
   const c = copy.login;
   const { flash } = usePage<Shared>().props;
   const [email, setEmail] = useState('');
@@ -141,7 +141,6 @@ export default function Login({ copy, gateAvailable }: AuthPageProps & { gateAva
         </Button>
 
         <p className="auth-alt">{c.new} <Link href="/signup">{c.create}</Link></p>
-        {gateAvailable && <p className="auth-fine auth-center">{c.gate} <a href="/gate">{c.gate_link}</a></p>}
       </form>
     </AuthLayout>
   );

@@ -2,9 +2,9 @@
 // Setup:  DB_DATABASE=/tmp/tilen-controls.sqlite php artisan migrate:fresh --force
 //         DB_DATABASE=/tmp/tilen-controls.sqlite php -S 127.0.0.1:8794 -t public public/index.php   (public/build -> a vite build in /tmp)
 // Usage:  node tests/browser/tilen-controls.mjs   (KANBAN_BASE overrides http://127.0.0.1:8794)
-// The gate password is read from .env and never printed. Exits 1 when any check fails.
+// Signs in with BRIDGE_TEST_EMAIL / BRIDGE_TEST_PASSWORD (a local synthetic account), never printed. Exits 1 when any check fails.
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,9 +13,10 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BASE = process.env.KANBAN_BASE ?? 'http://127.0.0.1:8794';
 const DB = '/tmp/tilen-controls.sqlite';
 const SHOTS = process.env.SHOTS_DIR ?? './shots-out/tilen-controls';
-// Gate password from the environment (or the repo .env); never a literal. Empty = the gate rejects everyone.
-const PW = process.env.BRIDGE_GATE_PASSWORD || (existsSync(REPO + '/.env') ? readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '') : '');
-if (!PW) { console.error('Set BRIDGE_GATE_PASSWORD (env or .env)'); process.exit(2); }
+// Login of a local synthetic account from the environment; never a literal, never printed.
+const EMAIL = process.env.BRIDGE_TEST_EMAIL || '';
+const PW = process.env.BRIDGE_TEST_PASSWORD || '';
+if (!EMAIL || !PW) { console.error('Set BRIDGE_TEST_EMAIL and BRIDGE_TEST_PASSWORD'); process.exit(2); }
 mkdirSync(SHOTS, { recursive: true });
 
 let failed = 0, checks = 0;
@@ -39,7 +40,7 @@ try {
     const noOverflow = async (what) => ok(await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${tag} no horizontal overflow ${what}`);
     const card = (name) => p.locator('.pcw', { has: p.locator('h2', { hasText: new RegExp(`^${name}$`) }) });
     const dialog = () => p.locator(m ? '.sheet' : '.pop.smenu');
-    await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
+    await p.goto(BASE + '/login'); await p.fill('#email', EMAIL); await p.fill('#pw', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
 
     // ---- 1. board: set Waiting with a note
     await p.goto(BASE + '/projects/blue-harbor'); await settle();

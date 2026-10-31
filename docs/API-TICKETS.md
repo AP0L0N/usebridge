@@ -454,11 +454,11 @@ curl -sS -X PATCH "$BRIDGE/api/projects/proj-acme" \
 {"data":{"id":"proj-acme","name":"Acme Studio","status":"waiting","status_source":"pm","pm_agent_id":"agent-alice","pmName":"Alice Murdoch", …}}
 ```
 
-**Tilen's UI controls (web only, not part of this API).** Tilen, signed in through the Bridge gate, can set the project
+**Tilen's UI controls (web only, not part of this API).** Tilen, signed in to Bridge, can set the project
 status himself (Smooth sailing / Waiting input, optional note up to 280 characters) and archive or unarchive a
 project, from the board header status menu and from each portfolio card's "⋯" menu. These are session routes
 (`PATCH /projects/{slug}/status`, `POST /projects/{slug}/archive`, `POST /projects/{slug}/unarchive`) behind the
-gate; the token API never accepts `actor: "tilen"` (422). Every one of them is logged in `project_status_events`
+login; the token API never accepts `actor: "tilen"` (422). Every one of them is logged in `project_status_events`
 (`GET …/status` history) with `set_by: "tilen"`, `set_by_type: "human"`, `source: "ui"`:
 
 - Archive: `to_status: "archived"` (`archived_at` is set, `status` is `archived`). Unarchive: back to the status the

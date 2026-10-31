@@ -1,17 +1,17 @@
 // Browser check for Tommy's review of 1ae66bd (status menu, filters, ask step) against the LOCAL server.
 // Usage: node tests/browser/kanban-review.mjs   (server: php -S 127.0.0.1:8792 from public/, DB_DATABASE=$KANBAN_DB, default /tmp/kanban.sqlite)
-// The gate password is read from .env and never printed. Exits 1 when any check fails.
+// Signs in with BRIDGE_TEST_EMAIL / BRIDGE_TEST_PASSWORD (a local synthetic account), never printed. Exits 1 when any check fails.
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
-import { existsSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BASE = process.env.KANBAN_BASE ?? 'http://127.0.0.1:8792';
-// Gate password from the environment (or the repo .env); never a literal. Empty = the gate rejects everyone.
-const PW = process.env.BRIDGE_GATE_PASSWORD || (existsSync(REPO + '/.env') ? readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '') : '');
-if (!PW) { console.error('Set BRIDGE_GATE_PASSWORD (env or .env)'); process.exit(2); }
+// Login of a local synthetic account from the environment; never a literal, never printed.
+const EMAIL = process.env.BRIDGE_TEST_EMAIL || '';
+const PW = process.env.BRIDGE_TEST_PASSWORD || '';
+if (!EMAIL || !PW) { console.error('Set BRIDGE_TEST_EMAIL and BRIDGE_TEST_PASSWORD'); process.exit(2); }
 const BOARD = BASE + '/projects/blue-harbor';
 const HTTP_CODE = /HTTP|\b[45]\d\d\b/;
 
@@ -28,7 +28,7 @@ try {
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: m });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => ok(false, `${tag} page error: ${e.message}`));
-    await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
+    await p.goto(BASE + '/login'); await p.fill('#email', EMAIL); await p.fill('#pw', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
     await p.goto(BOARD); await p.waitForTimeout(300); // first visit: status toast + mark seen
     await p.goto(BOARD); await p.waitForTimeout(400);
 
@@ -309,7 +309,7 @@ try {
     const ctx = await browser.newContext({ viewport: { width: 700, height: 900 }, deviceScaleFactor: 1 });
     const p = await ctx.newPage();
     p.on('pageerror', (e) => ok(false, `[700] page error: ${e.message}`));
-    await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
+    await p.goto(BASE + '/login'); await p.fill('#email', EMAIL); await p.fill('#pw', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
     await p.goto(BOARD); await p.waitForTimeout(400);
     for (const x of await p.$$('.toast .tx')) await x.click().catch(() => {});
     await p.click('.fbtn'); await p.waitForTimeout(250);

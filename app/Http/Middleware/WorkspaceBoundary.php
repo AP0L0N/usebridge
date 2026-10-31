@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * First middleware of the web and api groups: every HTTP request must resolve a workspace (gate or token) before it
+ * First middleware of the web and api groups: every HTTP request must resolve a workspace (login or token) before it
  * touches owned data, otherwise the scope throws (fail closed). The previous state is restored afterwards, so one
  * request never leaks its workspace into the next (or into test code after a request).
  */

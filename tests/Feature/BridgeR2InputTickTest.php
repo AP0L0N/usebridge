@@ -44,7 +44,7 @@ class BridgeR2InputTickTest extends TestCase
     #[Test]
     public function tick_and_untick_from_the_ui_recalculate_status(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->assertSame(3, $this->derived()['level']);                       // oldest 176h = 7d red
 
         $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertStatus(303);
@@ -69,12 +69,12 @@ class BridgeR2InputTickTest extends TestCase
     }
 
     #[Test]
-    public function ui_route_requires_the_gate_and_scopes_to_the_project(): void
+    public function ui_route_requires_a_login_and_scopes_to_the_project(): void
     {
         $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertRedirect(route('login'));
         $this->assertNull(RequiredInput::find('in-a')->resolved_at);
 
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->post('/projects/blue-harbor/inputs/in-a/resolve', ['resolved' => true])->assertNotFound();
         $this->post(sprintf($this->url, 'in-a'), [])->assertSessionHasErrors('resolved');
     }
@@ -91,7 +91,7 @@ class BridgeR2InputTickTest extends TestCase
                 return false;
             }
         });
-        $this->withSession(['bridge_gate_unlocked' => true, '_token' => 'good-token']);
+        $this->asOwner()->withSession(['_token' => 'good-token']);
 
         $this->post(sprintf($this->url, 'in-a'), ['resolved' => true])->assertStatus(419);
         $this->post(sprintf($this->url, 'in-a'), ['resolved' => true, '_token' => 'wrong'])->assertStatus(419);
@@ -121,7 +121,7 @@ class BridgeR2InputTickTest extends TestCase
         $this->assertSame('Anatoly Korenchkin', RequiredInput::find('in-b')->resolved_by);
 
         Carbon::setTestNow(now()->addHour());
-        $this->withSession(['bridge_gate_unlocked' => true])->post(sprintf($this->url, 'in-c'), ['resolved' => true]);
+        $this->asOwner()->post(sprintf($this->url, 'in-c'), ['resolved' => true]);
         $this->app['auth']->forgetGuards();
 
         $this->getJson('/api/inputs?state=done', $h)->assertOk()->assertJsonCount(3, 'data')

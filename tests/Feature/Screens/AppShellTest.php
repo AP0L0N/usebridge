@@ -75,7 +75,7 @@ class AppShellTest extends TestCase
     }
 
     #[Test]
-    public function gated_routes_still_answer_404_for_a_regular_user(): void
+    public function owner_only_routes_still_answer_404_for_a_regular_user(): void
     {
         $this->actingAs($this->sam);
         $this->get('/polymarket')->assertNotFound();

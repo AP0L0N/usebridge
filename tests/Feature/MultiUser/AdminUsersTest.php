@@ -53,7 +53,7 @@ class AdminUsersTest extends TestCase
         foreach (['GET /admin/users', "POST /admin/users/$id/disable", "POST /admin/users/{$this->tilen->id}/enable"] as $route) {
             [$method, $uri] = explode(' ', $route);
             $this->json($method, $uri)->assertNotFound();
-            $this->withSession(['bridge_gate_unlocked' => true])->json($method, $uri)->assertNotFound();
+            $this->withSession(['bridge_gate_unlocked' => true])->json($method, $uri)->assertNotFound(); // a leftover gate flag is nothing
             $this->actingAs($this->marta)->json($method, $uri)->assertNotFound();
             $this->app['auth']->forgetGuards();
         }

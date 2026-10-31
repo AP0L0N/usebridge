@@ -13,7 +13,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
-/** Tilen's own project controls (gate session, never the token API): status + note, archive/unarchive, all logged. */
+/** Tilen's own project controls (web session, never the token API): status + note, archive/unarchive, all logged. */
 class TilenProjectControlsTest extends TestCase
 {
     use RefreshDatabase;
@@ -47,7 +47,7 @@ class TilenProjectControlsTest extends TestCase
     #[Test]
     public function tilen_sets_status_with_a_note_via_the_web_and_it_is_logged_and_listed_as_tilen(): void
     {
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting', 'note' => 'Cleared the tickets'])
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting', 'note' => 'Cleared the tickets'])
             ->assertOk()->assertJsonPath('data.current.status', 'waiting')->assertJsonPath('data.current.set_by', 'tilen');
 
         $e = collect($this->events())->last();
@@ -58,7 +58,7 @@ class TilenProjectControlsTest extends TestCase
         $this->assertSame(['waiting', 'tilen', 'waiting', 'Cleared the tickets'], [$row['status'], $row['status_source'], $row['pmStatus'], $row['pmStatusNote']]);
         $this->assertSame(1, $row['level']);
 
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertOk();
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertOk();
         $row = $this->row();
         $this->assertSame(['smooth', 'tilen', null], [$row['status'], $row['status_source'], $row['pmStatusNote']]);
     }
@@ -66,7 +66,7 @@ class TilenProjectControlsTest extends TestCase
     #[Test]
     public function a_later_pm_status_overrides_tilens_last_write_wins(): void
     {
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => 'All clear'])->assertOk();
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => 'All clear'])->assertOk();
         $this->api();
         $this->assertSame('tilen', $this->row()['status_source']);
 
@@ -74,7 +74,7 @@ class TilenProjectControlsTest extends TestCase
         $row = $this->row();
         $this->assertSame(['waiting', 'pm', 'Need the logo'], [$row['status'], $row['status_source'], $row['pmStatusNote']]);
 
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertOk();
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertOk();
         $this->assertSame('tilen', $this->row()['status_source']);
         $this->assertSame(['tilen', self::JANICE, 'tilen'], array_map(fn ($e) => $e->set_by, $this->events()));
     }
@@ -89,8 +89,8 @@ class TilenProjectControlsTest extends TestCase
     #[Test]
     public function portfolio_groups_a_tilen_set_waiting_project_with_the_waiting_ones(): void
     {
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting'])->assertOk();
-        $this->gate()->get('/')->assertOk()->assertInertia(function ($page) {
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting'])->assertOk();
+        $this->asOwner()->get('/')->assertOk()->assertInertia(function ($page) {
             $p = collect($page->toArray()['props']['projects'])->firstWhere('slug', self::SLUG);
             $this->assertSame(['waiting', 'tilen', 1], [$p['pmStatus'], $p['pmStatusSetBy'], $p['pmLevel']]);
             $this->assertSame(self::BH, collect($page->toArray()['props']['projects'])->first()['id'], 'waiting group sorts first');
@@ -101,8 +101,8 @@ class TilenProjectControlsTest extends TestCase
     public function note_over_280_chars_is_rejected_and_nothing_is_logged(): void
     {
         $before = count($this->events());
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => str_repeat('x', 281)])->assertUnprocessable()->assertJsonValidationErrors('note');
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => str_repeat('x', 280)])->assertOk();
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => str_repeat('x', 281)])->assertUnprocessable()->assertJsonValidationErrors('note');
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'smooth', 'note' => str_repeat('x', 280)])->assertOk();
         $this->assertSame($before + 1, count($this->events()));
     }
 
@@ -112,11 +112,11 @@ class TilenProjectControlsTest extends TestCase
         $this->api();
         $t = $this->newTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'hi', 'actor' => self::JANICE])->assertCreated();
-        $this->gate()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting', 'note' => 'n'])->assertOk();
+        $this->asOwner()->patchJson('/projects/'.self::SLUG.'/status', ['status' => 'waiting', 'note' => 'n'])->assertOk();
         $counts = fn () => [Project::count(), Ticket::count(), TicketComment::count(), TicketEvent::count()];
         $before = $counts();
 
-        $this->gate()->postJson('/projects/'.self::SLUG.'/archive')->assertOk()->assertJsonPath('data.current.status', 'archived');
+        $this->asOwner()->postJson('/projects/'.self::SLUG.'/archive')->assertOk()->assertJsonPath('data.current.status', 'archived');
         $p = Project::find(self::BH);
         $this->assertNotNull($p->archived_at);
         $this->assertSame('archived', $p->status);
@@ -127,16 +127,16 @@ class TilenProjectControlsTest extends TestCase
 
         // Archiving again is a no-op (no extra log row).
         $n = count($this->events());
-        $this->gate()->postJson('/projects/'.self::SLUG.'/archive')->assertOk();
+        $this->asOwner()->postJson('/projects/'.self::SLUG.'/archive')->assertOk();
         $this->assertSame($n, count($this->events()));
 
         // The archived board still opens, and shows up in the portfolio's archived group.
-        $this->gate()->get('/projects/'.self::SLUG)->assertOk();
-        $this->gate()->get('/')->assertInertia(fn ($page) => $this->assertTrue(
+        $this->asOwner()->get('/projects/'.self::SLUG)->assertOk();
+        $this->asOwner()->get('/')->assertInertia(fn ($page) => $this->assertTrue(
             collect($page->toArray()['props']['projects'])->firstWhere('slug', self::SLUG)['archived'],
         ));
 
-        $this->gate()->postJson('/projects/'.self::SLUG.'/unarchive')->assertOk()->assertJsonPath('data.current.status', 'waiting');
+        $this->asOwner()->postJson('/projects/'.self::SLUG.'/unarchive')->assertOk()->assertJsonPath('data.current.status', 'waiting');
         $p = Project::find(self::BH);
         $this->assertNull($p->archived_at);
         $this->assertNull($p->reopened_at);
@@ -148,14 +148,14 @@ class TilenProjectControlsTest extends TestCase
     #[Test]
     public function unarchive_without_a_prior_status_goes_to_smooth(): void
     {
-        $this->gate()->post('/projects/'.self::SLUG.'/archive')->assertRedirect();
-        $this->gate()->post('/projects/'.self::SLUG.'/unarchive')->assertRedirect();
+        $this->asOwner()->post('/projects/'.self::SLUG.'/archive')->assertRedirect();
+        $this->asOwner()->post('/projects/'.self::SLUG.'/unarchive')->assertRedirect();
         $this->assertSame('smooth', Project::find(self::BH)->status);
         $this->assertCount(2, $this->events());
     }
 
     #[Test]
-    public function web_controls_redirect_to_the_gate_without_a_session(): void
+    public function web_controls_redirect_to_login_without_a_session(): void
     {
         $this->patch('/projects/'.self::SLUG.'/status', ['status' => 'smooth'])->assertRedirect(route('login'));
         $this->post('/projects/'.self::SLUG.'/archive')->assertRedirect(route('login'));

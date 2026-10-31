@@ -19,29 +19,26 @@ class AuthScreensTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function guests_land_on_login_which_links_the_workspace_gate(): void
+    public function guests_land_on_login_and_there_is_no_workspace_password(): void
     {
         $this->get('/')->assertOk()->assertViewIs('landing'); // the public landing page, no longer a redirect
         $this->get('/usage')->assertRedirect('/login');
 
         $this->get('/login')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Auth/Login')
-            ->where('gateAvailable', true)
+            ->missing('gateAvailable')
             ->where('auth.user', null)
             ->where('features.polymarket', false)
             ->where('features.admin', false));
 
-        // AUTH-1 keeps working for the existing workspace until Tilen retires it (back to the page asked for).
-        $this->post('/gate', ['password' => config('bridge.gate_password')])->assertRedirect(route('usage'));
-        $this->get('/')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Portfolio')->where('auth.user', null));
+        // The shared workspace password is gone: only a normal login gets in.
+        $this->get('/gate')->assertNotFound();
+        $this->post('/gate', ['password' => 'anything'])->assertNotFound();
     }
 
     #[Test]
-    public function login_is_hidden_without_a_gate_password_and_logged_in_users_skip_it(): void
+    public function logged_in_users_skip_login_and_signup(): void
     {
-        config(['bridge.gate_password' => '']);
-        $this->get('/login')->assertInertia(fn (Assert $p) => $p->where('gateAvailable', false));
-
         $this->actingAs($this->workspaceUser())->get('/login')->assertRedirect(route('portfolio'));
         $this->get('/signup')->assertRedirect(route('portfolio'));
     }

@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
-/** /admin: a logged-in is_admin user; 404 for everyone else (guests, users, gate sessions), so it stays invisible. */
+/** /admin: a logged-in is_admin user; 404 for everyone else (guests and other users), so it stays invisible. */
 class RequireAdmin
 {
     public function handle(Request $request, Closure $next): Response

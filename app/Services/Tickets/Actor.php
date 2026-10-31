@@ -10,7 +10,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 /**
  * Who is writing. API: the Sanctum token's name when it is an agents.id (a differing body `actor` is a 403),
  * otherwise the body `actor` (an existing agents.id). 'tilen' is never accepted over the API: Tilen's input only
- * comes from the Bridge UI (gate session), so it can always be told apart.
+ * comes from the Bridge UI (web session), so it can always be told apart.
  */
 final class Actor
 {

@@ -22,7 +22,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 
 /**
- * Tilen's ticket writes from the Bridge UI (gate session, CSRF). Actor 'tilen', type human, source ui.
+ * Tilen's ticket writes from the Bridge UI (logged-in session, CSRF). Actor 'tilen', type human, source ui.
  * Every endpoint answers JSON when the request wants it (Accept: application/json), otherwise redirects back.
  */
 class TicketController extends Controller

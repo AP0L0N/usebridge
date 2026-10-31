@@ -42,7 +42,7 @@ class KanbanReviewFiltersTest extends TestCase
         $this->postJson("/api/tickets/{$seen['key']}/comments", ['body' => 'Old news', 'actor' => self::JANICE])->assertCreated();
         $this->tilenSays($pickup['key'], ['body' => 'Go with yes', 'is_tilen_input' => true])->assertCreated();
         $this->travelMinutes(1);
-        $this->gate()->postJson("/projects/blue-harbor/tickets/{$seen['key']}/seen")->assertOk();
+        $this->asOwner()->postJson("/projects/blue-harbor/tickets/{$seen['key']}/seen")->assertOk();
 
         return compact('unread', 'pickup', 'plain', 'seen');
     }
@@ -81,7 +81,7 @@ class KanbanReviewFiltersTest extends TestCase
     public function board_props_carry_both_flags_per_ticket(): void
     {
         $f = $this->fixtures();
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(function (Assert $p) use ($f) {
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(function (Assert $p) use ($f) {
             $tickets = collect($p->toArray()['props']['board']['columns'])->pluck('tickets')->flatten(1)->keyBy('key');
             $flags = $tickets->map(fn ($t) => [$t['unread_for_tilen'], $t['needs_pm_pickup']]);
             $this->assertSame([true, false], $flags[$f['unread']['key']]);

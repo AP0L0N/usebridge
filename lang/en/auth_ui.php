@@ -109,8 +109,6 @@ return [
         'cancel_deletion' => 'Cancel deletion and log in',
         'deletion_cancelled' => 'Deletion cancelled',
         'cancel_failed' => 'The deletion could not be cancelled.',
-        'gate' => 'Shared team access?',
-        'gate_link' => 'Workspace password',
         'status' => [
             'deletion-requested' => 'Your account will be deleted in 7 days. Log in before then to cancel.',
             'logged-out-everywhere' => 'You were logged out of all devices.',

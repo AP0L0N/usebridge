@@ -42,7 +42,7 @@ class UsageViewTest extends TestCase
 
     private function unlock(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
     }
 
     /** @return list<array<string, mixed>> the agent's entries across the 7 fixture files */
@@ -61,7 +61,7 @@ class UsageViewTest extends TestCase
     }
 
     #[Test]
-    public function gate_is_required(): void
+    public function login_is_required(): void
     {
         $this->get('/usage')->assertRedirect(route('login'));
         $this->get('/usage/agents/'.self::JUNIPER)->assertRedirect(route('login'));

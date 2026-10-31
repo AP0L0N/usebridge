@@ -170,7 +170,7 @@ class CursorCsvImportTest extends TestCase
     #[Test]
     public function a_missing_required_header_is_422_naming_the_missing_and_the_found_headers(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $res = $this->upload("Date,Model,Input,Output Tokens,Cost\n2026-10-20T08:00:00Z,gpt-5,1,2,0\n")->assertStatus(422);
         $msg = $res->json('errors.header.0');
@@ -190,7 +190,7 @@ class CursorCsvImportTest extends TestCase
             ."2026-10-24T08:00:00Z,Usage-based,gpt-5,No,0,1,0,1,2,$0.01\n"
             ."2026-10-25T08:00:00Z,Usage-based,gpt-5,No,0,12x,0,1,2,$0.01\n"
             ."2026-10-26T08:00:00Z,Usage-based,gpt-5,No,0,1,0,1,2,1.2.3\n";
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $res = $this->upload($csv)->assertStatus(422);
 
@@ -285,9 +285,9 @@ class CursorCsvImportTest extends TestCase
     }
 
     #[Test]
-    public function the_gate_session_uploads_into_tilens_workspace_and_gets_a_json_summary(): void
+    public function the_owner_uploads_into_his_workspace_and_gets_a_json_summary(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $this->upload(self::fixture('v1.csv'))->assertOk()
             ->assertJsonPath('data.from', '2026-10-20')->assertJsonPath('data.to', '2026-10-22')
@@ -333,7 +333,7 @@ class CursorCsvImportTest extends TestCase
     #[Test]
     public function uploads_are_throttled_to_ten_per_hour(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $csv = self::V2_HEADER."\n2026-10-29T08:00:00Z,Usage-based,gpt-5,No,0,1,0,1,2,0\n";
         for ($i = 0; $i < 10; $i++) {
             $this->upload($csv)->assertOk();
@@ -345,7 +345,7 @@ class CursorCsvImportTest extends TestCase
     #[Test]
     public function an_upload_needs_a_file(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $this->post('/usage/cursor-csv', [], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrors('file');
     }
@@ -353,7 +353,7 @@ class CursorCsvImportTest extends TestCase
     #[Test]
     public function usage_page_props_say_who_may_upload_and_cursor_rows_show_as_one_account(): void
     {
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
         $this->get('/usage')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('cli.cursorUpload', ['allowed' => true, 'lastImportAt' => null]));
 

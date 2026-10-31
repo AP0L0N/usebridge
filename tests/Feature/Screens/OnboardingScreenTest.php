@@ -60,7 +60,7 @@ class OnboardingScreenTest extends TestCase
     }
 
     #[Test]
-    public function guests_and_gate_sessions_go_to_login(): void
+    public function guests_and_stale_gate_sessions_go_to_login(): void
     {
         $this->get('/welcome')->assertRedirect('/login');
         $this->withSession(['bridge_gate_unlocked' => true])->get('/welcome')->assertRedirect('/login');

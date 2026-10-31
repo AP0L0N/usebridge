@@ -106,10 +106,10 @@ class ProjectSetupTest extends TestCase
     }
 
     #[Test]
-    public function guests_and_gate_sessions_cannot_create_or_rename(): void
+    public function guests_and_stale_gate_sessions_cannot_create_or_rename(): void
     {
         $this->postJson('/projects', ['name' => 'Acme Studio', 'slug' => 'acme-studio', 'ticket_prefix' => 'AC'])->assertUnauthorized();
-        $this->gate()->postJson('/projects', ['name' => 'Acme Studio', 'slug' => 'acme-studio', 'ticket_prefix' => 'AC'])->assertUnauthorized();
+        $this->withSession(['bridge_gate_unlocked' => true])->postJson('/projects', ['name' => 'Acme Studio', 'slug' => 'acme-studio', 'ticket_prefix' => 'AC'])->assertUnauthorized();
         $this->assertSame(0, Project::acrossWorkspaces()->count());
     }
 
@@ -171,12 +171,12 @@ class ProjectSetupTest extends TestCase
         $this->labels($this->ada, 'no-such-project', ['backlog' => 'Mine now'])->assertNotFound();
         $this->assertNull(Project::acrossWorkspaces()->where('slug', 'acme-studio')->first()->column_labels);
 
-        // A gate session (not a workspace member) cannot rename either, and its board has no editor.
+        // A session with only the old (removed) gate flag cannot rename either, nor see the board.
         $this->bootTickets();
         $this->app['auth']->forgetGuards();
         $slug = Project::acrossWorkspaces()->where('id', self::BH)->value('slug');
-        $this->gate()->putJson("/projects/$slug/column-labels", ['column_labels' => ['backlog' => 'Ideas']])->assertUnauthorized();
-        $this->gate()->get("/projects/$slug")->assertInertia(fn (Assert $p) => $p->where('columnLabelsUrl', null));
+        $this->withSession(['bridge_gate_unlocked' => true])->putJson("/projects/$slug/column-labels", ['column_labels' => ['backlog' => 'Ideas']])->assertUnauthorized();
+        $this->withSession(['bridge_gate_unlocked' => true])->get("/projects/$slug")->assertRedirect('/login');
     }
 
     #[Test]

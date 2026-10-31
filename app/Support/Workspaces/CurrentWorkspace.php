@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Auth;
 /**
  * The workspace this request (or console run) acts in; drives the BelongsToWorkspace global scope.
  *
- * - HTTP: WorkspaceBoundary marks every web/api request as `required`; the AUTH-1 gate (Tilen's workspace, transitional)
- *   or the API token (ResolveTokenWorkspace) then sets it. Owned queries without one throw MissingWorkspace.
+ * - HTTP: WorkspaceBoundary marks every web/api request as `required`; the logged-in user's workspace
+ *   (EnsureUserWorkspace) or the API token (ResolveTokenWorkspace) then sets it. Owned queries without one throw MissingWorkspace.
  * - Console / migrations / seeders (not required, none set): queries are not scoped, and new rows go to the parent
  *   project's/ticket's workspace, else the default workspace (bridge.default_workspace).
  */
@@ -76,20 +76,22 @@ final class CurrentWorkspace
     }
 
     /**
-     * A web feature only the workspace owner sees (Polymarket): on for the workspace, and the logged-in user, if any,
-     * owns it. An AUTH-1 gate session (no user; the owner's shared password) counts as the owner; members never see it.
+     * A feature only the workspace owner sees (Polymarket): on for the workspace, and $user (default: the web login)
+     * owns it. No user = no access (fails closed); members never see it. API routes pass $request->user() (the token
+     * user), because the web guard is empty there.
      */
-    public function hasOwnerFeature(string $feature): bool
+    public function hasOwnerFeature(string $feature, mixed $user = null): bool
     {
         if (! $this->hasFeature($feature)) {
             return false;
         }
-        $user = Auth::guard('web')->user();
+        $user ??= Auth::guard('web')->user();
 
-        return $user === null || $this->workspace?->owner_user_id === $user->getAuthIdentifier();
+        return $user !== null && $this->workspace !== null
+            && (int) $this->workspace->owner_user_id === (int) $user->getAuthIdentifier();
     }
 
-    /** Tilen's workspace (bridge.default_workspace); null before the backfill migration ran. */
+    /** The owner's workspace (bridge.default_workspace); null before the backfill migration ran. */
     public function default(): ?Workspace
     {
         $slug = (string) (config('bridge.default_workspace') ?: 'main');

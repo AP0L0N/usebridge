@@ -23,7 +23,7 @@ createInertiaApp({
       throw new Error(`Page not found: ${name}`);
     }
     const module = (await importPage()) as { default: React.ComponentType & { layout?: (page: ReactNode) => ReactNode } };
-    // Every page gets the site footer (login, sign-up, gate, onboarding, app shell, legal pages).
+    // Every page gets the site footer (login, sign-up, onboarding, app shell, legal pages).
     module.default.layout ??= (page: ReactNode) => <SiteLayout>{page}</SiteLayout>;
     return module.default;
   },

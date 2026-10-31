@@ -39,7 +39,7 @@ class AccountPageController extends Controller
             'minPassword' => AccountService::MIN_PASSWORD,
             'deletion' => [
                 'graceDays' => AccountDeletion::GRACE_DAYS,
-                // Own workspace only (EnsureWorkspaceGate set it; the scope filters every query).
+                // Own workspace only (EnsureUserWorkspace set it; the scope filters every query).
                 'counts' => ['projects' => Project::query()->count(), 'tickets' => Ticket::query()->count(), 'tokens' => count($tokens->list($user))],
             ],
             // Profile edit / email change (ProfileController); the form turns on when their routes exist.

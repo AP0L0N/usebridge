@@ -137,14 +137,14 @@ class WorkspaceIsolationTest extends TestCase
     }
 
     #[Test]
-    public function the_gate_session_shows_only_tilens_workspace(): void
+    public function the_owner_session_shows_only_his_workspace(): void
     {
         $this->grokAgent();
         $this->send($this->grok, 'POST', '/api/projects', ['id' => 'proj-grok', 'name' => 'Grok Lab', 'slug' => 'grok-lab', 'owner_agent_id' => 'agent-grok', 'actor' => 'agent-grok'])->assertCreated();
 
-        $this->gate()->get('/projects/grok-lab')->assertNotFound();
-        $this->gate()->get('/projects/blue-harbor')->assertOk();
-        $this->gate()->get('/')->assertOk()->assertDontSee('Grok Lab');
+        $this->asOwner()->get('/projects/grok-lab')->assertNotFound();
+        $this->asOwner()->get('/projects/blue-harbor')->assertOk();
+        $this->asOwner()->get('/')->assertOk()->assertDontSee('Grok Lab');
     }
 
     #[Test]

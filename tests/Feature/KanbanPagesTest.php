@@ -34,7 +34,7 @@ class KanbanPagesTest extends TestCase
     private function cards(): array
     {
         $out = null;
-        $this->gate()->get('/')->assertOk()->assertInertia(function (Assert $p) use (&$out) {
+        $this->asOwner()->get('/')->assertOk()->assertInertia(function (Assert $p) use (&$out) {
             $p->component('Portfolio');
             $out = $p->toArray()['props']['projects'];
         });
@@ -113,7 +113,7 @@ class KanbanPagesTest extends TestCase
             Ticket::query()->whereKey($t['id'])->update(['done_at' => Carbon::now()->subDays($d)]);
         }
 
-        $this->gate()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'waiting_tilen', 'review', 'done'])
             ->where('board.columns.3.tickets.0.title', 'Older ask')
@@ -138,7 +138,7 @@ class KanbanPagesTest extends TestCase
         $this->travelMinutes(5);
         $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'waiting', 'note' => 'second', 'actor' => self::JANICE])->assertOk();
 
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->has('statusHistory', 2)->where('statusHistory.0.note', 'second')->where('statusHistory.0.from_status', 'smooth')
             ->where('board.project.status_unseen_by_tilen', true));
 
@@ -153,7 +153,7 @@ class KanbanPagesTest extends TestCase
         $t = $this->waitingTicket(['description' => 'Some **markdown**']);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'Hello Tilen', 'actor' => self::JANICE])->assertCreated();
 
-        $this->gate()->get("/projects/blue-harbor/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get("/projects/blue-harbor/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('ticket.key', $t['key'])
             ->where('ticket.ask_options', ['Yes', 'No'])
@@ -172,7 +172,7 @@ class KanbanPagesTest extends TestCase
         $this->api();
         $t = $this->waitingTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'New info', 'actor' => self::JANICE])->assertCreated();
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.3.tickets.0.unread_for_tilen', true)
             ->where('board.columns.3.tickets.0.latest_unread_author.name', 'Dr. Janice Polito'));
 
@@ -185,7 +185,7 @@ class KanbanPagesTest extends TestCase
     }
 
     #[Test]
-    public function the_seen_endpoints_need_the_gate(): void
+    public function the_seen_endpoints_need_a_login(): void
     {
         $this->post('/projects/blue-harbor/seen')->assertRedirect(route('login'));
         $this->post('/projects/blue-harbor/tickets/BH-1/seen')->assertRedirect(route('login'));

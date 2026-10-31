@@ -354,7 +354,7 @@ class CliUsagePerToolTest extends TestCase
     public function the_usage_page_lists_imported_tools_per_date_and_shows_cursor_only_with_rows(): void
     {
         $this->import(self::collector());
-        $this->withSession(['bridge_gate_unlocked' => true]);
+        $this->asOwner();
 
         $this->get('/usage')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('cli.tools', 3)

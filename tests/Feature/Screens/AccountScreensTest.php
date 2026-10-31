@@ -34,7 +34,7 @@ class AccountScreensTest extends TestCase
     {
         $this->get('/account')->assertRedirect('/login');
         $this->get('/account/tokens')->assertRedirect('/login');
-        // a gate session is not an account
+        // a session with only the old (removed) gate flag is not an account
         $this->withSession(['bridge_gate_unlocked' => true])->get('/account')->assertRedirect('/login');
     }
 

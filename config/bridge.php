@@ -2,15 +2,6 @@
 
 return [
     /*
-    | AUTH-1: single shared workspace gate password (transitional, App\Support\WorkspaceGate). Fails closed (CoS
-    | decision 31 Oct): no default; unset or empty = the gate rejects every password. Set it explicitly in .env.
-    | gate_enabled false = the gate is retired: /gate 404s and gate sessions (even already unlocked ones) unlock
-    | nothing, so everyone logs in. Retired in production when multi-user launches (docs/MULTI-USER-PLAN.md).
-    */
-    'gate_password' => (string) env('BRIDGE_GATE_PASSWORD'),
-    'gate_enabled' => filter_var(env('BRIDGE_GATE_ENABLED', true), FILTER_VALIDATE_BOOL),
-
-    /*
     | Bridge r1 migration: carry r0 items over as open Required inputs?
     | true  (default) = projects.needs_decision + open/assigned project CEO-queue items
     |                   become open inputs.
@@ -40,9 +31,8 @@ return [
 
     /*
     | Multi-user (docs/MULTI-USER-PLAN.md). default_workspace: slug of the owner's workspace (BRIDGE_WORKSPACE_SLUG),
-    | created by the backfill migration with the name BRIDGE_WORKSPACE_NAME; AUTH-1 gate sessions and console writes
-    | without a workspace act in it (transitional). An already migrated database must keep the slug it was created
-    | with: set BRIDGE_WORKSPACE_SLUG to it.
+    | created by the backfill migration with the name BRIDGE_WORKSPACE_NAME; console writes without a workspace act
+    | in it. An already migrated database must keep the slug it was created with: set BRIDGE_WORKSPACE_SLUG to it.
     | owner_email: the owner's login email; read once by the backfill migration to pick/create the owner user.
     */
     'default_workspace' => (string) (env('BRIDGE_WORKSPACE_SLUG') ?: 'main'),

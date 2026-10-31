@@ -39,7 +39,7 @@ class AdminScreenTest extends TestCase
             ->where('meId', $this->tilen->id)
             ->has('users', 2));
 
-        $this->assertSame(['users', 'meId'], array_values(array_diff(array_keys($res->inertiaProps()), ['errors', 'gateUnlocked', 'auth', 'features', 'footer', 'flash'])));
+        $this->assertSame(['users', 'meId'], array_values(array_diff(array_keys($res->inertiaProps()), ['errors', 'auth', 'features', 'footer', 'flash'])));
         foreach ($res->inertiaProps('users') as $row) {
             $this->assertSame(AdminUsers::KEYS, array_keys($row));
         }

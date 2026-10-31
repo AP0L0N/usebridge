@@ -221,7 +221,7 @@ class TicketsMigrationTest extends TestCase
         ] as [$method, $uri, $body]) {
             $this->json($method, $uri, $body)->assertStatus(410)->assertExactJson(['message' => 'Superseded by tickets; see docs/API-TICKETS.md']);
         }
-        $this->gate()->post('/projects/blue-harbor/inputs/in-ca-1/resolve', ['resolved' => true])->assertStatus(410);
+        $this->asOwner()->post('/projects/blue-harbor/inputs/in-ca-1/resolve', ['resolved' => true])->assertStatus(410);
         $this->post('/projects/blue-harbor/questions/q-open/answer', ['answer_choice' => 'yes'])->assertStatus(410);
         $this->assertSame('open', Question::find('q-open')->state);
         $this->assertNull(RequiredInput::find('in-ca-1')->resolved_at);

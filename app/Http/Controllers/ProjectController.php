@@ -41,7 +41,7 @@ class ProjectController extends Controller
             'people' => fn () => self::people(),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,
-            // Column labels editor: logged-in users only (the AUTH-1 gate session is not a workspace member).
+            // Column labels editor: logged-in workspace members only.
             'columnLabelsUrl' => $request->user() !== null ? route('projects.column-labels.update', $project->slug) : null,
             'defaultColumns' => BoardColumns::all(),
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
@@ -65,7 +65,7 @@ class ProjectController extends Controller
         ];
     }
 
-    /** Gate-session tick/untick (CSRF-protected web route). resolved_by = 'tilen'. */
+    /** Web-session tick/untick (CSRF-protected web route). resolved_by = 'tilen'. */
     public function resolveInput(Request $request, string $slug, string $id): RedirectResponse
     {
         $data = $request->validate(['resolved' => ['required', 'boolean']]);
@@ -76,7 +76,7 @@ class ProjectController extends Controller
         return back(303);
     }
 
-    /** r4 gate-session answer (CSRF-protected web route); same rules as the API PATCH. */
+    /** r4 web-session answer (CSRF-protected web route); same rules as the API PATCH. */
     public function answerQuestion(Request $request, string $slug, string $id): RedirectResponse
     {
         $data = $request->validate(QuestionAnswer::rules());

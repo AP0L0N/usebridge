@@ -33,7 +33,7 @@ class TilenWebTicketsTest extends TestCase
     }
 
     #[Test]
-    public function web_ticket_routes_need_the_gate(): void
+    public function web_ticket_routes_need_a_login(): void
     {
         $this->post('/projects/blue-harbor/tickets', ['title' => 'x'])->assertRedirect(route('login'));
         $this->get('/projects/blue-harbor/tickets/BH-1')->assertRedirect(route('login'));
@@ -43,7 +43,7 @@ class TilenWebTicketsTest extends TestCase
     #[Test]
     public function quick_add_patch_move_archive_as_tilen(): void
     {
-        $t = $this->gate()->postJson('/projects/blue-harbor/tickets', ['title' => 'Call the printer'])->assertCreated()->json('data');
+        $t = $this->asOwner()->postJson('/projects/blue-harbor/tickets', ['title' => 'Call the printer'])->assertCreated()->json('data');
         $this->assertSame(['BH-1', 'backlog', 'tilen', 'human'], [$t['key'], $t['status'], $t['created_by'], $t['created_by_type']]);
         $this->postJson('/projects/blue-harbor/tickets', ['title' => 'x', 'status' => 'review'])->assertUnprocessable();
         $this->postJson('/projects/blue-harbor/tickets', ['status' => 'todo'])->assertUnprocessable()->assertJsonValidationErrors('title');
@@ -161,7 +161,7 @@ class TilenWebTicketsTest extends TestCase
         $this->assertFalse($unread($plain['key'])['unread_for_tilen']);
 
         $this->travelMinutes(1);
-        $this->gate()->postJson("/projects/blue-harbor/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
+        $this->asOwner()->postJson("/projects/blue-harbor/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
         $this->travelMinutes(1);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'One more', 'actor' => self::ANATOLY])->assertCreated();
         $this->assertSame('Anatoly Korenchkin', $unread($t['key'])['latest_unread_author']['name']);
@@ -182,11 +182,11 @@ class TilenWebTicketsTest extends TestCase
         $this->api();
         $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'waiting', 'note' => 'Need a call', 'actor' => self::JANICE])->assertOk();
         $this->getJson('/api/projects/'.self::BH.'/board')->assertJsonPath('data.project.status_unseen_by_tilen', true);
-        $this->gate()->postJson('/projects/blue-harbor/seen')->assertOk()->assertJsonPath('data.status_unseen_by_tilen', false);
+        $this->asOwner()->postJson('/projects/blue-harbor/seen')->assertOk()->assertJsonPath('data.status_unseen_by_tilen', false);
         $this->assertNotNull(ProjectReadState::first()->status_seen_at);
 
         $this->travelMinutes(1);
-        $this->gate()->patchJson('/projects/blue-harbor/status', ['status' => 'smooth', 'note' => 'Sorted on the phone'])->assertOk()
+        $this->asOwner()->patchJson('/projects/blue-harbor/status', ['status' => 'smooth', 'note' => 'Sorted on the phone'])->assertOk()
             ->assertJsonPath('data.current.set_by', 'tilen')->assertJsonPath('data.current.set_by_name', 'Tilen');
         $e = ProjectStatusEvent::query()->latest('created_at')->first();
         $this->assertSame(['waiting', 'smooth', 'tilen', 'human', 'ui'], [$e->from_status, $e->to_status, $e->set_by, $e->set_by_type, $e->source]);
@@ -205,7 +205,7 @@ class TilenWebTicketsTest extends TestCase
     {
         $this->api();
         $this->waitingTicket();
-        $this->gate()->get('/projects/blue-harbor/tickets/BH-1')->assertOk()
+        $this->asOwner()->get('/projects/blue-harbor/tickets/BH-1')->assertOk()
             ->assertInertia(fn (Assert $p) => $p->component('Board')->where('ticket.key', 'BH-1')->where('board.project.ticket_prefix', 'BH')->has('ticket.comments'));
         $this->assertSame(route('projects.tickets.show', ['slug' => 'blue-harbor', 'key' => 'BH-1']), url('/projects/blue-harbor/tickets/BH-1'));
         $this->get('/projects/blue-harbor/tickets/BH-9')->assertNotFound();

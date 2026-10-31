@@ -52,7 +52,7 @@ class BoardScreenTest extends TestCase
             'status_set_by' => self::JANICE, 'status_set_at' => $now->copy()->subHours(2),
         ]);
 
-        $this->gate()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('board.project.status', 'waiting')
             ->where('board.project.status_note', 'Nothing needs you right now. Build is on track.')
@@ -71,7 +71,7 @@ class BoardScreenTest extends TestCase
         $this->travelMinutes(1);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'Latest from the agent', 'actor' => self::JANICE])->assertCreated();
 
-        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.3.tickets.0.blocked', true)
             ->where('board.columns.3.tickets.0.blocked_reason', 'Waiting for the weather API key')
             ->where('board.columns.3.tickets.0.needs_pm_pickup', false)
@@ -80,7 +80,7 @@ class BoardScreenTest extends TestCase
             ->where('board.columns.3.tickets.0.latest_comment.author_name', 'Dr. Janice Polito'));
 
         // Your input not picked up: Tilen's input comment flips the flag (the "Your input · not picked up yet" chip).
-        $this->gate()->postJson("/projects/blue-harbor/tickets/{$t['key']}/comments", ['body' => 'Go with 7:00', 'is_tilen_input' => true])->assertCreated();
+        $this->asOwner()->postJson("/projects/blue-harbor/tickets/{$t['key']}/comments", ['body' => 'Go with 7:00', 'is_tilen_input' => true])->assertCreated();
         $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.3.tickets.0.needs_pm_pickup', true));
         // The latest comment is now Tilen's own (the card hides the "via MCP" line for humans).
@@ -96,7 +96,7 @@ class BoardScreenTest extends TestCase
         $key = $t['key'];
 
         // Plain move with ordering.
-        $this->gate()->postJson("/projects/blue-harbor/tickets/$key/move", ['status' => 'in_progress', 'position' => 0])
+        $this->asOwner()->postJson("/projects/blue-harbor/tickets/$key/move", ['status' => 'in_progress', 'position' => 0])
             ->assertOk()->assertJsonPath('data.status', 'in_progress')->assertJsonPath('data.position', 0);
 
         // Moving into the waiting column needs an ask; the message names the column as this board shows it.
@@ -140,7 +140,7 @@ class BoardScreenTest extends TestCase
         $events = TicketEvent::count();
 
         // Open the drawer (deep link), read the props a client needs for the discard check, close (Back).
-        $this->gate()->get("/projects/blue-harbor/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->get("/projects/blue-harbor/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
             ->where('ticket.key', $t['key'])
             ->has('ticket.comments')
             ->has('ticket.events'));

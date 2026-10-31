@@ -7,7 +7,7 @@ use App\Support\Legal\LegalPages;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** The public legal pages (no login, no gate). The page id comes from the route defaults, never from user input. */
+/** The public legal pages (no login). The page id comes from the route defaults, never from user input. */
 class LegalPageController extends Controller
 {
     public function __invoke(string $legalPage): Response
