@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { Shared } from '../lib/account';
 import { go, requestJson } from '../lib/http';
 import { t } from '../lib/strings';
+import { IconChev } from './AppIcons';
 
-const NAV = [
+export const NAV = [
   { href: '/', label: 'Portfolio' },
   { href: '/usage', label: 'Usage' },
   { href: '/polymarket', label: 'Polymarket', feature: 'polymarket' },
@@ -14,7 +15,7 @@ const NAV = [
 const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
 
 /** "/" and /projects/* belong to Portfolio, /usage* to Usage, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
-function activeHref(url: string): string | null {
+export function activeHref(url: string): string | null {
   for (const base of ['/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
   if (under(url, '/account') || under(url, '/welcome')) return null;
   return '/';
@@ -24,7 +25,7 @@ function activeHref(url: string): string | null {
  * Logged-in pages: avatar initials + name → Account, API tokens & MCP, Log out (DESIGN.md `.acct`). An "Owner" chip
  * for the Bridge owner (is_admin). Closes on Esc, outside click and navigation.
  */
-function AccountMenu({ url }: { url: string }) {
+export function AccountMenu({ url, app = false }: { url: string; app?: boolean }) {
   const user = usePage<Shared>().props.auth?.user;
   const ref = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState(false);
@@ -50,12 +51,12 @@ function AccountMenu({ url }: { url: string }) {
   const cur = (href: string) => (url.split('?')[0] === href ? ('page' as const) : undefined);
 
   return (
-    <details className="acct" ref={ref}>
-      <summary aria-label={`Account menu for ${user.name}${user.is_admin ? ', owner' : ''}`}>
+    <details className={app ? 'acct atb-acct' : 'acct'} ref={ref}>
+      <summary aria-label={t(user.is_admin ? 'account.menu.ariaOwner' : 'account.menu.aria', { name: user.name })}>
         {user.is_admin && <span className="ownr">Owner</span>}
         <span className="avi" aria-hidden="true">{user.initials}</span>
         <span className="an">{user.name}</span>
-        <span className="car" aria-hidden="true">▾</span>
+        <span className="car" aria-hidden="true">{app ? <IconChev /> : '▾'}</span>
       </summary>
       <div className="menu">
         <p className="aid"><b>{user.name}</b><span>{user.email}</span>{user.is_admin && <span className="ownr">Owner</span>}</p>

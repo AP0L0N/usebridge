@@ -1,7 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import type { Shared } from '../../lib/account';
-import { TopBar } from '../../Components/TopBar';
+import { AppTopBar } from '../../Components/Shell/AppTopBar';
 import { ChartLegend } from '../../Components/Usage/ChartLegend';
 import { CliUsage } from '../../Components/Usage/CliUsage';
 import { CursorUsage } from '../../Components/Usage/CursorUsage';
@@ -90,7 +90,7 @@ export default function Overview(p: OverviewProps) {
   return (
     <>
       <Head title="Usage" />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <div className="dhead">
           <div>

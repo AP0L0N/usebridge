@@ -19,7 +19,7 @@ class TilenProjectControlsTest extends TestCase
     use RefreshDatabase;
     use TicketHelpers;
 
-    private const SLUG = 'concierge-avant';
+    private const SLUG = 'blue-harbor';
 
     protected function setUp(): void
     {
@@ -33,7 +33,7 @@ class TilenProjectControlsTest extends TestCase
         parent::tearDown();
     }
 
-    private function row(string $id = self::CA): array
+    private function row(string $id = self::BH): array
     {
         return collect($this->getJson('/api/projects')->assertOk()->json('data'))->firstWhere('id', $id);
     }
@@ -41,7 +41,7 @@ class TilenProjectControlsTest extends TestCase
     /** @return list<ProjectStatusEvent> */
     private function events(): array
     {
-        return ProjectStatusEvent::query()->where('project_id', self::CA)->orderBy('created_at')->orderBy('id')->get()->all();
+        return ProjectStatusEvent::query()->where('project_id', self::BH)->orderBy('created_at')->orderBy('id')->get()->all();
     }
 
     #[Test]
@@ -70,7 +70,7 @@ class TilenProjectControlsTest extends TestCase
         $this->api();
         $this->assertSame('tilen', $this->row()['status_source']);
 
-        $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'waiting', 'note' => 'Need the logo', 'actor' => self::JANICE])->assertOk();
+        $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'waiting', 'note' => 'Need the logo', 'actor' => self::JANICE])->assertOk();
         $row = $this->row();
         $this->assertSame(['waiting', 'pm', 'Need the logo'], [$row['status'], $row['status_source'], $row['pmStatusNote']]);
 
@@ -83,7 +83,7 @@ class TilenProjectControlsTest extends TestCase
     public function never_set_projects_are_derived(): void
     {
         $this->api();
-        $this->assertSame('derived', $this->row(self::MW)['status_source']);
+        $this->assertSame('derived', $this->row(self::NW)['status_source']);
     }
 
     #[Test]
@@ -93,7 +93,7 @@ class TilenProjectControlsTest extends TestCase
         $this->gate()->get('/')->assertOk()->assertInertia(function ($page) {
             $p = collect($page->toArray()['props']['projects'])->firstWhere('slug', self::SLUG);
             $this->assertSame(['waiting', 'tilen', 1], [$p['pmStatus'], $p['pmStatusSetBy'], $p['pmLevel']]);
-            $this->assertSame(self::CA, collect($page->toArray()['props']['projects'])->first()['id'], 'waiting group sorts first');
+            $this->assertSame(self::BH, collect($page->toArray()['props']['projects'])->first()['id'], 'waiting group sorts first');
         });
     }
 
@@ -117,7 +117,7 @@ class TilenProjectControlsTest extends TestCase
         $before = $counts();
 
         $this->gate()->postJson('/projects/'.self::SLUG.'/archive')->assertOk()->assertJsonPath('data.current.status', 'archived');
-        $p = Project::find(self::CA);
+        $p = Project::find(self::BH);
         $this->assertNotNull($p->archived_at);
         $this->assertSame('archived', $p->status);
         $e = collect($this->events())->last();
@@ -137,7 +137,7 @@ class TilenProjectControlsTest extends TestCase
         ));
 
         $this->gate()->postJson('/projects/'.self::SLUG.'/unarchive')->assertOk()->assertJsonPath('data.current.status', 'waiting');
-        $p = Project::find(self::CA);
+        $p = Project::find(self::BH);
         $this->assertNull($p->archived_at);
         $this->assertNull($p->reopened_at);
         $e = collect($this->events())->last();
@@ -150,7 +150,7 @@ class TilenProjectControlsTest extends TestCase
     {
         $this->gate()->post('/projects/'.self::SLUG.'/archive')->assertRedirect();
         $this->gate()->post('/projects/'.self::SLUG.'/unarchive')->assertRedirect();
-        $this->assertSame('smooth', Project::find(self::CA)->status);
+        $this->assertSame('smooth', Project::find(self::BH)->status);
         $this->assertCount(2, $this->events());
     }
 
@@ -167,19 +167,19 @@ class TilenProjectControlsTest extends TestCase
     public function the_token_api_still_refuses_actor_tilen(): void
     {
         $this->api();
-        $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'smooth', 'actor' => 'tilen'])->assertUnprocessable();
-        $this->patchJson('/api/projects/'.self::CA, ['archived' => true, 'actor' => 'tilen'])->assertOk();
+        $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'smooth', 'actor' => 'tilen'])->assertUnprocessable();
+        $this->patchJson('/api/projects/'.self::BH, ['archived' => true, 'actor' => 'tilen'])->assertOk();
         $this->assertNotContains('tilen', array_map(fn ($e) => $e->set_by, $this->events()));
     }
 
     #[Test]
     public function api_archive_with_an_agent_actor_is_logged_and_keeps_status_in_step(): void
     {
-        $this->api()->postJson('/api/projects/'.self::CA.'/archive', ['actor' => self::CAPTAIN])->assertOk()->assertJsonPath('data.status', 'archived');
+        $this->api()->postJson('/api/projects/'.self::BH.'/archive', ['actor' => self::CAPTAIN])->assertOk()->assertJsonPath('data.status', 'archived');
         $e = collect($this->events())->last();
         $this->assertSame([self::CAPTAIN, 'api'], [$e->set_by, $e->source]);
         $this->assertSame('pm', $this->row()['status_source']);
-        $this->postJson('/api/projects/'.self::CA.'/unarchive', ['actor' => self::CAPTAIN])->assertOk();
-        $this->assertSame(['smooth', null], [Project::find(self::CA)->status, Project::find(self::CA)->archived_at]);
+        $this->postJson('/api/projects/'.self::BH.'/unarchive', ['actor' => self::CAPTAIN])->assertOk();
+        $this->assertSame(['smooth', null], [Project::find(self::BH)->status, Project::find(self::BH)->archived_at]);
     }
 }

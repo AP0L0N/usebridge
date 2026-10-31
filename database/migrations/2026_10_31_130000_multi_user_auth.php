@@ -77,7 +77,7 @@ return new class extends Migration
 
     private function setUsageFeature(bool $on): void
     {
-        $workspace = DB::table('workspaces')->where('slug', (string) (config('bridge.default_workspace') ?? 'tilen'))->first();
+        $workspace = DB::table('workspaces')->where('slug', (string) (config('bridge.default_workspace') ?: 'main'))->first();
         if ($workspace === null) {
             return;
         }

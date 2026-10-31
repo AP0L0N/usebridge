@@ -18,7 +18,7 @@ class BridgeR2InputTickTest extends TestCase
 {
     use RefreshDatabase;
 
-    private string $url = '/projects/merkwell/inputs/%s/resolve';
+    private string $url = '/projects/northwind/inputs/%s/resolve';
 
     protected function setUp(): void
     {
@@ -26,7 +26,7 @@ class BridgeR2InputTickTest extends TestCase
         Carbon::setTestNow('2026-10-12 21:00:00');
         $this->seed(BridgeSeeder::class);
         foreach ([['in-a', 176], ['in-b', 80], ['in-c', 5]] as [$id, $h]) {
-            RequiredInput::create(['id' => $id, 'project_id' => 'proj-merkwell', 'text' => $id, 'waiting_on' => 'Denis', 'since' => now()->subHours($h)]);
+            RequiredInput::create(['id' => $id, 'project_id' => 'proj-northwind', 'text' => $id, 'waiting_on' => 'Dana', 'since' => now()->subHours($h)]);
         }
     }
 
@@ -38,7 +38,7 @@ class BridgeR2InputTickTest extends TestCase
 
     private function derived(): array
     {
-        return ProjectStatus::derive(Project::with('requiredInputs')->find('proj-merkwell'));
+        return ProjectStatus::derive(Project::with('requiredInputs')->find('proj-northwind'));
     }
 
     #[Test]
@@ -64,8 +64,8 @@ class BridgeR2InputTickTest extends TestCase
         $this->assertSame(3, $this->derived()['level']);
 
         // Kanban: the project page is the board; the legacy inputs are no longer props (their rows are kept).
-        $this->get('/projects/merkwell')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openInputs')->missing('doneInputs'));
-        $this->assertSame(1, RequiredInput::query()->where('project_id', 'proj-merkwell')->whereNull('resolved_at')->count());
+        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openInputs')->missing('doneInputs'));
+        $this->assertSame(1, RequiredInput::query()->where('project_id', 'proj-northwind')->whereNull('resolved_at')->count());
     }
 
     #[Test]
@@ -75,7 +75,7 @@ class BridgeR2InputTickTest extends TestCase
         $this->assertNull(RequiredInput::find('in-a')->resolved_at);
 
         $this->withSession(['bridge_gate_unlocked' => true]);
-        $this->post('/projects/concierge-avant/inputs/in-a/resolve', ['resolved' => true])->assertNotFound();
+        $this->post('/projects/blue-harbor/inputs/in-a/resolve', ['resolved' => true])->assertNotFound();
         $this->post(sprintf($this->url, 'in-a'), [])->assertSessionHasErrors('resolved');
     }
 
@@ -117,7 +117,7 @@ class BridgeR2InputTickTest extends TestCase
 
         $this->patchJson('/api/inputs/in-a', ['resolved' => true], $h)->assertOk()
             ->assertJsonPath('data.resolved_by', 'token:william-bot');
-        $this->postJson('/api/status-updates', ['project_id' => 'proj-merkwell', 'agent_id' => 'agent-anatoly', 'body' => 'b', 'resolved_inputs' => ['in-b']], $h)->assertCreated();
+        $this->postJson('/api/status-updates', ['project_id' => 'proj-northwind', 'agent_id' => 'agent-anatoly', 'body' => 'b', 'resolved_inputs' => ['in-b']], $h)->assertCreated();
         $this->assertSame('Anatoly Korenchkin', RequiredInput::find('in-b')->resolved_by);
 
         Carbon::setTestNow(now()->addHour());
@@ -128,7 +128,7 @@ class BridgeR2InputTickTest extends TestCase
             ->assertJsonStructure(['data' => [['id', 'resolved_by', 'resolved_at']]]);
         $this->getJson('/api/inputs?resolved_by=tilen', $h)->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', 'in-c');
         $this->getJson('/api/inputs?since='.urlencode(now()->subMinutes(5)->toIso8601String()), $h)->assertJsonCount(1, 'data');
-        $this->getJson('/api/inputs?state=open&project_id=proj-merkwell', $h)->assertJsonCount(0, 'data');
+        $this->getJson('/api/inputs?state=open&project_id=proj-northwind', $h)->assertJsonCount(0, 'data');
         $this->getJson('/api/inputs?state=bogus', $h)->assertUnprocessable();
 
         $this->patchJson('/api/inputs/in-c', ['done' => false], $h)->assertOk()

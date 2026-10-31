@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react';
-import { TopBar } from '../Components/TopBar';
+import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { IconSearch } from '../Components/Icons';
 import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, Sheet, ToastHost, refocus, useDismiss, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { TicketCard } from '../Components/Kanban/TicketCard';
@@ -475,7 +475,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now, col
   return (
     <>
       <Head title={p.name} />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <Link className="back" href="/">← All projects</Link>
         <div className="bhead">

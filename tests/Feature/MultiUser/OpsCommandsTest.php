@@ -43,17 +43,17 @@ class OpsCommandsTest extends TestCase
         parent::tearDown();
     }
 
-    /** bridge_staging: the backfill picked Captain (only user) as owner + admin of 'tilen'; 'ceo' + an agent token. */
+    /** Staging copy: the backfill picked Captain (only user) as owner + admin of the default workspace; 'ceo' + an agent token. */
     private function stagingState(): void
     {
         $backfill = require database_path('migrations/2026_10_31_110000_multi_user_backfill.php');
         $backfill->down();
         DB::table('users')->delete(); // test fixture only: Captain is the only user, as on staging
-        $this->captain = User::query()->create(['name' => 'Captain William Diego', 'email' => 'captain@lantis.internal', 'password' => Hash::make('x')]);
+        $this->captain = User::query()->create(['name' => 'Captain William Diego', 'email' => 'captain@example.test', 'password' => Hash::make('x')]);
         $this->captain->forceFill(['email_verified_at' => now()])->save();
         $this->plain['ceo'] = $this->captain->createToken('ceo', ['ceo'])->plainTextToken;
         $this->plain['agent-janice'] = $this->captain->createToken('agent-janice')->plainTextToken;
-        config(['bridge.owner_email' => 'captain@lantis.internal']); // what the old fallback did
+        config(['bridge.owner_email' => 'captain@example.test']); // what the old fallback did
         $backfill->up();
         config(['bridge.owner_email' => 'owner@example.test']);
         $this->assertTrue((bool) $this->captain->fresh()->is_admin);
@@ -98,7 +98,7 @@ class OpsCommandsTest extends TestCase
     {
         $this->stagingState();
         $tokens = $this->tokens();
-        $ws = DB::table('workspaces')->where('slug', 'tilen')->first();
+        $ws = DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->first();
 
         [$code, $out] = $this->runCommand('bridge:set-owner', ['--email' => 'Tilen@Example.test', '--name' => 'Tilen']);
 
@@ -144,7 +144,7 @@ class OpsCommandsTest extends TestCase
         $this->assertSame($users, User::withTrashed()->count());
         $this->assertTrue($marta->fresh()->is_admin);
         $this->assertSame('owner', DB::table('workspace_user')->where('user_id', $marta->id)->value('role'));
-        $this->assertSame($marta->id, (int) DB::table('workspaces')->where('slug', 'tilen')->value('owner_user_id'));
+        $this->assertSame($marta->id, (int) DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('owner_user_id'));
         $this->assertFalse($this->captain->fresh()->is_admin);
     }
 
@@ -207,11 +207,14 @@ class OpsCommandsTest extends TestCase
         $refuse(['--out' => $out], 'not staging');
         $refuse(['--out' => $out, '--force-env' => 'local'], 'only accepts');
         $this->app['env'] = 'staging';
-        config(['bridge.live_host' => 'bridge.example.test']);
-        foreach (['https://bridge.example.test', 'https://WWW.Bridge.Example.Test/', 'http://bridge.example.test.:8080/x'] as $url) {
+        foreach (['https://bridge.example.test', 'https://WWW.Bridge.Example.test/', 'http://bridge.example.test.:8080/x'] as $url) {
             config(['app.url' => $url]);
             $refuse(['--out' => $out], 'live Bridge');
         }
+        config(['bridge.live_host' => '']); // no live host configured: only the other guards apply
+        $refuse([], '--out');
+        config(['bridge.live_host' => 'https://Bridge.Example.test/']);
+        $refuse(['--out' => $out], 'live Bridge');
         config(['app.url' => 'https://bridge-staging.example.test']);
         $refuse([], '--out');
         $refuse(['--out' => $this->dir.'/missing/tokens.env'], 'not a writable directory');

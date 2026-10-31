@@ -3,7 +3,7 @@
 //         DB_DATABASE=/tmp/tilen-controls.sqlite php -S 127.0.0.1:8794 -t public public/index.php   (public/build -> a vite build in /tmp)
 // Usage:  node tests/browser/tilen-controls.mjs   (KANBAN_BASE overrides http://127.0.0.1:8794)
 // The gate password is read from .env and never printed. Exits 1 when any check fails.
-import { chromium } from '/home/box/pwcheck/node_modules/playwright-core/index.mjs';
+const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
 import { readFileSync, mkdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BASE = process.env.KANBAN_BASE ?? 'http://127.0.0.1:8794';
 const DB = '/tmp/tilen-controls.sqlite';
-const SHOTS = '/workspace/bridge-kanban/shots/tilen-controls';
+const SHOTS = process.env.SHOTS_DIR ?? './shots-out/tilen-controls';
 const PW = readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '');
 if (!PW) { console.error('BRIDGE_GATE_PASSWORD missing in .env'); process.exit(2); }
 mkdirSync(SHOTS, { recursive: true });
@@ -41,7 +41,7 @@ try {
     await p.goto(BASE + '/gate'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]'); await p.waitForURL(BASE + '/');
 
     // ---- 1. board: set Waiting with a note
-    await p.goto(BASE + '/projects/concierge-avant'); await settle();
+    await p.goto(BASE + '/projects/blue-harbor'); await settle();
     await p.click('.bbtn'); await settle(300);
     ok(await dialog().locator('text=Smooth sailing').count() === 1 && await dialog().locator('text=Waiting input').count() === 1, `${tag} board status menu offers Smooth sailing and Waiting input`);
     ok(await dialog().locator('text=Archive project').count() === 1, `${tag} board status menu has "Archive project"`);
@@ -62,23 +62,23 @@ try {
 
     // ---- 2. portfolio: Smooth from the card menu
     await p.goto(BASE + '/'); await settle();
-    const ca = card('Concierge Avant');
+    const ca = card('Blue Harbor');
     ok((await ca.innerText()).includes(NOTE) && (await ca.innerText()).includes('Waiting input'), `${tag} portfolio card reflects the Tilen-set Waiting status and note`);
-    await ca.getByRole('button', { name: 'Concierge Avant: project actions' }).click(); await settle(300);
+    await ca.getByRole('button', { name: 'Blue Harbor: project actions' }).click(); await settle(300);
     await shot('portfolio-card-menu');
     await dialog().getByLabel('Smooth sailing').check();
     await dialog().getByRole('button', { name: 'Save status' }).click(); await settle(800);
-    ok((await card('Concierge Avant').innerText()).includes('Smooth sailing'), `${tag} card now Smooth sailing`);
-    ok(await card('Concierge Avant').locator('.pc.s-ok').count() === 1, `${tag} card rule colour is smooth`);
+    ok((await card('Blue Harbor').innerText()).includes('Smooth sailing'), `${tag} card now Smooth sailing`);
+    ok(await card('Blue Harbor').locator('.pc.s-ok').count() === 1, `${tag} card rule colour is smooth`);
     await noOverflow('on the portfolio');
     await shot('portfolio-after-smooth');
 
     // ---- 3. archive from the board: cancel keeps, confirm archives
-    await p.goto(BASE + '/projects/merkwell'); await settle();
+    await p.goto(BASE + '/projects/northwind'); await settle();
     await p.click('.bbtn'); await settle(300);
     await dialog().getByRole('button', { name: 'Archive project' }).click(); await settle(300);
     const cfm = p.locator('.sheet.cfm');
-    ok((await cfm.locator('h3').innerText()) === archiveText('Merkwell'), `${tag} confirm text is exact: "${archiveText('Merkwell')}"`);
+    ok((await cfm.locator('h3').innerText()) === archiveText('Northwind'), `${tag} confirm text is exact: "${archiveText('Northwind')}"`);
     await shot('archive-confirm');
     await cfm.getByRole('button', { name: 'Cancel' }).click(); await settle(300);
     ok(await p.locator('.sheet.cfm').count() === 0 && await p.getByRole('button', { name: 'Unarchive' }).count() === 0, `${tag} Cancel closes the confirm and keeps the project`);
@@ -96,24 +96,24 @@ try {
 
     // ---- 4. find it in Archived, unarchive from the card menu
     await p.goto(BASE + '/'); await settle();
-    ok(await card('Merkwell').count() === 0, `${tag} archived project is hidden from the active grid`);
+    ok(await card('Northwind').count() === 0, `${tag} archived project is hidden from the active grid`);
     await p.getByRole('switch', { name: 'Show archived' }).click(); await settle(300);
-    ok(await p.locator('h2.sect', { hasText: 'Archived' }).count() === 1 && await card('Merkwell').count() === 1, `${tag} Show archived lists it under Archived`);
+    ok(await p.locator('h2.sect', { hasText: 'Archived' }).count() === 1 && await card('Northwind').count() === 1, `${tag} Show archived lists it under Archived`);
     await p.locator('h2.sect').scrollIntoViewIfNeeded(); await shot('archived-section');
-    await card('Merkwell').getByRole('button', { name: 'Merkwell: project actions' }).click(); await settle(300);
+    await card('Northwind').getByRole('button', { name: 'Northwind: project actions' }).click(); await settle(300);
     await shot('archived-card-menu');
     await dialog().getByRole('button', { name: 'Unarchive' }).click(); await settle(800);
-    ok(!(await p.locator('h2.sect', { hasText: 'Archived' }).locator('xpath=following-sibling::div[1]').innerText().catch(() => '')).includes('Merkwell'), `${tag} Merkwell left the Archived group (no confirm needed)`);
-    ok((await card('Merkwell').innerText()).includes('Waiting input'), `${tag} unarchived back to its prior status (Waiting input)`);
+    ok(!(await p.locator('h2.sect', { hasText: 'Archived' }).locator('xpath=following-sibling::div[1]').innerText().catch(() => '')).includes('Northwind'), `${tag} Northwind left the Archived group (no confirm needed)`);
+    ok((await card('Northwind').innerText()).includes('Waiting input'), `${tag} unarchived back to its prior status (Waiting input)`);
 
     // ---- 5. archive from the card menu, unarchive from the board
     await p.goto(BASE + '/'); await settle();
-    await card('AdriaEdition').getByRole('button', { name: 'AdriaEdition: project actions' }).click(); await settle(300);
+    await card('Acme Studio').getByRole('button', { name: 'Acme Studio: project actions' }).click(); await settle(300);
     await dialog().getByRole('button', { name: 'Archive project' }).click(); await settle(300);
-    ok((await p.locator('.sheet.cfm h3').innerText()) === archiveText('AdriaEdition'), `${tag} card-menu confirm text is exact`);
+    ok((await p.locator('.sheet.cfm h3').innerText()) === archiveText('Acme Studio'), `${tag} card-menu confirm text is exact`);
     await p.locator('.sheet.cfm').getByRole('button', { name: 'Archive', exact: true }).click(); await settle(800);
-    ok(await card('AdriaEdition').count() === 0, `${tag} archived from the card menu`);
-    await p.goto(BASE + '/projects/adriaedition'); await settle();
+    ok(await card('Acme Studio').count() === 0, `${tag} archived from the card menu`);
+    await p.goto(BASE + '/projects/acme-studio'); await settle();
     await p.getByRole('button', { name: 'Unarchive' }).click(); await settle(800);
     ok(await p.getByRole('button', { name: 'Unarchive' }).count() === 0 && (await p.locator('.pstat .bbtn').innerText()).includes('Smooth sailing'), `${tag} board Unarchive restores Smooth sailing`);
     await ctx.close();

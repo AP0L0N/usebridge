@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BookValueChart, ChartRangeSeg, LegendLine, chartFoot, visibleDays } from '../../Components/Polymarket/BookValueChart';
 import { FillsCard, FreshBadge, FreshBanner, MiniEmpty, SweepsCard, Tile, WarnIcon } from '../../Components/Polymarket/DeskBits';
 import { PositionSortSeg, PositionsTable, sortWords, type PositionSort } from '../../Components/Polymarket/PositionsTable';
-import { TopBar } from '../../Components/TopBar';
+import { AppTopBar } from '../../Components/Shell/AppTopBar';
 import { plural, pnlClass, signedPct, signedUsd, usd, type ChartRange, type DeskFeed, type DeskProps } from '../../lib/polymarket';
 import { useNarrow } from '../../lib/usage';
 
@@ -12,7 +12,7 @@ export default function Desk({ feed }: DeskProps) {
   return (
     <>
       <Head title="Polymarket" />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap pmdesk">
         {feed ? <DeskBody f={feed} /> : <NoFeed />}
       </main>

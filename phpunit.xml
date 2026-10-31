@@ -32,7 +32,12 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <env name="BRIDGE_GATE_PASSWORD" value="lantis-internal"/>
+        <env name="BRIDGE_GATE_PASSWORD" value="test-gate-password"/>
+        <env name="BRIDGE_WORKSPACE_SLUG" value="studio"/>
+        <env name="BRIDGE_WORKSPACE_NAME" value="Studio Nine"/>
+        <env name="BRIDGE_PUBLIC_URL" value="https://bridge.example.test"/>
+        <env name="BRIDGE_LIVE_HOST" value="bridge.example.test"/>
+        <env name="BRIDGE_ROSTER_PATH" value=""/>
         <env name="BRIDGE_OWNER_EMAIL" value="owner@example.test"/>
         <env name="APP_TIMEZONE" value="Europe/Ljubljana"/>
         <env name="BRIDGE_HIBP_ENABLED" value="false"/>

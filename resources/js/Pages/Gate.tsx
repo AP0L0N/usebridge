@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { TopBar } from '../Components/TopBar';
+import { AppTopBar } from '../Components/Shell/AppTopBar';
 
 export default function Gate() {
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -21,11 +21,11 @@ export default function Gate() {
 
   return (
     <>
-      <TopBar nav={false} />
+      <AppTopBar variant="guest" />
       <main className="gate">
         <form onSubmit={onSubmit}>
           <h1>Workspace gate</h1>
-          <p>Shared LANTIS internal password.</p>
+          <p>Shared workspace password.</p>
           <label htmlFor="gate-password">Password</label>
           <input
             id="gate-password"

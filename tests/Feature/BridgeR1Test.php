@@ -31,7 +31,7 @@ class BridgeR1Test extends TestCase
         parent::tearDown();
     }
 
-    private function post_update(array $extra = [], string $project = 'proj-merkwell')
+    private function post_update(array $extra = [], string $project = 'proj-northwind')
     {
         return $this->postJson('/api/status-updates', [
             'project_id' => $project, 'agent_id' => 'agent-anatoly', 'body' => 'Note', ...$extra,
@@ -42,10 +42,10 @@ class BridgeR1Test extends TestCase
     public function r0_payload_still_ingests_unchanged(): void
     {
         $this->postJson('/api/status-updates', [
-            'project_id' => 'proj-merkwell', 'agent_id' => 'agent-anatoly', 'body' => 'Plain r0 post',
+            'project_id' => 'proj-northwind', 'agent_id' => 'agent-anatoly', 'body' => 'Plain r0 post',
         ])->assertCreated()
             ->assertJsonPath('data.body', 'Plain r0 post')
-            ->assertJsonPath('data.project_id', 'proj-merkwell')
+            ->assertJsonPath('data.project_id', 'proj-northwind')
             ->assertJsonStructure(['data' => ['id', 'project_id', 'agent_id', 'body', 'created_at']]);
         $this->postJson('/api/status-updates', ['project_id' => 'nope', 'agent_id' => 'agent-anatoly', 'body' => 'x'])
             ->assertNotFound();
@@ -54,15 +54,15 @@ class BridgeR1Test extends TestCase
     #[Test]
     public function inputs_can_be_requested_and_resolved_through_updates(): void
     {
-        $r = $this->post_update(['inputs' => [['text' => 'Region photos', 'waiting_on' => 'Denis']]])->assertCreated();
+        $r = $this->post_update(['inputs' => [['text' => 'Region photos', 'waiting_on' => 'Dana']]])->assertCreated();
         $id = $r->json('inputs.0.id');
-        $this->assertSame('waiting', ProjectStatus::derive(Project::with('requiredInputs')->find('proj-merkwell'))['status']);
+        $this->assertSame('waiting', ProjectStatus::derive(Project::with('requiredInputs')->find('proj-northwind'))['status']);
 
         $this->post_update(['resolved_inputs' => [$id]])->assertCreated()->assertJsonPath('resolved_inputs.0.id', $id);
         $in = RequiredInput::find($id);
         $this->assertNotNull($in->resolved_at);
         $this->assertSame('Anatoly Korenchkin', $in->resolved_by);
-        $this->assertSame('smooth', ProjectStatus::derive(Project::with('requiredInputs')->find('proj-merkwell'))['status']);
+        $this->assertSame('smooth', ProjectStatus::derive(Project::with('requiredInputs')->find('proj-northwind'))['status']);
 
         $this->patchJson("/api/inputs/{$id}", ['done' => false])->assertOk()->assertJsonPath('data.open', true);
     }
@@ -70,7 +70,7 @@ class BridgeR1Test extends TestCase
     #[Test]
     public function age_levels_come_from_the_oldest_open_input(): void
     {
-        $p = Project::find('proj-merkwell');
+        $p = Project::find('proj-northwind');
         $mk = fn ($id, $hoursAgo, $done = null) => RequiredInput::create([
             'id' => $id, 'project_id' => $p->id, 'text' => $id, 'waiting_on' => 'X',
             'since' => now()->subHours($hoursAgo), 'resolved_at' => $done,
@@ -99,19 +99,19 @@ class BridgeR1Test extends TestCase
     public function archive_unarchive_and_auto_unarchive_with_reopened_tag(): void
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
-        $this->post('/projects/merkwell/archive')->assertRedirect();
-        $p = Project::find('proj-merkwell');
+        $this->post('/projects/northwind/archive')->assertRedirect();
+        $p = Project::find('proj-northwind');
         $this->assertNotNull($p->archived_at);
         $this->assertSame('archived', ProjectStatus::summary($p->load('statusUpdates', 'requiredInputs'))['status']);
 
-        $this->post('/projects/merkwell/unarchive')->assertRedirect();
-        $this->assertNull(Project::find('proj-merkwell')->archived_at);
-        $this->assertFalse(ProjectStatus::isReopened(Project::find('proj-merkwell')), 'manual unarchive is not "Reopened"');
+        $this->post('/projects/northwind/unarchive')->assertRedirect();
+        $this->assertNull(Project::find('proj-northwind')->archived_at);
+        $this->assertFalse(ProjectStatus::isReopened(Project::find('proj-northwind')), 'manual unarchive is not "Reopened"');
 
         // API archive, then a new update auto-unarchives and sets Reopened.
-        $this->postJson('/api/projects/proj-merkwell/archive')->assertOk()->assertJsonPath('data.status', 'archived');
+        $this->postJson('/api/projects/proj-northwind/archive')->assertOk()->assertJsonPath('data.status', 'archived');
         $this->post_update()->assertCreated()->assertJsonPath('unarchived', true);
-        $p = Project::find('proj-merkwell');
+        $p = Project::find('proj-northwind');
         $this->assertNull($p->archived_at);
         $this->assertTrue(ProjectStatus::isReopened($p));
 
@@ -122,19 +122,19 @@ class BridgeR1Test extends TestCase
         $this->assertTrue(ProjectStatus::isReopened($p->fresh()));
         // ...or on the next update, whichever comes first.
         $this->post_update()->assertCreated()->assertJsonPath('unarchived', false);
-        $this->assertNull(Project::find('proj-merkwell')->reopened_at);
+        $this->assertNull(Project::find('proj-northwind')->reopened_at);
     }
 
     #[Test]
     public function portfolio_props_include_archived_for_search_and_search_corpus(): void
     {
         $this->withSession(['bridge_gate_unlocked' => true]);
-        Project::find('proj-merkwell')->update(['archived_at' => now()]);
+        Project::find('proj-northwind')->update(['archived_at' => now()]);
         $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Portfolio')
             ->has('projects', 2)
-            ->where('projects', fn ($ps) => collect($ps)->firstWhere('id', 'proj-merkwell')['archived'] === true
-                && str_contains(collect($ps)->firstWhere('id', 'proj-merkwell')['searchText'], 'No open blockers')));
+            ->where('projects', fn ($ps) => collect($ps)->firstWhere('id', 'proj-northwind')['archived'] === true
+                && str_contains(collect($ps)->firstWhere('id', 'proj-northwind')['searchText'], 'No open blockers')));
     }
 
     #[Test]
@@ -160,7 +160,7 @@ class BridgeR1Test extends TestCase
     public function r0_ceo_queue_posts_become_inputs_and_dismiss_assign_work(): void
     {
         $r = $this->postJson('/api/ceo-queue-items', [
-            'reason' => 'Pricing question', 'suggested_action' => 'Decide tax display', 'project_id' => 'proj-merkwell',
+            'reason' => 'Pricing question', 'suggested_action' => 'Decide tax display', 'project_id' => 'proj-northwind',
         ])->assertCreated()->assertJsonPath('data.status', 'open');
         $id = $r->json('data.id');
         $this->assertStringStartsWith('ceo-', $id);
@@ -174,7 +174,7 @@ class BridgeR1Test extends TestCase
     #[Test]
     public function r0_needs_decision_patch_maps_to_an_input(): void
     {
-        $this->patchJson('/api/projects/proj-merkwell', ['needs_decision' => 'Pick a date'])->assertOk()->assertJsonPath('data.status', 'waiting');
-        $this->patchJson('/api/projects/proj-merkwell', ['needs_decision' => null])->assertOk()->assertJsonPath('data.status', 'smooth');
+        $this->patchJson('/api/projects/proj-northwind', ['needs_decision' => 'Pick a date'])->assertOk()->assertJsonPath('data.status', 'waiting');
+        $this->patchJson('/api/projects/proj-northwind', ['needs_decision' => null])->assertOk()->assertJsonPath('data.status', 'smooth');
     }
 }

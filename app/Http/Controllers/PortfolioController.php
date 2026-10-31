@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectStatusEvent;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use Inertia\Inertia;
@@ -15,8 +16,13 @@ class PortfolioController extends Controller
         $names = Actor::names();
         $projects = Project::query()
             ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at'])])
-            ->get()
-            ->map(fn (Project $p) => [...ProjectStatus::summary($p, null, $names), 'columnLabels' => $p->column_labels ?? (object) []])
+            ->get();
+        // Where the current status came from: the latest status event's source (api = REST agent token, mcp = the MCP server, ui = the web app).
+        $sources = ProjectStatusEvent::query()->whereIn('project_id', $projects->modelKeys())
+            ->orderByDesc('created_at')->orderByDesc('id')->get(['project_id', 'source'])
+            ->unique('project_id')->pluck('source', 'project_id');
+        $projects = $projects
+            ->map(fn (Project $p) => [...ProjectStatus::summary($p, null, $names), 'columnLabels' => $p->column_labels ?? (object) [], 'pmStatusSource' => $p->status_set_at ? ($sources[$p->id] ?? null) : null])
             ->sort(self::order(...))
             ->values();
 

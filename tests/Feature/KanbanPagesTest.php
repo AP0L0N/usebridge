@@ -55,11 +55,11 @@ class KanbanPagesTest extends TestCase
     public function portfolio_cards_use_the_pm_status_and_follow_the_spec_order(): void
     {
         $now = Carbon::now();
-        $this->setStatus(self::MW, 'Merkwell', 'smooth', $now->copy()->subDays(2), $now->copy()->subDays(2));
-        $this->setStatus(self::CA, 'Concierge Avant', 'waiting', $now->copy()->subDays(1));
+        $this->setStatus(self::NW, 'Northwind', 'smooth', $now->copy()->subDays(2), $now->copy()->subDays(2));
+        $this->setStatus(self::BH, 'Blue Harbor', 'waiting', $now->copy()->subDays(1));
         $this->setStatus('proj-a', 'Alpha', 'waiting', $now->copy()->subDays(8));    // L3
         $this->setStatus('proj-b', 'Bravo', 'waiting', $now->copy()->subDays(4));    // L2
-        $this->setStatus('proj-c', 'Charlie', 'waiting', $now->copy()->subHours(30)); // L1, older than CA
+        $this->setStatus('proj-c', 'Charlie', 'waiting', $now->copy()->subHours(30)); // L1, older than BH
         $this->setStatus('proj-d', 'Delta', 'smooth', $now->copy()->subDays(5), $now->copy()->subHour());
         $this->setStatus('proj-e', 'Echo', null, null, $now);
         $this->setStatus('proj-f', 'Foxtrot', 'archived', $now->copy()->subDays(3));
@@ -67,17 +67,17 @@ class KanbanPagesTest extends TestCase
 
         $cards = $this->cards();
         $this->assertSame(
-            ['Alpha', 'Bravo', 'Charlie', 'Concierge Avant', 'Delta', 'Merkwell', 'Echo', 'Foxtrot'],
+            ['Alpha', 'Bravo', 'Charlie', 'Blue Harbor', 'Delta', 'Northwind', 'Echo', 'Foxtrot'],
             array_column($cards, 'name'),
         );
         $by = collect($cards)->keyBy('name');
         $this->assertSame([3, 8], [$by['Alpha']['pmLevel'], $by['Alpha']['pmAgeDays']]);
         $this->assertSame([2, 4], [$by['Bravo']['pmLevel'], $by['Bravo']['pmAgeDays']]);
-        $this->assertSame(1, $by['Concierge Avant']['pmLevel']);
+        $this->assertSame(1, $by['Blue Harbor']['pmLevel']);
         $this->assertNull($by['Delta']['pmLevel']);
         // Status not set: null status, no setter, no note (the UI shows "Status not set").
         $this->assertSame([null, null, null], [$by['Echo']['pmStatus'], $by['Echo']['pmStatusSetByName'], $by['Echo']['pmStatusNote']]);
-        $this->assertSame(['Dr. Janice Polito', 'Dr. Janice Polito', 'Concierge Avant note'], [$by['Concierge Avant']['pmName'], $by['Concierge Avant']['pmStatusSetByName'], $by['Concierge Avant']['pmStatusNote']]);
+        $this->assertSame(['Dr. Janice Polito', 'Dr. Janice Polito', 'Blue Harbor note'], [$by['Blue Harbor']['pmName'], $by['Blue Harbor']['pmStatusSetByName'], $by['Blue Harbor']['pmStatusNote']]);
     }
 
     #[Test]
@@ -94,7 +94,7 @@ class KanbanPagesTest extends TestCase
         $old = $this->newTicket(['status' => 'done']);
         Ticket::query()->where('key', $old['key'])->update(['done_at' => now()->subDays(8)]);
 
-        $ca = collect($this->cards())->firstWhere('id', self::CA);
+        $ca = collect($this->cards())->firstWhere('id', self::BH);
         $this->assertSame(2, $ca['waitingTilenCount']);
         $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 2, 'review' => 0, 'done' => 1], $ca['ticketCounts']);
     }
@@ -113,7 +113,7 @@ class KanbanPagesTest extends TestCase
             Ticket::query()->whereKey($t['id'])->update(['done_at' => Carbon::now()->subDays($d)]);
         }
 
-        $this->gate()->get('/projects/concierge-avant')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->gate()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'waiting_tilen', 'review', 'done'])
             ->where('board.columns.3.tickets.0.title', 'Older ask')
@@ -126,7 +126,7 @@ class KanbanPagesTest extends TestCase
             ->has('labels')
             ->has('statusHistory', 0));
 
-        $this->get('/projects/concierge-avant?done=all')->assertInertia(fn (Assert $p) => $p
+        $this->get('/projects/blue-harbor?done=all')->assertInertia(fn (Assert $p) => $p
             ->where('doneAll', true)->where('board.columns.5.count', 4)->where('board.done_older_count', 0));
     }
 
@@ -134,16 +134,16 @@ class KanbanPagesTest extends TestCase
     public function board_status_history_is_newest_first_and_the_toast_flag_clears_on_project_seen(): void
     {
         $this->api();
-        $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'smooth', 'note' => 'first', 'actor' => self::JANICE])->assertOk();
+        $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'smooth', 'note' => 'first', 'actor' => self::JANICE])->assertOk();
         $this->travelMinutes(5);
-        $this->patchJson('/api/projects/'.self::CA.'/status', ['status' => 'waiting', 'note' => 'second', 'actor' => self::JANICE])->assertOk();
+        $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'waiting', 'note' => 'second', 'actor' => self::JANICE])->assertOk();
 
-        $this->gate()->get('/projects/concierge-avant')->assertInertia(fn (Assert $p) => $p
+        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->has('statusHistory', 2)->where('statusHistory.0.note', 'second')->where('statusHistory.0.from_status', 'smooth')
             ->where('board.project.status_unseen_by_tilen', true));
 
-        $this->postJson('/projects/concierge-avant/seen')->assertOk();
-        $this->get('/projects/concierge-avant')->assertInertia(fn (Assert $p) => $p->where('board.project.status_unseen_by_tilen', false));
+        $this->postJson('/projects/blue-harbor/seen')->assertOk();
+        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.project.status_unseen_by_tilen', false));
     }
 
     #[Test]
@@ -153,7 +153,7 @@ class KanbanPagesTest extends TestCase
         $t = $this->waitingTicket(['description' => 'Some **markdown**']);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'Hello Tilen', 'actor' => self::JANICE])->assertCreated();
 
-        $this->gate()->get("/projects/concierge-avant/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->gate()->get("/projects/blue-harbor/tickets/{$t['key']}")->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('ticket.key', $t['key'])
             ->where('ticket.ask_options', ['Yes', 'No'])
@@ -162,8 +162,8 @@ class KanbanPagesTest extends TestCase
             ->has('ticket.events')
             ->has('board.columns', 6));
         // lower-case key works too; another project's ticket is a 404
-        $this->get('/projects/concierge-avant/tickets/'.strtolower($t['key']))->assertOk();
-        $this->get("/projects/merkwell/tickets/{$t['key']}")->assertNotFound();
+        $this->get('/projects/blue-harbor/tickets/'.strtolower($t['key']))->assertOk();
+        $this->get("/projects/northwind/tickets/{$t['key']}")->assertNotFound();
     }
 
     #[Test]
@@ -172,22 +172,22 @@ class KanbanPagesTest extends TestCase
         $this->api();
         $t = $this->waitingTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'New info', 'actor' => self::JANICE])->assertCreated();
-        $this->gate()->get('/projects/concierge-avant')->assertInertia(fn (Assert $p) => $p
+        $this->gate()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.3.tickets.0.unread_for_tilen', true)
             ->where('board.columns.3.tickets.0.latest_unread_author.name', 'Dr. Janice Polito'));
 
         $this->travelMinutes(1);
-        $this->postJson("/projects/concierge-avant/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
+        $this->postJson("/projects/blue-harbor/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
         $this->assertNotNull(TicketReadState::query()->where('user', 'tilen')->where('ticket_id', $t['id'])->value('last_seen_at'));
 
-        $this->get('/projects/concierge-avant')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.tickets.0.unread_for_tilen', false));
-        $this->get("/projects/concierge-avant/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.tilen_last_seen_at', null));
+        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.tickets.0.unread_for_tilen', false));
+        $this->get("/projects/blue-harbor/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.tilen_last_seen_at', null));
     }
 
     #[Test]
     public function the_seen_endpoints_need_the_gate(): void
     {
-        $this->post('/projects/concierge-avant/seen')->assertRedirect(route('login'));
-        $this->post('/projects/concierge-avant/tickets/CA-1/seen')->assertRedirect(route('login'));
+        $this->post('/projects/blue-harbor/seen')->assertRedirect(route('login'));
+        $this->post('/projects/blue-harbor/tickets/BH-1/seen')->assertRedirect(route('login'));
     }
 }

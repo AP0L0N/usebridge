@@ -1,7 +1,7 @@
 // Browser check for Tommy's review of 1ae66bd (status menu, filters, ask step) against the LOCAL server.
 // Usage: node tests/browser/kanban-review.mjs   (server: php -S 127.0.0.1:8792 from public/, DB_DATABASE=$KANBAN_DB, default /tmp/kanban.sqlite)
 // The gate password is read from .env and never printed. Exits 1 when any check fails.
-import { chromium } from '/home/box/pwcheck/node_modules/playwright-core/index.mjs';
+const { chromium } = await import(process.env.PLAYWRIGHT_CORE ?? 'playwright-core');
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -11,7 +11,7 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const BASE = process.env.KANBAN_BASE ?? 'http://127.0.0.1:8792';
 const PW = readFileSync(REPO + '/.env', 'utf8').match(/^BRIDGE_GATE_PASSWORD=(.*)$/m)?.[1].trim().replace(/^"|"$/g, '');
 if (!PW) { console.error('BRIDGE_GATE_PASSWORD missing in .env'); process.exit(2); }
-const BOARD = BASE + '/projects/concierge-avant';
+const BOARD = BASE + '/projects/blue-harbor';
 const HTTP_CODE = /HTTP|\b[45]\d\d\b/;
 
 let failed = 0;
@@ -74,7 +74,7 @@ try {
     ok(!(await p.getByText('Has unread').count()), `${tag} "Has unread" is gone`);
     await p.getByLabel('New replies for you').check(); await p.waitForTimeout(150);
     if (m) await p.click('.ffoot .btn');
-    ok(JSON.stringify(await shownKeys()) === '["CA-118"]', `${tag} "New replies for you" leaves CA-118 (got ${JSON.stringify(await shownKeys())})`);
+    ok(JSON.stringify(await shownKeys()) === '["BH-118"]', `${tag} "New replies for you" leaves BH-118 (got ${JSON.stringify(await shownKeys())})`);
     if (m) {
       const tab = await p.evaluate(() => ({ sel: document.querySelector('[role=tab][aria-selected=true]')?.id, badge: document.querySelector('.fbtn .cnt')?.textContent,
         badgeShown: getComputedStyle(document.querySelector('.fbtn .cnt')).display !== 'none', zero: getComputedStyle(document.querySelector('#tab-backlog .cnt')).color }));
@@ -91,7 +91,7 @@ try {
     await p.getByLabel('New replies for you').uncheck();
     await p.getByLabel('Your input not picked up').check(); await p.waitForTimeout(150);
     if (m) await p.click('.ffoot .btn');
-    ok(JSON.stringify(await shownKeys()) === '["CA-119"]', `${tag} "Your input not picked up" leaves CA-119 (got ${JSON.stringify(await shownKeys())})`);
+    ok(JSON.stringify(await shownKeys()) === '["BH-119"]', `${tag} "Your input not picked up" leaves BH-119 (got ${JSON.stringify(await shownKeys())})`);
     if (m) await openFilter();
     await p.click('.ffoot .abtn'); await p.waitForTimeout(100);
     await p.click('.ffoot .btn'); await p.waitForTimeout(150);
@@ -119,19 +119,19 @@ try {
     ok(await p.locator('.sform').getByLabel('Archived').count() === 0 && await p.locator('.sform').getByRole('button', { name: 'Archive project' }).count() === 1, `${tag} no Archived radio; "Archive project" link instead`);
     await p.getByLabel('Smooth sailing').check();
     await p.fill('#pst-note', 'Cart sign-off done.');
-    await p.route('**/projects/concierge-avant/status', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
+    await p.route('**/projects/blue-harbor/status', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
     await p.click('.sform button[type=submit]');
     await p.waitForSelector('.sform .err-line');
     const err = await p.locator('.sform').innerText();
     ok(/✕ Couldn.t save the status\. Your note is kept\./.test(err) && !HTTP_CODE.test(err), `${tag} status error copy, no HTTP code`);
     ok(await p.locator('#pst-note').inputValue() === 'Cart sign-off done.', `${tag} form stays open with the note kept`);
-    await p.unroute('**/projects/concierge-avant/status');
+    await p.unroute('**/projects/blue-harbor/status');
     await p.click('.sform .abtn'); await p.waitForTimeout(150);
     ok((await active()).cls.includes('bbtn'), `${tag} Cancel returns focus to .bbtn`);
 
     // ---------------- (c) the ask
     if (!m) {
-      const card = await p.locator('[data-key="CA-131"]').boundingBox();
+      const card = await p.locator('[data-key="BH-131"]').boundingBox();
       const target = await p.locator('#col-waiting_tilen .colsub').boundingBox();
       await p.mouse.move(card.x + 60, card.y + 30); await p.mouse.down();
       await p.mouse.move(card.x + 80, card.y + 40, { steps: 3 });
@@ -140,7 +140,7 @@ try {
       await p.waitForSelector('.askbox');
     } else {
       await p.click('#tab-backlog'); await p.waitForTimeout(300);
-      await p.click('[data-key="CA-131"] .tkmv'); await p.waitForSelector('.sheet .mvl');
+      await p.click('[data-key="BH-131"] .tkmv'); await p.waitForSelector('.sheet .mvl');
       await p.click('.mvl [data-col="waiting_tilen"]');
       await p.waitForSelector('.sheet .askf');
       ok(!(await p.$('.askbox')), `${tag} ask is a step inside the Move sheet, not a dialog`);
@@ -152,7 +152,7 @@ try {
     }
     const box = m ? '.sheet' : '.askbox';
     const txt = await p.locator(box).innerText();
-    ok(txt.includes('Move CA-131 to Waiting on Tilen') && txt.includes('Late check-out request in the Home module') && txt.includes('What’s the ask?') && txt.includes('Shown on the card and in Your input.')
+    ok(txt.includes('Move BH-131 to Waiting on Tilen') && txt.includes('Late check-out request in the Home module') && txt.includes('What’s the ask?') && txt.includes('Shown on the card and in Your input.')
       && txt.includes('Enter moves it · Shift+Enter for a new line · 0/280'), `${tag} ask copy (heading, title, label, hints)`);
     ok((await active()).id === 'ask-in', `${tag} ask textarea has focus`);
     await p.click(`${box} .askf .btn`); await p.waitForTimeout(150);
@@ -161,20 +161,20 @@ try {
     ok(await p.evaluate(() => { const t = document.querySelector('#ask-in'); const s = getComputedStyle(t);
       return document.activeElement === t && t.getAttribute('aria-invalid') === 'true' && s.borderTopColor === 'rgb(180, 35, 24)' && s.outlineStyle !== 'none'; }),
     `${tag} invalid textarea: red border, focused with a ring`);
-    ok(await p.evaluate(() => document.querySelector('[data-key="CA-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} card stays put until confirmed`);
+    ok(await p.evaluate(() => document.querySelector('[data-key="BH-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} card stays put until confirmed`);
     // A failed move shows the error toast without an HTTP code.
     await p.fill('#ask-in', 'Should late check-out be paid?');
-    await p.route('**/tickets/CA-131/move', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
+    await p.route('**/tickets/BH-131/move', (r) => r.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"Server Error"}' }));
     await p.keyboard.press('Enter');
     await p.waitForSelector('.toast.err');
     const toast = await p.locator('.toast.err').innerText();
-    ok(/Couldn.t move CA-131\. Try again\./.test(toast) && !HTTP_CODE.test(toast), `${tag} move error toast, no HTTP code`);
-    await p.unroute('**/tickets/CA-131/move');
+    ok(/Couldn.t move BH-131\. Try again\./.test(toast) && !HTTP_CODE.test(toast), `${tag} move error toast, no HTTP code`);
+    await p.unroute('**/tickets/BH-131/move');
     await p.click('.toast.err .tx'); await p.waitForTimeout(800);
-    ok(await p.evaluate(() => document.querySelector('[data-key="CA-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} failed move rolls back`);
+    ok(await p.evaluate(() => document.querySelector('[data-key="BH-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} failed move rolls back`);
     // Esc cancels; focus goes back to the dragged card (desktop) / its Move button (mobile).
     if (!m) {
-      const card = await p.locator('[data-key="CA-131"]').boundingBox();
+      const card = await p.locator('[data-key="BH-131"]').boundingBox();
       const target = await p.locator('#col-waiting_tilen .colsub').boundingBox();
       await p.evaluate(() => document.activeElement?.blur());
       await p.mouse.move(card.x + 60, card.y + 30); await p.mouse.down();
@@ -186,17 +186,17 @@ try {
       ok(await p.evaluate(() => document.querySelector('.askbox').contains(document.activeElement)), `${tag} focus stays trapped in the ask dialog`);
       await p.keyboard.press('Escape'); await p.waitForTimeout(200);
       const a = await active();
-      ok(!(await p.$('.askbox')) && a.key === 'CA-131' && a.cls.includes('tkl'), `${tag} Esc after a drag returns focus to the dragged card (${JSON.stringify(a)})`);
+      ok(!(await p.$('.askbox')) && a.key === 'BH-131' && a.cls.includes('tkl'), `${tag} Esc after a drag returns focus to the dragged card (${JSON.stringify(a)})`);
     } else {
-      await p.click('[data-key="CA-131"] .tkmv'); await p.waitForSelector('.sheet .mvl');
+      await p.click('[data-key="BH-131"] .tkmv'); await p.waitForSelector('.sheet .mvl');
       await p.click('.mvl [data-col="waiting_tilen"]'); await p.waitForSelector('.sheet .askf');
       await p.keyboard.press('Escape'); await p.waitForTimeout(200);
       const a = await active();
-      ok(!(await p.$('.sheet')) && a.key === 'CA-131' && a.cls.includes('tkmv'), `${tag} Esc closes the sheet, focus back on the card's Move button`);
+      ok(!(await p.$('.sheet')) && a.key === 'BH-131' && a.cls.includes('tkmv'), `${tag} Esc closes the sheet, focus back on the card's Move button`);
     }
-    ok(await p.evaluate(() => document.querySelector('[data-key="CA-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} cancelled ask leaves the card in Backlog`);
+    ok(await p.evaluate(() => document.querySelector('[data-key="BH-131"]')?.closest('[data-col]')?.dataset.col === 'backlog'), `${tag} cancelled ask leaves the card in Backlog`);
     // ---------------- (d) ticket detail: close paths, dirty guard, nested sheets
-    // Opening a ticket marks it seen, so these use CA-121 (no unread, input or blocked state): CA-118 and CA-119 feed the filter checks.
+    // Opening a ticket marks it seen, so these use BH-121 (no unread, input or blocked state): BH-118 and BH-119 feed the filter checks.
     const isOpen = async () => (await p.locator('.dlg').count()) > 0;
     const waitClosed = () => p.waitForSelector('.dlg', { state: 'detached', timeout: 3000 }).then(() => true, () => false);
     const confirmShown = async () => (await p.locator('[aria-label="Discard unsaved changes?"]').count()) > 0;
@@ -221,7 +221,7 @@ try {
     }
 
     // Clean ticket: backdrop (desktop), Esc, and a click inside the panel never closes it.
-    await openTicketDirect('CA-121');
+    await openTicketDirect('BH-121');
     const title = await p.locator('.dlg h1').boundingBox();
     await p.mouse.click(title.x + 10, title.y + title.height / 2); await p.waitForTimeout(150);
     ok(await isOpen() && !(await confirmShown()), `${tag} click inside the panel does not close`);
@@ -234,13 +234,13 @@ try {
       ok(await isOpen(), `${tag} drag from the scrim released inside the panel does not close`);
       await scrimClick();
       ok(await waitClosed(), `${tag} backdrop click closes a clean ticket`);
-      await openTicketDirect('CA-121');
+      await openTicketDirect('BH-121');
     }
     await p.keyboard.press('Escape');
     ok(await waitClosed(), `${tag} Esc closes a clean ticket`);
 
     // Dirty comment box: backdrop (Back on 390) and Esc ask first; Keep editing keeps the text; Discard closes.
-    await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+    await openTicketDirect('BH-121'); await typeInComposer('Draft reply');
     await back(); await p.waitForTimeout(150);
     ok(await confirmShown() && await isOpen(), `${tag} leaving with a dirty comment shows "Discard unsaved changes?" and keeps the ticket open`);
     ok((await keepFocused()) === 'Keep editing', `${tag} Keep editing is focused by default`);
@@ -250,7 +250,7 @@ try {
     await pressButton('Discard');
     ok(await waitClosed(), `${tag} Discard closes the ticket`);
 
-    await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+    await openTicketDirect('BH-121'); await typeInComposer('Draft reply');
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
     ok(await confirmShown() && await isOpen(), `${tag} Esc with a dirty comment asks first`);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
@@ -260,14 +260,14 @@ try {
     ok(await waitClosed(), `${tag} Discard after Esc closes the ticket`);
 
     if (!m) {
-      await openTicketDirect('CA-121'); await typeInComposer('Draft reply');
+      await openTicketDirect('BH-121'); await typeInComposer('Draft reply');
       await p.click('[aria-label="Close"]'); await p.waitForTimeout(150);
       ok(await confirmShown(), `${tag} X button with a dirty comment asks first`);
       await pressButton('Discard'); ok(await waitClosed(), `${tag} Discard from the X button closes the ticket`);
     }
 
     // Esc inside a dirty description: confirm; Discard drops the edit and keeps the ticket open.
-    await openTicketDirect('CA-121');
+    await openTicketDirect('BH-121');
     await p.click('#desc-h .edit'); await p.fill('#desc-in', 'Edited description text'); await p.waitForTimeout(100);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
     ok(await confirmShown() && (await p.inputValue('#desc-in')) === 'Edited description text', `${tag} Esc in a dirty description shows the confirm, editor kept`);
@@ -281,7 +281,7 @@ try {
 
     if (!m) {
       // Labels editor (desktop side panel; on 390 the fields live in the Details sheet).
-      await openTicketDirect('CA-121');
+      await openTicketDirect('BH-121');
       await p.click('.fk .edit'); await p.fill('#lb-in', 'Home, Idea, Unsaved'); await p.waitForTimeout(100);
       await p.keyboard.press('Escape'); await p.waitForTimeout(150);
       ok(await confirmShown() && (await p.inputValue('#lb-in')) === 'Home, Idea, Unsaved', `${tag} Esc in a dirty label editor asks first`);
@@ -291,7 +291,7 @@ try {
       ok(await waitClosed(), `${tag} Esc after that closes the clean ticket`);
     } else {
       // 390: the Details & history sheet sits over the ticket. Esc and its scrim close only that sheet.
-      await openTicketDirect('CA-121');
+      await openTicketDirect('BH-121');
       await p.click('text=Details & history'); await p.waitForSelector('.dsheet'); await p.waitForTimeout(100);
       await p.keyboard.press('Escape'); await p.waitForTimeout(150);
       ok(!(await p.$('.dsheet')) && await isOpen(), `${tag} Esc closes the Details sheet only, ticket stays open`);

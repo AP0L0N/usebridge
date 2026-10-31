@@ -32,7 +32,7 @@ class SetProjectStatus extends BridgeTool
     protected function run(Request $request): array
     {
         $project = $this->project($request);
-        $actor = $this->actor($request);
+        $actor = $this->actor($request)->viaMcp();
         $data = $request->validate(ProjectStatusService::rules());
         $denied = $this->status->canSet($project, $data['status'], $actor);
         abort_if($denied !== null, 403, (string) $denied);

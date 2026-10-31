@@ -2,7 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { useRef, useState, type FormEvent } from 'react';
 import { BusyButton, Callout, described, ErrorSummary, Field } from '../Components/Account/Fields';
 import { checkLabels, LABEL_MAX, saveColumnLabels } from '../Components/Kanban/ColumnLabels';
-import { TopBar } from '../Components/TopBar';
+import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { fieldErrors, go, requestJson } from '../lib/http';
 
 type Column = { key: string; label: string; order: number };
@@ -44,7 +44,7 @@ export default function Onboarding(p: Props) {
   return (
     <>
       <Head title="Welcome" />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         {step < 4 ? (
           <>

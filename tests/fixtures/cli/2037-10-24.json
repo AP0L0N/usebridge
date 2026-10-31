@@ -1,0 +1,40 @@
+{
+ "date": "2037-10-24",
+ "timezone": "Europe/Ljubljana",
+ "generated_at": "2037-10-25T07:03:51+01:00",
+ "source": "measured",
+ "coverage_from": "2037-10-12",
+ "tools": [
+  {
+   "tool": "claude_code",
+   "agent_id": "56244e46-0dfe-4005-a349-55aff9fae7d1",
+   "name": "Halcyon",
+   "input": 687,
+   "output": 343203,
+   "cache_read": 42610079,
+   "cache_creation": 571728,
+   "calls": 277
+  },
+  {
+   "tool": "claude_code",
+   "agent_id": "6884fd96-bce7-4d5a-9e9e-787e66bca625",
+   "name": "Orrin",
+   "input": 4172,
+   "output": 198640,
+   "cache_read": 30977700,
+   "cache_creation": 525200,
+   "calls": 260
+  },
+  {
+   "tool": "claude_code",
+   "agent_id": "unattributed",
+   "name": "Unattributed",
+   "input": 1152,
+   "output": 681870,
+   "cache_read": 51941120,
+   "cache_creation": 2199120,
+   "calls": 595
+  }
+ ],
+ "method": "Measured, not estimated (synthetic test data): token counts the CLIs log, summed per Europe/Ljubljana day, one count per message id. Agent: best effort by the session's working directory, else unattributed. calls = counted LLM calls. Days before coverage_from are incomplete. Total = input + output + cache_read + cache_creation."
+}

@@ -33,12 +33,12 @@ class MultiUserAuthMigrationTest extends TestCase
             $this->assertFalse(Schema::hasColumn('users', $column), $column);
         }
         $this->assertFalse(Schema::hasColumn('personal_access_tokens', 'token_suffix'));
-        $this->assertSame(['polymarket' => true], json_decode(DB::table('workspaces')->where('slug', 'tilen')->value('features'), true));
+        $this->assertSame(['polymarket' => true], json_decode(DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('features'), true));
 
         $verifiedAt = '2026-01-01 00:00:00';
         DB::table('users')->insert([
-            ['name' => 'Captain', 'email' => 'captain@lantis.internal', 'password' => Hash::make('x'), 'email_verified_at' => null],
-            ['name' => 'Old', 'email' => 'old@lantis.internal', 'password' => Hash::make('x'), 'email_verified_at' => $verifiedAt],
+            ['name' => 'Captain', 'email' => 'captain@example.test', 'password' => Hash::make('x'), 'email_verified_at' => null],
+            ['name' => 'Old', 'email' => 'old@example.test', 'password' => Hash::make('x'), 'email_verified_at' => $verifiedAt],
         ]);
 
         $this->migration()->up();
@@ -49,11 +49,11 @@ class MultiUserAuthMigrationTest extends TestCase
         }
         $this->assertTrue(Schema::hasColumn('personal_access_tokens', 'token_suffix'));
         $this->assertSame(0, DB::table('users')->whereNull('email_verified_at')->count());
-        $this->assertSame($verifiedAt, DB::table('users')->where('email', 'old@lantis.internal')->value('email_verified_at'));
-        $captain = User::query()->where('email', 'captain@lantis.internal')->firstOrFail();
+        $this->assertSame($verifiedAt, DB::table('users')->where('email', 'old@example.test')->value('email_verified_at'));
+        $captain = User::query()->where('email', 'captain@example.test')->firstOrFail();
         $this->assertTrue($captain->hasVerifiedEmail());
         $this->assertSame([0, 'Europe/Ljubljana', null], [$captain->failed_logins, $captain->timezone, $captain->disabled_at]);
-        $this->assertSame(['polymarket' => true, 'usage_upload' => true], json_decode(DB::table('workspaces')->where('slug', 'tilen')->value('features'), true));
+        $this->assertSame(['polymarket' => true, 'usage_upload' => true], json_decode(DB::table('workspaces')->where('slug', config('bridge.default_workspace'))->value('features'), true));
         $this->assertSame(3, DB::table('users')->count(), 'nothing deleted');
     }
 }

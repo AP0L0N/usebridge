@@ -42,7 +42,7 @@ class KanbanReviewFiltersTest extends TestCase
         $this->postJson("/api/tickets/{$seen['key']}/comments", ['body' => 'Old news', 'actor' => self::JANICE])->assertCreated();
         $this->tilenSays($pickup['key'], ['body' => 'Go with yes', 'is_tilen_input' => true])->assertCreated();
         $this->travelMinutes(1);
-        $this->gate()->postJson("/projects/concierge-avant/tickets/{$seen['key']}/seen")->assertOk();
+        $this->gate()->postJson("/projects/blue-harbor/tickets/{$seen['key']}/seen")->assertOk();
 
         return compact('unread', 'pickup', 'plain', 'seen');
     }
@@ -54,8 +54,8 @@ class KanbanReviewFiltersTest extends TestCase
         $keys = fn (string $q) => array_column($this->getJson("/api/tickets$q")->assertOk()->json('data'), 'key');
 
         $this->assertSame([$f['unread']['key']], $keys('?unread_for_tilen=1'));
-        $this->assertSame([$f['unread']['key']], $keys('?project_id='.self::CA.'&unread_for_tilen=true'));
-        $this->assertSame([$f['unread']['key']], array_column($this->getJson('/api/projects/'.self::CA.'/tickets?unread_for_tilen=1')->json('data'), 'key'));
+        $this->assertSame([$f['unread']['key']], $keys('?project_id='.self::BH.'&unread_for_tilen=true'));
+        $this->assertSame([$f['unread']['key']], array_column($this->getJson('/api/projects/'.self::BH.'/tickets?unread_for_tilen=1')->json('data'), 'key'));
         $this->assertCount(4, $keys('?unread_for_tilen=0'));
         $this->getJson('/api/tickets?unread_for_tilen=maybe')->assertUnprocessable()->assertJsonValidationErrors('unread_for_tilen');
 
@@ -81,7 +81,7 @@ class KanbanReviewFiltersTest extends TestCase
     public function board_props_carry_both_flags_per_ticket(): void
     {
         $f = $this->fixtures();
-        $this->gate()->get('/projects/concierge-avant')->assertInertia(function (Assert $p) use ($f) {
+        $this->gate()->get('/projects/blue-harbor')->assertInertia(function (Assert $p) use ($f) {
             $tickets = collect($p->toArray()['props']['board']['columns'])->pluck('tickets')->flatten(1)->keyBy('key');
             $flags = $tickets->map(fn ($t) => [$t['unread_for_tilen'], $t['needs_pm_pickup']]);
             $this->assertSame([true, false], $flags[$f['unread']['key']]);

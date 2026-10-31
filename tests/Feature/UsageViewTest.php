@@ -16,14 +16,14 @@ class UsageViewTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const THE_MANY = '79f05054-9a1d-48cc-8fbf-6ba78756b152';
+    private const JUNIPER = '0445b205-093c-4120-85c8-c87c882fa3d4';
 
-    private const SHODAN = '5b79509e-da30-43eb-a944-a73c98593b18';
+    private const HALCYON = '56244e46-0dfe-4005-a349-55aff9fae7d1';
 
     protected function setUp(): void
     {
         parent::setUp();
-        Carbon::setTestNow(Carbon::parse('2026-10-19 16:00:00', 'Europe/Ljubljana'));
+        Carbon::setTestNow(Carbon::parse('2037-10-19 16:00:00', 'Europe/Ljubljana'));
     }
 
     protected function tearDown(): void
@@ -64,7 +64,7 @@ class UsageViewTest extends TestCase
     public function gate_is_required(): void
     {
         $this->get('/usage')->assertRedirect(route('login'));
-        $this->get('/usage/agents/'.self::THE_MANY)->assertRedirect(route('login'));
+        $this->get('/usage/agents/'.self::JUNIPER)->assertRedirect(route('login'));
     }
 
     #[Test]
@@ -79,31 +79,31 @@ class UsageViewTest extends TestCase
                 ->component('Usage/Overview')
                 ->where('range', 7)
                 ->where('empty', false)
-                ->where('rangeTotal', 2625145391)
+                ->where('rangeTotal', 2075941623)
                 ->where('agentCount', 19)
                 ->where('daysWithFile', 7)
                 ->has('days', 7)
                 ->where('days.6.today', true)
                 ->where('days.6.label', 'Mon 19')
-                ->where('days.3.total', 807261233)
-                ->where('updatedAt', '15:29')
+                ->where('days.3.total', 661774270)
+                ->where('updatedAt', '14:41')
                 ->where('fromLabel', 'Tue 13 Oct')
                 ->where('toLabel', 'Mon 19 Oct')
                 ->has('series', 19)
-                ->where('series.0.name', 'The Many')
-                ->where('series.0.agentId', self::THE_MANY)
-                ->where('series.9.name', 'Alice')
+                ->where('series.0.name', 'Juniper')
+                ->where('series.0.agentId', self::JUNIPER)
+                ->where('series.9.name', 'Nova')
                 ->has('topAgents', 5)
-                ->where('topAgents.0.agentId', self::THE_MANY)
-                ->where('topAgents.0.tokens', 427362325)
-                ->where('topAgents.1.name', 'Shodan')
+                ->where('topAgents.0.agentId', self::JUNIPER)
+                ->where('topAgents.0.tokens', 381866851)
+                ->where('topAgents.1.name', 'Halcyon')
                 ->has('topRoutines', 5)
-                ->where('topRoutines.0.routineId', 'tamara-normiranec-updates')
-                ->where('unmatched', ['runs' => 150, 'agents' => 17, 'tokens' => 182121379])
+                ->where('topRoutines.0.routineId', 'vendor-price-updates')
+                ->where('unmatched', ['runs' => 228, 'agents' => 17, 'tokens' => 242082505])
                 ->has('table.rows', 19)
-                ->where('table.totals.tokens', 2625145391)
-                ->where('table.totals.turns', 2459)
-                ->where('table.rows.1.color', AgentColors::PALETTE[AgentColors::home(self::SHODAN)])
+                ->where('table.totals.tokens', 2075941623)
+                ->where('table.totals.turns', 3229)
+                ->where('table.rows.1.color', AgentColors::PALETTE[AgentColors::home(self::HALCYON)])
                 ->where('table.rows.0.factor', 'median')
                 ->where('table.rows.1.factor', 'calibrated'));
 
@@ -190,7 +190,7 @@ class UsageViewTest extends TestCase
         }
 
         // A day where ranks shift (one agent only) keeps everyone's colour.
-        Carbon::setTestNow(Carbon::parse('2026-10-14 12:00:00', 'Europe/Ljubljana'));
+        Carbon::setTestNow(Carbon::parse('2037-10-14 12:00:00', 'Europe/Ljubljana'));
         $early = array_column($this->get('/usage')->viewData('page')['props']['series'], 'color', 'agentId');
         $this->assertNotSame(array_keys(array_intersect_key($week, $early)), array_keys($early)); // ranks did shift
         $this->assertEquals(array_intersect_key($week, $early), $early);
@@ -260,7 +260,7 @@ class UsageViewTest extends TestCase
                 ->where('range', 30)
                 ->has('days', 30)
                 ->where('daysWithFile', 7)
-                ->where('rangeTotal', 2625145391)
+                ->where('rangeTotal', 2075941623)
                 ->where('days.0.present', false)
                 ->where('days.0.total', null)
                 ->where('days.29.present', true)
@@ -293,25 +293,25 @@ class UsageViewTest extends TestCase
         $this->loadFixtures();
         $this->unlock();
 
-        $this->get('/usage?day=2026-10-16')->assertInertia(fn (Assert $page) => $page
-            ->where('table.day', '2026-10-16')
+        $this->get('/usage?day=2037-10-16')->assertInertia(fn (Assert $page) => $page
+            ->where('table.day', '2037-10-16')
             ->where('table.dayMissing', false)
-            ->where('table.totals.tokens', 807261233));
+            ->where('table.totals.tokens', 661774270));
 
-        $this->get('/usage?range=30&day=2026-10-10')->assertInertia(fn (Assert $page) => $page
-            ->where('table.day', '2026-10-10')
+        $this->get('/usage?range=30&day=2037-10-10')->assertInertia(fn (Assert $page) => $page
+            ->where('table.day', '2037-10-10')
             ->where('table.dayLabel', 'Sat 10 Oct')
             ->where('table.dayMissing', true)
             ->has('table.rows', 0));
     }
 
     #[Test]
-    public function agent_detail_for_the_many(): void
+    public function agent_detail_for_juniper(): void
     {
         $this->loadFixtures();
         $this->unlock();
 
-        $days = $this->fixtureAgentDays(self::THE_MANY);
+        $days = $this->fixtureAgentDays(self::JUNIPER);
         $this->assertCount(7, $days);
         $hours = array_fill(0, 24, 0);
         $unmatched = ['runs' => 0, 'tokens' => 0];
@@ -328,26 +328,26 @@ class UsageViewTest extends TestCase
         }
         $other = array_sum(array_column($days, 'other_est_tokens'));
 
-        $response = $this->get('/usage/agents/'.self::THE_MANY)
+        $response = $this->get('/usage/agents/'.self::JUNIPER)
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Usage/Agent')
-                ->where('agent.name', 'The Many')
+                ->where('agent.name', 'Juniper')
                 ->where('agent.rank', 1)
                 ->where('agent.of', 19)
-                ->where('agent.color', $this->colorFor(self::THE_MANY))
+                ->where('agent.color', $this->colorFor(self::JUNIPER))
                 ->where('agent.factor', 'median')
                 ->where('zero', false)
-                ->where('stats.tokens', 427362325)
+                ->where('stats.tokens', 381866851)
                 ->where('stats.tokens', array_sum(array_column($days, 'est_tokens_total')))
-                ->where('stats.turns', 381)
+                ->where('stats.turns', 235)
                 ->where('stats.io', array_sum(array_column($days, 'est_io_tokens')))
                 ->where('stats.unmatchedRuns', $unmatched['runs'])
                 ->has('days', 7)
                 ->has('heat', 7)
-                ->where('heat.6.cutoffHour', 15)
+                ->where('heat.6.cutoffHour', 14)
                 ->where('hourTotals', $hours)
-                ->where('routineTotals.tokens', 427362325));
+                ->where('routineTotals.tokens', 381866851));
 
         $props = $response->viewData('page')['props'];
         $byKind = collect($props['routines'])->keyBy('kind');
@@ -357,31 +357,31 @@ class UsageViewTest extends TestCase
         $this->assertNull($byKind['other']['runs']);
         $this->assertSame('Other: chats, tasks and subagents', $byKind['other']['name']);
         // routines + unmatched + other == est_tokens_total (holds exactly in the fixtures)
-        $this->assertSame(427362325, array_sum(array_column($props['routines'], 'tokens')));
+        $this->assertSame(381866851, array_sum(array_column($props['routines'], 'tokens')));
         // by_hour may be a token below the total because of rounding, never above
-        $this->assertLessThanOrEqual(427362325, array_sum($props['hourTotals']));
-        $this->assertGreaterThanOrEqual(427362325 - 7, array_sum($props['hourTotals']));
+        $this->assertLessThanOrEqual(381866851, array_sum($props['hourTotals']));
+        $this->assertGreaterThanOrEqual(381866851 - 7, array_sum($props['hourTotals']));
     }
 
     #[Test]
-    public function agent_detail_shodan_routines_and_calibrated(): void
+    public function agent_detail_halcyon_routines_and_calibrated(): void
     {
         $this->loadFixtures();
         $this->unlock();
 
-        $this->get('/usage/agents/'.self::SHODAN)->assertInertia(fn (Assert $page) => $page
+        $this->get('/usage/agents/'.self::HALCYON)->assertInertia(fn (Assert $page) => $page
             ->component('Usage/Agent')
             ->where('agent.rank', 2)
             ->where('agent.factor', 'calibrated')
-            ->where('stats.matchedRuns', 42)
-            ->where('stats.unmatchedRuns', 8)
+            ->where('stats.matchedRuns', 49)
+            ->where('stats.unmatchedRuns', 14)
             ->has('routines', 4)
-            ->where('routines.0.routineId', 'tamara-normiranec-updates')
-            ->where('routines.0.runs', 20)
+            ->where('routines.0.routineId', 'vendor-price-updates')
+            ->where('routines.0.runs', 26)
             ->where('routines.2.kind', 'unmatched')
             ->where('routines.2.name', 'No routine (ad-hoc)')
             ->where('routines.3.kind', 'other')
-            ->where('routineTotals.wakes', 50));
+            ->where('routineTotals.wakes', 63));
     }
 
     #[Test]
@@ -402,11 +402,11 @@ class UsageViewTest extends TestCase
     {
         $this->loadFixtures();
         $this->unlock();
-        Carbon::setTestNow(Carbon::parse('2026-11-30 12:00:00', 'Europe/Ljubljana'));
+        Carbon::setTestNow(Carbon::parse('2037-11-30 12:00:00', 'Europe/Ljubljana'));
 
-        $this->get('/usage/agents/'.self::THE_MANY)->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->get('/usage/agents/'.self::JUNIPER)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Usage/Agent')
-            ->where('agent.name', 'The Many')
+            ->where('agent.name', 'Juniper')
             ->where('agent.rank', null)
             ->where('zero', true)
             ->where('stats.tokens', 0));
@@ -419,7 +419,7 @@ class UsageViewTest extends TestCase
         $this->unlock();
 
         $this->get('/usage/agents/no-such-agent')->assertNotFound();
-        $this->get('/usage/agents/79f05054_9a1d-48cc-8fbf-6ba78756b152')->assertNotFound(); // LIKE "_" is not a match
+        $this->get('/usage/agents/0445b205_093c-4120-85c8-c87c882fa3d4')->assertNotFound(); // LIKE "_" is not a match
         $this->get('/usage/agents/'.str_repeat('a', 65))->assertNotFound();
     }
 
@@ -443,13 +443,13 @@ class UsageViewTest extends TestCase
     public function unreadable_stored_payload_is_treated_as_missing(): void
     {
         $this->loadFixtures();
-        UsageDay::query()->where('date', '2026-10-15')->update(['payload' => '{not json']);
+        UsageDay::query()->where('date', '2037-10-15')->update(['payload' => '{not json']);
         $this->unlock();
 
         $this->get('/usage')->assertInertia(fn (Assert $page) => $page
             ->where('daysWithFile', 6)
             ->where('days.2.present', false)
-            ->where('unreadable', ['2026-10-15.json']));
+            ->where('unreadable', ['2037-10-15.json']));
     }
 
     /** @return array<string, mixed> the decoded fixture file for one date */
@@ -463,7 +463,7 @@ class UsageViewTest extends TestCase
     {
         $this->loadFixtures();
         $this->unlock();
-        $file = self::fixture('2026-10-18');
+        $file = self::fixture('2037-10-18');
 
         // Expected lists, computed from the fixture alone.
         $agents = $file['agents'];
@@ -496,15 +496,15 @@ class UsageViewTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Usage/Overview')
                 ->where('range', 'yesterday')
-                ->where('today', '2026-10-19')
-                ->where('from', '2026-10-18')
-                ->where('to', '2026-10-18')
+                ->where('today', '2037-10-19')
+                ->where('from', '2037-10-18')
+                ->where('to', '2037-10-18')
                 ->where('fromLabel', 'Sun 18 Oct')
                 ->where('toLabel', 'Sun 18 Oct')
                 ->where('empty', false)
                 ->where('daysWithFile', 1)
                 ->has('days', 1)
-                ->where('days.0.date', '2026-10-18')
+                ->where('days.0.date', '2037-10-18')
                 ->where('days.0.today', false)
                 ->where('days.0.total', $file['est_tokens_total'])
                 ->where('rangeTotal', $file['est_tokens_total'])
@@ -512,7 +512,7 @@ class UsageViewTest extends TestCase
                 ->where('generatedAt', $file['generated_at'])
                 ->where('method', $file['method'])
                 ->where('unmatched', ['runs' => $unmatched['runs'], 'agents' => count($unmatched['agents']), 'tokens' => $unmatched['tokens']])
-                ->where('table.day', '2026-10-18')
+                ->where('table.day', '2037-10-18')
                 ->where('table.dayMissing', false)
                 ->where('table.totals.tokens', $file['est_tokens_total'])
                 ->has('table.rows', count($nonzero))
@@ -531,41 +531,41 @@ class UsageViewTest extends TestCase
         $this->assertEveryAgentIsASeries($props, array_column($file['agents'], 'est_tokens_total', 'agent_id'));
 
         // An explicit ?day still wins over the range's own day.
-        $this->get('/usage?range=yesterday&day=2026-10-16')->assertInertia(fn (Assert $page) => $page
+        $this->get('/usage?range=yesterday&day=2037-10-16')->assertInertia(fn (Assert $page) => $page
             ->where('range', 'yesterday')
-            ->where('table.day', '2026-10-16')
-            ->where('table.totals.tokens', 807261233)
+            ->where('table.day', '2037-10-16')
+            ->where('table.totals.tokens', 661774270)
             ->where('rangeTotal', $file['est_tokens_total']));
     }
 
     #[Test]
-    public function yesterday_range_agent_detail_for_the_many(): void
+    public function yesterday_range_agent_detail_for_juniper(): void
     {
         $this->loadFixtures();
         $this->unlock();
-        $file = self::fixture('2026-10-18');
-        $mine = collect($file['agents'])->firstWhere('agent_id', self::THE_MANY);
+        $file = self::fixture('2037-10-18');
+        $mine = collect($file['agents'])->firstWhere('agent_id', self::JUNIPER);
         $this->assertNotNull($mine);
         $ranked = collect($file['agents'])->sortBy([['est_tokens_total', 'desc'], ['name', 'asc']])->pluck('agent_id')->values();
 
-        $response = $this->get('/usage/agents/'.self::THE_MANY.'?range=yesterday')
+        $response = $this->get('/usage/agents/'.self::JUNIPER.'?range=yesterday')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Usage/Agent')
                 ->where('range', 'yesterday')
-                ->where('from', '2026-10-18')
-                ->where('to', '2026-10-18')
+                ->where('from', '2037-10-18')
+                ->where('to', '2037-10-18')
                 ->where('hoursFromLabel', 'Sun 18 Oct')
                 ->where('stats.tokens', $mine['est_tokens_total'])
                 ->where('stats.io', $mine['est_io_tokens'])
                 ->where('stats.turns', $mine['turns'])
                 ->where('stats.share', $mine['est_tokens_total'] / $file['est_tokens_total'])
-                ->where('agent.rank', $ranked->search(self::THE_MANY) + 1)
+                ->where('agent.rank', $ranked->search(self::JUNIPER) + 1)
                 ->where('agent.of', count($file['agents']))
                 ->has('days', 1)
                 ->where('days.0.value', $mine['est_tokens_total'])
                 ->has('heat', 1)
-                ->where('heat.0.date', '2026-10-18')
+                ->where('heat.0.date', '2037-10-18')
                 ->where('heat.0.cutoffHour', null)
                 ->where('hourTotals', $mine['by_hour'])
                 ->where('routineTotals.tokens', $mine['est_tokens_total']));
@@ -593,13 +593,13 @@ class UsageViewTest extends TestCase
     {
         $this->loadFixtures();
         $this->unlock();
-        Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00', 'Europe/Ljubljana')); // yesterday = 13 Oct (first fixture)
-        $this->get('/usage?range=yesterday')->assertInertia(fn (Assert $page) => $page->where('from', '2026-10-13')->where('empty', false)->has('days', 1));
+        Carbon::setTestNow(Carbon::parse('2037-10-14 09:00:00', 'Europe/Ljubljana')); // yesterday = 13 Oct (first fixture)
+        $this->get('/usage?range=yesterday')->assertInertia(fn (Assert $page) => $page->where('from', '2037-10-13')->where('empty', false)->has('days', 1));
 
-        Carbon::setTestNow(Carbon::parse('2026-10-13 09:00:00', 'Europe/Ljubljana')); // yesterday = 12 Oct, no file; today has one
+        Carbon::setTestNow(Carbon::parse('2037-10-13 09:00:00', 'Europe/Ljubljana')); // yesterday = 12 Oct, no file; today has one
         $this->get('/usage?range=yesterday')->assertInertia(fn (Assert $page) => $page
-            ->where('from', '2026-10-12')
-            ->where('to', '2026-10-12')
+            ->where('from', '2037-10-12')
+            ->where('to', '2037-10-12')
             ->where('empty', true)
             ->where('rangeTotal', 0)
             ->where('updatedAt', null)
@@ -615,13 +615,13 @@ class UsageViewTest extends TestCase
 
         foreach (['1', 'Yesterday', 'YESTERDAY', 'yester day', '7.0', '-yesterday'] as $r) {
             $this->get('/usage?range='.rawurlencode($r))->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
-            $this->get('/usage/agents/'.self::THE_MANY.'?range='.rawurlencode($r))->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
+            $this->get('/usage/agents/'.self::JUNIPER.'?range='.rawurlencode($r))->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
         }
         // normalizeRange('yesterday ') is 7 (see UsageYesterdayRangeTest), but over HTTP the global
         // TrimStrings middleware trims query values first, exactly as it already does for "30 ".
         $this->get('/usage?range=yesterday%20')->assertInertia(fn (Assert $page) => $page->where('range', 'yesterday'));
         $this->get('/usage?range=30%20')->assertInertia(fn (Assert $page) => $page->where('range', 30));
         $this->get('/usage?range[]=yesterday')->assertInertia(fn (Assert $page) => $page->where('range', 7)->has('days', 7));
-        $this->get('/usage/agents/'.self::THE_MANY.'?range[]=yesterday')->assertInertia(fn (Assert $page) => $page->where('range', 7));
+        $this->get('/usage/agents/'.self::JUNIPER.'?range[]=yesterday')->assertInertia(fn (Assert $page) => $page->where('range', 7));
     }
 }

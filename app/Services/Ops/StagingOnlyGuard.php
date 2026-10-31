@@ -9,10 +9,12 @@ namespace App\Services\Ops;
  */
 final class StagingOnlyGuard
 {
-    /** The live Bridge host (config bridge.live_host / env BRIDGE_LIVE_HOST; '' = no live-host check). */
+    /** The live Bridge host (config bridge.live_host / env BRIDGE_LIVE_HOST, a host or a URL; '' = no live-host check). */
     public static function liveHost(): string
     {
-        return self::host('https://'.trim((string) config('bridge.live_host', '')));
+        $live = trim((string) config('bridge.live_host', ''));
+
+        return $live === '' ? '' : self::host(str_contains($live, '://') ? $live : 'https://'.$live);
     }
 
     /** Why this run is refused, or null when it may go ahead. */

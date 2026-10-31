@@ -28,7 +28,7 @@ class ApiTokenTest extends TestCase
     public function sanctum_token_can_list_and_create_status_update(): void
     {
         $user = $this->workspaceUser([
-            'email' => 'captain@lantis.internal',
+            'email' => 'captain@example.test',
             'name' => 'Captain William Diego',
         ]);
         Sanctum::actingAs($user, ['ceo']);
@@ -38,14 +38,14 @@ class ApiTokenTest extends TestCase
             ->assertJsonCount(2, 'data');
 
         $this->postJson('/api/status-updates', [
-            'project_id' => 'proj-merkwell',
+            'project_id' => 'proj-northwind',
             'agent_id' => 'agent-anatoly',
             'body' => 'API status note from Captain.',
         ])->assertCreated()
             ->assertJsonPath('data.body', 'API status note from Captain.');
 
         $this->assertDatabaseHas('status_updates', [
-            'project_id' => 'proj-merkwell',
+            'project_id' => 'proj-northwind',
             'body' => 'API status note from Captain.',
         ]);
     }

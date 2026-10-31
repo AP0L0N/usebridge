@@ -4,7 +4,7 @@ import { Notice } from './redesign/Ui';
 import type { Shared } from '../../lib/account';
 import { t } from '../../lib/strings-account';
 import { requestJson } from '../../lib/http';
-import { TopBar } from '../TopBar';
+import { AppTopBar } from '../Shell/AppTopBar';
 
 const SECTIONS = [
   { id: 'profile', label: t('acct.nav.profile') },
@@ -41,7 +41,7 @@ export function SettingsLayout({ page, title, toasts, children }: { page: 'accou
   return (
     <>
       <Head title={title} />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <div className="acx acx-page">
           <header className="acx-head">

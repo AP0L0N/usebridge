@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
-import { TopBar } from '../../Components/TopBar';
+import { AppTopBar } from '../../Components/Shell/AppTopBar';
 import { EstNote } from '../../Components/Usage/EstNote';
 import { Est } from '../../Components/Usage/Est';
 import { FactorBadge } from '../../Components/Usage/FactorBadge';
@@ -84,7 +84,7 @@ export default function Agent(p: AgentProps) {
   return (
     <>
       <Head title={`${agent.name} · Usage`} />
-      <TopBar />
+      <AppTopBar />
       <main className="wrap">
         <Link className="crumb" href={withQuery('/usage', { range: rangeParam(p.range) })}>← Usage</Link>
         <div className="ahead">

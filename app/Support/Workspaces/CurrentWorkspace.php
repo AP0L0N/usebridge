@@ -92,7 +92,7 @@ final class CurrentWorkspace
     /** Tilen's workspace (bridge.default_workspace); null before the backfill migration ran. */
     public function default(): ?Workspace
     {
-        $slug = (string) config('bridge.default_workspace', 'tilen');
+        $slug = (string) (config('bridge.default_workspace') ?: 'main');
         if ($this->default === null || $this->default->slug !== $slug) {
             $this->default = Workspace::query()->where('slug', $slug)->first();
         }
