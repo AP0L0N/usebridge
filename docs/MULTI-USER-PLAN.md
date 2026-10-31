@@ -27,7 +27,7 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 | Token scopes v1 | `read` / `read & write` (mapping §4); per-project scoping later |
 | Token expiry | 30 / 90 / 365 days or none |
 | Polymarket, Admin for non-owners | 404 |
-| Passwords | ≥ 10 chars, strength meter, no composition rules; breached check optional/open (code has 12 today → change to 10) |
+| Passwords | ≥ 10 chars, strength meter, no composition rules; breached check optional/open (code: 10) |
 | Lockout | 5 failed logins → account locked 15 min |
 | 2FA | later |
 | Email verification | required before creating tokens (and MCP); not for using the boards |
@@ -211,10 +211,10 @@ file for that day". Cadence: nightly for yesterday + re-POST of the last 2 days 
 
 ## 9. Step order
 
-Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities (§11).
-Next, each with tests, deployable alone:
-1. Backend auth: lockout, disabled (+ token block), email verification, token expiry + `brg_live_` prefix + suffix +
-   scope mapping, sessions endpoints, admin endpoints, delete request + soft delete + export, password min 10.
+Done: schema, backfill, scoping, Polymarket gate, per-workspace keys, `AccountService`, token abilities, and step 1
+backend auth (§11). Next, each with tests, deployable alone:
+1. ~~Backend auth~~ — done (§11, JSON only). Left from it for later steps: `PATCH /account` + email change
+   (`pending_email` columns exist, flow not built), `GET /reset-password/{token}` screen, sessions list device parsing.
 2. MCP endpoint (after the dependency decision).
 3. Cursor ingest: scoped replace + markers, `cursor` tool, new columns.
 4. UI from the prototypes: login/signup (Turnstile) / reset / account / tokens / onboarding / admin / usage Cursor;
@@ -242,11 +242,28 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | `WorkspaceBoundary`, gate → Tilen's workspace, `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `routes/api.php` |
 | `WorkspaceRule::exists`, bulk inserts set `workspace_id` | controllers, importers, `BridgeRoster`, `TicketService` |
 | Polymarket feature gate | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
-| `AccountService` (register + workspace, reset, change password; `MIN_PASSWORD = 12`) | `app/Services/Auth` |
+| `AccountService` (register + workspace + verification mail, reset, change password; `MIN_PASSWORD = 10`) | `app/Services/Auth` |
+| Auth columns: `users` lockout/last login/disabled/pending email/timezone/delete grace/soft delete, `token_suffix`; existing users marked verified; `usage_upload` feature on Tilen's workspace | `2026_10_31_130000_multi_user_auth` |
+| Login: `LoginService` (5 fails → 15 min lock, unknown emails identical via `RateLimiter`, 10/min per IP, disabled / deletion pending → 403, `last_login_at`, regenerate), `POST /login`, `/logout`, `/login/cancel-deletion` | `LoginService`, `Auth\LoginController` |
+| Sessions: `DeviceSessions` (list own rows, hashed ids; others; all + remember token), `GET/DELETE /account/sessions[/others]`; password change ends other sessions, reset ends all and clears the lock; `POST /forgot-password` (neutral), `/reset-password`, `PUT /account/password` | `DeviceSessions`, `Auth\SessionController`, `Auth\PasswordController` |
+| Verification: `User implements MustVerifyEmail`, signed `GET /email/verify/{id}/{hash}`, `POST /email/verification-notification`; `RequireVerifiedEmail` (JSON 403) on token creation, ready for `/mcp` | `Auth\EmailVerificationController`, `RequireVerifiedEmail` |
+| Tokens: `ApiTokens` (read/write → abilities, usage/polymarket by feature; 30/90/365/none; `brg_live_` default via `SANCTUM_TOKEN_PREFIX`; `token_suffix`; bound to the workspace; masked list, legacy = no suffix; revoke own), `GET/POST/DELETE /account/tokens` | `ApiTokens`, `Auth\TokenController`, `config/sanctum.php` |
+| Disabled / deletion pending: `ResolveTokenWorkspace` 403 (tokens blocked, not revoked), `LogoutBlockedUser` (web), logged-in web users act in their own workspace (`User::homeWorkspace`, login wins over the gate) | `app/Http/Middleware` |
+| Admin: `GET /admin/users` → `[id, name, email, created_at, last_login_at, status]` only; `POST /admin/users/{id}/disable\|enable` (not self; disable deletes sessions); 404 unless logged-in `is_admin` | `AdminUsers`, `Admin\UserController`, `RequireAdmin` |
+| Delete: `POST /account/delete` {email} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
+| Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
+| Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
+
+Step 1 notes: all routes are JSON in the `web` group (CSRF applies; screens come in step 4); the AUTH-1 gate still
+works for the existing pages. A soft-deleted user's email stays taken (unique). Deleted users keep their workspace
+(no workspace marker column yet; the soft-deleted owner is the marker). Changing the password also rotates the remember
+token, so this device's "keep me logged in" cookie ends too (its session continues).
 
 **Before deploying (The Many):** (1) set `BRIDGE_OWNER_EMAIL` + `config:clear` before `migrate`, else Captain's API
 user becomes owner; (2) `SELECT id, name, abilities FROM personal_access_tokens` — each needs `*`/`ceo` or the
-abilities it uses; (3) rehearse on a dump copy incl. `migrate:rollback --step=3`; (4) after: counts + smoke tests.
+abilities it uses; (3) rehearse on a dump copy incl. `migrate:rollback --step=4`; (4) after: counts + smoke tests;
+(5) `SESSION_DRIVER=database` (sessions / disable / log out everywhere rely on it); (6) `MAIL_*` before sign-up opens
+(verification); (7) optional `TURNSTILE_*`; (8) daily cron `php artisan bridge:accounts-delete-expired`.
 
 ## 12. Open questions for Tilen
 
