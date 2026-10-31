@@ -1,11 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { AuthLayout, ownLayout, type AuthPageProps } from '../../Components/Auth/AuthLayout';
 import { Button } from '../../Components/Auth/Button';
 import { CheckRow, ErrorSummary, Notice, pwToggle, StrengthMeter, TextField } from '../../Components/Auth/TextField';
 import { fillPlaceholders } from '../../Components/SiteFooter';
 import { EMAIL_RE, t } from '../../lib/authCopy';
 import { fieldErrors, go, requestJson } from '../../lib/http';
+import { turnstileToken } from '../../lib/turnstile';
 
 type Acceptance = {
   checkbox: string; smallPrint: string; termsLink: string; privacyLink: string; smallPrintTermsLink: string; smallPrintPrivacyLink: string;
@@ -13,37 +14,13 @@ type Acceptance = {
 };
 type Props = AuthPageProps & { formToken: string; turnstileSiteKey: string | null; minPassword: number; acceptTerms: boolean; acceptance: Acceptance };
 
-declare global {
-  interface Window { turnstile?: { reset: (el?: string | HTMLElement) => void; render: (el: HTMLElement, opts: Record<string, unknown>) => string } }
-}
-
-const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-
-/** Cloudflare Turnstile, only when a site key is configured: the script loads then, and renders into .cf-turnstile. */
-function Turnstile({ siteKey }: { siteKey: string }) {
-  const el = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    // Script already loaded (an earlier visit in this tab): render explicitly; else its onload scans .cf-turnstile.
-    if (window.turnstile && el.current && el.current.childElementCount === 0) {
-      window.turnstile.render(el.current, { sitekey: siteKey, 'response-field-name': 'cf-turnstile-response' });
-      return;
-    }
-    if (document.querySelector(`script[src="${TURNSTILE_SRC}"]`)) return;
-    const s = document.createElement('script');
-    s.src = TURNSTILE_SRC;
-    s.async = true;
-    s.defer = true;
-    document.head.appendChild(s);
-  }, [siteKey]);
-  return <div ref={el} className="cf-turnstile" data-sitekey={siteKey} data-response-field-name="cf-turnstile-response" />;
-}
-
 const FIELD_IDS = { name: 'name', email: 'email', password: 'pw', accept_terms: 'accept-terms' };
 const ORDER = ['name', 'email', 'password', 'accept_terms', 'form', 'turnstile'];
 
 /**
  * Sign up (Figma states default / errors / loading / email taken): POST /signup with the honeypot (`website`) + signed
- * `form_token`, plus Turnstile when configured. The terms + 18+ checkbox is required and never pre-ticked.
+ * `form_token`, plus a Turnstile token when a site key is configured. Turnstile loads only here, on submit (lib/turnstile):
+ * nothing from Cloudflare on page render. The terms + 18+ checkbox is required and never pre-ticked.
  */
 export default function Signup({ copy, formToken, turnstileSiteKey, minPassword, acceptTerms, acceptance }: Props) {
   const c = copy.signup;
@@ -57,7 +34,7 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
   const [taken, setTaken] = useState<string | null>(null);
   const summary = useRef<HTMLDivElement>(null);
   const takenRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  const tsRef = useRef<HTMLDivElement>(null);
 
   const check = (): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -79,17 +56,25 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
     }
     setErrors({});
     setBusy(true);
-    const tsResponse = formRef.current ? new FormData(formRef.current).get('cf-turnstile-response') : null;
+    let tsResponse: string | null = null;
+    if (turnstileSiteKey && tsRef.current) {
+      tsResponse = await turnstileToken(turnstileSiteKey, tsRef.current).catch(() => null);
+      if (tsResponse === null) {
+        setBusy(false);
+        setErrors({ turnstile: c.turnstile_failed! });
+        requestAnimationFrame(() => summary.current?.focus());
+        return;
+      }
+    }
     const res = await requestJson<{ redirect?: string; email_taken?: boolean }>('POST', '/signup', {
       name, email, password, website, form_token: formToken, accept_terms: accepted,
-      ...(turnstileSiteKey ? { 'cf-turnstile-response': tsResponse ?? '' } : {}),
+      ...(tsResponse !== null ? { 'cf-turnstile-response': tsResponse } : {}),
     });
     if (res.ok) {
       go('/welcome');
       return;
     }
     setBusy(false);
-    window.turnstile?.reset();
     if (res.status === 422 && res.data.email_taken) {
       setTaken(email.trim());
       setErrors({ email: copy.errors.email_taken });
@@ -107,7 +92,7 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
   const summaryErrors = taken ? {} : errors;
   return (
     <AuthLayout title={c.title!}>
-      <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="h-signup" ref={formRef}>
+      <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="h-signup">
         <div className="auth-heading">
           <h1 id="h-signup">{c.heading}</h1>
           <p className="auth-lede">{c.subtitle}</p>
@@ -142,7 +127,8 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
           <label htmlFor="website">Website</label>
           <input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
-        {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} />}
+        {/* the Turnstile widget renders here on submit, and only shows if Cloudflare needs the person to act */}
+        {turnstileSiteKey && <div ref={tsRef} className="auth-turnstile" />}
 
         <p className="auth-fine">{c.storage_note}</p>
         <div className="auth-terms">

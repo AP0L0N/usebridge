@@ -16,6 +16,12 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
    + minimum fill time (~3 s, signed timestamp in the form). Alternatives: hCaptcha (same flow, other vendor) or a
    self-hosted proof-of-work widget (no third party, weaker). Disposable-email blocking: optional. Verification
    mail needs `MAIL_*` configured on live (today `MAIL_MAILER=log`, nothing is sent).
+   **Turnstile without pre-clearance:** the sign-up page loads nothing from Cloudflare when it renders. The script
+   (`api.js?render=explicit`) is added only when the person submits the form (`resources/js/lib/turnstile.ts`); the
+   widget runs with `execution: 'execute'` and `appearance: 'interaction-only'` (invisible unless Cloudflare needs a
+   click), and the form posts the token it returns. **In the Cloudflare dashboard, the widget's _Pre-clearance_
+   setting must stay OFF**: with it on, Cloudflare would set a `cf_clearance` cookie, and the page must set no cookies
+   besides the app's session and XSRF cookies (tests: `TurnstileLazyTest`). Server-side verification is unchanged.
 2. **Owner admin = user list + disable/enable ONLY.** Tilen cannot see other users' boards, tickets, statuses, usage or
    any data; no impersonation. Enforced in API + query layer (§5).
 

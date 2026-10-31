@@ -160,6 +160,9 @@
 .auth-check input { flex: none; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--auth-ink); cursor: pointer; }
 .auth-terms { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* Turnstile slot (sign up): empty until submit; the widget only shows when Cloudflare needs an interaction */
+.auth-turnstile:empty { display: none; }
+
 /* Button */
 .auth-submit { display: block; }
 .auth-busy-note { margin-top: var(--space-3) !important; font-size: 13px; line-height: 1.4; color: var(--auth-ink-600); }
