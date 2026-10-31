@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Services\Auth\AccountDeletion;
 use App\Services\BridgeRoster;
 use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
@@ -169,3 +170,13 @@ Artisan::command('bridge:set-pms {--dry-run : Show what would change, write noth
 
     return $r['missing_agents'] ? 1 : 0;
 })->purpose("Add the Captain's missing agents and set each active project's real PM (idempotent)");
+
+// Account deletion (docs/MULTI-USER-PLAN.md §2): users whose 7-day grace is over are soft-deleted (deleted_at). Their
+// workspace rows are kept: no purge without Tilen's explicit OK. Safe to run daily.
+Artisan::command('bridge:accounts-delete-expired {--dry-run : List who would be soft-deleted, change nothing}', function (AccountDeletion $deletion) {
+    $dry = (bool) $this->option('dry-run');
+    $ids = $deletion->deleteExpired($dry);
+    $this->info(($dry ? 'Would soft-delete' : 'Soft-deleted').' '.count($ids).' user(s)'.($ids ? ': '.implode(', ', $ids) : '').'.');
+
+    return 0;
+})->purpose('Soft-delete accounts whose deletion grace (7 days) is over; nothing is purged');

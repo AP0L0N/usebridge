@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Auth\AccountDeletionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordController;
@@ -48,6 +49,8 @@ Route::middleware(['auth', EnsureWorkspaceGate::class])->prefix('account')->grou
     Route::get('/tokens', [TokenController::class, 'index'])->name('account.tokens');
     Route::post('/tokens', [TokenController::class, 'store'])->middleware(RequireVerifiedEmail::class)->name('account.tokens.store');
     Route::delete('/tokens/{id}', [TokenController::class, 'destroy'])->whereNumber('id')->name('account.tokens.destroy');
+    Route::post('/delete', [AccountDeletionController::class, 'request'])->name('account.delete');
+    Route::get('/export', [AccountDeletionController::class, 'export'])->middleware('throttle:6,1')->name('account.export');
 });
 
 // Owner admin: user list + disable/enable only (docs/MULTI-USER-PLAN.md §5); 404 unless a logged-in is_admin user.
