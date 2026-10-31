@@ -447,8 +447,8 @@ breakpoints, reduced motion). Every write goes to the JSON routes above; the new
 
 | Screen | Route → component | Notes |
 |---|---|---|
-| Shell | shared props `auth.user {id, name, email, initials, is_admin, email_verified}` (null for guests), `features.polymarket`, `features.admin` | `TopBar`: account menu (Account, API tokens & MCP, Log out = `POST /logout`), Owner chip + Admin nav for `is_admin`, Polymarket only with the feature; gate sessions keep "Tilen" |
-| Log in | `GET /login` → `Auth/Login` | guests are redirected here; wrong (tries left), locked (countdown to `locked_until`, reset link), disabled, deletion pending → "Cancel deletion and log in" (`POST /login/cancel-deletion`); "Workspace password" → `/gate` |
+| Shell | shared props `auth.user {id, name, email, initials, is_admin, email_verified}` (null for guests), `features.polymarket`, `features.admin` | `TopBar`: account menu (Account, API tokens & MCP, Log out = `POST /logout`), Owner chip + Admin nav for `is_admin`, Polymarket only for the workspace owner with the feature |
+| Log in | `GET /login` → `Auth/Login` | guests are redirected here; wrong (tries left), locked (countdown to `locked_until`, reset link), disabled, deletion pending → "Cancel deletion and log in" (`POST /login/cancel-deletion`) |
 | Sign up | `GET /signup` → `Auth/Signup` {formToken, turnstileSiteKey, minPassword} | honeypot `website` + `form_token` always; the Turnstile script loads only when `turnstile.site_key` is set (secret never in props); email taken banner; lands on `/welcome` |
 | Reset | `GET /forgot-password` → `Auth/ForgotPassword`; `GET /reset-password/{token}?email=` (`password.reset`, the mail link) → `Auth/ResetPassword` {token, email, valid} | request → sent (neutral), set new (meter, match line) → success, expired (also for an unknown email) |
 | Account | `GET /account` → `Account/Settings` {account, sessions, timezones, minPassword, deletion {graceDays, counts}, can} (JSON clients keep the JSON) | verify-email banner (resend), profile (read-only until `account.update`), password, sessions (this device, others, log out others with password, all devices), danger zone (export download, delete with typed email, 7-day grace → `/login?status=deletion-requested`) |
@@ -488,7 +488,7 @@ backfill throws and `migrate` stops (it never picks the token owner or first use
 personal_access_tokens` — each needs `*`/`ceo` or the abilities it uses; (3) rehearse on a dump copy incl.
 `migrate:rollback --step=4`; (4) after: counts + smoke tests; (5) `SESSION_DRIVER=database` (sessions / disable / log
 out everywhere rely on it); (6) `MAIL_*` before sign-up opens (verification; until the domain is decided `MAIL_MAILER=log`, set
-`MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` when it is); (7) `TURNSTILE_*` once The Many has created the keys; (7b) PHP
+`MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` when it is); (7) `TURNSTILE_*` once The Many has created the keys; the vhost CSP needs `https://challenges.cloudflare.com` in `script-src` and `frame-src` (Cloudflare's Turnstile CSP page); `data:` in `connect-src` only silences Turnstile's harmless `data:,` probes (not required by Cloudflare); the app sets no CSP of its own; (7b) PHP
 `upload_max_filesize` / `post_max_size` ≥ 10 MB for `POST /usage/cursor-csv`; (8) the Laravel scheduler cron
 (`* * * * * php artisan schedule:run`), which runs `bridge:accounts-delete-expired` and `bridge:accounts-purge` daily;
 both are no-ops while `BRIDGE_ACCOUNT_PURGE_ENABLED=false`; (9) `laravel/mcp` is a runtime dependency now: the deploy runs

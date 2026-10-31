@@ -26,7 +26,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Deploy secrets (gate password)
+# Deploy secrets (API tokens; never commit)
 .bridge-deploy-secrets
 /database/*.sqlite
 /database/*.sqlite-journal
