@@ -3,6 +3,7 @@ import '../css/usage.css';
 import '../css/polymarket.css';
 import '../css/kanban.css';
 import '../css/account.css';
+import '../css/account-redesign.css';
 import '../css/legal.css';
 import { createInertiaApp } from '@inertiajs/react';
 import type { ReactNode } from 'react';
