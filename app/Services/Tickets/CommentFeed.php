@@ -27,9 +27,9 @@ final class CommentFeed
         } elseif (! empty($f['since'])) {
             $q->where('created_at', '>=', TicketView::time($f['since']));
         }
-        match ($f['author'] ?? 'tilen') {
-            // People in the UI (any human actor).
-            'tilen' => $q->where(fn ($w) => $w->where('author_id', Actor::TILEN)->orWhere('author_id', 'like', HumanActors::USER_PREFIX.'%')),
+        match ($f['author'] ?? 'humans') {
+            // People in the UI ('tilen' = the old name of this filter).
+            'humans', 'tilen' => $q->where(fn ($w) => $w->where('author_id', Actor::TILEN)->orWhere('author_id', 'like', HumanActors::USER_PREFIX.'%')),
             'agents' => $q->where('author_type', 'agent'),
             default => null,
         };
@@ -63,6 +63,7 @@ final class CommentFeed
             'cursor' => (string) $c->id,
             'body' => $c->body,
             'is_tilen_input' => $c->is_tilen_input,
+            'is_owner_input' => $c->is_tilen_input,
             'input_choice' => $c->input_choice,
             'author_type' => $c->author_type,
             'author_id' => $c->author_id,

@@ -25,7 +25,7 @@ final class BoardView
     {
         $viewer = HumanActors::viewerId();
         $seen = ProjectReadState::query()->where('user', $viewer)->where('project_id', $p->id)->first();
-        // For the "status changed" toast: set after the viewer last saw it (and not by the viewer).
+        // For the "status changed" toast: set after the viewer last saw it (and not by the viewer). Old name kept as an alias.
         $unseen = $p->status_set_at !== null && $p->status_set_by !== $viewer
             && ($seen?->status_seen_at === null || $p->status_set_at->gt($seen->status_seen_at));
 
@@ -42,10 +42,12 @@ final class BoardView
             'status_note' => $p->status_note,
             'status_set_by' => $p->status_set_by,
             'status_set_by_name' => $this->view->name($p->status_set_by),
+            'status_set_by_human' => Actor::isHumanId($p->status_set_by),
             'status_set_at' => $p->status_set_at?->toIso8601String(),
             'last_activity_at' => $p->last_activity_at?->toIso8601String(),
             'archived' => $p->isArchived(),
             'status_unseen_by_tilen' => $unseen,
+            'status_unseen_by_me' => $unseen,
         ];
     }
 

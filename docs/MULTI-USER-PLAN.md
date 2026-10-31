@@ -70,6 +70,9 @@ privately; this plan covers product decisions, architecture, API and the securit
     `status_label`, `GET /api/board-columns`, MCP, the "needs an ask" errors); new workspaces have no setting and show
     `BoardColumns`' default. A project's own `column_labels` still win on its board and in its errors. Deploy: set
     `BRIDGE_OWNER_WAITING_LABEL` to the exact current label before migrating to make the backfill explicit.
+    **Changed by go-live B2:** the default for a workspace without a setting is now "Waiting on <owner's first name>"
+    (`Workspace::waitingColumnLabel`, `HumanActors::defaultWaitingLabel`; "Waiting on you" only without an owner), so a
+    member sees whom the column waits on. See §11 "People as actors (B2)".
 
 Still open: SMTP + SPF/DKIM/DMARC for `usebridge.si` (The Many). Until it is set, and until The Many has created the
 Turnstile keys, config decides:
@@ -127,10 +130,10 @@ globally unique for now (a second user cannot have `CA-1`).
 | `users` | `timezone` (default `Europe/Ljubljana`) | account profile; display only in v1 (usage days stay Ljubljana) |
 | `users` | `delete_requested_at` ts, `deleted_at` ts (SoftDeletes) | account delete with grace |
 | `personal_access_tokens` | `token_suffix` char(4) (non-secret, last 4 of plaintext) | masked list `brg_live_••••3f9a` |
-| `projects` | `column_labels` json null (rename/hide per fixed key) | onboarding step 2 (columns are fixed in `BoardColumns`, incl. `waiting_tilen`: "Waiting on you", or the workspace's `settings.waiting_label`) |
+| `projects` | `column_labels` json null (rename/hide per fixed key) | onboarding step 2 (columns are fixed in `BoardColumns`, incl. `waiting_tilen`: the workspace's `settings.waiting_label`, else "Waiting on <owner's first name>") |
 | `cli_usage_imports` | `workspace_id`, `date`, `tool`, `rows`, `imported_at`; unique (ws, date, tool) | "no file" vs zero (§7) |
 | `cli_usage_days` | `cost_cents` decimal(12,4) null, `max_mode_calls` int null | Cursor (§7) |
-| `ticket/project_read_states` | `user` = user id instead of `'tilen'` | with login |
+| `ticket/project_read_states` | `user` = the reader's actor id (`user:<id>`; the legacy owner keeps `'tilen'`), no schema change | done (B2) |
 
 Expiry (`expires_at`) and `last_used_at` already exist on Sanctum tokens. Pending email uses a temporary signed URL
 (60 min, carries a hash of `pending_email`), so no extra token table.
@@ -223,7 +226,7 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 |---|---|---|
 | `list_projects` | – | `boards:read` |
 | `get_board` | `project` (id or slug), `done_since?`, `include_archived?` | `boards:read` |
-| `list_tickets` | `project?`, `status?` (comma list), `label?`, `assignee?` (id / `tilen` / `none`), `q?` (title or key), `limit?` (≤ 200, default 50) | `boards:read` |
+| `list_tickets` | `project?`, `status?` (comma list), `label?`, `assignee?` (agent id / `owner` (alias `tilen`) / `user:<id>` / `none`), `q?` (title or key), `limit?` (≤ 200, default 50) | `boards:read` |
 | `get_ticket` | `key` | `boards:read` |
 | `list_agents`, `list_labels` | – | `boards:read` |
 | `create_ticket` | `project`, `title`, ticket fields, `actor?` | `boards:write` |
@@ -236,8 +239,9 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 - Abilities as `EnsureTokenAbility` (`*` / legacy `ceo` pass everything); a missing ability is a tool error
   (`isError`, "This token lacks the '…' ability."), never data. `tools/list` is the same for every token.
 - Actor as on `/api` (`Actor::forToken`): a per-agent token acts as its agent (a different `actor` → error), a shared
-  token takes an optional `actor` (an agent of the workspace; `tilen` refused); without one the token's own agent acts
-  (go-live B3: `personal_access_tokens.agent_id`, provisioned with write tokens, lazily for older ones). `post_status` uses the actor as `agent_id`.
+  token takes an optional `actor` (an agent of the workspace; people's ids refused: human input only comes from the UI);
+  without one the token's own agent acts (go-live B3: `personal_access_tokens.agent_id`, provisioned with write tokens,
+  lazily for older ones). `post_status` uses the actor as `agent_id`.
 - Another workspace's project / ticket gives the same "Unknown project 'x'." / "Unknown ticket 'x'." as a missing
   one; no new query path, everything goes through the workspace scope. Validation errors are tool errors.
 
@@ -355,7 +359,7 @@ backend auth, breached-password check, the MCP endpoint, the UI and the web firs
      up, create a first project (no PM), rename its columns, verify, create tokens and use MCP. Left from it: a PM
      for web-created projects (needs a first agent, step 5), hide / add / reorder columns, a "New project" entry
      outside onboarding, editing name / slug / prefix / description from the web.
-   - Read states per user (the shared AUTH-1 password is gone; web writes are still recorded as actor `tilen`).
+   - ~~Read states per user~~ — done (B2, §11 "People as actors"): web writes and read states are the signed-in user's.
    - Live: Turnstile keys (The Many), `MAIL_*` (SMTP + DNS for `usebridge.si`, The Many), `SESSION_DRIVER=database` before the Sessions
      card means anything.
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
@@ -424,7 +428,8 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Delete: `POST /account/delete` {email, current_password} (grace 7 days, logged out everywhere), cancel at login, `bridge:accounts-delete-expired [--dry-run]` soft-deletes (no purge; workspace rows kept; scheduled daily, a no-op unless `BRIDGE_ACCOUNT_PURGE_ENABLED=true`), `GET /account/export` (own workspace JSON, scoped) | `AccountDeletion`, `WorkspaceExport`, `routes/console.php` |
 | Sign-up: `GET /signup/form` (signed `form_token`, Turnstile site key), `POST /signup` (5/h per IP, honeypot `website`, ≥ 3 s fill time, Turnstile server-side when `TURNSTILE_SECRET_KEY` is set, fail closed), logs in unverified | `SignupController`, `SignupBotCheck`, `TurnstileVerifier`, `config/turnstile.php` |
 | Shared AUTH-1 password removed (decision 9): login only, a stale gate flag gets nothing; tests `WebAccessAndPagesTest` | `EnsureUserWorkspace`, `routes/web.php` |
-| Waiting column label (CoS decision 10): `BoardColumns` default "Waiting on you", `workspaces.settings.waiting_label` per workspace (backfilled for existing ones), project `column_labels` win; portfolio gets the workspace defaults, the ask dialog the board's label; tests `WaitingColumnLabelTest` | `BoardColumns::defaults()`, `Workspace::waitingLabel()`, `TicketService::askRequired()`, `2026_10_31_160000_workspace_settings` |
+| Waiting column label (CoS decision 10, default changed by B2): `BoardColumns` default "Waiting on <owner's first name>" ("Waiting on you" without an owner), `workspaces.settings.waiting_label` per workspace (backfilled for existing ones), project `column_labels` win; portfolio gets the workspace defaults, the ask dialog the board's label; tests `WaitingColumnLabelTest` | `BoardColumns::defaults()`, `Workspace::waitingLabel()`, `TicketService::askRequired()`, `2026_10_31_160000_workspace_settings` |
+| People as actors (go-live B2): web writes record the signed-in user, `Actor::forUser` → `HumanActors::idFor`: `user:<users.id>`, except the owner of the legacy default workspace (`bridge.default_workspace`), who keeps `tilen` so old rows / read states stay his. Labels: `user:<id>` → the user's name, `tilen` → the workspace owner's first name (fallback "Owner"); `Actor::names()` adds the workspace's people. "Human side" checks use `Actor::isHuman()` / `isHumanId()` ('tilen' or `user:<id>`); owner shorthand `owner` (alias `tilen`) → `HumanActors::ownerId()`; `user:<id>` assignees must be in the workspace. Read states and unread are per reader (`HumanActors::viewerId`: the web user; over API/MCP the owner). The board's `people` = the workspace's people (viewer first, "You") + agents; shared prop `auth.user.actor_id`. Owner-input fields: old names kept as aliases next to `waiting_on_owner`, `owner_input_at`, `owner_input_ack_at`, `owner_answered_ask`, `unread_for_me`, `is_owner_input`, `status_unseen_by_me`, `waitingOwnerCount`, `status_set_by_human` / `pmStatusSetByHuman`; params `unread_for_owner` / `unread_for_me`, `is_owner_input`, feed `author=humans`. `status_source` is `human` for `user:<id>` (`tilen` unchanged). Export adds `actor_names`. No migration; column names, the key `waiting_tilen` and the `tilen` actor id stay. Tests `NewWorkspaceNamesTest` (no "tilen" in any value for a new workspace; member recorded as themselves), `LegacyOwnerOutputTest` (legacy output unchanged) | `app/Services/Tickets/HumanActors.php`, `Actor`, `TicketView`, `TicketController`, `ProjectController::people()` |
 | Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
 | Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner only, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |

@@ -75,7 +75,7 @@ class TicketController extends Controller
     }
 
     /**
-     * {body (required unless input_choice is one of the ask options), is_tilen_input, input_choice}.
+     * {body (required unless input_choice is one of the ask options), is_owner_input (alias is_tilen_input), input_choice}.
      * An input comment sets tilen_input_at (PM pickup); "Change answer" is simply another input comment.
      */
     public function comment(Request $request, string $slug, string $key): JsonResponse|RedirectResponse
@@ -83,11 +83,12 @@ class TicketController extends Controller
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
         $data = $request->validate([
             'body' => ['nullable', 'string', 'max:10000'],
+            'is_owner_input' => ['sometimes', 'boolean'],
             'is_tilen_input' => ['sometimes', 'boolean'],
             'input_choice' => ['nullable', 'string', 'max:60'],
         ]);
         $choice = TicketService::clean($data['input_choice'] ?? null);
-        $isInput = (bool) ($data['is_tilen_input'] ?? false) || $choice !== null;
+        $isInput = (bool) ($data['is_owner_input'] ?? false) || (bool) ($data['is_tilen_input'] ?? false) || $choice !== null;
         if ($choice !== null && $choice !== 'other' && ! in_array($choice, $ticket->ask_options ?? [], true)) {
             throw ValidationException::withMessages(['input_choice' => 'Choose one of the ask options or "other".']);
         }
@@ -121,7 +122,7 @@ class TicketController extends Controller
         return $this->respond($request, $this->tickets->unarchive($ticket, $this->actor($request)));
     }
 
-    /** The signed-in user opened the ticket: clears their unread_for_tilen (read state per user actor id). */
+    /** The signed-in user opened the ticket: clears their unread_for_me (read state per user actor id). */
     public function seen(Request $request, string $slug, string $key): JsonResponse|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));

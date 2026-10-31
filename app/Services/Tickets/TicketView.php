@@ -15,7 +15,11 @@ use Illuminate\Support\Carbon;
 /**
  * JSON shapes for tickets, comments and events (API responses and, from the UI run on, Inertia props).
  * Build one per request: it caches agent and human names.
- * unread_for_tilen is for the human viewing: the signed-in web user, or the workspace owner over the API / MCP.
+ *
+ * "Owner input" fields keep their old names as compatibility aliases (waiting_on_tilen, tilen_input_at,
+ * tilen_input_ack_at, tilen_answered_ask, unread_for_tilen, is_tilen_input) next to the neutral ones (waiting_on_owner,
+ * owner_input_at, owner_input_ack_at, owner_answered_ask, unread_for_me, is_owner_input) with the same values.
+ * unread_for_me is for the human viewing: the signed-in web user, or the workspace owner over the API / MCP.
  */
 final class TicketView
 {
@@ -85,13 +89,17 @@ final class TicketView
             'ask_context' => $t->ask_context,
             'ask_options' => $t->ask_options,
             'waiting_on_tilen' => $waiting,
+            'waiting_on_owner' => $waiting,
             'waiting_since' => $t->waiting_since?->toIso8601String(),
             'waiting_age_days' => $days,
             'waiting_level' => $days === null ? null : ProjectStatus::level($days),
             'tilen_input_at' => $inputAt = $t->tilen_input_at?->toIso8601String(),
             'tilen_input_ack_at' => $ackAt = $t->tilen_input_ack_at?->toIso8601String(),
+            'owner_input_at' => $inputAt,
+            'owner_input_ack_at' => $ackAt,
             'needs_pm_pickup' => $t->needsPmPickup(),
             'tilen_answered_ask' => $answered = $this->answeredAsk($t),
+            'owner_answered_ask' => $answered,
             'labels' => $t->labels->map->toView()->values()->all(),
             'comment_count' => $live->count(),
             'last_comment_at' => $live->max('created_at')?->toIso8601String(),
@@ -103,6 +111,7 @@ final class TicketView
                 'created_at' => $latest->created_at?->toIso8601String(),
             ] : null,
             'unread_for_tilen' => $unread->isNotEmpty(),
+            'unread_for_me' => $unread->isNotEmpty(),
             'latest_unread_author' => $latestUnread ? ['id' => $latestUnread->author_id, 'name' => $this->name($latestUnread->author_id)] : null,
             'created_by' => $t->created_by,
             'created_by_type' => $t->created_by_type,
@@ -165,6 +174,7 @@ final class TicketView
             'retracted' => $retracted,
             'retracted_at' => $c->retracted_at?->toIso8601String(),
             'is_tilen_input' => $c->is_tilen_input,
+            'is_owner_input' => $c->is_tilen_input,
             'input_choice' => $retracted ? null : $c->input_choice,
             // Owner input comments: picked up once the PM acked (or moved the ticket) at/after this comment.
             'picked_up_at' => $c->is_tilen_input && $ack !== null && $ack->gte($c->created_at) ? $ack->toIso8601String() : null,
@@ -212,7 +222,9 @@ final class TicketView
             'label' => ['nullable', 'string', 'max:24'],
             'q' => ['nullable', 'string', 'max:120'],
             'needs_pm_pickup' => ['nullable', 'in:0,1,true,false'],
-            'unread_for_tilen' => ['nullable', 'in:0,1,true,false'],
+            'unread_for_me' => ['nullable', 'in:0,1,true,false'],
+            'unread_for_owner' => ['nullable', 'in:0,1,true,false'],
+            'unread_for_tilen' => ['nullable', 'in:0,1,true,false'], // compat alias
             'blocked' => ['nullable', 'in:0,1,true,false'],
             'include_archived' => ['nullable', 'in:0,1,true,false'],
             'updated_since' => ['nullable', 'date'],
@@ -245,7 +257,7 @@ final class TicketView
         if (! empty($f['needs_pm_pickup'])) {
             $q->needsPmPickup();
         }
-        if (! empty($f['unread_for_tilen'])) {
+        if (! empty($f['unread_for_me']) || ! empty($f['unread_for_owner']) || ! empty($f['unread_for_tilen'])) {
             $q->unreadFor();
         }
         if (! empty($f['blocked'])) {

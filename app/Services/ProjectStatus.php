@@ -119,13 +119,15 @@ class ProjectStatus
             'pmStatusSetBy' => $project->status_set_by,
             'pmStatusSetAt' => $project->status_set_at?->toIso8601String(),
             'pmStatusSetByName' => Actor::label($project->status_set_by, $names),
+            'pmStatusSetByHuman' => Actor::isHumanId($project->status_set_by),
             'pmLevel' => $pmDays === null ? null : self::level($pmDays),
             'pmAgeDays' => $pmDays,
             'pmAgentId' => $project->owner_agent_id,
             'pmName' => Actor::label($project->owner_agent_id, $names),
             'ticketPrefix' => $project->ticket_prefix,
             'ticketCounts' => $counts,
-            'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN],
+            'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN], // compat alias of waitingOwnerCount
+            'waitingOwnerCount' => $counts[BoardColumns::WAITING_TILEN],
             'lastActivityAt' => $project->last_activity_at?->toIso8601String(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),

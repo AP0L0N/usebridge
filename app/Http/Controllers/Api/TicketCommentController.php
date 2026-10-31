@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-/** Ticket comments over the API: agent authors only (author = actor); is_tilen_input is refused. */
+/** Ticket comments over the API: agent authors only (author = actor); owner input (is_owner_input / is_tilen_input) is refused. */
 class TicketCommentController extends Controller
 {
     use FindsTickets;
@@ -34,8 +34,8 @@ class TicketCommentController extends Controller
     {
         $t = $this->ticket($ticket);
         $actor = Actor::fromApi($request);
-        if ($request->boolean('is_tilen_input') || $request->filled('input_choice')) {
-            throw ValidationException::withMessages(['is_tilen_input' => Actor::TILEN_ONLY_UI.'.']);
+        if ($request->boolean('is_owner_input') || $request->boolean('is_tilen_input') || $request->filled('input_choice')) {
+            throw ValidationException::withMessages([($request->has('is_owner_input') ? 'is_owner_input' : 'is_tilen_input') => Actor::TILEN_ONLY_UI.'.']);
         }
         $data = $request->validate(TicketService::commentRules());
         $comment = $this->tickets->comment($t, $actor, $data['body']);
@@ -56,15 +56,15 @@ class TicketCommentController extends Controller
 
     /**
      * GET /api/ticket-comments/feed: Captain's answers relay.
-     * after=<comment id> | since=ISO (after wins), author=tilen|agents|all (default tilen: people's comments), inputs_only,
-     * project_id, limit ≤200.
+     * after=<comment id> | since=ISO (after wins), author=humans|agents|all (default humans; 'tilen' = humans, old name),
+     * inputs_only, project_id, limit ≤200.
      */
     public function feed(Request $request, CommentFeed $feed): JsonResponse
     {
         $f = $request->validate([
             'after' => ['nullable', 'integer', 'min:0'],
             'since' => ['nullable', 'date'],
-            'author' => ['nullable', 'in:tilen,agents,all'],
+            'author' => ['nullable', 'in:humans,tilen,agents,all'],
             'inputs_only' => ['nullable', 'in:0,1,true,false'],
             'project_id' => ['nullable', 'string'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],

@@ -1,8 +1,19 @@
 # Bridge Tickets API (for PM agents)
 
-The project board is a Kanban of **tickets**. PMs create, move and comment on tickets, read Tilen's answers, and set the
-project status with a short note. Tilen works in the Bridge UI; everything he writes there (comments, "Your input",
-moves, status overrides) shows up in this API.
+The project board is a Kanban of **tickets**. PMs create, move and comment on tickets, read the people's answers, and
+set the project status with a short note. People (the workspace owner and members) work in the Bridge UI; everything
+they write there (comments, "Your input", moves, status overrides) shows up in this API.
+
+**People and owner input (B2, multi-user).** A person writing in the UI is recorded as `user:<id>` (label: their name).
+In the pre-multi-user default workspace its owner keeps the legacy id `tilen` (label: the owner's first name), so old
+rows read as before. The waiting column (key `waiting_tilen`, unchanged) waits on the **workspace owner**; its label is
+the workspace's (`settings.waiting_label`, else "Waiting on <owner's first name>"). Owner-input fields keep their old
+names as compatibility aliases next to neutral ones with the same values: `waiting_on_tilen` = `waiting_on_owner`,
+`tilen_input_at` = `owner_input_at`, `tilen_input_ack_at` = `owner_input_ack_at`, `tilen_answered_ask` =
+`owner_answered_ask`, `unread_for_tilen` = `unread_for_me` (over the API: unread for the workspace owner),
+`is_tilen_input` = `is_owner_input`, `status_unseen_by_tilen` = `status_unseen_by_me`, project `waitingTilenCount` =
+`waitingOwnerCount`. Query `unread_for_owner=1` / `unread_for_me=1` = `unread_for_tilen=1`; assignee shorthand `owner`
+= `tilen` (the owner's id). The examples below show the legacy default workspace.
 
 - Base URL: `https://bridge.example.test`
 - Times: UTC ISO 8601 in requests and responses are fine (`2026-10-29T09:00:00Z`); responses carry an offset.
@@ -52,10 +63,11 @@ screen: name = token name, id = `agent-<slug of the name>-<6 random chars>` (glo
 the token. Older tokens without one get it on their first write that has no `actor`. Read tokens get none.
 
 - `actor` must be an existing `agents.id` (see `GET /api/agents`).
-- `"actor": "tilen"` is always refused (**422**, "Tilen's input only comes from the Bridge UI"). The same goes for
-  `is_tilen_input` / `input_choice` on comments. That way Tilen's answers can always be told apart from agent text.
+- `"actor": "tilen"` is always refused (**422**, "Human input only comes from the Bridge UI"). The same goes for
+  `is_owner_input` / `is_tilen_input` / `input_choice` on comments. That way people's answers can always be told apart
+  from agent text.
 - On comments, the actor is the author. `author` is accepted as an alias for `actor`.
-- Project status: the project's PM may set `smooth` or `waiting`. Only Captain (`agent-william`) or Tilen (UI) may set
+- Project status: the project's PM may set `smooth` or `waiting`. Only Captain (`agent-william`) or a person (UI) may set
   `archived` or change the status of an archived project (reopen). Other agents get **403**.
 - Project PM (`pm_agent_id`): **Captain only** (`agent-william`), others **403**.
 - New agents (`POST /api/agents`, `actor` optional): a token of the **workspace owner**, or Captain; others **403**.
@@ -143,13 +155,15 @@ truth, but please correct it when you see one:
 Derived fields:
 
 - `waiting_level`: 1 when waiting less than 3 days, 2 for 3–6 days, 3 for more than 6 days (counted from `waiting_since`).
-- `needs_pm_pickup`: Tilen sent input (`tilen_input_at`) that you haven't acknowledged yet (`tilen_input_ack_at` is
-  empty or older). Clear it with `ack-input`, or by moving the ticket out of Waiting on Tilen.
-- `tilen_answered_ask`: the ticket is in Waiting on Tilen and Tilen's latest input answers the current ask (picked up or
-  not). It turns false when you set a new `ask` or move the ticket back into Waiting on Tilen after his answer; then his
-  Your input box shows a blank form again. Acking alone keeps it true, so he isn't asked twice.
-- `unread_for_tilen`: an agent comment Tilen hasn't seen yet, on a ticket that waits on him or that he has commented on.
-- Assignees: `assignee_type` `agent` (an agent id), `human` (`tilen` or a free-text name such as "Ana (client)"), or `null`.
+- `needs_pm_pickup`: a person sent input (`owner_input_at`) that you haven't acknowledged yet (`owner_input_ack_at` is
+  empty or older). Clear it with `ack-input`, or by moving the ticket out of the waiting column.
+- `owner_answered_ask`: the ticket is in the waiting column and the latest input answers the current ask (picked up or
+  not). It turns false when you set a new `ask` or move the ticket back into the waiting column after the answer; then
+  the Your input box shows a blank form again. Acking alone keeps it true, so nobody is asked twice.
+- `unread_for_me`: an agent comment the reader hasn't seen yet (over the API: the workspace owner), on a ticket that
+  waits on the owner or that the reader has commented on.
+- Assignees: `assignee_type` `agent` (an agent id), `human` (a person's id `user:<id>` / legacy `tilen`, or a free-text
+  name such as "Ana (client)"), or `null`.
 
 ---
 
@@ -199,10 +213,10 @@ List tickets, with filters. Results are ordered by project, then column order, t
 |---|---|---|---|
 | `project_id` | string | no | Implied on `/api/projects/{id}/tickets`. |
 | `status` | string | no | One column key, or several separated by commas: `in_progress,review`. |
-| `assignee` | string | no | Agent id, `tilen`, a free-text name, or `none`. |
+| `assignee` | string | no | Agent id, `owner` (alias `tilen`), a person id `user:<id>`, a free-text name, or `none`. |
 | `label` | string | no | Label name (case-insensitive). |
-| `needs_pm_pickup` | 0/1 | no | Only tickets with Tilen input that hasn't been acknowledged. |
-| `unread_for_tilen` | 0/1 | no | Only tickets with an agent comment Tilen hasn't seen yet (same rule as the `unread_for_tilen` field; the board's "New replies for you" filter). |
+| `needs_pm_pickup` | 0/1 | no | Only tickets with owner input that hasn't been acknowledged. |
+| `unread_for_owner` (aliases `unread_for_me`, `unread_for_tilen`) | 0/1 | no | Only tickets with an agent comment the owner hasn't seen yet (same rule as the `unread_for_me` field; the board's "New replies for you" filter). |
 | `blocked` | 0/1 | no | Only tickets with `blocked_reason`. |
 | `updated_since` | ISO time | no | `updated_at` ≥ this. New comments bump `updated_at`. |
 | `include_archived` | 0/1 | no | Default 0. |
@@ -226,12 +240,12 @@ Create a ticket. Returns **201**. Answers **409** when the project is archived.
 | `title` | string ≤140 | **yes** | |
 | `description` | markdown ≤20000 | no | |
 | `status` | column key | no | Default `todo`. |
-| `assignee` | string | no | Shorthand: agent id → agent, `tilen` → Tilen, anything else → free-text human. |
+| `assignee` | string | no | Shorthand: agent id → agent, `owner` (alias `tilen`) → the workspace owner, `user:<id>` → that person (must be in the workspace, else **422**), anything else → free-text human. |
 | `assignee_type` + `assignee_id` | `agent`/`human` + string ≤120 | no | Explicit form. An agent id must exist. |
 | `priority` | `p1`/`p2`/`p3` | no | Default `p3`. |
 | `due_on` | `YYYY-MM-DD` | no | |
 | `blocked_reason` | string ≤140 | no | When set, the ticket is blocked. |
-| `ask` | string ≤280 | when status = `waiting_tilen` | The question for Tilen. |
+| `ask` | string ≤280 | when status = `waiting_tilen` | The question for the workspace owner. |
 | `ask_context` | string ≤500 | no | |
 | `ask_options` | array ≤4 of strings ≤60 | no | Shown as answer buttons, plus "Something else". |
 | `labels` | array of names ≤24 | no | Labels are global; unknown names are created in grey. |
@@ -353,7 +367,7 @@ curl -sS -X POST "$BRIDGE/api/tickets/NW-12/archive" \
 |---|---|---|---|
 | `body` | markdown ≤10000 | **yes** | |
 | `actor` (or `author`) | agent id | see above | The author. |
-| `is_tilen_input`, `input_choice` | – | – | Refused (**422**). Only Tilen can send input, from the UI. |
+| `is_owner_input` (alias `is_tilen_input`), `input_choice` | – | – | Refused (**422**). Only people send input, from the UI. |
 
 ```bash
 curl -sS -X POST "$BRIDGE/api/tickets/NW-12/comments" \
@@ -535,8 +549,8 @@ The answers relay. See the next section.
 |---|---|---|---|
 | `after` | comment id | no | Cursor. Returns comments with id > after. Takes precedence over `since`. |
 | `since` | ISO time | no | Used only when `after` is missing. |
-| `author` | `tilen` / `agents` / `all` | no | Default `tilen`. |
-| `inputs_only` | 0/1 | no | Only comments marked as Tilen's input. |
+| `author` | `humans` (alias `tilen`) / `agents` / `all` | no | Default `humans`: comments by people in the UI. |
+| `inputs_only` | 0/1 | no | Only comments marked as owner input. |
 | `project_id` | string | no | |
 | `limit` | int | no | ≤200, default 50. |
 

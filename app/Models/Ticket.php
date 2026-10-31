@@ -91,7 +91,7 @@ class Ticket extends Model
     /**
      * Query twin of TicketView::unread(): an agent comment newer than the human's last_seen_at, on a ticket that
      * involves them (waiting on the owner, or they have commented). $human = actor id, default the viewer
-     * (HumanActors::viewerId). Drives GET /api/tickets?unread_for_tilen=1.
+     * (HumanActors::viewerId). Drives GET /api/tickets?unread_for_me=1 (alias unread_for_owner, unread_for_tilen).
      */
     public function scopeUnreadFor(Builder $q, ?string $human = null): Builder
     {
