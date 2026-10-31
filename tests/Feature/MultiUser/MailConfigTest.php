@@ -14,7 +14,7 @@ use Monolog\Handler\TestHandler;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-/** Mail domain pending: MAIL_MAILER=log writes verification / reset mails to the mail log only; sender from config. */
+/** Product domain usebridge.si; MAIL_MAILER=log stays until SMTP + DNS are in place: verification / reset mails go to the mail log only; sender from config. */
 class MailConfigTest extends TestCase
 {
     use RefreshDatabase;
@@ -42,12 +42,52 @@ class MailConfigTest extends TestCase
     public function the_sender_reads_mail_from_address_and_name_with_bridge_defaults(): void
     {
         $config = file_get_contents(config_path('mail.php'));
-        $this->assertStringContainsString("'address' => env('MAIL_FROM_ADDRESS') ?: 'bridge@localhost'", $config);
+        $this->assertStringContainsString("'address' => env('MAIL_FROM_ADDRESS') ?: 'support@usebridge.si'", $config);
         $this->assertStringContainsString("'name' => env('MAIL_FROM_NAME') ?: 'Bridge'", $config);
         $example = file_get_contents(base_path('.env.example'));
         $this->assertMatchesRegularExpression('/^MAIL_MAILER=log$/m', $example);
-        $this->assertMatchesRegularExpression('/^MAIL_FROM_ADDRESS=$/m', $example);
+        $this->assertMatchesRegularExpression('/^MAIL_FROM_ADDRESS=support@usebridge\.si$/m', $example);
         $this->assertMatchesRegularExpression('/^MAIL_FROM_NAME="Bridge"$/m', $example);
+    }
+
+    #[Test]
+    public function an_unset_or_empty_sender_falls_back_to_usebridge_and_an_env_value_wins(): void
+    {
+        // env() reads $_ENV / $_SERVER before getenv(), so all three are set and restored together.
+        $from = fn () => require config_path('mail.php');
+        $saved = [getenv('MAIL_FROM_ADDRESS'), $_ENV['MAIL_FROM_ADDRESS'] ?? null, $_SERVER['MAIL_FROM_ADDRESS'] ?? null];
+        $set = function (?string $value) {
+            if ($value === null) {
+                putenv('MAIL_FROM_ADDRESS');
+                unset($_ENV['MAIL_FROM_ADDRESS'], $_SERVER['MAIL_FROM_ADDRESS']);
+
+                return;
+            }
+            putenv("MAIL_FROM_ADDRESS={$value}");
+            $_ENV['MAIL_FROM_ADDRESS'] = $_SERVER['MAIL_FROM_ADDRESS'] = $value;
+        };
+        try {
+            $set(null);
+            $this->assertSame(['address' => 'support@usebridge.si', 'name' => 'Bridge'], $from()['from']);
+
+            $set('');
+            $this->assertSame('support@usebridge.si', $from()['from']['address']);
+
+            $set('ops@usebridge.si');
+            $this->assertSame('ops@usebridge.si', $from()['from']['address']);
+        } finally {
+            [$getenv, $env, $server] = $saved;
+            $set(null);
+            if ($getenv !== false) {
+                putenv("MAIL_FROM_ADDRESS={$getenv}");
+            }
+            if ($env !== null) {
+                $_ENV['MAIL_FROM_ADDRESS'] = $env;
+            }
+            if ($server !== null) {
+                $_SERVER['MAIL_FROM_ADDRESS'] = $server;
+            }
+        }
     }
 
     #[Test]

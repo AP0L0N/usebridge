@@ -25,8 +25,14 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 2. **Cursor is on an individual plan** → no Admin API. Usage comes from the **Cursor dashboard CSV export**, attributed
    to **one account shown as "Cursor (all agents)"**; never a faked per-agent split (§7).
 3. **Mail domain pending**: `MAIL_MAILER=log` stays; sender address and name come from `MAIL_FROM_ADDRESS` /
-   `MAIL_FROM_NAME` (§11).
+   `MAIL_FROM_NAME` (§11). (Superseded for the domain by the 09:36 decision below: `usebridge.si`.)
 4. **Turnstile keys will be created by The Many**; config-driven (`TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`).
+
+**Relayed decision (via CoS, 31 Oct 09:36)** — Tilen's:
+
+1. **Product domain is `usebridge.si`** (registered). Sender defaults: `support@usebridge.si` / "Bridge"
+   (`MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME`, `config/mail.php`). `MAIL_MAILER` stays `log` until SMTP + SPF/DKIM/DMARC
+   for `usebridge.si` are in place (The Many).
 
 **Decisions by the Chief of Staff (Captain W. Diego), 31 Oct** — his calls, not Tilen's:
 
@@ -41,8 +47,8 @@ is on `feat/multi-user` (§11, not deployed). Public landing page: not now.
 7. **Turnstile is the bot check**; keys pending (Cloudflare).
 8. **Workspace `LANTIS`, slug `tilen`.**
 
-Still open with Tilen: the mail domain / provider. Until it is set, and until The Many has created the Turnstile keys,
-config decides:
+Still open: SMTP + SPF/DKIM/DMARC for `usebridge.si` (The Many). Until it is set, and until The Many has created the
+Turnstile keys, config decides:
 - no `TURNSTILE_*` keys → sign-up bot check is honeypot + minimum fill time only;
 - `MAIL_MAILER=log` → verification / reset links are written to the mail log only, not sent;
 - owner email comes from `BRIDGE_OWNER_EMAIL` (`poje.tilen@gmail.com`, 08:49 decision 1); the backfill migration
@@ -321,7 +327,7 @@ backend auth, breached-password check, the MCP endpoint and the UI (§11). Next,
      sign up, verify, create tokens and use MCP, but cannot get a first project yet — the real blocker for step 4.
    - Retire the AUTH-1 gate (Tilen's call): remove `/gate*`, `bridge_gate_unlocked`, the gate branch of
      `EnsureWorkspaceGate` / `CursorCsvController::allowed`, the "Workspace password" link; then read states per user.
-   - Live: Turnstile keys (The Many), `MAIL_*` (mail domain still open), `SESSION_DRIVER=database` before the Sessions
+   - Live: Turnstile keys (The Many), `MAIL_*` (SMTP + DNS for `usebridge.si`, The Many), `SESSION_DRIVER=database` before the Sessions
      card means anything.
 5. Later: `workspace_id` NOT NULL, per-workspace slug/prefix/key, per-project token scopes, `--workspace` for
    artisan imports, first-agent creation for new workspaces (`POST /api/agents` is Captain-only today).
@@ -359,7 +365,7 @@ Not deployed. All green incl. `tests/Feature/MultiUser/*`.
 | Breached passwords (CoS decision 4): sign-up, reset and change reject passwords found via the HIBP range API (`GET api.pwnedpasswords.com/range/{5 hex of SHA-1}`, `Add-Padding`, 3 s); fail-open with a warning that has no password/hash; `BRIDGE_HIBP_ENABLED` (default on, off in `phpunit.xml`) | `BreachedPasswords`, `NotBreachedPassword`, `AccountService::passwordRules()` |
 | MCP (§6): `POST /mcp` via `laravel/mcp`, 12 tools, abilities per tool, actor as `/api`, 120/min per token, verified + not blocked; isolation both ways (incl. Tilen as owner/admin) | `routes/ai.php`, `app/Mcp`, `tests/Feature/Mcp/*` |
 | Cursor CSV (§7): `CursorCsvImporter` (v1/v2/v3 headers, day × model, "Cursor (all agents)", edge-day rule, zero-day markers, one transaction), `POST /usage/cursor-csv` (owner or gate, 404 else, 10/h), `bridge:cursor-csv-import [--workspace] [--dry-run]`, props `cli.cursorUpload` | `app/Services/Usage/CursorCsvImporter.php`, `CursorCsvController`, `tests/Feature/CursorCsvImportTest.php`, `tests/fixtures/cursor/` |
-| Mail: sender from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` (empty → `bridge@localhost` / "Bridge"), `.env.example` `MAIL_MAILER=log`; verification / reset links only in the mail log | `config/mail.php`, `tests/Feature/MultiUser/MailConfigTest.php` |
+| Mail: sender from `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` (empty → `support@usebridge.si` / "Bridge"), `.env.example` `MAIL_MAILER=log`; verification / reset links only in the mail log | `config/mail.php`, `tests/Feature/MultiUser/MailConfigTest.php` |
 | Security fix (existence oracle / cross-workspace agent): `POST /api/status-updates` checked `project_id` / `agent_id` with unscoped `exists:` rules, so another workspace's project answered 404 but an unknown one 422, and a token could file a status under another workspace's agent id. Now the project is looked up in the current workspace (unknown and foreign both 404, project checked first), then `agent_id` via `WorkspaceRule::exists` (unknown and foreign both 422, nothing written). Audit of every REST/web controller and FormRequest: `NextStepController` store/update had the same unscoped `exists:projects` / `exists:agents` → `WorkspaceRule::exists`; no other `exists:` / `Rule::exists` / raw `DB::table` lookup on an owned table remains (`DeviceSessions` reads `sessions` by user id). `/api` rate limit: 120/min per token id (`throttle:api-token`, a first-party session per user), JSON 429 | `Api\StatusUpdateController`, `Api\NextStepController`, `AppServiceProvider`, `routes/api.php`, `WorkspaceIsolationTest` |
 | Isolation (§5): Tilen's token and web session get 404/empty on another user's project, board, tickets, statuses, usage; admin keys; grep test pins `acrossWorkspaces()` / scope removal / raw `DB::` | `tests/Feature/MultiUser/AdminIsolationTest.php`, `tests/Unit/AcrossWorkspacesUsageTest.php` |
 
@@ -421,5 +427,4 @@ HIBP breached check, fail-open; per-project scopes v2; working defaults confirme
 individual plan → CSV import, one "Cursor (all agents)" account; mail stays on `log` with an env-configured sender;
 Turnstile keys created by The Many. Still open:
 
-1. Mail domain and provider (e.g. `bridge@tilenpoje.eu`, SPF/DKIM) and who holds the credentials. Until then
-   `MAIL_MAILER=log`.
+1. SMTP + SPF/DKIM/DMARC for `usebridge.si`, The Many (domain decided 31 Oct 09:36). Until then `MAIL_MAILER=log`.

@@ -110,10 +110,10 @@ return [
     |
     */
 
-    // Bridge: sender from MAIL_FROM_ADDRESS / MAIL_FROM_NAME (mail domain pending, docs/MULTI-USER-PLAN.md §0); an
-    // empty value falls back to a non-routable placeholder / "Bridge". Verification and reset mails use this sender.
+    // Bridge: sender from MAIL_FROM_ADDRESS / MAIL_FROM_NAME (product domain usebridge.si, docs/MULTI-USER-PLAN.md §0); an
+    // empty value falls back to support@usebridge.si / "Bridge". Verification and reset mails use this sender.
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS') ?: 'bridge@localhost',
+        'address' => env('MAIL_FROM_ADDRESS') ?: 'support@usebridge.si',
         'name' => env('MAIL_FROM_NAME') ?: 'Bridge',
     ],
 
