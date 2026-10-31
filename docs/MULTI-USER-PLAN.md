@@ -149,9 +149,9 @@ collector change is his; Bridge only needs the validator + column + label.
 3. Scoping: `CurrentWorkspace`, `BelongsToWorkspace` trait, gate → Tilen's workspace, token → workspace; fail closed
    (tests: two workspaces, cross access 404/empty).
 4. Polymarket gate (tests above). 5. Per-workspace unique keys for usage/labels/polymarket.
-6. Account service (register, reset, change password; tests with `Notification::fake`). — *steps 1–6 = Phase B.*
-7. Token abilities enforced per route group (tests per ability). 8. Login/signup/reset/token screens (Tommy + Marc
-   designs), remove the gate. 9. `workspace_id` NOT NULL. 10. Per-workspace slug/prefix/key. 11. MCP endpoint.
+6. Account service (register, reset, change password; tests with `Notification::fake`).
+7. Token abilities enforced per route (tests per ability). — *steps 1–7 = Phase B, done (§11).*
+8. Login/signup/reset/token screens (Tommy + Marc designs), remove the gate. 9. `workspace_id` NOT NULL. 10. Per-workspace slug/prefix/key. 11. MCP endpoint.
 12. Cursor usage. 13. Read states per user.
 
 Each step deploys on its own; 1–3 must deploy together with the code (the scope needs the columns).
@@ -179,3 +179,43 @@ Each step deploys on its own; 1–3 must deploy together with the code (the scop
 7. Workspace name for the existing data: `LANTIS` (slug `tilen`) — ok?
 8. Staging: none exists. Recommend a second xerxes vhost (`bridge-staging.tilenpoje.eu`, own DB restored from the live
    dump) set up by The Many before the data migration deploys; deploy owner The Many.
+
+## 11. Groundwork done (branch `feat/multi-user`)
+
+Not deployed. Suite: see the last commit (all green, incl. `tests/Feature/MultiUser/*`).
+
+| Piece | Where |
+|---|---|
+| Schema: `users.is_admin`, `workspaces`, `workspace_user`, nullable indexed `workspace_id` FK on the 18 owned tables + `personal_access_tokens` | `2026_10_31_100000_multi_user_schema` |
+| Backfill into workspace `tilen` / `LANTIS` (polymarket on), owner + members, all rows and tokens | `2026_10_31_110000_multi_user_backfill` |
+| Per-workspace keys: `usage_days`, `cli_usage_days`, `polymarket_series_points`, `labels` | `2026_10_31_120000_multi_user_workspace_keys` |
+| `Workspace` model; `CurrentWorkspace` (singleton; `required` in HTTP); `WorkspaceScope` + `BelongsToWorkspace` on 17 models; `MissingWorkspace` (fail closed) | `app/Models`, `app/Support/Workspaces` |
+| `WorkspaceBoundary` (first in web/api, restores state), gate → Tilen's workspace, `ResolveTokenWorkspace`, `EnsureTokenAbility` | `app/Http/Middleware`, `bootstrap/app.php`, `routes/api.php` |
+| Workspace-aware `exists:` rules (`WorkspaceRule::exists`); bulk inserts set `workspace_id`; prefix/key generators look across workspaces | controllers, `CliUsageImporter`, `PolymarketFeedImporter`, `BridgeRoster`, `TicketService` |
+| Polymarket feature gate (page, ingest, `features.polymarket` shared prop, TopBar) | `RequireWorkspaceFeature`, `HandleInertiaRequests`, `TopBar.tsx` |
+| `AccountService` (register + own workspace, reset link/complete, change password); reset URL built in `AppServiceProvider` | `app/Services/Auth` |
+
+Console / artisan commands (imports, `bridge:set-pms`, `bridge:tickets-migrate`, seeders) run unscoped and write into
+the parent's or Tilen's workspace; a `--workspace=` option comes with the first non-Tilen import.
+
+**Before deploying this branch (The Many):**
+1. Set `BRIDGE_OWNER_EMAIL` (Tilen's login email, open question 6) in `.env` and `php artisan config:clear` *before*
+   `migrate` (the deploy script caches config with `optimize` afterwards). Without it, Captain's API user becomes the
+   owner.
+2. `SELECT id, name, abilities, tokenable_id FROM personal_access_tokens;` — every live token must have `*` or `ceo`
+   in `abilities`, or one of the new abilities it needs; otherwise it gets 403 after the deploy (abilities are enforced
+   now). Fix before deploying (add `"*"`), not after.
+3. Rehearse on a copy of the live dump (no staging): migrate, then the §3 counts; `migrate:rollback --step=3` once
+   to prove the way back.
+4. After deploy: §3 counts and smoke tests (`BRIDGE_API_TOKEN` lists the same projects; portfolio, board, `/usage`,
+   `/polymarket` behind the gate).
+
+**Left (in order):**
+- Login / logout / signup / reset / token-management screens + controllers (designs), rate limiters (§2), then remove
+  the AUTH-1 gate; read states keyed by user instead of `'tilen'`; `Actor::tilen()` becomes "the logged-in human".
+- `POST /api/agents` is Captain-only (`agent-william`, Tilen's roster): a new workspace cannot add its first agent over
+  the API. Needs a per-workspace rule (owner's token / UI) — decide with the screens.
+- `workspace_id` NOT NULL (after a release with no null rows); per-workspace slug / ticket prefix / ticket key; agent id
+  collisions between workspaces (string PKs).
+- MCP endpoint (§5, dependency decision), Cursor usage (§7), `--workspace` for artisan imports.
+- Mail transport on live (§2), staging vhost (§10.8).
