@@ -92,6 +92,8 @@ export interface BoardProject {
   pm_agent_id: string | null;
   pm_name: string | null;
   ticket_prefix: string;
+  /** One line from the create form (web-created projects); null otherwise. */
+  description: string | null;
   status: PmStatus | null;
   status_label: string;
   status_note: string | null;
@@ -135,6 +137,8 @@ export interface PortfolioProject {
   pmName: string | null;
   pmAgentId: string | null;
   ticketCounts: Record<ColumnKey, number>;
+  /** The project's own column names ({key: label}); keys it does not name use the defaults. */
+  columnLabels?: Partial<Record<ColumnKey, string>>;
   waitingTilenCount: number;
   lastActivityAt: string | null;
   lastUpdatedAt: string | null;

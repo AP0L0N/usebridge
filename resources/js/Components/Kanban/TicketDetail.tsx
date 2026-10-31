@@ -152,7 +152,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
 
   const statusSelect = (id: string, hint: boolean) => (
     <>
-      <SelectField id={id} label={`Status: ${t.status_label}. Move to another column`} value={t.status} options={statusOptions}
+      <SelectField id={id} label={`Status: ${columns.find((c) => c.key === t.status)?.label ?? t.status_label}. Move to another column`} value={t.status} options={statusOptions}
         wt={t.status === WAITING} dot={t.status} onChange={(v) => onStatus(t, v as ColumnKey)} />
       {hint && <p className="sm only-d">Drag the card, or pick a column here.</p>}
     </>

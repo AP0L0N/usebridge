@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
-import { useState, type FormEvent } from 'react';
-import { BusyButton, Callout, described, Field } from '../Components/Account/Fields';
+import { useRef, useState, type FormEvent } from 'react';
+import { BusyButton, Callout, described, ErrorSummary, Field } from '../Components/Account/Fields';
+import { checkLabels, LABEL_MAX, saveColumnLabels } from '../Components/Kanban/ColumnLabels';
 import { TopBar } from '../Components/TopBar';
 import { fieldErrors, go, requestJson } from '../lib/http';
 
@@ -10,9 +11,12 @@ type Props = {
   project: { name: string; slug: string } | null;
   hasToken: boolean;
   emailVerified: boolean;
+  /** The first project's columns (its own labels), else the defaults. */
   columns: Column[];
-  /** null until web project creation (POST /projects) / column renaming exist (§8 onboarding, not built yet). */
+  defaultColumns: Column[];
+  /** POST /projects; null would mean web creation is off (the form says so). */
   createProjectUrl: string | null;
+  /** PUT /projects/{slug}/column-labels of the first project; null until there is one (step 1's answer brings it). */
   saveColumnsUrl: string | null;
 };
 
@@ -20,7 +24,7 @@ type Step = 1 | 2 | 3 | 4;
 
 const STEPS = [
   { n: 1, t: 'Create your first project', s: 'Name it; you can add more later' },
-  { n: 2, t: 'Set up its board', s: 'Default columns' },
+  { n: 2, t: 'Set up its board', s: 'Name its columns' },
   { n: 3, t: 'Connect your Grok bot', s: 'Optional' },
 ] as const;
 
@@ -28,7 +32,8 @@ const STEPS = [
 export default function Onboarding(p: Props) {
   const first: Step = p.project === null ? 1 : p.hasToken ? 4 : 2;
   const [step, setStep] = useState<Step>(first);
-  const [project, setProject] = useState(p.project);
+  const [project, setProject] = useState<Created | null>(p.project);
+  const [justCreated, setJustCreated] = useState(false);
   const goStep = (s: Step) => {
     setStep(s);
     requestAnimationFrame(() => document.getElementById(`h-s${s}`)?.focus());
@@ -64,8 +69,8 @@ export default function Onboarding(p: Props) {
                   </li>
                 ))}
               </ol>
-              {step === 1 && <StepProject p={p} onCreated={(pr) => { setProject(pr); goStep(2); }} onSkip={() => goStep(3)} />}
-              {step === 2 && <StepBoard p={p} projectName={project?.name ?? 'your project'} onBack={() => goStep(1)} onNext={() => goStep(3)} />}
+              {step === 1 && <StepProject p={p} project={project} onCreated={(pr) => { setProject(pr); setJustCreated(true); goStep(2); }} onNext={() => goStep(2)} onSkip={() => goStep(3)} />}
+              {step === 2 && <StepBoard p={p} project={project} justCreated={justCreated} onBack={() => goStep(1)} onNext={() => { setJustCreated(false); goStep(3); }} />}
               {step === 3 && <StepBot p={p} onBack={() => goStep(project ? 2 : 1)} onSkip={() => goStep(4)} />}
             </div>
           </>
@@ -89,26 +94,86 @@ export default function Onboarding(p: Props) {
   );
 }
 
-function StepProject({ p, onCreated, onSkip }: { p: Props; onCreated: (pr: { name: string; slug: string }) => void; onSkip: () => void }) {
+type Created = { name: string; slug: string; column_labels_url?: string };
+
+/** "Acme Studio" -> "acme-studio" (the server checks the same pattern). */
+function slugify(name: string): string {
+  return name.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64).replace(/-+$/, '');
+}
+
+/** Initials like the server's TicketPrefix ("Acme Studio" -> AS, "Acme" -> AC); the user can change it. */
+function prefixFor(name: string): string {
+  const words = name.normalize('NFKD').replace(/[̀-ͯ]/g, '').toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+  if (words.length === 0) return '';
+  return words.length === 1 ? words[0]!.slice(0, 2) : words.slice(0, 4).map((w) => w[0]).join('');
+}
+
+const PROJECT_FIELDS = { name: 'p-name', slug: 'p-slug', ticket_prefix: 'p-prefix', description: 'p-desc' };
+
+/**
+ * Step 1 (prototype onboarding.html step1): name, slug, ticket prefix, optional description. Slug and prefix follow the
+ * name until edited. States: empty, errors (summary + per field, "already taken" from the server), loading (Creating…),
+ * created (a project exists: going Back shows it instead of a second form).
+ */
+function StepProject({ p, project, onCreated, onNext, onSkip }: {
+  p: Props; project: Created | null; onCreated: (pr: Created) => void; onNext: () => void; onSkip: () => void;
+}) {
   const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [touched, setTouched] = useState({ slug: false, prefix: false });
   const [desc, setDesc] = useState('');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const summary = useRef<HTMLDivElement>(null);
   const off = p.createProjectUrl === null;
+
+  const onName = (v: string) => {
+    setName(v);
+    if (!touched.slug) setSlug(slugify(v));
+    if (!touched.prefix) setPrefix(prefixFor(v));
+  };
+
+  const fail = (errs: Record<string, string>) => {
+    setErrors(errs);
+    requestAnimationFrame(() => summary.current?.focus());
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (off) return;
-    if (name.trim() === '') { setErrors({ name: 'Give the project a name' }); return; }
+    const local: Record<string, string> = {};
+    if (name.trim() === '') local.name = 'Give the project a name.';
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())) local.slug = slug.trim() === '' ? 'Choose a slug for the board address.' : 'Use lowercase letters, digits and single dashes (e.g. garden-planner).';
+    if (!/^[A-Z][A-Z0-9]{0,7}$/.test(prefix.trim())) local.ticket_prefix = prefix.trim() === '' ? 'Choose a ticket prefix.' : 'Use 1–8 capital letters or digits, starting with a letter (e.g. GP).';
+    if (Object.keys(local).length) { fail(local); return; }
     setBusy(true);
-    const res = await requestJson<{ data?: { name: string; slug: string } }>('POST', p.createProjectUrl!, { name: name.trim(), description: desc.trim() || null, pm: 'me' });
+    const res = await requestJson<{ data?: Created }>('POST', p.createProjectUrl!, {
+      name: name.trim(), slug: slug.trim(), ticket_prefix: prefix.trim(), description: desc.trim() || null,
+    });
     setBusy(false);
     if (!res.ok || !res.data.data) {
-      setErrors(res.status === 422 ? fieldErrors(res.data.errors) : { form: res.data.message ?? 'Something went wrong.' });
+      fail(res.status === 422 ? fieldErrors(res.data.errors) : { form: res.data.message ?? 'Something went wrong. Try again.' });
       return;
     }
+    setErrors({});
     onCreated(res.data.data);
   };
+
+  if (project !== null) {
+    return (
+      <section className="card" aria-labelledby="h-s1">
+        <h2 id="h-s1" tabIndex={-1}>Create your first project</h2>
+        <Callout kind="ok" status><span className="t">{project.name} is created.</span> It has its own card on your Portfolio and its own board. Add more projects later.</Callout>
+        <div className="cardfoot">
+          <Link className="abtn" href={`/projects/${project.slug}`}>Open {project.name}</Link>
+          <button type="button" className="btn" onClick={onNext}>Continue to the board</button>
+        </div>
+      </section>
+    );
+  }
+
+  const fieldErr = (k: string) => errors[k];
 
   return (
     <section className="card" aria-labelledby="h-s1">
@@ -119,15 +184,25 @@ function StepProject({ p, onCreated, onSkip }: { p: Props; onCreated: (pr: { nam
           <span className="t">Creating projects here isn't switched on yet.</span> It arrives with the next Bridge update. You can already connect your bot (step 3).
         </Callout>
       )}
-      {errors.form && <Callout kind="bad" alert style={{ marginBottom: 18 }}>{errors.form}</Callout>}
-      <form className="form2" onSubmit={submit} noValidate>
-        <Field id="p-name" label="Project name" className="full" error={errors.name}>
-          <input className="qin" id="p-name" name="name" autoComplete="off" required value={name} disabled={off || busy} placeholder="e.g. Garden planner"
-            onChange={(e) => setName(e.target.value)} {...described('p-name', errors.name)} />
+      <ErrorSummary ref={summary} errors={errors} fieldIds={PROJECT_FIELDS} what="create the project" level={3} />
+      <form className="form2" onSubmit={submit} noValidate aria-busy={busy || undefined}>
+        <Field id="p-name" label="Project name" className="full" error={fieldErr('name')}>
+          <input className="qin" id="p-name" name="name" autoComplete="off" required value={name} disabled={off || busy} placeholder="e.g. Garden planner" maxLength={255}
+            onChange={(e) => onName(e.target.value)} {...described('p-name', fieldErr('name'))} />
         </Field>
-        <Field id="p-desc" label={<>Short description <span className="dim2">(optional)</span></>} className="full" hint="One line about what it is.">
-          <textarea className="qta" id="p-desc" name="description" style={{ minHeight: 88 }} value={desc} disabled={off || busy}
-            onChange={(e) => setDesc(e.target.value)} {...described('p-desc', undefined, true)} />
+        <Field id="p-slug" label="Slug" error={fieldErr('slug')} hint={<>The board's address: /projects/<b>{slug || 'garden-planner'}</b></>}>
+          <input className="qin" id="p-slug" name="slug" autoComplete="off" required value={slug} disabled={off || busy} spellCheck={false} maxLength={64}
+            onChange={(e) => { setSlug(e.target.value.toLowerCase()); setTouched((t) => ({ ...t, slug: true })); }} {...described('p-slug', fieldErr('slug'), true)} />
+        </Field>
+        <Field id="p-prefix" label="Ticket prefix" error={fieldErr('ticket_prefix')} hint={<>Ticket keys look like <b>{prefix || 'GP'}-1</b>. Up to 8 letters or digits.</>}>
+          <input className="qin" id="p-prefix" name="ticket_prefix" autoComplete="off" required value={prefix} disabled={off || busy} spellCheck={false} maxLength={8}
+            style={{ textTransform: 'uppercase' }}
+            onChange={(e) => { setPrefix(e.target.value.toUpperCase()); setTouched((t) => ({ ...t, prefix: true })); }} {...described('p-prefix', fieldErr('ticket_prefix'), true)} />
+        </Field>
+        <Field id="p-desc" label={<>Short description <span className="dim2">(optional)</span></>} className="full" error={fieldErr('description')}
+          hint="One line about what it is. It shows under the name on the board.">
+          <textarea className="qta" id="p-desc" name="description" style={{ minHeight: 88 }} value={desc} disabled={off || busy} maxLength={500}
+            onChange={(e) => setDesc(e.target.value)} {...described('p-desc', fieldErr('description'), true)} />
         </Field>
         <div className="cardfoot full">
           {off
@@ -139,26 +214,36 @@ function StepProject({ p, onCreated, onSkip }: { p: Props; onCreated: (pr: { nam
   );
 }
 
-function StepBoard({ p, projectName, onBack, onNext }: { p: Props; projectName: string; onBack: () => void; onNext: () => void }) {
+/** Step 2: rename the columns of the project from step 1 (PUT /projects/{slug}/column-labels). */
+function StepBoard({ p, project, justCreated, onBack, onNext }: {
+  p: Props; project: Created | null; justCreated: boolean; onBack: () => void; onNext: () => void;
+}) {
   const [labels, setLabels] = useState<Record<string, string>>(() => Object.fromEntries(p.columns.map((c) => [c.key, c.label])));
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const editable = p.saveColumnsUrl !== null;
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const url = project?.column_labels_url ?? p.saveColumnsUrl;
+  const editable = url !== null;
+  const defaultOf = (k: string) => p.defaultColumns.find((d) => d.key === k)?.label ?? k;
 
   const save = async () => {
     if (!editable) { onNext(); return; }
+    const local = checkLabels(labels);
+    setErrors(local);
+    if (Object.keys(local).length) { document.getElementById(`col-${Object.keys(local)[0]}`)?.focus(); return; }
     setBusy(true);
-    const res = await requestJson('PATCH', p.saveColumnsUrl!, { column_labels: labels });
+    const res = await saveColumnLabels(url!, Object.fromEntries(Object.entries(labels).map(([k, v]) => [k, v.trim()])));
     setBusy(false);
     if (res.ok) onNext();
-    else setError(res.data.message ?? 'Something went wrong.');
+    else setErrors(res.errors);
   };
 
+  const projectName = project?.name ?? 'your project';
   return (
     <section className="card" aria-labelledby="h-s2">
       <h2 id="h-s2" tabIndex={-1}>Set up its board</h2>
-      <p className="sub">The columns of {projectName}. {editable ? 'Rename them now or any time from the board.' : 'Every board has these columns for now; renaming them comes later.'}</p>
-      {error && <Callout kind="bad" alert>{error}</Callout>}
+      {justCreated && project && <Callout kind="ok" status style={{ marginBottom: 14 }}><span className="t">{project.name} is created.</span> Now name its columns.</Callout>}
+      <p className="sub">The columns of {projectName}. {editable ? 'Rename them now or any time from the board (Column labels).' : 'Create the project first (step 1) to rename them.'}</p>
+      {errors.form && <Callout kind="bad" alert>{errors.form}</Callout>}
       <div className="colprev c6" role="list" aria-label="Board columns">
         {p.columns.map((c, i) => (
           <div className="col" role="listitem" key={c.key}>
@@ -166,17 +251,20 @@ function StepBoard({ p, projectName, onBack, onNext }: { p: Props; projectName: 
               <span className={`dot c-${c.key}`} aria-hidden="true" />
               {editable ? (
                 <>
-                  <label className="sr-only" htmlFor={`col-${c.key}`}>Column {i + 1} name</label>
-                  <input id={`col-${c.key}`} value={labels[c.key] ?? ''} onChange={(e) => setLabels((cur) => ({ ...cur, [c.key]: e.target.value }))} />
+                  <label className="sr-only" htmlFor={`col-${c.key}`}>Column {i + 1} name (default {defaultOf(c.key)})</label>
+                  <input id={`col-${c.key}`} value={labels[c.key] ?? ''} maxLength={LABEL_MAX} disabled={busy}
+                    aria-invalid={errors[c.key] ? true : undefined} aria-describedby={errors[c.key] ? `col-${c.key}-err` : undefined}
+                    onChange={(e) => setLabels((cur) => ({ ...cur, [c.key]: e.target.value }))} />
                 </>
               ) : <span style={{ padding: '4px 6px' }}>{c.label}</span>}
               <span className="cnt">0</span>
             </div>
+            {errors[c.key] && <p className="ferr" id={`col-${c.key}-err`}>{errors[c.key]}</p>}
             <div className="ghosttk" aria-hidden="true" />
           </div>
         ))}
       </div>
-      <p className="fhint">Tickets your bot creates land in the first column.</p>
+      <p className="fhint">Select a column name to rename it (up to {LABEL_MAX} characters). Tickets your bot creates land in the first column.</p>
       <div className="cardfoot">
         <button type="button" className="abtn" onClick={onBack}>Back</button>
         <BusyButton busy={busy} busyLabel="Saving…" className="btn" type="button" onClick={save}>{editable ? 'Save board' : 'Continue'}</BusyButton>

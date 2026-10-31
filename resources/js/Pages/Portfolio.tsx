@@ -12,7 +12,7 @@ import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject,
 type Props = { projects: PortfolioProject[]; now: string };
 
 const COLS: [ColumnKey, string][] = [
-  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done (7 days)'],
+  ['backlog', 'Backlog'], ['todo', 'To do'], ['in_progress', 'In progress'], ['waiting_tilen', 'Waiting on Tilen'], ['review', 'Review / QA'], ['done', 'Done'],
 ];
 
 function rule(p: PortfolioProject): string {
@@ -28,7 +28,8 @@ function readUrl() {
 }
 
 function Card({ p, q, now }: { p: PortfolioProject; q: string; now: string }) {
-  const counts = COLS.map(([k, label]) => ({ k, label, n: p.ticketCounts?.[k] ?? 0 })).filter((c) => c.n > 0);
+  // The project's own column names (Column labels on the board) over the defaults; Done counts the last 7 days.
+  const counts = COLS.map(([k, label]) => ({ k, label: `${p.columnLabels?.[k] ?? label}${k === 'done' ? ' (7 days)' : ''}`, n: p.ticketCounts?.[k] ?? 0 })).filter((c) => c.n > 0);
   const total = counts.reduce((s, c) => s + c.n, 0);
   const archived = p.archived || p.pmStatus === 'archived';
   return (
@@ -184,7 +185,7 @@ export default function Portfolio({ projects, now }: Props) {
 
         {projects.length === 0 ? (
           signedIn ? (
-            <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Your portfolio is empty. Three steps and your first board is ready.</p><Link className="btn" href="/welcome">Get started</Link></div>
+            <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Your portfolio is empty. Create your first project; three steps and its board is ready.</p><Link className="btn" href="/welcome">Create your first project</Link></div>
           ) : (
             <div className="empty"><div className="eico big"><IconInbox /></div><h2>No projects yet</h2><p>Projects show up here once Captain creates them.</p></div>
           )

@@ -49,7 +49,7 @@ export function StrengthMeter({ id, value, min }: { id: string; value: string; m
   );
 }
 
-const FIELD_ORDER = ['name', 'email', 'current_password', 'password', 'password_confirmation', 'token', 'form', 'turnstile'];
+const FIELD_ORDER = ['name', 'slug', 'ticket_prefix', 'description', 'email', 'current_password', 'password', 'password_confirmation', 'token', 'form', 'turnstile'];
 
 /** Error summary (role=alert, focusable): one link per field error, focused by the page after a failed submit. */
 export const ErrorSummary = forwardRef<HTMLDivElement, { errors: Record<string, string>; fieldIds: Record<string, string>; what: string; level?: 2 | 3 }>(

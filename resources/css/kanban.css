@@ -474,3 +474,22 @@ body.kdragging,body.kdragging *{cursor:grabbing!important;user-select:none}
   .kanban .board.panning,.kanban .board.panning *{cursor:grabbing!important;user-select:none;-webkit-user-select:none;scroll-behavior:auto}
   .kanban .board.panning{scroll-behavior:auto}
 }
+
+/* Board settings: Column labels (multi-user, per project). Same sheet as the move / filter sheets. */
+.kanban{
+  .colsheet .fform{gap:0}
+  .colsheet .clrow{padding:10px 0;border-top:1px solid var(--line)}
+  .colsheet .clrow:first-of-type{border-top:0;padding-top:4px}
+  .colsheet .flabel{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+  .colsheet .flabel .dot{width:10px;height:10px;border-radius:3px;flex:none}
+  .colsheet .qin{height:44px}
+  .colsheet .fhint{margin:4px 0 0;font-size:13px}
+  .colsheet .err-line{margin:4px 0 0}
+  .colsheet .qact{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
+  .colsheet .qact .lnk{margin-left:auto}
+  .colsheet>.err-line,.colsheet form>.err-line{margin:0 0 10px}
+  .bset{display:inline-flex;align-items:center;gap:8px;min-height:44px}
+  .bset svg{width:16px;height:16px}
+  .bdesc{margin:-4px 0 0;font-size:15px;color:var(--ink2);max-width:72ch}
+  @media (max-width:720px){.btools .bset .t{display:none}.btools .bset{padding:0 12px}}
+}

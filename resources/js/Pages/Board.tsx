@@ -8,6 +8,7 @@ import { TicketCard } from '../Components/Kanban/TicketCard';
 import { StatusBlock, setByLabel } from '../Components/Kanban/StatusBlock';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
 import { TicketDetail } from '../Components/Kanban/TicketDetail';
+import { ColumnLabelsSheet, type ColumnDef } from '../Components/Kanban/ColumnLabels';
 import { updateTime } from '../lib/dates';
 import {
   ApiError, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl,
@@ -22,6 +23,9 @@ type Props = {
   doneAll: boolean;
   ticket: Detail | null;
   now: string;
+  /** PUT /projects/{slug}/column-labels for a logged-in member; null for the gate session (no editor). */
+  columnLabelsUrl: string | null;
+  defaultColumns: ColumnDef[];
 };
 
 export default function BoardPage(props: Props) {
@@ -41,7 +45,7 @@ type Pending = { t: Ticket; to: ColumnKey; index: number; via: 'drag' | 'key' | 
 type Drag = { key: string; from: ColumnKey; x: number; y: number; offX: number; offY: number; w: number; over: ColumnKey | null; index: number };
 type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
 
-function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: Props) {
+function Board({ board, statusHistory, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns }: Props) {
   const p = board.project;
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
@@ -452,6 +456,8 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     if (i >= 0 && i < keys.length) setTab(keys[i]);
   };
   const [moveFor, setMoveFor] = useState<Ticket | null>(null);
+  const [colLabelsOpen, setColLabelsOpen] = useState(false);
+  const colLabelsBtn = useRef<HTMLButtonElement>(null);
 
   // ------------------------------------------------------------ quick add
   const [adding, setAdding] = useState<ColumnKey | null>(null);
@@ -475,6 +481,7 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
         <div className="bhead">
           <div className="bhl">
             <div className="t"><h1>{p.name}</h1></div>
+            {p.description && <p className="bdesc">{p.description}</p>}
             <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
               onChanged={() => reload(['board', 'statusHistory'])} />
           </div>
@@ -486,6 +493,10 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
               {q && <button type="button" className="clr" aria-label="Clear search" onClick={() => setQ('')}>×</button>}
             </label>
             <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
+            {columnLabelsUrl && (
+              <button ref={colLabelsBtn} type="button" className="fbtn bset" aria-haspopup="dialog" aria-label={mobile ? 'Column labels' : undefined}
+                onClick={() => setColLabelsOpen(true)}><IcColumns /><span className="t">Column labels</span></button>
+            )}
             <button className="btn add" type="button" aria-label={mobile ? 'Add ticket' : undefined} onClick={addTop}><IcPlus /><span className="t">Add ticket</span></button>
           </div>
         </div>
@@ -557,6 +568,15 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
           <TicketCard t={dragged} slug={p.slug} people={people} now={now} lift />
         </div>
       )}
+      {colLabelsOpen && columnLabelsUrl && (
+        <ColumnLabelsSheet url={columnLabelsUrl} columns={cols} defaults={defaultColumns} restoreFocus={() => colLabelsBtn.current}
+          onClose={() => setColLabelsOpen(false)}
+          onSaved={() => {
+            setColLabelsOpen(false);
+            toasts.push({ body: <p>Column labels saved</p>, icon: <IcOk />, ms: 4000 });
+            reload(['board']);
+          }} />
+      )}
       {moveFor && (
         <MoveSheet t={moveFor} columns={cols} onClose={() => setMoveFor(null)}
           onPick={(to, ask) => {
@@ -592,6 +612,10 @@ function Board({ board, statusHistory, people, labels, doneAll, ticket, now }: P
     </>
   );
 }
+
+const IcColumns = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
+);
 
 function EmptyColumn({ k }: { k: ColumnKey }) {
   if (k === WAITING) {
