@@ -155,7 +155,10 @@ class AuthStatesTest extends TestCase
         $this->get('/signup')->assertInertia(fn (Assert $p) => $p
             ->where('copy.signup.submit', 'Create account')
             ->where('copy.signup.busy', 'Creating account…')
-            ->where('copy.signup.busy_note', 'Creating your account, please wait.'));
+            ->where('copy.signup.busy_note', 'Creating your account, please wait.')
+            // Constance QA S1: a separate state while Turnstile runs / wants a tick, before the request starts.
+            ->where('copy.signup.verifying', 'Verifying…')
+            ->where('copy.signup.verify_prompt', 'Complete the check below'));
     }
 
     #[Test]

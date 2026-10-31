@@ -38,9 +38,10 @@ function loadTurnstile(): Promise<TurnstileApi> {
 
 /**
  * A fresh Turnstile token for one submit: loads the script, renders the widget into `el` (interaction-only) and runs
- * the challenge. Rejects when the script cannot load or the challenge fails.
+ * the challenge. `onInteractive` fires when Cloudflare shows the checkbox. Rejects when the script cannot load or the
+ * challenge fails.
  */
-export async function turnstileToken(siteKey: string, el: HTMLElement): Promise<string> {
+export async function turnstileToken(siteKey: string, el: HTMLElement, onInteractive?: () => void): Promise<string> {
   const api = await loadTurnstile();
   return new Promise<string>((resolve, reject) => {
     const prev = el.dataset.widgetId;
@@ -53,6 +54,8 @@ export async function turnstileToken(siteKey: string, el: HTMLElement): Promise<
       callback: (token: string) => resolve(token),
       'error-callback': () => reject(new Error('turnstile')),
       'expired-callback': () => reject(new Error('turnstile')),
+      // Cloudflare needs the person to tick the box: the form switches from "Verifying…" to a prompt.
+      'before-interactive-callback': () => onInteractive?.(),
     });
     el.dataset.widgetId = id;
     api.execute(id);

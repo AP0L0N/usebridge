@@ -29,7 +29,11 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [website, setWebsite] = useState('');
-  const [busy, setBusy] = useState(false);
+  // idle → verifying (Turnstile running) → prompt (Cloudflare wants a tick) → creating (POST /signup in flight).
+  // Constance QA S1: "Creating account…" only shows once the request has really started.
+  const [phase, setPhase] = useState<'idle' | 'verifying' | 'prompt' | 'creating'>('idle');
+  const busy = phase !== 'idle';
+  const setBusy = (on: boolean) => setPhase(on ? 'creating' : 'idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [taken, setTaken] = useState<string | null>(null);
   const summary = useRef<HTMLDivElement>(null);
@@ -55,10 +59,10 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
       return;
     }
     setErrors({});
-    setBusy(true);
     let tsResponse: string | null = null;
     if (turnstileSiteKey && tsRef.current) {
-      tsResponse = await turnstileToken(turnstileSiteKey, tsRef.current).catch(() => null);
+      setPhase('verifying');
+      tsResponse = await turnstileToken(turnstileSiteKey, tsRef.current, () => setPhase('prompt')).catch(() => null);
       if (tsResponse === null) {
         setBusy(false);
         setErrors({ turnstile: c.turnstile_failed! });
@@ -66,6 +70,7 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
         return;
       }
     }
+    setPhase('creating');
     const res = await requestJson<{ redirect?: string; email_taken?: boolean }>('POST', '/signup', {
       name, email, password, website, form_token: formToken, accept_terms: accepted,
       ...(tsResponse !== null ? { 'cf-turnstile-response': tsResponse } : {}),
@@ -141,7 +146,9 @@ export default function Signup({ copy, formToken, turnstileSiteKey, minPassword,
           </CheckRow>
           {errors.accept_terms && <p className="auth-msg auth-msg--error" id="accept-terms-err"><span className="auth-dot" aria-hidden="true" />{errors.accept_terms}</p>}
         </div>
-        <Button busy={busy} busyLabel={c.busy} busyNote={c.busy_note} disabled={!accepted}>{c.submit}</Button>
+        <Button busy={busy}
+          busyLabel={phase === 'prompt' ? c.verify_prompt : phase === 'verifying' ? c.verifying : c.busy}
+          busyNote={phase === 'prompt' ? c.verify_prompt_note : phase === 'verifying' ? c.verifying_note : c.busy_note} disabled={!accepted}>{c.submit}</Button>
         <p className="auth-fine" id="signup-small-print">{fillPlaceholders(acceptance.smallPrint, {
           terms: <a href={acceptance.termsUrl} target="_blank" rel="noopener">{acceptance.smallPrintTermsLink}</a>,
           privacy: <a href={acceptance.privacyUrl} target="_blank" rel="noopener">{acceptance.smallPrintPrivacyLink}</a>,
