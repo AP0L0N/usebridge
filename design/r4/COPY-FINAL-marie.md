@@ -1,0 +1,7 @@
+# Bridge r4 questions panel — final copy (Marie, 2026-11-04 19:18)
+PANEL: Heading "Questions for you"; count pill "{n} open"; subline "Tickets on this project waiting on your answer · oldest first"; "Hide panel" / "Show"
+CARD: field label "Your answer"; note label "Note for {asker} (optional)"; placeholder "Add a note or write your own answer…"; button "Send to {asker}"; hint "Posts to {ticket} as your input"; shortcut "⌘↵ to send" (Mac) / "Ctrl+Enter to send" (others); helper "Pick an option or write an answer."; validation "✕ Pick an option or write an answer before sending."; "Sending…" / "Sending your answer to {asker}…"; "Try again"; send error "✕ Couldn't send. Check your connection and try again. Your answer is kept."; overline "Your answer" (uppercase via CSS only); "✓ Sent {time} · waiting for {asker} to pick it up"; "Change answer" / "Dismiss" (aria-label "Dismiss question") / "Restore" / "Details"
+SECTIONS: "Answered · waiting for pickup" (mobile: "Waiting for pickup"); "Closed and dismissed"; closed row "You answered “{x}” · picked up by {agent} · closed {date}"; dismissed row "Dismissed by you · {date}"
+EMPTY: "No open questions"; "Agents will post here when a ticket needs your answer. Answered questions move to Closed."; "Nothing waiting on you here right now"
+TOAST: "Question dismissed · Undo"
+PORTFOLIO: chip "1 question for you" / "{n} questions for you" (real plurals; "?" is an icon); summary "{n} questions for you" / "1 question for you"

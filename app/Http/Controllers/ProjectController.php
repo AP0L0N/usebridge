@@ -16,6 +16,7 @@ use App\Services\Tickets\BoardView;
 use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\ProjectStatusService;
+use App\Services\Tickets\Questions;
 use App\Services\Tickets\TicketView;
 use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +47,9 @@ class ProjectController extends Controller
             // r4 Questions for you: the open asks, oldest first (OpenAsks; also GET /api/projects/{id}/asks). Answer = the
             // owner input comment route (projects.tickets.comments.store); partial reload only=openAsks,board after it.
             'openAsks' => fn () => OpenAsks::list($project, $view),
+            // r4 Questions panel (design/r4): {open, answered, closed, has_any} (Questions::panel; also GET
+            // /api/projects/{id}/questions). Writes: projects.questions.answer|dismiss|restore; reload only=questions,board.
+            'questions' => fn () => Questions::panel($project, $view),
             'people' => fn () => self::people(HumanActors::viewerId()),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,

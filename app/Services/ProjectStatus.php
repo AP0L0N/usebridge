@@ -10,6 +10,7 @@ use App\Models\Ticket;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\OpenAsks;
+use App\Services\Tickets\Questions;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -113,7 +114,8 @@ class ProjectStatus
             'latestLine' => self::firstLine($latest?->body),
             'lastUpdatedAt' => $lastAt?->toIso8601String(),
             'openInputs' => $project->requiredInputs->whereNull('resolved_at')->count(),
-            'openQuestions' => $project->questions->where('state', 'open')->count(),
+            // Pre-tickets r4 questions table (read-only history), open rows. Was `openQuestions` until the r4 panel.
+            'legacyOpenQuestions' => $project->questions->where('state', 'open')->count(),
             // Tickets: PM-set status (PATCH /api/projects/{id}/status) and ticket counts; the UI run switches the badge to these.
             'pmStatus' => $project->status,
             'pmStatusNote' => $project->status_note,
@@ -131,6 +133,8 @@ class ProjectStatus
             'waitingOwnerCount' => $counts[BoardColumns::WAITING_TILEN],
             // r4 Questions for you: waiting-column tickets with an ask (OpenAsks); the API payload names it open_asks_count.
             'openAsksCount' => OpenAsks::count($project),
+            // r4 Questions panel: questions in state open (Questions; dismissed not counted); API: open_questions_count.
+            'openQuestions' => Questions::count($project),
             'lastActivityAt' => $project->last_activity_at?->toIso8601String(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),

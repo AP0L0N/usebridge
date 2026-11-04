@@ -56,6 +56,7 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     Route::get('board-columns', [BoardController::class, 'columns'])->name('api.board-columns');
     Route::get('projects/{id}/board', [BoardController::class, 'board'])->name('api.projects.board');
     Route::get('projects/{id}/asks', [BoardController::class, 'asks'])->name('api.projects.asks');
+    Route::get('projects/{id}/questions', [BoardController::class, 'questions'])->name('api.projects.questions.index');
     Route::get('projects/{id}/activity', [TicketController::class, 'activity'])->name('api.projects.activity');
     Route::get('projects/{id}/status', [ProjectStatusController::class, 'show'])->name('api.projects.status.show');
     Route::patch('projects/{id}/status', [ProjectStatusController::class, 'update'])->name('api.projects.status.update');

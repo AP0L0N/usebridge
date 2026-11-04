@@ -18,6 +18,7 @@ use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectSetupController;
+use App\Http\Controllers\QuestionPanelController;
 use App\Http\Controllers\StatusUpdateController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UsageController;
@@ -99,8 +100,11 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
     Route::post('/projects/{slug}/inputs/{id}/resolve', [ProjectController::class, 'resolveInput'])
         ->middleware(LegacyReadOnly::class)->name('projects.inputs.resolve');
-    Route::post('/projects/{slug}/questions/{id}/answer', [ProjectController::class, 'answerQuestion'])
-        ->middleware(LegacyReadOnly::class)->name('projects.questions.answer');
+    // r4 Questions panel (QuestionPanelController): {id} = 'q-' + ticket id. A legacy questions.id still reaches the old
+    // answer action through LegacyReadOnly (410 once BRIDGE_LEGACY_READ_ONLY is on).
+    Route::post('/projects/{slug}/questions/{id}/answer', [QuestionPanelController::class, 'answer'])->name('projects.questions.answer');
+    Route::post('/projects/{slug}/questions/{id}/dismiss', [QuestionPanelController::class, 'dismiss'])->name('projects.questions.dismiss');
+    Route::post('/projects/{slug}/questions/{id}/restore', [QuestionPanelController::class, 'restore'])->name('projects.questions.restore');
     // Tickets: board writes from the web UI as the signed-in user (Actor::forUser, source ui). JSON with Accept: application/json, else redirect back.
     Route::get('/projects/{slug}/tickets/{key}', [TicketController::class, 'show'])->name('projects.tickets.show');
     Route::post('/projects/{slug}/tickets', [TicketController::class, 'store'])->name('projects.tickets.store');

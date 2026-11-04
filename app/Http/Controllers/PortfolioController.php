@@ -7,6 +7,7 @@ use App\Models\ProjectStatusEvent;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\OpenAsks;
+use App\Services\Tickets\Questions;
 use App\Support\BoardColumns;
 use App\Support\Onboarding\ReadyBanner;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class PortfolioController extends Controller
             ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at'])])
             ->withCount(OpenAsks::withCount())
             ->get();
+        Questions::loadOpenCounts($projects);
         // Where the current status came from: the latest status event's source (api = REST agent token, mcp = the MCP server, ui = the web app).
         $sources = ProjectStatusEvent::query()->whereIn('project_id', $projects->modelKeys())
             ->orderByDesc('created_at')->orderByDesc('id')->get(['project_id', 'source'])

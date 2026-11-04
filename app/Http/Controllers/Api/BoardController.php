@@ -6,10 +6,12 @@ use App\Http\Controllers\Concerns\FindsTickets;
 use App\Http\Controllers\Controller;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\OpenAsks;
+use App\Services\Tickets\Questions;
 use App\Services\Tickets\TicketView;
 use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BoardController extends Controller
 {
@@ -41,5 +43,17 @@ class BoardController extends Controller
     public function asks(string $id): JsonResponse
     {
         return response()->json(['data' => OpenAsks::list($this->projectById($id))]);
+    }
+
+    /**
+     * GET /api/projects/{id}/questions?state=open|answered|closed|dismissed|all (default all): the r4 Questions panel
+     * payload {open, answered, closed, has_any}, the same as the Board's `questions` prop (Questions::panel).
+     */
+    public function questions(Request $request, string $id): JsonResponse
+    {
+        $project = $this->projectById($id);
+        $f = $request->validate(['state' => ['nullable', Rule::in([...Questions::STATES, 'all'])]]);
+
+        return response()->json(['data' => Questions::panel($project, null, $f['state'] ?? 'all')]);
     }
 }

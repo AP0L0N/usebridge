@@ -18,7 +18,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 
 /**
@@ -87,19 +86,8 @@ class TicketController extends Controller
             'is_tilen_input' => ['sometimes', 'boolean'],
             'input_choice' => ['nullable', 'string', 'max:60'],
         ]);
-        $choice = TicketService::clean($data['input_choice'] ?? null);
-        $isInput = (bool) ($data['is_owner_input'] ?? false) || (bool) ($data['is_tilen_input'] ?? false) || $choice !== null;
-        if ($choice !== null && $choice !== 'other' && ! in_array($choice, $ticket->ask_options ?? [], true)) {
-            throw ValidationException::withMessages(['input_choice' => 'Choose one of the ask options or "other".']);
-        }
-        $body = TicketService::clean($data['body'] ?? null);
-        if ($body === null) {
-            if ($choice === null || $choice === 'other') {
-                throw ValidationException::withMessages(['body' => $choice === 'other' ? 'Add a note for "Something else".' : 'Write a comment.']);
-            }
-            $body = $choice;
-        }
-        $comment = $this->tickets->comment($ticket, $this->actor($request), $body, $isInput, $choice);
+        $isInput = (bool) ($data['is_owner_input'] ?? false) || (bool) ($data['is_tilen_input'] ?? false);
+        $comment = $this->tickets->uiComment($ticket, $this->actor($request), $data['body'] ?? null, $data['input_choice'] ?? null, $isInput);
 
         if ($request->expectsJson()) {
             return response()->json(['data' => (new TicketView)->comment($comment->fresh(), $ticket->fresh())], 201);

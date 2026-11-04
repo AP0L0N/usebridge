@@ -469,6 +469,29 @@ final class TicketService
         });
     }
 
+    /**
+     * A comment from the Bridge UI: the ticket drawer's comment / "Your input" box (POST /projects/{slug}/tickets/{key}/comments)
+     * and the r4 Questions panel answer (POST /projects/{slug}/questions/{id}/answer) both post through here.
+     * $choice must be one of the ask options or "other"; a choice-only input uses the choice as its body.
+     */
+    public function uiComment(Ticket $ticket, Actor $actor, ?string $body, ?string $choice, bool $isInput): TicketComment
+    {
+        $choice = self::clean($choice);
+        $isInput = $isInput || $choice !== null;
+        if ($choice !== null && $choice !== 'other' && ! in_array($choice, $ticket->ask_options ?? [], true)) {
+            throw ValidationException::withMessages(['input_choice' => 'Choose one of the ask options or "other".']);
+        }
+        $body = self::clean($body);
+        if ($body === null) {
+            if ($choice === null || $choice === 'other') {
+                throw ValidationException::withMessages(['body' => $choice === 'other' ? 'Add a note for "Something else".' : 'Write a comment.']);
+            }
+            $body = $choice;
+        }
+
+        return $this->comment($ticket, $actor, $body, $isInput, $choice);
+    }
+
     /** Soft retract (own comments only). The row stays; the body is hidden in every view. */
     public function retract(TicketComment $comment, Actor $actor): TicketComment
     {

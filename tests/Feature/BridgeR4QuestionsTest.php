@@ -250,12 +250,14 @@ class BridgeR4QuestionsTest extends TestCase
     public function portfolio_counts_open_questions(): void
     {
         $this->asOwner();
-        $this->assertSame(0, $this->northwind()['openQuestions']);
+        $this->assertSame(0, $this->northwind()['legacyOpenQuestions']);
         $this->question();
         $this->question();
         $this->question(['state' => 'closed']);
         $this->question(['state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()]);
-        $this->assertSame(2, $this->northwind()['openQuestions']);
+        $this->assertSame(2, $this->northwind()['legacyOpenQuestions']);
+        // `openQuestions` is the r4 panel's ticket-based count (BridgeR4QuestionsPanelTest); legacy rows are not in it.
+        $this->assertSame(0, $this->northwind()['openQuestions']);
     }
 
     #[Test]

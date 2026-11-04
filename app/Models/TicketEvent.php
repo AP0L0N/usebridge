@@ -14,6 +14,8 @@ class TicketEvent extends Model
     public const TYPES = [
         'created', 'moved', 'assigned', 'labelled', 'priority', 'due', 'blocked', 'unblocked', 'ask_set',
         'edited', 'input_acked', 'archived', 'unarchived', 'commented',
+        // r4 Questions panel: the owner hid / brought back the current ask (App\Services\Tickets\Questions).
+        'ask_dismissed', 'ask_restored',
     ];
 
     public const UPDATED_AT = null;

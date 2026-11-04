@@ -12,6 +12,7 @@ use App\Services\Tickets\Actor;
 use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\ProjectStatusService;
+use App\Services\Tickets\Questions;
 use App\Support\TicketPrefix;
 use App\Support\Workspaces\WorkspaceRule;
 use Illuminate\Http\JsonResponse;
@@ -33,8 +34,9 @@ class ProjectController extends Controller
 
     public function index(): JsonResponse
     {
-        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->withCount(OpenAsks::withCount())->orderBy('name')->get()
-            ->map(fn ($p) => $this->present($p));
+        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->withCount(OpenAsks::withCount())->orderBy('name')->get();
+        Questions::loadOpenCounts($projects);
+        $projects = $projects->map(fn ($p) => $this->present($p));
 
         return response()->json(['data' => $projects]);
     }
@@ -198,6 +200,8 @@ class ProjectController extends Controller
             'ticket_prefix' => $p->ticket_prefix,
             // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks).
             'open_asks_count' => $openAsks,
+            // r4 Questions panel: questions in state open (Questions; a dismissed one is not counted).
+            'open_questions_count' => $s['openQuestions'],
         ];
     }
 }

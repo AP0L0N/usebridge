@@ -26,7 +26,7 @@ names as compatibility aliases next to neutral ones with the same values: `waiti
 3. [Columns, statuses, priorities, ids](#columns-statuses-priorities-ids)
 4. [Errors and warnings](#errors-and-warnings)
 5. [The ticket object](#the-ticket-object)
-6. [Endpoints](#endpoints): columns, board, open asks, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
+6. [Endpoints](#endpoints): columns, board, open asks, questions, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
 7. [Answers relay: reading Tilen's comments](#answers-relay-reading-tilens-comments)
 8. [PM run checklist](#pm-run-checklist)
 9. [r4 Questions panel: UI hook points](#r4-questions-panel-ui-hook-points)
@@ -236,6 +236,28 @@ curl -sS "$BRIDGE/api/projects/proj-northwind/asks" -H "Authorization: Bearer $B
 
 An empty project returns `{"data":[]}`.
 
+### GET /api/projects/{id}/questions
+
+The r4 Questions panel payload (the Board's `questions` prop): `?state=open|answered|closed|dismissed|all` (default
+`all`; anything else is **422**). Same shape whatever the filter: `{open, answered, closed, has_any}`, with `closed`
+holding closed and dismissed questions. `{id}` is the project id or slug (another workspace: **404**); `boards:read`.
+This REST view shows the owner's real states, including `dismissed`. MCP `list_questions` (`project`, optional
+`state` open|answered|closed|all) returns the same payload but reports a dismissed question as `open` with
+`dismissed_at: null`. That is the agents' view, because a dismissal only hides the question on the owner's side.
+Field list and state rules: [r4 Questions panel](#r4-questions-panel-ui-hook-points).
+
+```bash
+curl -sS "$BRIDGE/api/projects/proj-northwind/questions?state=open" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
+```
+```json
+{"data":{"open":[{"id":"q-tk-01j…","ticket_id":"tk-01j…","ticket_key":"NW-12","project_id":"proj-northwind",
+  "text":"Approve staging?","context":"Visual QA passed.","options":["Approve","Hold"],"allow_text":true,
+  "asked_by":{"id":"agent-janice","name":"Dr. Janice Polito","role":"PM","type":"agent","source":"api"},
+  "asked_at":"2026-10-29T10:00:00+01:00","state":"open","answer_choice":null,"answer_text":null,"answered_at":null,
+  "picked_up_at":null,"closed_at":null,"dismissed_at":null}],
+ "answered":[],"closed":[],"has_any":true}}
+```
+
 ### GET /api/tickets · GET /api/projects/{id}/tickets
 
 List tickets, with filters. Results are ordered by project, then column order, then position.
@@ -426,7 +448,8 @@ curl -sS -X POST "$BRIDGE/api/comments/4212/retract" \
 ### GET /api/tickets/{ticket}/events
 
 The ticket's history, newest first. `limit` is ≤200 (default 100). Event types: `created`, `moved`, `assigned`,
-`labelled`, `priority`, `due`, `blocked`, `unblocked`, `ask_set`, `edited`, `input_acked`, `archived`, `unarchived`, `commented`.
+`labelled`, `priority`, `due`, `blocked`, `unblocked`, `ask_set`, `edited`, `input_acked`, `archived`, `unarchived`, `commented`,
+`ask_dismissed`, `ask_restored` (the owner hid / brought back the current ask in the Questions panel; nothing else changes).
 
 ```bash
 curl -sS "$BRIDGE/api/tickets/NW-12/events" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
@@ -498,6 +521,7 @@ updates carry `source` too (`api`, `mcp`, `ui`; `null` for updates posted before
 | `pmStatus`, `pmStatusNote`, `pmStatusSetBy`, `pmStatusSetAt`, `pmLevel`, `pmAgeDays` | The PM-set status as stored (null = not set). |
 | `pm_agent_id` | The project's PM (same value as `owner_agent_id`, kept for old callers). |
 | `open_asks_count` | Open asks: live `waiting_tilen` tickets with an `ask` (see [GET /api/projects/{id}/asks](#get-apiprojectsidasks)). |
+| `open_questions_count`, `openQuestions` | Questions in state `open` ([GET /api/projects/{id}/questions](#get-apiprojectsidquestions)): like `open_asks_count` minus the answered, picked-up and owner-dismissed ones. (`openQuestions` used to count the legacy `questions` table; that number is now `legacyOpenQuestions`.) |
 
 **Change the PM (Captain only).** `pm_agent_id` must be an existing agent id (`GET /api/agents`). `owner_agent_id` is
 accepted as the same field (sending both with different values is **422**). A non-Captain actor is **403**; a missing
@@ -658,27 +682,66 @@ Do this on every run, for each of your projects:
 
 ## r4 Questions panel: UI hook points
 
-Backend only so far (the panel design is pending). There is **no questions table**: an "open ask" is a ticket in
-`waiting_tilen` with an `ask`, and an answer is an owner input comment. The legacy `questions` table / `/api/questions`
-stay read-only history and are not used.
+Design: `design/r4/SPEC.md` ("Assumed data"). There is **no questions table**. A question is a ticket's current
+ask, and the answer is an owner input comment, the same one the ticket drawer's "Your input" box posts. The legacy
+`questions` table and `/api/questions` stay read-only history (`App\Services\Tickets\Questions` derives everything).
 
-- **Count.** Portfolio (Inertia `Portfolio`): each card in `projects` has `openAsksCount`. Board (Inertia `Board`):
-  `board.project.open_asks_count`. API / MCP: `open_asks_count` (see above).
-- **List.** Board prop `openAsks` (lazy closure, so `router.reload({only: ['openAsks', 'board']})` refreshes just the
-  panel and the board): the same items as `GET /api/projects/{id}/asks`, oldest first. "via" line:
-  `viaLabel(asked_by_source, asked_by_type === 'agent')`.
-- **Answer.** The existing session route, unchanged, the same one the ticket's "Your input" box uses:
-  `POST /projects/{slug}/tickets/{key}/comments` with `{input_choice?: <one of ask_options> | "other", body?, is_owner_input: true}`
-  (`body` is required unless `input_choice` is one of the options; `"other"` needs a `body`). With
-  `Accept: application/json` it answers **201** with the comment; an Inertia post gets a 303 back to the board.
-  It runs `TicketService::comment` as the signed-in user (`source: ui`): sets `owner_input_at`
-  (`needs_pm_pickup: true`), logs a `commented` event, reaches the answers relay feed. **422** for an unknown option or
-  a missing body; **409** on an archived ticket or project; **404** for another project's ticket. No new answer route.
-- **States** per item: *open* (`owner_answered_ask: false`) → show the options/answer box; *answered, waiting for the
-  PM* (`needs_pm_pickup: true`) → show the answer as sent; "Change answer" is just another input comment; *answered,
-  picked up* (`needs_pm_pickup: false`, `owner_answered_ask: true`, ticket still waiting) → answered, nothing to do.
-  The item leaves the list and the count when the PM moves the ticket out of `waiting_tilen` (that also acks the
-  input) or archives it. A new `ask` from the PM (`ask_set`) turns it back into *open*.
+**Question object** (Board prop `questions`, `GET /api/projects/{id}/questions`, answer/dismiss/restore responses):
+
+| Field | Value |
+|---|---|
+| `id` | `q-` + the ticket id (`q-tk-01j…`). One question per ticket: its latest ask round. Stable across re-asks. |
+| `ticket_id`, `ticket_key`, `project_id` | The ticket. |
+| `text` | `ticket.ask`. If the ask was later cleared, the last ask from the ticket's `ask_set` events. |
+| `context` | `ask_context` or null. |
+| `options` | `ask_options` or `[]`. `[]` = free text; `["Yes","No"]` = yes/no; otherwise multiple choice (plus the optional note). |
+| `allow_text` | Always `true` today: the free-text answer, or the optional note next to a choice (as `body` + `input_choice` on the drawer). |
+| `asked_by` | `{id, name, role, type, source}`: the actor of the round's asking event (the ticket's creator for old rows without one). `role`: `PM` for the project's PM agent, else the agent's role label (`Agent` when empty); people are `Owner` / `Member`. `type` agent/human, `source` api/mcp/ui (`viaLabel`, null for the creator fallback). |
+| `asked_at` | When the round started (its asking event; old rows: `waiting_since`). |
+| `state` | `open` / `answered` / `closed` / `dismissed` (below). |
+| `answer_choice`, `answer_text`, `answered_at` | The latest live (not retracted) owner input comment of the round: its `input_choice`, its body (null when it only repeats the choice) and time. |
+| `picked_up_at` | When the PM picked the answer up: the first `input_acked` (ack-input, or the move out of the waiting column) at/after the answer. Null while awaiting pickup. |
+| `closed_at` | `picked_up_at`, else when the round ended (moved out of `waiting_tilen` / archived). |
+| `dismissed_at` | When the owner dismissed it (state `dismissed` only). |
+
+**Rounds and states.** A round starts with the ticket's latest *asking event*: created in `waiting_tilen`, moved into
+it, or `ask_set` while in it (any ask change, as `owner_answered_ask`). It ends when the ticket leaves `waiting_tilen`
+or is archived (unarchived back into the column = the same round).
+- `closed`: the answer was picked up, or the round ended (with or without an answer).
+- `answered`: the round has an answer the PM has not picked up yet (`needs_pm_pickup`), and the ticket is still
+  waiting. In the design this is "awaiting PM pickup" (`picked_up_at` null).
+- `dismissed`: no answer, and the owner dismissed it (latest `ask_dismissed` of the round, no `ask_restored` after it).
+- `open`: otherwise, i.e. a live waiting ticket with an ask and no answer since the ask.
+A new asking event starts a new round: `open` again, the old answer and any dismissal no longer apply.
+
+**Panel payload** `{open, answered, closed, has_any}`: `open` oldest `asked_at` first; `answered` newest answer
+first; `closed` = closed + dismissed, newest (`closed_at` / `dismissed_at`) first, at most 20; `has_any` = the project
+ever had a question (the panel is hidden only when false). Reload after a write with
+`router.reload({only: ['questions', 'board']})`.
+
+**Counts.** Portfolio cards: `openQuestions` (state `open`; dismissed not counted). Board: `board.project.open_questions_count`.
+API / MCP `list_projects`: `open_questions_count` (and `openQuestions`). `openAsksCount` / `open_asks_count` and the
+`openAsks` prop / `GET /api/projects/{id}/asks` / MCP `list_open_asks` are unchanged.
+
+**Routes** (web session, the same group as the ticket routes: any signed-in user of the workspace, acting as
+themselves, `source: ui`; guests go to /login; another workspace's project, another project's question, an unknown id
+or a ticket that never asked: **404**). With `Accept: application/json` they answer JSON (`{data: question}`), otherwise
+a 303 back.
+- `POST /projects/{slug}/questions/{id}/answer` `{choice?, text?}`: **201** `{data: question, comment}`. It runs the
+  drawer's own path (`TicketService::uiComment` → `comment`, `is_owner_input`), so the side effects are identical:
+  `owner_input_at` / `needs_pm_pickup: true`, a `commented` event, the answers relay feed, "via Bridge". **422**:
+  `choice` not one of `options` ("Choose one of the options."; with no options, "This question takes a written
+  answer."), neither choice nor text ("Pick an option or write an answer.", on `text`), `text` over 2000.
+  **Change answer** = post again while `answered`: a new input comment, and the latest one wins. **409** "Question is
+  closed" once picked up or moved on. Answering a dismissed question answers it.
+  A legacy `questions.id` (`q-<ulid>`, never `q-tk-…`) still reaches the old answer action (410 once
+  `BRIDGE_LEGACY_READ_ONLY` is on).
+- `POST /projects/{slug}/questions/{id}/dismiss`: `open` → `dismissed` (an `ask_dismissed` ticket event by the user). It
+  is a no-op when already dismissed and **409** otherwise. The ticket is not touched: it stays in `waiting_tilen`, gets
+  no comment, keeps `needs_pm_pickup` and `updated_at`, and still counts in `open_asks_count`. Agents keep seeing it
+  as unanswered (`list_questions` reports it `open`).
+- `POST /projects/{slug}/questions/{id}/restore`: `dismissed` → `open` (an `ask_restored` event). It is a no-op when
+  already open and **409** otherwise.
 
 ## Migration from Questions / Required inputs / Next steps
 

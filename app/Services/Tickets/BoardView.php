@@ -50,6 +50,8 @@ final class BoardView
             'status_unseen_by_me' => $unseen,
             // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks; withCount on project lists).
             'open_asks_count' => OpenAsks::count($p),
+            // r4 Questions panel: questions in state open (Questions; dismissed not counted).
+            'open_questions_count' => Questions::count($p),
         ];
     }
 

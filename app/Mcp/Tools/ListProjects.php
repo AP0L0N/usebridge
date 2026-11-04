@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Models\Project;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\OpenAsks;
+use App\Services\Tickets\Questions;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -19,6 +20,9 @@ class ListProjects extends BridgeTool
     {
         $board = new BoardView;
 
-        return ['data' => Project::query()->withCount(OpenAsks::withCount())->orderBy('name')->get()->map(fn (Project $p) => $board->project($p))->all()];
+        $projects = Project::query()->withCount(OpenAsks::withCount())->orderBy('name')->get();
+        Questions::loadOpenCounts($projects);
+
+        return ['data' => $projects->map(fn (Project $p) => $board->project($p))->all()];
     }
 }
