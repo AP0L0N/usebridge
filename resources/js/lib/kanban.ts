@@ -177,6 +177,8 @@ export interface PortfolioProject {
   /** The project's own column names ({key: label}); keys it does not name use the defaults. */
   columnLabels?: Partial<Record<ColumnKey, string>>;
   waitingOwnerCount: number;
+  /** r4: questions in state open (Questions::count; dismissed not counted). */
+  openQuestions?: number;
   lastActivityAt: string | null;
   lastUpdatedAt: string | null;
 }

@@ -1,0 +1,124 @@
+/* Bridge r4 · "Questions for you" panel (design/r4, Tommy's Figma 4 Nov 2026) + the portfolio question chip.
+   Scoped under .kanban (board) / .app (portfolio) like kanban.css; only the existing --a-* / --radius-* tokens.
+   Tints are color-mix on the variable (Figma literal paints): open card = signal 12%, avatar / awaiting icon =
+   agent 14%, waiting age = warn 16%, empty state = ok 8% fill + ok 35% stroke. */
+
+.kanban {
+  /* ---------- panel ---------- */
+  .qp{display:flex;flex-direction:column;gap:20px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:24px;min-width:0;scroll-margin-top:16px}
+  .qp-head{display:flex;align-items:center;gap:12px;min-width:0}
+  .qp-titlerow{display:flex;align-items:center;gap:12px;flex:none}
+  .qp-head h2{margin:0;font:600 20px/1.25 var(--font-ui);letter-spacing:-0.02em;color:var(--a-ink);white-space:nowrap}
+  .qp-pill{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;background:var(--a-signal);color:var(--a-ink);font:500 12px/1.35 var(--font-mono);white-space:nowrap}
+  .qp-sub{flex:1;min-width:0;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
+  .qp-toggle{flex:none;padding:0 16px}
+  .qp-body{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+  /* ---------- open cards: 3 columns, 16 gap, wrapping ---------- */
+  .qp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+  .qp-card{display:flex;flex-direction:column;gap:14px;min-width:0;padding:20px;border-radius:16px;background:color-mix(in srgb,var(--a-signal) 12%,var(--a-surface));border:1px solid var(--a-signal)}
+  .qp-card.bad{background:var(--a-surface);border-color:var(--a-risk)}
+  .qp-card>*{min-width:0}
+  .qp-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+  .qp-meta .lb{color:var(--a-ink-800)}
+  .qp-meta .lb.qp-key{color:var(--a-ink-600)}
+  .qp-av{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:11px;background:color-mix(in srgb,var(--a-agent) 14%,transparent);color:var(--a-agent);font:500 12px/1.35 var(--font-mono);font-style:normal;flex:none}
+  .qp-av.h{background:var(--a-ink);color:var(--a-surface)}
+  .qp-who{font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink)}
+  .qp-when{font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
+  .qp-age{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:11px;background:color-mix(in srgb,var(--a-warn) 16%,transparent);color:var(--a-ink);font:500 12px/1.35 var(--font-mono)}
+  .qp-age .dotk{width:6px;height:6px;background:var(--a-warn)}
+  .qp-q{margin:0;font:500 16px/1.35 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink);overflow-wrap:anywhere}
+  .qp-ctx{margin:0;font:400 15px/1.5 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink-600);overflow-wrap:anywhere}
+
+  /* ---------- OptionChips ---------- */
+  .qp-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .qp-chip{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 16px 0 14px;border:1px solid var(--a-line);border-radius:var(--radius-pill);background:var(--a-surface);color:var(--a-ink);font:400 15px/1.5 var(--font-ui);letter-spacing:-0.005em;cursor:pointer;max-width:100%}
+  .qp-chip span{overflow-wrap:anywhere}
+  .qp-chip input{appearance:none;-webkit-appearance:none;width:16px;height:16px;margin:0;border:1.5px solid var(--a-ink-400);border-radius:8px;flex:none;display:grid;place-items:center;background:transparent;cursor:pointer}
+  .qp-chip input:focus-visible{outline:0}
+  .qp-chip:hover{background:var(--a-paper)}
+  .qp-chip:has(input:checked){background:var(--a-ink);border-color:var(--a-ink);color:var(--a-surface)}
+  .qp-chip input:checked{border-color:var(--a-surface)}
+  .qp-chip input:checked::before{content:"";width:8px;height:8px;border-radius:4px;background:var(--a-signal)}
+  .qp-chip:has(input:focus-visible){border-color:var(--a-agent);box-shadow:inset 0 0 0 1px var(--a-agent)}
+  .qp-chip:has(input:checked:focus-visible){box-shadow:0 0 0 2px var(--a-agent)}
+  .qp-chip:has(input:disabled){cursor:default;background:var(--a-surface)}
+  .qp-chip:has(input:disabled:not(:checked)){opacity:.5}
+  .qp-chip:has(input:disabled:checked){background:var(--a-ink)}
+  .qp-chip input:disabled{cursor:default}
+
+  /* ---------- AnswerField ---------- */
+  .qp-fieldw{display:flex;flex-direction:column;gap:6px}
+  .qp-field{display:flex;flex-direction:column;gap:6px}
+  .qp-flabel{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .qp-count{font:500 12px/1.35 var(--font-mono);color:var(--a-ink-400);font-variant-numeric:tabular-nums}
+  .qp-ta{display:block;width:100%;min-height:72px;max-height:320px;field-sizing:content;resize:none;padding:12px 14px;border:1px solid var(--a-line);border-radius:var(--radius-md);background:var(--a-surface);color:var(--a-ink);font:400 15px/1.5 var(--font-ui);letter-spacing:-0.005em}
+  .qp-ta::placeholder{color:var(--a-ink-400);opacity:1}
+  .qp-ta:focus{outline:0;border-color:var(--a-ink);box-shadow:inset 0 0 0 0.5px var(--a-ink)}
+  .qp-ta.bad{border-color:var(--a-risk);box-shadow:inset 0 0 0 0.5px var(--a-risk)}
+  .qp-ta:disabled{background:var(--a-paper);color:var(--a-ink-600)}
+  @supports not (field-sizing:content){.qp-ta{resize:vertical}}
+  .qp-err{margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-risk)}
+
+  /* ---------- actions ---------- */
+  .qp-actions{display:flex;align-items:center;gap:12px}
+  .qp-actions .btn.qp-off{background:var(--a-line);color:var(--a-ink-600)}
+  .qp-actions .btn[disabled]{background:var(--a-ink);color:var(--a-surface)}
+  .qp-actions .gbtn{padding:0 16px;flex:none}
+  .qp-actions .gbtn[disabled]{color:var(--a-ink-400);cursor:default;background:none}
+  .qp-hint{flex:1;min-width:0;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
+  .qp-hint.err{color:var(--a-risk)}
+
+  /* ---------- groups + QuestionRow ---------- */
+  .qp-group{display:flex;flex-direction:column;gap:12px}
+  .qp-gh{display:flex;align-items:center;gap:8px;margin:0;min-height:22px;font:500 12px/1.3 var(--font-ui);letter-spacing:0.04em;text-transform:uppercase;color:var(--a-ink-600)}
+  .qp-gn{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--a-line);color:var(--a-ink-800);font:500 12px/1.35 var(--font-mono);letter-spacing:0}
+  .qp-gt{margin:-11px -16px -11px auto;padding:0 16px;color:var(--a-ink-800);text-transform:none;letter-spacing:-0.005em}
+  .qp-rows{display:flex;flex-direction:column;gap:10px}
+  .qp-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);min-width:0}
+  .qp-row:focus{outline:0}
+  .qp-row:focus-visible{outline:2px solid var(--a-agent);outline-offset:2px}
+  .qp-ico{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;flex:none;font:500 12px/1.35 var(--font-mono)}
+  .qp-row.awaiting .qp-ico{background:color-mix(in srgb,var(--a-agent) 14%,transparent);color:var(--a-agent)}
+  .qp-row.closed .qp-ico{background:var(--a-ok);color:var(--a-surface)}
+  .qp-row.dismissed .qp-ico{background:var(--a-line);color:var(--a-ink-600)}
+  .qp-rtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .qp-rtxt p{margin:0;overflow-wrap:anywhere}
+  .qp-rq{font:500 15px/1.5 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink)}
+  .qp-rsub{font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
+  .qp-row.dismissed .qp-rq{color:var(--a-ink-600)}
+  .qp-sent{font:400 13px/1.4 var(--font-ui);color:var(--a-ok)}
+  .qp-racts{display:flex;align-items:center;gap:4px;flex:none}
+  .qp-racts .lb.qp-key{border-color:var(--a-paper);margin-right:8px}
+  .qp-racts .gbtn{padding:0 16px}
+
+  /* ---------- empty ---------- */
+  .qp-empty{display:flex;align-items:flex-start;gap:14px;padding:20px;border-radius:var(--radius-md);background:color-mix(in srgb,var(--a-ok) 8%,var(--a-surface));border:1px solid color-mix(in srgb,var(--a-ok) 35%,transparent)}
+  .qp-eico{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:14px;background:var(--a-ok);color:var(--a-surface);font:500 12px/1.35 var(--font-mono);flex:none}
+  .qp-empty p{margin:0}
+  .qp-et{font:500 16px/1.35 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink)}
+  .qp-eb{margin-top:4px!important;font:400 15px/1.5 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink-600)}
+
+  @media (max-width:1100px){.qp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:720px){
+    .qp{padding:20px 16px;gap:16px}
+    .qp-head{flex-direction:column;align-items:flex-start;gap:4px}
+    .qp-titlerow{gap:10px}
+    .qp-body{gap:16px}
+    .qp-grid{grid-template-columns:minmax(0,1fr)}
+    .qp-actions{flex-direction:column;align-items:stretch;gap:10px}
+    .qp-actions .btn,.qp-actions .gbtn{width:100%}
+    .qp-row{flex-wrap:wrap;align-items:flex-start}
+    .qp-row .qp-key{display:none}
+    .qp-racts{margin:-4px -8px -4px auto}
+    .qp-row.awaiting .qp-racts{flex-basis:100%;justify-content:flex-end;margin:0 -8px -4px 0}
+  }
+}
+
+/* ---------- portfolio card footer: "? {n} question(s) for you" ---------- */
+.app .pf-chip.pf-qchip { gap: 6px; text-decoration: none; min-height: 28px; position: relative; }
+.app .pf-chip.pf-qchip::after { content: ""; position: absolute; inset: -8px -4px; } /* 44px tap area on the 28px chip */
+.app .pf-chip.pf-qchip:hover { background: color-mix(in srgb, var(--a-signal) 80%, var(--a-ink)); }
+.app .pf-chip.pf-qchip:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
+.app .pf-qi { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 8px; background: var(--a-ink); color: var(--a-signal); font: 600 11px/1 var(--font-ui); flex: none; }

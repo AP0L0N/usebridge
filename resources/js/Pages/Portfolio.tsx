@@ -10,6 +10,7 @@ import type { Shared } from '../lib/account';
 import { ago } from '../lib/dates';
 import { archiveMessage, firstName, send, type ColumnKey, type PortfolioProject, type StatusSubject } from '../lib/kanban';
 import { ageAria, t, type StrKey } from '../lib/strings';
+import { t as tq, tc } from '../lib/strings-questions';
 
 type Props = { projects: PortfolioProject[]; now: string; welcome?: Welcome; columns?: { key: ColumnKey; label: string }[] };
 
@@ -74,7 +75,7 @@ function Card({ p, q, now, columns }: { p: PortfolioProject; q: string; now: str
   });
   const total = cols.reduce((s, c) => s + c.n, 0);
   const archived = isArch(p);
-  const waiting = p.waitingOwnerCount ?? 0;
+  const questions = p.openQuestions ?? 0;
   return (
     <article className={`pf-card pf-h-${heat(p)}${archived ? ' archived' : ''}`}>
       <div className="pf-heat" aria-hidden="true" />
@@ -99,13 +100,14 @@ function Card({ p, q, now, columns }: { p: PortfolioProject; q: string; now: str
             </ul>
           </div>
         </div>
-        <div className="pf-foot">
-          {waiting > 0
-            ? <span className="pf-chip" aria-label={t('portfolio.forYou.aria', { n: waiting })}>{t('portfolio.forYou', { n: waiting })}</span>
-            : <span className="pf-quiet">{t('portfolio.nothingWaiting')}</span>}
-          <span className="pf-last">{t('portfolio.lastActivity')} <time className="pf-mono" dateTime={p.lastActivityAt ?? undefined}>{ago(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—'}</time></span>
-        </div>
       </Link>
+      {/* r4: the open-question chip links to the project's Questions panel (outside the card link: no nested links). */}
+      <div className="pf-foot">
+        {questions > 0
+          ? <Link className="pf-chip pf-qchip" href={`/projects/${p.slug}#questions`}><span className="pf-qi" aria-hidden="true">?</span>{tc('q.portfolio.chip', questions)}</Link>
+          : <span className="pf-quiet">{tq('q.portfolio.none')}</span>}
+        <span className="pf-last">{t('portfolio.lastActivity')} <time className="pf-mono" dateTime={p.lastActivityAt ?? undefined}>{ago(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—'}</time></span>
+      </div>
     </article>
   );
 }
@@ -217,7 +219,7 @@ export default function Portfolio({ projects, now, welcome, columns }: Props) {
 
   const live = projects.filter((p) => !isArch(p));
   const waitingProjects = live.filter((p) => p.pmStatus === 'waiting').length;
-  const forYou = live.reduce((s, p) => s + (p.waitingOwnerCount ?? 0), 0);
+  const forYou = live.reduce((s, p) => s + (p.openQuestions ?? 0), 0);
   const total = active.length + archived.length;
   const plural = (n: number, one: StrKey, many: StrKey) => t(n === 1 ? one : many);
 
@@ -231,7 +233,7 @@ export default function Portfolio({ projects, now, welcome, columns }: Props) {
             <h1>{t('dash.title')}</h1>
             <p className="pf-summary" aria-live="polite">
               {query && total ? t('dash.results', { n: total, q: query })
-                : t('portfolio.summary', { a: live.length, projects: plural(live.length, 'portfolio.summary.project', 'portfolio.summary.projects'), w: waitingProjects, n: forYou, tickets: plural(forYou, 'portfolio.summary.ticket', 'portfolio.summary.tickets') })}
+                : tq('q.portfolio.summary', { a: live.length, projects: plural(live.length, 'portfolio.summary.project', 'portfolio.summary.projects'), w: waitingProjects, questions: tc('q.portfolio.chip', forYou) })}
             </p>
           </div>
           <div className="pf-tools">
