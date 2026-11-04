@@ -26,10 +26,11 @@ names as compatibility aliases next to neutral ones with the same values: `waiti
 3. [Columns, statuses, priorities, ids](#columns-statuses-priorities-ids)
 4. [Errors and warnings](#errors-and-warnings)
 5. [The ticket object](#the-ticket-object)
-6. [Endpoints](#endpoints): columns, board, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
+6. [Endpoints](#endpoints): columns, board, open asks, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
 7. [Answers relay: reading Tilen's comments](#answers-relay-reading-tilens-comments)
 8. [PM run checklist](#pm-run-checklist)
-9. [Migration from Questions / Required inputs / Next steps](#migration-from-questions--required-inputs--next-steps)
+9. [r4 Questions panel: UI hook points](#r4-questions-panel-ui-hook-points)
+10. [Migration from Questions / Required inputs / Next steps](#migration-from-questions--required-inputs--next-steps)
 
 ## Headers and token
 
@@ -198,12 +199,42 @@ curl -sS "$BRIDGE/api/projects/proj-northwind/board" -H "Authorization: Bearer $
 {"data":{
   "project":{"id":"proj-northwind","name":"Northwind","slug":"northwind","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito",
              "ticket_prefix":"CA","status":"waiting","status_label":"Waiting input","status_note":"Need the copy call.","status_set_by":"agent-janice",
-             "status_set_at":"…","last_activity_at":"…","archived":false,"status_unseen_by_tilen":true},
+             "status_set_at":"…","last_activity_at":"…","archived":false,"status_unseen_by_tilen":true,"open_asks_count":1},
   "columns":[{"key":"backlog","label":"Backlog","order":0,"count":2,"tickets":[{…ticket…}]}, …],
   "done_since":"…","done_older_count":14}}
 ```
 
 Waiting on Tilen is ordered by `waiting_since` ascending. All other columns are ordered by `position`.
+
+`project.open_asks_count` is the number of **open asks**: live (not archived) tickets in `waiting_tilen` with an
+`ask`. The same count is on `GET /api/projects` (`open_asks_count`), MCP `list_projects` and `get_board`. An answered
+ask still counts until the PM moves the ticket out of the waiting column (see below).
+
+### GET /api/projects/{id}/asks
+
+The project's open asks (r4 "Questions for you"), **oldest `waiting_since` first**: the lean list behind the
+`open_asks_count`. `{id}` is the project id or slug; another workspace's project is **404** like every other project
+path. Read-only (`boards:read`). MCP: `list_open_asks` with `project` (id or slug) returns the same `data`.
+
+```bash
+curl -sS "$BRIDGE/api/projects/proj-northwind/asks" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
+```
+```json
+{"data":[{"id":"tk-…","key":"NW-12","project_id":"proj-northwind","title":"Approve staging",
+          "ask":"Approve staging?","ask_context":"Visual QA passed.","ask_options":["Approve","Hold"],
+          "asked_by":"agent-janice","asked_by_name":"Dr. Janice Polito","asked_by_type":"agent","asked_by_source":"api",
+          "asked_at":"2026-10-29T10:00:00+01:00","waiting_age_days":0,"waiting_level":1,
+          "owner_input_at":null,"needs_pm_pickup":false,"owner_answered_ask":false,
+          "url":"https://bridge.example.test/projects/northwind/tickets/NW-12"}]}
+```
+
+| Field | Meaning |
+|---|---|
+| `asked_by`, `asked_by_name`, `asked_by_type`, `asked_by_source` | Who put the ask in front of the owner: the actor of the ticket's latest `ask_set` event, or of the event that created it in / moved it into `waiting_tilen` (agent or person; `source` `api`/`mcp`/`ui`, shown as "via API / via MCP / via Bridge"). No such event (old rows): the ticket's creator, `asked_by_source` null. |
+| `asked_at` | `waiting_since` (when it entered the waiting column). `waiting_age_days` / `waiting_level` as on the ticket. |
+| `owner_input_at`, `needs_pm_pickup`, `owner_answered_ask` | As on the ticket: the owner answered (input comment) and the PM has not picked it up yet / the current ask is answered. |
+
+An empty project returns `{"data":[]}`.
 
 ### GET /api/tickets · GET /api/projects/{id}/tickets
 
@@ -466,6 +497,7 @@ updates carry `source` too (`api`, `mcp`, `ui`; `null` for updates posted before
 | `derived_status` | The old r1 status from open Required inputs / Questions, for reference only. |
 | `pmStatus`, `pmStatusNote`, `pmStatusSetBy`, `pmStatusSetAt`, `pmLevel`, `pmAgeDays` | The PM-set status as stored (null = not set). |
 | `pm_agent_id` | The project's PM (same value as `owner_agent_id`, kept for old callers). |
+| `open_asks_count` | Open asks: live `waiting_tilen` tickets with an `ask` (see [GET /api/projects/{id}/asks](#get-apiprojectsidasks)). |
 
 **Change the PM (Captain only).** `pm_agent_id` must be an existing agent id (`GET /api/agents`). `owner_agent_id` is
 accepted as the same field (sending both with different values is **422**). A non-Captain actor is **403**; a missing
@@ -623,6 +655,30 @@ Do this on every run, for each of your projects:
 6. **Set the project status and note.** `PATCH /api/projects/{id}/status`. Use `waiting` when something waits on Tilen,
    `smooth` otherwise, and a one-line note for the headline. If the response contains a
    `status_smooth_but_waiting_tickets` warning, fix the status or the tickets.
+
+## r4 Questions panel: UI hook points
+
+Backend only so far (the panel design is pending). There is **no questions table**: an "open ask" is a ticket in
+`waiting_tilen` with an `ask`, and an answer is an owner input comment. The legacy `questions` table / `/api/questions`
+stay read-only history and are not used.
+
+- **Count.** Portfolio (Inertia `Portfolio`): each card in `projects` has `openAsksCount`. Board (Inertia `Board`):
+  `board.project.open_asks_count`. API / MCP: `open_asks_count` (see above).
+- **List.** Board prop `openAsks` (lazy closure, so `router.reload({only: ['openAsks', 'board']})` refreshes just the
+  panel and the board): the same items as `GET /api/projects/{id}/asks`, oldest first. "via" line:
+  `viaLabel(asked_by_source, asked_by_type === 'agent')`.
+- **Answer.** The existing session route, unchanged, the same one the ticket's "Your input" box uses:
+  `POST /projects/{slug}/tickets/{key}/comments` with `{input_choice?: <one of ask_options> | "other", body?, is_owner_input: true}`
+  (`body` is required unless `input_choice` is one of the options; `"other"` needs a `body`). With
+  `Accept: application/json` it answers **201** with the comment; an Inertia post gets a 303 back to the board.
+  It runs `TicketService::comment` as the signed-in user (`source: ui`): sets `owner_input_at`
+  (`needs_pm_pickup: true`), logs a `commented` event, reaches the answers relay feed. **422** for an unknown option or
+  a missing body; **409** on an archived ticket or project; **404** for another project's ticket. No new answer route.
+- **States** per item: *open* (`owner_answered_ask: false`) → show the options/answer box; *answered, waiting for the
+  PM* (`needs_pm_pickup: true`) → show the answer as sent; "Change answer" is just another input comment; *answered,
+  picked up* (`needs_pm_pickup: false`, `owner_answered_ask: true`, ticket still waiting) → answered, nothing to do.
+  The item leaves the list and the count when the PM moves the ticket out of `waiting_tilen` (that also acks the
+  input) or archives it. A new `ask` from the PM (`ask_set`) turns it back into *open*.
 
 ## Migration from Questions / Required inputs / Next steps
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Concerns\FindsTickets;
 use App\Http\Controllers\Controller;
 use App\Services\Tickets\BoardView;
+use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\TicketView;
 use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
@@ -34,5 +35,11 @@ class BoardController extends Controller
             empty($f['done_since']) ? null : TicketView::time($f['done_since']),
             self::flag($f['include_archived'] ?? false),
         )]);
+    }
+
+    /** GET /api/projects/{id}/asks: the project's open asks (r4 Questions for you), oldest waiting_since first. */
+    public function asks(string $id): JsonResponse
+    {
+        return response()->json(['data' => OpenAsks::list($this->projectById($id))]);
     }
 }

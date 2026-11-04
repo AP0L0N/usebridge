@@ -48,6 +48,8 @@ final class BoardView
             'archived' => $p->isArchived(),
             'status_unseen_by_tilen' => $unseen,
             'status_unseen_by_me' => $unseen,
+            // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks; withCount on project lists).
+            'open_asks_count' => OpenAsks::count($p),
         ];
     }
 

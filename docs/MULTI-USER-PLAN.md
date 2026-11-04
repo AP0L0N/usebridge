@@ -227,6 +227,7 @@ Tools (`app/Mcp/Tools`, one class each, base `BridgeTool`), thin wrappers over `
 | `list_projects` | – | `boards:read` |
 | `get_board` | `project` (id or slug), `done_since?`, `include_archived?` | `boards:read` |
 | `list_tickets` | `project?`, `status?` (comma list), `label?`, `assignee?` (agent id / `owner` (alias `tilen`) / `user:<id>` / `none`), `q?` (title or key), `limit?` (≤ 200, default 50) | `boards:read` |
+| `list_open_asks` | `project` (id or slug) | `boards:read` |
 | `get_ticket` | `key` | `boards:read` |
 | `list_agents`, `list_labels` | – | `boards:read` |
 | `create_ticket` | `project`, `title`, ticket fields, `actor?` | `boards:write` |

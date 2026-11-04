@@ -14,6 +14,7 @@ use App\Services\QuestionAnswer;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
 use App\Services\Tickets\HumanActors;
+use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\TicketView;
 use App\Support\BoardColumns;
@@ -42,6 +43,9 @@ class ProjectController extends Controller
             'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
             // Go-live N1: the newest posted status update (POST /api/status-updates, MCP post_status), shown under the status.
             'latestUpdate' => fn () => self::latestUpdate($project, $view),
+            // r4 Questions for you: the open asks, oldest first (OpenAsks; also GET /api/projects/{id}/asks). Answer = the
+            // owner input comment route (projects.tickets.comments.store); partial reload only=openAsks,board after it.
+            'openAsks' => fn () => OpenAsks::list($project, $view),
             'people' => fn () => self::people(HumanActors::viewerId()),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,

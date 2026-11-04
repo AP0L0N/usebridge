@@ -10,6 +10,7 @@ use App\Services\BridgeRoster;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\HumanActors;
+use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\ProjectStatusService;
 use App\Support\TicketPrefix;
 use App\Support\Workspaces\WorkspaceRule;
@@ -32,7 +33,7 @@ class ProjectController extends Controller
 
     public function index(): JsonResponse
     {
-        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->orderBy('name')->get()
+        $projects = Project::query()->with(['statusUpdates', 'requiredInputs', 'questions'])->withCount(OpenAsks::withCount())->orderBy('name')->get()
             ->map(fn ($p) => $this->present($p));
 
         return response()->json(['data' => $projects]);
@@ -176,7 +177,8 @@ class ProjectController extends Controller
     private function present(Project $p): array
     {
         $s = ProjectStatus::summary($p);
-        unset($s['searchText']);
+        $openAsks = $s['openAsksCount'];
+        unset($s['searchText'], $s['openAsksCount']);
 
         // `status` is the current PM-set status (PATCH /api/projects/{id}/status) once one is set; before that (and for
         // archived projects) it is the r1 status derived from open inputs/questions, kept as derived_status.
@@ -194,6 +196,8 @@ class ProjectController extends Controller
             'owner_agent_id' => $p->owner_agent_id,
             'pm_agent_id' => $p->owner_agent_id,
             'ticket_prefix' => $p->ticket_prefix,
+            // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks).
+            'open_asks_count' => $openAsks,
         ];
     }
 }

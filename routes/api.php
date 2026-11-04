@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     // {ticket} is the key (CA-12) or the id (tk-…). No delete routes anywhere: archive instead (DELETE answers 405).
     Route::get('board-columns', [BoardController::class, 'columns'])->name('api.board-columns');
     Route::get('projects/{id}/board', [BoardController::class, 'board'])->name('api.projects.board');
+    Route::get('projects/{id}/asks', [BoardController::class, 'asks'])->name('api.projects.asks');
     Route::get('projects/{id}/activity', [TicketController::class, 'activity'])->name('api.projects.activity');
     Route::get('projects/{id}/status', [ProjectStatusController::class, 'show'])->name('api.projects.status.show');
     Route::patch('projects/{id}/status', [ProjectStatusController::class, 'update'])->name('api.projects.status.update');

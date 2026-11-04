@@ -9,6 +9,7 @@ use App\Models\StatusUpdate;
 use App\Models\Ticket;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\BoardView;
+use App\Services\Tickets\OpenAsks;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -128,6 +129,8 @@ class ProjectStatus
             'ticketCounts' => $counts,
             'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN], // compat alias of waitingOwnerCount
             'waitingOwnerCount' => $counts[BoardColumns::WAITING_TILEN],
+            // r4 Questions for you: waiting-column tickets with an ask (OpenAsks); the API payload names it open_asks_count.
+            'openAsksCount' => OpenAsks::count($project),
             'lastActivityAt' => $project->last_activity_at?->toIso8601String(),
             // Search corpus: name + every update body (SPEC §5).
             'searchText' => $updates->pluck('body')->implode("\n"),
