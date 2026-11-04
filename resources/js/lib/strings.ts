@@ -262,8 +262,8 @@ export const S = {
   'ticket.input.other': 'Something else',
   'ticket.input.pickedUp': 'Picked up by {name} · {when}',
   'ticket.input.pending': 'Sent to {name} · not picked up yet',
-  // r4 QA MED-1: an owner input replaced by a newer one before pickup (struck through in the thread). Provisional, pending Marie's review.
-  'ticket.input.superseded': 'Superseded',
+  // r4 QA MED-1: an owner input replaced by a newer one before pickup (struck through in the thread). Provisional, Marie 2026-11-04's review.
+  'ticket.input.superseded': 'Replaced',
   'ticket.role.you': 'You',
   'discard.note.title': 'Discard your note?',
   'discard.note.body': 'Your note for {name} hasn’t been sent. If you close the ticket now, it’s lost.',
