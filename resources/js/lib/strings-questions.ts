@@ -29,7 +29,7 @@ export const S = {
   'q.dismiss.aria': 'Dismiss question',
   'q.restore': 'Restore',
   'q.details': 'Details',
-  // Not in the final copy (owner addition, pending Marie): leaves "Change answer" without posting again.
+  // Marie 2026-11-04: leaves "Change answer" without posting again.
   'q.cancelChange': 'Cancel',
   'q.counter': '{n} / {max}',
   // groups
@@ -42,7 +42,7 @@ export const S = {
   'q.row.answered': 'You answered “{x}”',
   'q.row.pickedUp': 'picked up by {agent}',
   'q.row.closed': 'closed {date}',
-  // Not in the final copy (pending Marie): a closed question that was never answered (the ticket moved on).
+  // Marie 2026-11-04: a closed question that was never answered (the ticket moved on).
   'q.row.closedOnly': 'Closed {date}',
   'q.row.dismissed': 'Dismissed by you · {date}',
   // empty
@@ -51,9 +51,9 @@ export const S = {
   // toast
   'q.toast.dismissed': 'Question dismissed',
   'q.toast.undo': 'Undo',
-  // Not in the final copy (pending Marie): dismiss / restore failed.
-  'q.toast.dismissErr': 'Couldn’t dismiss the question. Try again.',
-  'q.toast.restoreErr': 'Couldn’t restore the question. Try again.',
+  // Marie 2026-11-04: dismiss / restore failed.
+  'q.toast.dismissErr': '✕ Couldn’t dismiss the question. Try again.',
+  'q.toast.restoreErr': '✕ Couldn’t restore the question. Try again.',
   // portfolio
   'q.portfolio.chip.one': '{n} question for you',
   'q.portfolio.chip.other': '{n} questions for you',
