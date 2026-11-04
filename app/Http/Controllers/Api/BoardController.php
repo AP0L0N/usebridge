@@ -47,13 +47,14 @@ class BoardController extends Controller
 
     /**
      * GET /api/projects/{id}/questions?state=open|answered|closed|dismissed|all (default all): the r4 Questions panel
-     * payload {open, answered, closed, has_any}, the same as the Board's `questions` prop (Questions::panel).
+     * payload {open, answered, closed, dismissed, has_any}: the Board's `questions` prop (Questions::panel), except that
+     * dismissed questions have their own `dismissed` group here (closed = closed only; QA LOW-2).
      */
     public function questions(Request $request, string $id): JsonResponse
     {
         $project = $this->projectById($id);
         $f = $request->validate(['state' => ['nullable', Rule::in([...Questions::STATES, 'all'])]]);
 
-        return response()->json(['data' => Questions::panel($project, null, $f['state'] ?? 'all')]);
+        return response()->json(['data' => Questions::panel($project, null, $f['state'] ?? 'all', splitDismissed: true)]);
     }
 }

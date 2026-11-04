@@ -7,7 +7,9 @@ use App\Support\BoardColumns;
 
 /**
  * Captain's answers relay (GET /api/ticket-comments/feed): comments in id order after a cursor, with the ticket and
- * project attached so a relay message needs no further lookups. Retracted comments are left out.
+ * project attached so a relay message needs no further lookups. Retracted comments are left out, and so are superseded
+ * owner inputs (QA MED-1: replaced by a newer input before pickup); an input that replaced earlier ones lists them in
+ * supersedes_comment_ids, so a relay that already sent the old answer can say it changed.
  *
  * @param  array{after?:?int, since?:?string, author?:?string, inputs_only?:?bool, project_id?:?string, limit?:?int}  $f
  */
@@ -15,12 +17,15 @@ final class CommentFeed
 {
     public const DEFAULT_LIMIT = 50;
 
+    /** @var array<int, list<int>> comment id => ids of the inputs it superseded (current page) */
+    private array $supersedes = [];
+
     public function __construct(private readonly TicketView $view = new TicketView) {}
 
     public function page(array $f): array
     {
         $limit = (int) ($f['limit'] ?? self::DEFAULT_LIMIT);
-        $q = TicketComment::query()->whereNull('retracted_at')->with('ticket.project')->orderBy('id');
+        $q = TicketComment::query()->whereNull('retracted_at')->whereNull('superseded_at')->with('ticket.project')->orderBy('id');
 
         if (isset($f['after']) && $f['after'] !== null) {
             $q->where('id', '>', (int) $f['after']);
@@ -44,6 +49,9 @@ final class CommentFeed
         $hasMore = $rows->count() > $limit;
         $rows = $rows->take($limit);
         $last = $rows->last();
+        $this->supersedes = TicketComment::query()->whereIn('superseded_by_comment_id', $rows->modelKeys())->orderBy('id')
+            ->get(['id', 'superseded_by_comment_id'])->groupBy('superseded_by_comment_id')
+            ->map(fn ($g) => $g->pluck('id')->all())->all();
 
         return [
             'data' => $rows->map(fn (TicketComment $c) => $this->item($c))->values()->all(),
@@ -65,6 +73,7 @@ final class CommentFeed
             'is_tilen_input' => $c->is_tilen_input,
             'is_owner_input' => $c->is_tilen_input,
             'input_choice' => $c->input_choice,
+            'supersedes_comment_ids' => $this->supersedes[$c->id] ?? [],
             'author_type' => $c->author_type,
             'author_id' => $c->author_id,
             'author_name' => $this->view->name($c->author_id),

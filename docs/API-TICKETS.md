@@ -239,11 +239,13 @@ An empty project returns `{"data":[]}`.
 ### GET /api/projects/{id}/questions
 
 The r4 Questions panel payload (the Board's `questions` prop): `?state=open|answered|closed|dismissed|all` (default
-`all`; anything else is **422**). Same shape whatever the filter: `{open, answered, closed, has_any}`, with `closed`
-holding closed and dismissed questions. `{id}` is the project id or slug (another workspace: **404**); `boards:read`.
-This REST view shows the owner's real states, including `dismissed`. MCP `list_questions` (`project`, optional
-`state` open|answered|closed|all) returns the same payload but reports a dismissed question as `open` with
-`dismissed_at: null`. That is the agents' view, because a dismissal only hides the question on the owner's side.
+`all`; anything else is **422**). Same shape whatever the filter: `{open, answered, closed, dismissed, has_any}`.
+`closed` holds closed questions only and `dismissed` the owner-dismissed ones (newest dismissal first, at most 20), so
+`state=dismissed` fills only `dismissed` and `state=closed` only `closed`. `{id}` is the project id or slug (another
+workspace: **404**); `boards:read`. This REST view shows the owner's real states, including `dismissed`. The Board's
+`questions` prop keeps the panel's `{open, answered, closed, has_any}` (its "Closed and dismissed" group = `closed`
+with both states). MCP `list_questions` (`project`, optional `state` open|answered|closed|all) returns
+`{open, answered, closed, has_any}` and reports a dismissed question as `open` with `dismissed_at: null`. That is the agents' view, because a dismissal only hides the question on the owner's side.
 Field list and state rules: [r4 Questions panel](#r4-questions-panel-ui-hook-points).
 
 ```bash
@@ -255,7 +257,7 @@ curl -sS "$BRIDGE/api/projects/proj-northwind/questions?state=open" -H "Authoriz
   "asked_by":{"id":"agent-janice","name":"Dr. Janice Polito","role":"PM","type":"agent","source":"api"},
   "asked_at":"2026-10-29T10:00:00+01:00","state":"open","answer_choice":null,"answer_text":null,"answered_at":null,
   "picked_up_at":null,"closed_at":null,"dismissed_at":null}],
- "answered":[],"closed":[],"has_any":true}}
+ "answered":[],"closed":[],"dismissed":[],"has_any":true}}
 ```
 
 ### GET /api/tickets · GET /api/projects/{id}/tickets
@@ -318,7 +320,8 @@ curl -sS -X POST "$BRIDGE/api/projects/proj-northwind/tickets" \
 ### GET /api/tickets/{ticket}
 
 Returns the ticket with its comments (oldest first) and its newest 50 events. A retracted comment comes back as
-`{"retracted": true, "body": null}`.
+`{"retracted": true, "body": null}`. A superseded owner input (a changed answer, see
+[Superseded owner input](#superseded-owner-input)) keeps its body and comes back with `"superseded": true`.
 
 ```bash
 curl -sS "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
@@ -326,7 +329,8 @@ curl -sS "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H
 ```json
 {"data":{"key":"NW-12", …,
   "comments":[{"id":4211,"cursor":"4211","author_type":"human","author_id":"tilen","author_name":"Tilen","body":"Approve, ship it.",
-               "is_tilen_input":true,"input_choice":"Approve","picked_up_at":null,"retracted":false,"created_at":"…"}],
+               "is_tilen_input":true,"input_choice":"Approve","picked_up_at":null,"retracted":false,
+               "superseded":false,"superseded_at":null,"superseded_by_comment_id":null,"created_at":"…"}],
   "events":[{"id":88,"type":"commented","actor_id":"tilen","actor_type":"human","source":"ui","from":null,"to":{…},"created_at":"…"}]}}
 ```
 
@@ -392,7 +396,8 @@ curl -sS -X POST "$BRIDGE/api/tickets/NW-12/ack-input" \
 {"data":{"key":"NW-12","needs_pm_pickup":false,"tilen_input_ack_at":"…", …},"warnings":[]}
 ```
 
-Once you acknowledge, Tilen sees "✓ Picked up by {PM}" on his input.
+Once you acknowledge, Tilen sees "✓ Picked up by {PM}" on his input. Only the current input is picked up: an input
+superseded by a changed answer keeps `picked_up_at: null` and `superseded: true`, and is never pending again.
 
 ### POST /api/tickets/{ticket}/archive · POST /api/tickets/{ticket}/unarchive
 
@@ -414,7 +419,36 @@ curl -sS -X POST "$BRIDGE/api/tickets/NW-12/archive" \
 
 ### GET /api/tickets/{ticket}/comments · POST /api/tickets/{ticket}/comments
 
-`GET` returns the comments oldest first, with retracted ones as `{"retracted":true,"body":null}`. `POST` adds an agent comment (**201**).
+`GET` returns the comments oldest first, with retracted ones as `{"retracted":true,"body":null}` and superseded owner
+inputs flagged (`superseded`, `superseded_at`, `superseded_by_comment_id`; body kept). `POST` adds an agent comment (**201**).
+
+#### Superseded owner input
+
+When a person sends a new owner input on a ticket (Questions panel answer / "Change answer", or the drawer's "Your
+input" / "Mark as my input": both go through `TicketService::uiComment`) while earlier owner inputs on that ticket
+are still waiting for pickup, those earlier inputs are **superseded** in the same transaction, whoever wrote them (a
+ticket has one pending answer). Nothing is deleted and the body stays visible (the drawer shows it struck through,
+labelled "Superseded"). The ticket keeps exactly one pending input, the newest; `needs_pm_pickup` stays true until
+you ack or move. Only live owner inputs not yet picked up are superseded: plain comments, agent comments, retracted
+and already picked-up inputs are never touched. One `input_superseded` ticket event is logged
+(`to: {comment_ids: [old ids], by_comment_id: new id}`).
+
+| Field (comment) | Value |
+|---|---|
+| `superseded` | `true` on a replaced input, else `false`. |
+| `superseded_at` | When it was replaced (= the newer input's `created_at`), else null. |
+| `superseded_by_comment_id` | The id of the input that replaced it, else null. |
+| `picked_up_at` | Always null on a superseded input. |
+
+```json
+{"data":[{"id":4211,"body":"Yes","is_owner_input":true,"input_choice":"Yes","picked_up_at":null,"retracted":false,
+          "superseded":true,"superseded_at":"2026-11-04T10:01:00+01:00","superseded_by_comment_id":4213, …},
+         {"id":4213,"body":"No","is_owner_input":true,"input_choice":"No","picked_up_at":null,"retracted":false,
+          "superseded":false,"superseded_at":null,"superseded_by_comment_id":null, …}]}
+```
+
+Retract (`POST /api/comments/{id}/retract`) is not used for this: it hides the body and is limited to your own
+comments, while a superseded answer stays readable history.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -449,7 +483,8 @@ curl -sS -X POST "$BRIDGE/api/comments/4212/retract" \
 
 The ticket's history, newest first. `limit` is ≤200 (default 100). Event types: `created`, `moved`, `assigned`,
 `labelled`, `priority`, `due`, `blocked`, `unblocked`, `ask_set`, `edited`, `input_acked`, `archived`, `unarchived`, `commented`,
-`ask_dismissed`, `ask_restored` (the owner hid / brought back the current ask in the Questions panel; nothing else changes).
+`ask_dismissed`, `ask_restored` (the owner hid / brought back the current ask in the Questions panel; nothing else changes),
+`input_superseded` (a newer owner input replaced pending ones: `to: {comment_ids, by_comment_id}`).
 
 ```bash
 curl -sS "$BRIDGE/api/tickets/NW-12/events" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
@@ -621,13 +656,15 @@ The answers relay. See the next section.
 | `project_id` | string | no | |
 | `limit` | int | no | ≤200, default 50. |
 
-Results are in ascending id order, and retracted comments are left out.
+Results are in ascending id order. Retracted comments and superseded owner inputs are left out. Each item has
+`supersedes_comment_ids` (`[]` usually): the ids of the earlier inputs it replaced, so a relay that already sent the
+old answer can say "changed answer".
 
 ```bash
 curl -sS "$BRIDGE/api/ticket-comments/feed?after=4200" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":[{"id":4211,"cursor":"4211","body":"Approve, ship it.","is_tilen_input":true,"input_choice":"Approve",
+{"data":[{"id":4211,"cursor":"4211","body":"Approve, ship it.","is_tilen_input":true,"input_choice":"Approve","supersedes_comment_ids":[],
           "author_type":"human","author_id":"tilen","author_name":"Tilen","created_at":"…",
           "ticket":{"id":"tk-…","key":"NW-12","title":"Approve staging","status":"waiting_tilen","status_label":"Waiting on Tilen",
                     "assignee_type":"agent","assignee_id":"agent-janice","assignee_name":"Dr. Janice Polito","ask":"Approve staging?",
@@ -669,7 +706,8 @@ Do this on every run, for each of your projects:
 
 1. **Pull pickups.** `GET /api/tickets?project_id={id}&needs_pm_pickup=1` returns every ticket where Tilen sent input you haven't picked up.
 2. **Read the input.** `GET /api/tickets/{key}` returns the comments. The latest `is_tilen_input` comment is his answer
-   (`input_choice` is the option he picked, `body` is his note). If he changed his answer, the latest input wins.
+   (`input_choice` is the option he picked, `body` is his note). If he changed his answer, the older inputs carry
+   `superseded: true`: ignore them, the one input without it is the answer.
 3. **Act, then ack or move.**
    - Moving the ticket out of Waiting on Tilen (`POST …/move`) acknowledges the input automatically.
    - If the ticket stays where it is, call `POST …/ack-input`.
@@ -699,7 +737,7 @@ ask, and the answer is an owner input comment, the same one the ticket drawer's 
 | `asked_by` | `{id, name, role, type, source}`: the actor of the round's asking event (the ticket's creator for old rows without one). `role`: `PM` for the project's PM agent, else the agent's role label (`Agent` when empty); people are `Owner` / `Member`. `type` agent/human, `source` api/mcp/ui (`viaLabel`, null for the creator fallback). |
 | `asked_at` | When the round started (its asking event; old rows: `waiting_since`). |
 | `state` | `open` / `answered` / `closed` / `dismissed` (below). |
-| `answer_choice`, `answer_text`, `answered_at` | The latest live (not retracted) owner input comment of the round: its `input_choice`, its body (null when it only repeats the choice) and time. |
+| `answer_choice`, `answer_text`, `answered_at` | The latest live (not retracted, not superseded) owner input comment of the round: its `input_choice`, its body (null when it only repeats the choice) and time. |
 | `picked_up_at` | When the PM picked the answer up: the first `input_acked` (ack-input, or the move out of the waiting column) at/after the answer. Null while awaiting pickup. |
 | `closed_at` | `picked_up_at`, else when the round ended (moved out of `waiting_tilen` / archived). |
 | `dismissed_at` | When the owner dismissed it (state `dismissed` only). |
@@ -714,9 +752,10 @@ or is archived (unarchived back into the column = the same round).
 - `open`: otherwise, i.e. a live waiting ticket with an ask and no answer since the ask.
 A new asking event starts a new round: `open` again, the old answer and any dismissal no longer apply.
 
-**Panel payload** `{open, answered, closed, has_any}`: `open` oldest `asked_at` first; `answered` newest answer
+**Panel payload** (Board prop) `{open, answered, closed, has_any}`: `open` oldest `asked_at` first; `answered` newest answer
 first; `closed` = closed + dismissed, newest (`closed_at` / `dismissed_at`) first, at most 20; `has_any` = the project
-ever had a question (the panel is hidden only when false). Reload after a write with
+ever had a question (the panel is hidden only when false). REST `GET /api/projects/{id}/questions` splits `closed`
+into `closed` + `dismissed` (QA LOW-2). Reload after a write with
 `router.reload({only: ['questions', 'board']})`.
 
 **Counts.** Portfolio cards: `openQuestions` (state `open`; dismissed not counted). Board: `board.project.open_questions_count`.
@@ -732,7 +771,8 @@ a 303 back.
   `owner_input_at` / `needs_pm_pickup: true`, a `commented` event, the answers relay feed, "via Bridge". **422**:
   `choice` not one of `options` ("Choose one of the options."; with no options, "This question takes a written
   answer."), neither choice nor text ("Pick an option or write an answer.", on `text`), `text` over 2000.
-  **Change answer** = post again while `answered`: a new input comment, and the latest one wins. **409** "Question is
+  **Change answer** = post again while `answered`: a new input comment that supersedes the pending one(s)
+  ([Superseded owner input](#superseded-owner-input)), so the PM sees one answer. **409** "Question is
   closed" once picked up or moved on. Answering a dismissed question answers it.
   A legacy `questions.id` (`q-<ulid>`, never `q-tk-…`) still reaches the old answer action (410 once
   `BRIDGE_LEGACY_READ_ONLY` is on).

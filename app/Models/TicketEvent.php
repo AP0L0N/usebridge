@@ -16,6 +16,8 @@ class TicketEvent extends Model
         'edited', 'input_acked', 'archived', 'unarchived', 'commented',
         // r4 Questions panel: the owner hid / brought back the current ask (App\Services\Tickets\Questions).
         'ask_dismissed', 'ask_restored',
+        // r4 QA MED-1: a newer owner input superseded pending ones (to: {comment_ids, by_comment_id}).
+        'input_superseded',
     ];
 
     public const UPDATED_AT = null;

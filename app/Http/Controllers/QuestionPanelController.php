@@ -25,7 +25,8 @@ class QuestionPanelController extends Controller
     /**
      * {choice?: one of the options, text?: ≤2000}: posts the owner input comment exactly like the drawer's "Your input"
      * (TicketService::uiComment), so needs_pm_pickup, the commented event, the feed and the via label are the same.
-     * Posting again while answered = "Change answer" (the latest input wins). 409 once closed (picked up / moved on).
+     * Posting again while answered = "Change answer": the new input supersedes the pending one (TicketService::comment,
+     * never deleted). 409 once closed (picked up / moved on).
      * A legacy questions.id (r4 v1 table) still goes to the old answer action (410 once BRIDGE_LEGACY_READ_ONLY is on).
      */
     public function answer(Request $request, ProjectController $legacy, string $slug, string $id): Response

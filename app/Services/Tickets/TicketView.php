@@ -163,6 +163,7 @@ final class TicketView
     public function comment(TicketComment $c, ?Ticket $ticket = null): array
     {
         $retracted = $c->retracted_at !== null;
+        $superseded = $c->isSuperseded();
         $ticket ??= $c->ticket;
         $ack = $ticket?->tilen_input_ack_at;
 
@@ -180,8 +181,12 @@ final class TicketView
             'is_tilen_input' => $c->is_tilen_input,
             'is_owner_input' => $c->is_tilen_input,
             'input_choice' => $retracted ? null : $c->input_choice,
-            // Owner input comments: picked up once the PM acked (or moved the ticket) at/after this comment.
-            'picked_up_at' => $c->is_tilen_input && $ack !== null && $ack->gte($c->created_at) ? $ack->toIso8601String() : null,
+            // Owner input comments: picked up once the PM acked (or moved the ticket) at/after this comment. A superseded
+            // input (replaced by a newer one before pickup, QA MED-1) is never picked up; the body stays visible.
+            'picked_up_at' => $c->is_tilen_input && ! $superseded && $ack !== null && $ack->gte($c->created_at) ? $ack->toIso8601String() : null,
+            'superseded' => $superseded,
+            'superseded_at' => $c->superseded_at?->toIso8601String(),
+            'superseded_by_comment_id' => $c->superseded_by_comment_id,
             'edited_at' => $c->edited_at?->toIso8601String(),
             'created_at' => $c->created_at?->toIso8601String(),
         ];

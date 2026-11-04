@@ -19,7 +19,7 @@ use Illuminate\Support\Collection;
  *
  * Round: starts at the ticket's latest asking event (created in waiting_tilen, moved into it, or ask_set while in it;
  * old rows without one: waiting_since) and ends when the ticket leaves waiting_tilen or is archived.
- * Answer: the latest live (not retracted) owner input comment posted in the round.
+ * Answer: the latest live (not retracted, not superseded) owner input comment posted in the round.
  * State:
  * - closed    = the PM picked the answer up (input_acked at/after it: ack-input or the move out), or the round ended;
  * - answered  = an answer the PM has not picked up yet (needs_pm_pickup), the ticket still waiting;
@@ -97,20 +97,23 @@ final class Questions
      * The panel: {open (oldest asked first), answered (newest answer first), closed (closed + dismissed, newest first,
      * capped at CLOSED_LIMIT), has_any (the project ever had a question)}. $state open|answered|closed|dismissed keeps
      * only that state (dismissed and closed land in the closed group); all keeps everything.
+     * $splitDismissed (REST GET /api/projects/{id}/questions, QA LOW-2): closed holds closed only and dismissed questions
+     * get their own `dismissed` group (newest dismissal first, capped at CLOSED_LIMIT as well).
      *
-     * @return array{open: list<array>, answered: list<array>, closed: list<array>, has_any: bool}
+     * @return array{open: list<array>, answered: list<array>, closed: list<array>, dismissed?: list<array>, has_any: bool}
      */
-    public static function panel(Project $project, ?TicketView $view = null, string $state = 'all', bool $forAgents = false): array
+    public static function panel(Project $project, ?TicketView $view = null, string $state = 'all', bool $forAgents = false, bool $splitDismissed = false): array
     {
         $all = self::all($project, $view, $forAgents);
         $items = $state === 'all' ? $all : $all->where('state', $state);
         $ts = fn (?string $iso) => $iso === null ? 0 : strtotime($iso);
+        $newest = fn (Collection $c) => $c->sortByDesc(fn ($q) => $ts($q['closed_at'] ?? $q['dismissed_at']))->take(self::CLOSED_LIMIT)->values()->all();
 
         return [
             'open' => $items->where('state', 'open')->sortBy([fn ($a, $b) => [$ts($a['asked_at']), $a['ticket_key']] <=> [$ts($b['asked_at']), $b['ticket_key']]])->values()->all(),
             'answered' => $items->where('state', 'answered')->sortByDesc(fn ($q) => $ts($q['answered_at']))->values()->all(),
-            'closed' => $items->whereIn('state', ['closed', 'dismissed'])->sortByDesc(fn ($q) => $ts($q['closed_at'] ?? $q['dismissed_at']))
-                ->take(self::CLOSED_LIMIT)->values()->all(),
+            'closed' => $newest($items->whereIn('state', $splitDismissed ? ['closed'] : ['closed', 'dismissed'])),
+            ...($splitDismissed ? ['dismissed' => $newest($items->where('state', 'dismissed'))] : []),
             'has_any' => $all->isNotEmpty(),
         ];
     }
@@ -163,7 +166,7 @@ final class Questions
         $ids = $tickets->modelKeys();
         $events = TicketEvent::query()->whereIn('ticket_id', $ids)->whereIn('type', self::EVENT_TYPES)->orderBy('id')
             ->get(['id', 'ticket_id', 'type', 'from', 'to', 'actor_id', 'actor_type', 'source', 'created_at'])->groupBy('ticket_id');
-        $inputs = TicketComment::query()->whereIn('ticket_id', $ids)->where('is_tilen_input', true)->whereNull('retracted_at')->orderBy('id')
+        $inputs = TicketComment::query()->whereIn('ticket_id', $ids)->where('is_tilen_input', true)->whereNull('retracted_at')->whereNull('superseded_at')->orderBy('id')
             ->get(['id', 'ticket_id', 'author_id', 'body', 'input_choice', 'created_at'])->groupBy('ticket_id');
 
         $out = [];

@@ -85,7 +85,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
     private function q(string $key, string $project = self::BH): array
     {
         $p = $this->panel($project);
-        $all = collect([...$p['open'], ...$p['answered'], ...$p['closed']])->keyBy('ticket_key');
+        $all = collect([...$p['open'], ...$p['answered'], ...$p['closed'], ...$p['dismissed']])->keyBy('ticket_key');
         $this->assertArrayHasKey($key, $all->all(), "$key is not in the panel");
 
         return $all[$key];
@@ -145,7 +145,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->create(['title' => 'Parked', 'status' => 'in_progress', 'ask' => 'Later?']);
 
         $panel = $this->panel();
-        $this->assertSame(['open', 'answered', 'closed', 'has_any'], array_keys($panel));
+        $this->assertSame(['open', 'answered', 'closed', 'dismissed', 'has_any'], array_keys($panel));
         $this->assertSame([[$a, $b], [], [], true], [array_column($panel['open'], 'ticket_key'), $panel['answered'], $panel['closed'], $panel['has_any']]);
 
         $ticket = Ticket::query()->where('key', $a)->firstOrFail();
@@ -177,14 +177,16 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->asOwner()->postJson("/projects/blue-harbor/tickets/$c/move", ['status' => 'waiting_tilen', 'ask' => 'Remind me?'])->assertOk();
         $this->assertSame(['id' => 'tilen', 'name' => 'Tilen', 'role' => 'Owner', 'type' => 'human', 'source' => 'ui'], $this->q($c)['asked_by']);
 
-        // The Board prop is the same payload; the API filter keeps the shape; a project without questions is empty.
+        // The Board prop is the same payload (without the API's separate dismissed group, QA LOW-2); the API filter keeps
+        // the shape; a project without questions is empty.
         $this->app['auth']->forgetGuards();
         $expected = $this->panel();
+        unset($expected['dismissed']);
         $this->app['auth']->forgetGuards();
         $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')->where('questions', $expected)->where('board.project.open_questions_count', 3));
-        $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'has_any' => true], $this->panel(self::BH, 'answered'));
-        $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'has_any' => false], $this->panel(self::NW));
+        $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'dismissed' => [], 'has_any' => true], $this->panel(self::BH, 'answered'));
+        $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'dismissed' => [], 'has_any' => false], $this->panel(self::NW));
         $this->bearer($this->read, 'GET', '/api/projects/'.self::BH.'/questions?state=maybe')->assertUnprocessable()->assertJsonValidationErrors('state');
         // The lean asks list is unchanged.
         $this->assertSame([$a, $b, $c], array_column($this->bearer($this->read, 'GET', '/api/projects/'.self::BH.'/asks')->json('data'), 'key'));
@@ -337,6 +339,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
             ->assertJsonPath('data.answer_text', 'Wait for legal.')->assertJsonPath('data.answered_at', Carbon::now()->toIso8601String());
         $ticketId = Ticket::query()->where('key', $a)->value('id');
         $this->assertSame(2, TicketComment::query()->where('ticket_id', $ticketId)->where('is_tilen_input', true)->count());
+        $this->assertSame(1, TicketComment::query()->where('ticket_id', $ticketId)->where('is_tilen_input', true)->whereNull('superseded_at')->count());
 
         $this->bearer($this->janice, 'POST', "/api/tickets/$a/ack-input")->assertOk();
         $this->panelPost('answer', $a, ['choice' => 'Approve'])->assertStatus(409)->assertJsonPath('message', 'Question is closed');
@@ -347,6 +350,86 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $b = $this->ask(['title' => 'Moved']);
         $this->bearer($this->janice, 'POST', "/api/tickets/$b/move", ['status' => 'done'])->assertOk();
         $this->panelPost('answer', $b, ['text' => 'Late'])->assertStatus(409);
+    }
+
+    #[Test]
+    public function a_changed_answer_supersedes_the_pending_input(): void
+    {
+        $a = $this->ask(['ask' => 'Ship on Friday?', 'ask_options' => ['Yes', 'No']]);
+        $ticketId = Ticket::query()->where('key', $a)->value('id');
+        $this->travelMinutes(1);
+        $yes = $this->panelPost('answer', $a, ['choice' => 'Yes'])->assertCreated()->json('comment.id');
+        $this->travelMinutes(1);
+        $no = $this->panelPost('answer', $a, ['choice' => 'No'])->assertCreated()
+            ->assertJsonPath('comment.superseded', false)->assertJsonPath('data.answer_choice', 'No')->json('comment.id');
+        $changedAt = Carbon::now()->toIso8601String();
+
+        // Nothing deleted; exactly one pending input (the newest); the old one is flagged, its body kept.
+        $this->assertSame(2, TicketComment::query()->where('ticket_id', $ticketId)->count());
+        $this->assertSame([$no], TicketComment::query()->where('ticket_id', $ticketId)->where('is_tilen_input', true)
+            ->whereNull('retracted_at')->whereNull('superseded_at')->pluck('id')->all());
+        $old = TicketComment::query()->findOrFail($yes);
+        $this->assertSame([$changedAt, $no, 'Yes', null], [$old->superseded_at->toIso8601String(), $old->superseded_by_comment_id, $old->body, $old->retracted_at]);
+        $e = TicketEvent::query()->where('ticket_id', $ticketId)->where('type', 'input_superseded')->sole();
+        $this->assertSame([['comment_ids' => [$yes], 'by_comment_id' => $no], 'tilen', 'ui'], [$e->to, $e->actor_id, $e->source]);
+
+        // The ticket still needs pickup; the question's answer is the current one.
+        $this->bearer($this->read, 'GET', "/api/tickets/$a")->assertOk()->assertJsonPath('data.needs_pm_pickup', true);
+        $this->assertSame(['answered', 'No', null], [$this->q($a)['state'], $this->q($a)['answer_choice'], $this->q($a)['answer_text']]);
+
+        // REST comments and MCP get_ticket expose the flag on the (still visible) old input.
+        $flags = fn (array $comments) => array_map(fn ($c) => [$c['id'], $c['body'], $c['retracted'], $c['superseded'], $c['superseded_at'], $c['superseded_by_comment_id'], $c['picked_up_at']], $comments);
+        $pending = [[$yes, 'Yes', false, true, $changedAt, $no, null], [$no, 'No', false, false, null, null, null]];
+        $this->assertSame($pending, $flags($this->bearer($this->read, 'GET', "/api/tickets/$a/comments")->assertOk()->json('data')));
+        $this->assertSame($pending, $flags($this->tool($this->read, 'get_ticket', ['key' => $a])['data']['comments']));
+
+        // The relay feed carries only the current input, naming the one it replaced.
+        $feed = $this->bearer($this->read, 'GET', '/api/ticket-comments/feed?inputs_only=1')->assertOk()->json('data');
+        $this->assertSame([[$no, 'No', [$yes]]], array_map(fn ($c) => [$c['id'], $c['input_choice'], $c['supersedes_comment_ids']], $feed));
+
+        // ack-input picks up the current input only; the superseded one never shows as picked up (nor pending).
+        $this->travelMinutes(1);
+        $ackAt = Carbon::now()->toIso8601String();
+        $this->bearer($this->janice, 'POST', "/api/tickets/$a/ack-input")->assertOk()->assertJsonPath('data.needs_pm_pickup', false);
+        $this->assertSame(['closed', 'No', $ackAt], [$this->q($a)['state'], $this->q($a)['answer_choice'], $this->q($a)['picked_up_at']]);
+        $this->assertSame([[$yes, 'Yes', false, true, $changedAt, $no, null], [$no, 'No', false, false, null, null, $ackAt]],
+            $flags($this->bearer($this->read, 'GET', "/api/tickets/$a/comments")->json('data')));
+        $this->bearer($this->janice, 'POST', "/api/tickets/$a/ack-input")->assertUnprocessable();
+        $this->assertSame(2, TicketComment::query()->where('ticket_id', $ticketId)->count());
+    }
+
+    #[Test]
+    public function the_drawer_input_supersedes_too_but_never_comments_or_picked_up_inputs(): void
+    {
+        $a = $this->ask(['ask_options' => ['Yes', 'No']]);
+        $ticketId = Ticket::query()->where('key', $a)->value('id');
+        $id = fn (string $body) => TicketComment::query()->where('ticket_id', $ticketId)->where('body', $body)->value('id');
+        $superseded = fn () => TicketComment::query()->where('ticket_id', $ticketId)->orderBy('id')->get()
+            ->mapWithKeys(fn ($c) => [$c->body => $c->superseded_by_comment_id])->all();
+
+        // Drawer "Your input", a plain comment, an agent comment, then a changed input from the drawer.
+        $this->tilenSays($a, ['input_choice' => 'Yes', 'is_owner_input' => true])->assertCreated();
+        $this->travelMinutes(1);
+        $this->app['auth']->forgetGuards();
+        $this->tilenSays($a, ['body' => 'Plain note.'])->assertCreated();
+        $this->bearer($this->janice, 'POST', "/api/tickets/$a/comments", ['body' => 'Noted.'])->assertCreated();
+        $this->travelMinutes(1);
+        $this->app['auth']->forgetGuards();
+        $this->tilenSays($a, ['input_choice' => 'No', 'body' => 'Not yet.', 'is_owner_input' => true])->assertCreated()
+            ->assertJsonPath('data.superseded', false);
+        $this->assertSame(['Yes' => $id('Not yet.'), 'Plain note.' => null, 'Noted.' => null, 'Not yet.' => null], $superseded());
+        $this->assertSame(['answered', 'No', 'Not yet.'], [$this->q($a)['state'], $this->q($a)['answer_choice'], $this->q($a)['answer_text']]);
+
+        // Picked up: a new ask round's answer leaves the earlier (picked-up) inputs alone.
+        $this->bearer($this->janice, 'POST', "/api/tickets/$a/ack-input")->assertOk();
+        $this->travelMinutes(1);
+        $this->bearer($this->janice, 'PATCH', "/api/tickets/$a", ['ask' => 'Ship on Monday then?'])->assertOk();
+        $this->travelMinutes(1);
+        $this->panelPost('answer', $a, ['choice' => 'Yes', 'text' => 'Monday works.'])->assertCreated();
+        $this->assertSame(['Yes' => $id('Not yet.'), 'Plain note.' => null, 'Noted.' => null, 'Not yet.' => null, 'Monday works.' => null], $superseded());
+        $this->assertSame(1, TicketEvent::query()->where('ticket_id', $ticketId)->where('type', 'input_superseded')->count());
+        $this->assertSame(5, TicketComment::query()->where('ticket_id', $ticketId)->count());
+        $this->assertTrue(Ticket::query()->findOrFail($ticketId)->needsPmPickup());
     }
 
     #[Test]
@@ -386,11 +469,15 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $e = TicketEvent::query()->where('type', 'ask_dismissed')->firstOrFail();
         $this->assertSame(['tilen', 'human', 'ui', ['ask' => 'Approve staging?']], [$e->actor_id, $e->actor_type, $e->source, $e->to]);
 
-        // Owner side: in the closed group, not counted. The open-ask count (agents' waiting column) is unchanged.
+        // Owner side: in the dismissed group (REST; the Board prop keeps it in closed), not counted. The open-ask count
+        // (agents' waiting column) is unchanged.
         $panel = $this->panel();
-        $this->assertSame([[$b], [$a]], [array_column($panel['open'], 'ticket_key'), array_column($panel['closed'], 'ticket_key')]);
+        $this->assertSame([[$b], [], [$a]], [array_column($panel['open'], 'ticket_key'), $panel['closed'], array_column($panel['dismissed'], 'ticket_key')]);
+        $this->app['auth']->forgetGuards();
+        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+            ->where('questions.closed.0.ticket_key', $a)->where('questions.closed.0.state', 'dismissed')->missing('questions.dismissed'));
         $this->assertSame(['portfolio' => 1, 'api' => 1, 'board' => 1, 'asks' => 2], $this->counts());
-        $this->assertSame([$a], array_column($this->panel(self::BH, 'dismissed')['closed'], 'ticket_key'));
+        $this->assertSame([[], [$a]], [$this->panel(self::BH, 'dismissed')['closed'], array_column($this->panel(self::BH, 'dismissed')['dismissed'], 'ticket_key')]);
 
         // The ticket is untouched: still waiting, no comment, no pickup.
         $this->assertSame($before, $snapshot());

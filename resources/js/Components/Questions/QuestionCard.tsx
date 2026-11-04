@@ -32,12 +32,13 @@ export function QuestionMeta({ q, labels, now, age = true }: { q: Question; labe
  * card shows Sending…, and on 2xx hands the server's question to onSent (the panel moves it to the answered group).
  * Errors keep the values. ⌘/Ctrl+Enter sends.
  */
-export function QuestionCard({ q, slug, now, labels, mobile, change = false, onSent, onDismiss, onCancel, onStale }: {
+export function QuestionCard({ q, slug, now, labels, change = false, onSent, onDismiss, onCancel, onStale }: {
   q: Question;
   slug: string;
   now: string;
   labels: Label[];
-  mobile: boolean;
+  /** Unused since QA LOW-1 (the Dismiss button reads "Dismiss" at every width); kept for the panel's shared props. */
+  mobile?: boolean;
   /** Change answer: prefilled, Cancel instead of Dismiss. */
   change?: boolean;
   onSent: (q: Question) => void;
@@ -117,8 +118,8 @@ export function QuestionCard({ q, slug, now, labels, mobile, change = false, onS
         {change
           ? <button type="button" className="gbtn" onClick={onCancel} disabled={busy}>{t('q.cancelChange')}</button>
           : (
-            <button type="button" className="gbtn" onClick={() => onDismiss(q)} disabled={busy} aria-label={mobile ? undefined : t('q.dismiss.aria')}>
-              {mobile ? t('q.dismiss.aria') : t('q.dismiss')}
+            <button type="button" className="gbtn" onClick={() => onDismiss(q)} disabled={busy} aria-label={t('q.dismiss.aria')}>
+              {t('q.dismiss')}
             </button>
           )}
       </div>

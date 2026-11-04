@@ -12,6 +12,7 @@ use App\Support\BoardColumns;
 use App\Support\TicketPrefix;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -431,8 +432,9 @@ final class TicketService
     /**
      * Post a comment. An owner input comment (is_tilen_input, human actors in the UI only) sets tickets.tilen_input_at,
      * so the ticket needs PM pickup until acked or moved; the status never changes. "Change answer" = another input comment.
+     * With $supersede (the UI path, uiComment), a new input supersedes the ticket's pending ones: see supersedePending().
      */
-    public function comment(Ticket $ticket, Actor $actor, string $body, bool $isInput = false, ?string $choice = null, ?CarbonInterface $at = null, bool $checkWritable = true): TicketComment
+    public function comment(Ticket $ticket, Actor $actor, string $body, bool $isInput = false, ?string $choice = null, ?CarbonInterface $at = null, bool $checkWritable = true, bool $supersede = false): TicketComment
     {
         if ($checkWritable) {
             $this->ensureWritable($ticket);
@@ -441,8 +443,9 @@ final class TicketService
             throw ValidationException::withMessages(['is_tilen_input' => Actor::TILEN_ONLY_UI.'.']);
         }
 
-        return DB::transaction(function () use ($ticket, $actor, $body, $isInput, $choice, $at) {
+        return DB::transaction(function () use ($ticket, $actor, $body, $isInput, $choice, $at, $supersede) {
             $at ??= Carbon::now();
+            $pending = $isInput && $supersede ? $this->pendingInputs($ticket) : collect();
             $comment = new TicketComment;
             $comment->forceFill([
                 'ticket_id' => $ticket->id,
@@ -463,6 +466,7 @@ final class TicketService
             $ticket->updated_at = Carbon::now();
             $ticket->save();
             $this->event($ticket, 'commented', null, ['comment_id' => $comment->id, 'is_tilen_input' => $isInput, 'input_choice' => $comment->input_choice], $actor, $at);
+            $this->supersede($ticket, $pending, $comment, $actor, $at);
             Project::touchActivity($ticket->project_id);
 
             return $comment;
@@ -470,9 +474,44 @@ final class TicketService
     }
 
     /**
+     * QA MED-1: the ticket's pending owner inputs = live (not retracted, not superseded) input comments the PM has not
+     * picked up (the ticket needs pickup and the comment is newer than the last ack). Picked-up inputs are never pending.
+     */
+    private function pendingInputs(Ticket $ticket): Collection
+    {
+        if (! $ticket->needsPmPickup()) {
+            return collect();
+        }
+        $ack = $ticket->tilen_input_ack_at;
+
+        return TicketComment::query()->where('ticket_id', $ticket->id)->where('is_tilen_input', true)
+            ->whereNull('retracted_at')->whereNull('superseded_at')
+            ->when($ack !== null, fn ($q) => $q->where('created_at', '>', $ack))
+            ->lockForUpdate()->orderBy('id')->get();
+    }
+
+    /**
+     * A newer owner input supersedes the pending ones (never deleted: superseded_at + superseded_by_comment_id, the body
+     * stays visible and flagged) and logs one input_superseded event, so the ticket keeps exactly one pending input.
+     */
+    private function supersede(Ticket $ticket, Collection $pending, TicketComment $by, Actor $actor, CarbonInterface $at): void
+    {
+        if ($pending->isEmpty()) {
+            return;
+        }
+        TicketComment::query()->whereKey($pending->modelKeys())->update([
+            'superseded_at' => $at,
+            'superseded_by_comment_id' => $by->id,
+        ]);
+        $this->event($ticket, 'input_superseded', null, ['comment_ids' => $pending->modelKeys(), 'by_comment_id' => $by->id], $actor, $at);
+    }
+
+    /**
      * A comment from the Bridge UI: the ticket drawer's comment / "Your input" box (POST /projects/{slug}/tickets/{key}/comments)
      * and the r4 Questions panel answer (POST /projects/{slug}/questions/{id}/answer) both post through here.
      * $choice must be one of the ask options or "other"; a choice-only input uses the choice as its body.
+     * An owner input from either box supersedes the ticket's pending (not yet picked up) owner inputs, whoever wrote
+     * them: the ticket has one pending answer slot, so the newest input is the answer the PM picks up.
      */
     public function uiComment(Ticket $ticket, Actor $actor, ?string $body, ?string $choice, bool $isInput): TicketComment
     {
@@ -489,7 +528,7 @@ final class TicketService
             $body = $choice;
         }
 
-        return $this->comment($ticket, $actor, $body, $isInput, $choice);
+        return $this->comment($ticket, $actor, $body, $isInput, $choice, supersede: true);
     }
 
     /** Soft retract (own comments only). The row stays; the body is hidden in every view. */

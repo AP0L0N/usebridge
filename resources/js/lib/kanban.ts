@@ -71,6 +71,10 @@ export interface Comment {
   is_owner_input: boolean;
   input_choice: string | null;
   picked_up_at: string | null;
+  /** Owner input replaced by a newer one before the PM picked it up (body kept, not pending). */
+  superseded?: boolean;
+  superseded_at?: string | null;
+  superseded_by_comment_id?: number | null;
   created_at: string | null;
 }
 

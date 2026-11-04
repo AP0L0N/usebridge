@@ -376,6 +376,9 @@
   .cm .ack svg{flex:none}
   .cm .ack.ok{color:var(--a-ok)}
   .cm.tl .bub .role{background:var(--a-signal);color:var(--a-ink)}
+  /* r4 QA MED-1: an owner input replaced by a newer one, kept visible but muted and struck through */
+  .cm.sup .choice,.cm.sup .md{text-decoration:line-through;color:var(--a-ink-600)}
+  .cm.tl.sup .bub .role{background:var(--a-paper);color:var(--a-ink-600)}
   .role{display:inline-flex;align-items:center;height:22px;padding:0 8px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-paper);color:var(--a-ink-600);font:500 12px/1.35 var(--font-mono)}
   .cm.new .bub{box-shadow:inset 2px 0 0 var(--a-ink);padding-left:10px}
   .newsep{display:flex;align-items:center;gap:10px;list-style:none;font:500 12px/1.35 var(--font-mono);color:var(--a-ink)}

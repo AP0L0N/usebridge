@@ -386,8 +386,8 @@ const answeredAt = (iso: string | null, now: string): string => {
   return `on ${s}`;
 };
 
-/** The latest input comment of yours on this ticket (for the SENT state). */
-const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_owner_input && !c.retracted);
+/** The current input comment on this ticket (for the SENT state); superseded ones never count. */
+const latestInput = (d: Detail | null): Comment | undefined => [...(d?.comments ?? [])].reverse().find((c) => c.is_owner_input && !c.retracted && !c.superseded);
 
 function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Detail | null; pm: string | null; slug: string; now: string; onSent: () => void }) {
   const pmFirst = firstName(pm) || 'the PM';
@@ -531,13 +531,15 @@ function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: s
   const role = tl ? tr('ticket.input.tag') : roleTag(c.author_id, pm, people);
   const choice = c.input_choice && c.input_choice !== 'other' ? c.input_choice : null;
   const rest = choice && c.body === choice ? '' : c.body ?? '';
+  const sup = tl && !!c.superseded;
   return (
-    <li className={`cm${tl ? ' tl' : ''}${isNew ? ' new' : ''}`}>
+    <li className={`cm${tl ? ' tl' : ''}${sup ? ' sup' : ''}${isNew ? ' new' : ''}`}>
       <Avatar id={c.author_id} name={c.author_name} type={c.author_type} lg />
       <div className="bub">
         <header>
           <b>{c.author_name ?? c.author_id}</b>
           {role && <span className="role">{role}</span>}
+          {sup && <span className="role suplbl">{tr('ticket.input.superseded')}</span>}
           <span className="via">{c.author_type === 'agent' && <span className="agentdot" aria-hidden="true" />}{viaLabel(c.source, c.author_type === 'agent')}</span>
           <time dateTime={c.created_at ?? undefined}>{updateTime(c.created_at, now)}</time>
         </header>
@@ -547,7 +549,7 @@ function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: s
             {rest && <MarkdownBody content={rest} />}
           </>
         )}
-        {tl && (c.picked_up_at
+        {tl && !sup && (c.picked_up_at
           ? <p className="ack ok"><IcOk />{tr('ticket.input.pickedUp', { name: pmFirst, when: updateTime(c.picked_up_at, now) })}</p>
           : <p className="ack"><IcClock />{tr('ticket.input.pending', { name: pmFirst })}</p>)}
       </div>
