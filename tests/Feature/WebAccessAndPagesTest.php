@@ -24,7 +24,7 @@ class WebAccessAndPagesTest extends TestCase
     public function guests_see_the_landing_page_and_every_app_route_sends_them_to_login(): void
     {
         $this->get('/')->assertOk()->assertViewIs('landing');
-        foreach (['/portfolio', '/projects/blue-harbor', '/projects/blue-harbor/tickets/BH-1', '/usage', '/polymarket', '/account', '/account/tokens', '/welcome'] as $uri) {
+        foreach (['/portfolio', '/projects/blue-harbor', '/projects/blue-harbor/tickets/BH-1', '/usage', '/power-saver', '/polymarket', '/account', '/account/tokens', '/welcome'] as $uri) {
             $this->get($uri)->assertRedirect('/login');
         }
         $this->post('/projects/blue-harbor/tickets', ['title' => 'x'])->assertRedirect('/login');

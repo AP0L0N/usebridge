@@ -1,0 +1,39 @@
+/* Power Saver. Scoped under .app so it uses the shared --a-* tokens (app-shell.css) and does not touch the drawer. */
+
+.app .ps { padding: 40px 48px 64px; display: flex; flex-direction: column; gap: 28px; }
+.app .ps-header { display: flex; flex-direction: column; gap: 8px; max-width: 720px; }
+.app .ps h1 { margin: 0; font: 600 36px/1.1 var(--font-ui); letter-spacing: -0.03em; color: var(--a-ink); }
+.app .ps-summary, .app .ps-note p, .app .ps-sub { margin: 0; color: var(--a-ink-600); font-size: 15px; line-height: 1.5; }
+.app .ps-note, .app .ps-card { background: var(--a-surface); border: 1px solid var(--a-line); border-radius: var(--radius-md); }
+.app .ps-note { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; background: color-mix(in srgb, var(--a-warn) 12%, var(--a-surface)); }
+.app .ps-note summary { cursor: pointer; font: 500 14px/1.3 var(--font-ui); color: var(--a-ink); }
+.app .ps-options { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.app .ps-options li { display: flex; flex-direction: column; gap: 2px; }
+.app .ps-tag { align-self: flex-start; font: 500 12px/1.35 var(--font-mono); letter-spacing: 0; color: var(--a-ink-600); }
+.app .ps-card { padding: 8px 24px 16px; }
+.app .ps-card h2 { margin: 16px 0 0; font: 600 20px/1.25 var(--font-ui); letter-spacing: -0.02em; }
+.app .ps-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(140px, 0.7fr) minmax(280px, 1fr); gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--a-line); }
+.app .ps-row h3 { margin: 0; font: 600 16px/1.3 var(--font-ui); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.app .ps-meta { margin: 4px 0 0; color: var(--a-ink-600); font-size: 13px; }
+.app .ps-control { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.app .ps-control input[type='range'] { flex: 1; min-width: 100px; accent-color: var(--a-ink); }
+.app .ps-control input[type='range'].is-unset { opacity: 0.45; }
+.app .ps-control input[type='number'] { width: 5.5rem; height: 44px; padding: 0 12px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); font: 400 15px/1.5 var(--font-ui); }
+.app .ps-control input[type='number']:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
+.app .ps-clear { height: 44px; padding: 0 14px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); font: 500 14px/1.3 var(--font-ui); cursor: pointer; }
+.app .ps-clear:disabled { color: var(--a-ink-400); cursor: default; }
+.app .ps-live { margin: 4px 0 0; min-height: 1.2em; font-size: 13px; color: var(--a-ink-600); }
+.app .ps-err { margin: 4px 0 0; color: var(--a-risk); font-size: 14px; }
+.app .ps-retry { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--a-ink); font: 500 14px/1.3 var(--font-ui); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.app .ps-empty { text-align: center; padding: 36px 16px 28px; }
+.app .ps-empty h3 { margin: 0 0 6px; font: 600 20px/1.25 var(--font-ui); }
+.app .ps-empty p { margin: 0 auto; max-width: 420px; color: var(--a-ink-600); }
+.app .ps-skel { height: 72px; margin-top: 16px; border-radius: var(--radius-md); background: linear-gradient(90deg, var(--a-line), var(--a-paper), var(--a-line)); background-size: 200% 100%; animation: ps-sk 1.4s linear infinite; }
+@keyframes ps-sk { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .app .ps-skel { animation: none; } }
+@media (max-width: 720px) {
+  .app .ps { padding: 24px 16px 48px; }
+  .app .ps h1 { font-size: 30px; }
+  .app .ps-row { grid-template-columns: 1fr; gap: 8px; }
+  .app .ps-card { padding: 8px 16px 16px; }
+}

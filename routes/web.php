@@ -16,6 +16,7 @@ use App\Http\Controllers\Pages\LegalPageController;
 use App\Http\Controllers\Pages\OnboardingController;
 use App\Http\Controllers\PolymarketController;
 use App\Http\Controllers\PortfolioController;
+use App\Http\Controllers\PowerSaverController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectSetupController;
 use App\Http\Controllers\QuestionPanelController;
@@ -118,6 +119,8 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::patch('/projects/{slug}/status', [TicketController::class, 'status'])->name('projects.status.update');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');
+    Route::get('/power-saver', [PowerSaverController::class, 'show'])->name('power-saver');
+    Route::patch('/power-saver', [PowerSaverController::class, 'update'])->middleware('throttle:30,1')->name('power-saver.update');
     Route::get('/usage', [UsageController::class, 'index'])->name('usage');
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')

@@ -72,6 +72,7 @@ export const S = {
   // Redesign: Portfolio + app top bar (Marc's notes); wording pending Marie's review.
   'nav.portfolio': 'Portfolio',
   'nav.usage': 'Usage',
+  'nav.powerSaver': 'Power Saver',
   'nav.polymarket': 'Polymarket',
   'nav.admin': 'Admin',
   'nav.main': 'Main',

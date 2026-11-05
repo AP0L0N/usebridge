@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * The app shell (Shell/AppTopBar) renders from the shared Inertia props: nav = Portfolio + Usage, plus Polymarket
+ * The app shell (Shell/AppTopBar) renders from the shared Inertia props: nav = Portfolio, Usage and Power Saver, plus Polymarket
  * (workspace feature) and Admin (is_admin); the Owner chip is is_admin. Owner and admin are one flag today; the
  * Polymarket feature is per workspace, so a non-admin member of a Polymarket workspace is the only mixed case.
  */
@@ -37,7 +37,7 @@ class AppShellTest extends TestCase
     /** @return array<string, array{string}> */
     public static function appPages(): array
     {
-        return ['portfolio' => ['/'], 'usage' => ['/usage'], 'account' => ['/account'], 'tokens' => ['/account/tokens']];
+        return ['portfolio' => ['/'], 'usage' => ['/usage'], 'power saver' => ['/power-saver'], 'account' => ['/account'], 'tokens' => ['/account/tokens']];
     }
 
     #[Test]

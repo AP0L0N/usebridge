@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CeoQueueCompatController;
 use App\Http\Controllers\Api\LabelController;
 use App\Http\Controllers\Api\NextStepController;
 use App\Http\Controllers\Api\PolymarketFeedController;
+use App\Http\Controllers\Api\PowerSaverController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectStatusController;
 use App\Http\Controllers\Api\QuestionController;
@@ -78,6 +79,10 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     Route::get('labels', [LabelController::class, 'index'])->name('api.labels.index');
     Route::post('labels', [LabelController::class, 'store'])->name('api.labels.store');
     Route::patch('labels/{id}', [LabelController::class, 'update'])->name('api.labels.update');
+
+    // Power Saver: thresholds only. GET boards:read, PATCH boards:write. Does not stop projects or routines.
+    Route::get('power-saver', [PowerSaverController::class, 'show'])->name('api.power-saver.show');
+    Route::patch('power-saver', [PowerSaverController::class, 'update'])->name('api.power-saver.update');
 
     Route::get('agents', [AgentController::class, 'index'])->name('api.agents.index');
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');

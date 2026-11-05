@@ -20,15 +20,16 @@ type NavItem = { href: string; label: StrKey; feature?: 'polymarket' | 'admin' }
 export const NAV: readonly NavItem[] = [
   { href: '/', label: 'nav.portfolio' },
   { href: '/usage', label: 'nav.usage' },
+  { href: '/power-saver', label: 'nav.powerSaver' },
   { href: '/polymarket', label: 'nav.polymarket', feature: 'polymarket' },
   { href: '/admin/users', label: 'nav.admin', feature: 'admin' },
 ];
 
 const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
 
-/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
+/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /power-saver to Power Saver, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
 export function activeHref(url: string): string | null {
-  for (const base of ['/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
+  for (const base of ['/power-saver', '/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
   if (under(url, '/account') || under(url, '/welcome')) return null;
   return '/';
 }

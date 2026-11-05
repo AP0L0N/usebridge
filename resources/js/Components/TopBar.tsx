@@ -8,15 +8,16 @@ import { IconChev } from './AppIcons';
 export const NAV = [
   { href: '/', label: 'Portfolio' },
   { href: '/usage', label: 'Usage' },
+  { href: '/power-saver', label: t('nav.powerSaver') },
   { href: '/polymarket', label: 'Polymarket', feature: 'polymarket' },
   { href: '/admin/users', label: 'Admin', feature: 'admin' },
 ] as const;
 
 const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
 
-/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
+/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /power-saver to Power Saver, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
 export function activeHref(url: string): string | null {
-  for (const base of ['/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
+  for (const base of ['/power-saver', '/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
   if (under(url, '/account') || under(url, '/welcome')) return null;
   return '/';
 }
