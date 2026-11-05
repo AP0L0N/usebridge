@@ -27,8 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
         // Agent descriptions are hashed byte for byte (docs/agent-instructions-sync.md): never trimmed or nulled.
         $agentText = fn (Request $request) => $request->is('api/agent-profiles', 'api/agents/sync', 'usage/agents/*/instructions');
+        // Power Saver writes must see an empty stop_percent as "" so it can be rejected; null is the only clear.
+        $powerSaverWrite = fn (Request $request) => $request->is('power-saver', 'api/power-saver') && $request->isMethod('PATCH');
         $middleware->trimStrings(except: [$usageUpload, $agentText]);
-        $middleware->convertEmptyStringsToNull(except: [$usageUpload, $agentText]);
+        $middleware->convertEmptyStringsToNull(except: [$usageUpload, $agentText, $powerSaverWrite]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

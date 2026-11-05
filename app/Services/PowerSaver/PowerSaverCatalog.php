@@ -80,7 +80,12 @@ final class PowerSaverCatalog
     private function saveOne(User $actor, array $item, int $index): array
     {
         $type = $item['subject_type'];
-        $percent = $item['stop_percent'] === null ? null : (int) $item['stop_percent'];
+        $percent = $item['stop_percent'] ?? null;
+        if ($percent !== null && ! is_int($percent)) {
+            throw ValidationException::withMessages([
+                "thresholds.$index.stop_percent" => __('power.errors.percent'),
+            ]);
+        }
 
         if ($type === PowerSaverThreshold::TYPE_PROJECT) {
             $projectId = (string) $item['project_id'];

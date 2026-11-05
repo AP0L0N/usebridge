@@ -272,6 +272,43 @@ class PowerSaverTest extends TestCase
     }
 
     #[Test]
+    public function stop_percent_accepts_only_json_integers_or_null_and_a_bad_value_changes_nothing(): void
+    {
+        $project = BridgeSeeder::PROJ_NORTHWIND;
+        $body = fn (mixed $percent, mixed $also = null): array => ['thresholds' => array_values(array_filter([
+            ['subject_type' => 'project', 'project_id' => $project, 'stop_percent' => $percent],
+            $also,
+        ]))];
+
+        $this->asOwner()->patchJson(route('power-saver.update'), $body(40))->assertOk()->assertJsonPath('data.0.stop_percent', 40);
+
+        $assertUnchanged = function (string $url) use ($body, $project): void {
+            foreach (['12', '', 12.5, true, false, ['12'], ['n' => 12], 101, -1] as $bad) {
+                $this->patchJson($url, $body($bad))->assertUnprocessable()->assertJsonValidationErrors('thresholds.0.stop_percent');
+                $this->assertDatabaseHas('power_saver_thresholds', ['project_id' => $project, 'stop_percent' => 40]);
+            }
+            $this->patchJson($url, $body(10, ['subject_type' => 'project', 'project_id' => $project, 'stop_percent' => '12']))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('thresholds.1.stop_percent');
+            $this->assertDatabaseHas('power_saver_thresholds', ['project_id' => $project, 'stop_percent' => 40]);
+        };
+
+        $assertUnchanged(route('power-saver.update'));
+
+        $token = $this->workspaceUser()->createToken('write', ['boards:write'])->plainTextToken;
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token);
+        $assertUnchanged(route('api.power-saver.update'));
+
+        $this->app['auth']->forgetGuards();
+        $this->asOwner();
+        foreach ([0, 100, null] as $ok) {
+            $this->patchJson(route('power-saver.update'), $body($ok))->assertOk()->assertJsonPath('data.0.stop_percent', $ok);
+        }
+        $this->assertDatabaseMissing('power_saver_thresholds', ['project_id' => $project]);
+    }
+
+    #[Test]
     public function one_agent_who_owns_several_projects_is_listed_on_each_and_usage_is_not_split(): void
     {
         Project::query()->whereKey(BridgeSeeder::PROJ_NORTHWIND)->update(['owner_agent_id' => 'agent-janice']);

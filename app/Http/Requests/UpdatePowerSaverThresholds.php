@@ -13,7 +13,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * One or more Power Saver thresholds. Shared by the session page and PATCH /api/power-saver.
- * A null stop_percent clears the stored threshold. 0 and 100 are kept.
+ * stop_percent is a JSON integer 0–100, or JSON null (clears the row). Numeric strings and "" are rejected.
  */
 class UpdatePowerSaverThresholds extends FormRequest
 {
@@ -40,7 +40,7 @@ class UpdatePowerSaverThresholds extends FormRequest
             'thresholds.*.project_id' => ['nullable', 'string', 'max:255'],
             'thresholds.*.agent_id' => ['nullable', 'string', 'max:64'],
             'thresholds.*.routine_id' => ['nullable', 'string', 'max:120'],
-            'thresholds.*.stop_percent' => ['present', 'nullable', new WholePercent],
+            'thresholds.*.stop_percent' => ['present', new WholePercent],
         ];
     }
 

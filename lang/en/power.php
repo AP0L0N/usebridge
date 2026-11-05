@@ -3,7 +3,7 @@
 // Power Saver validation. The page chrome lives in resources/js/lib/strings-power.ts; these are the server replies.
 return [
     'errors' => [
-        'percent' => 'Enter a whole number from 0 to 100, or leave it empty for no threshold.',
+        'percent' => 'stop_percent must be an integer from 0 to 100, or null.',
         'project_required' => 'Name the project.',
         'routine_required' => 'Name the agent and the routine.',
         'project_only' => 'A project threshold cannot include an agent or a routine.',
