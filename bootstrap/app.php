@@ -3,10 +3,10 @@
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogoutBlockedUser;
 use App\Http\Middleware\WorkspaceBoundary;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -24,9 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->api(prepend: [WorkspaceBoundary::class]);
         // The usage and Polymarket uploads are decoded only by their validators, after the size/type guard.
+        // Power Saver writes must see an empty stop_percent as "" so it can be rejected; null is the only clear.
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
+        $powerSaverWrite = fn (Request $request) => $request->is('power-saver', 'api/power-saver') && $request->isMethod('PATCH');
         $middleware->trimStrings(except: [$usageUpload]);
-        $middleware->convertEmptyStringsToNull(except: [$usageUpload]);
+        $middleware->convertEmptyStringsToNull(except: [$usageUpload, $powerSaverWrite]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

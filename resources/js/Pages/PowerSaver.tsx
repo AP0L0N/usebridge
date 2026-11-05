@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import '../../css/power-saver.css';
 import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { requestJson } from '../lib/http';
+import { parsePercent, saveFailureKind, showStopSlider, type PercentParse } from '../lib/powerSaverField';
 import { t } from '../lib/strings-power';
 
 type Semantics = {
@@ -23,15 +24,7 @@ type Props = { semantics: Semantics; gaps: Gaps; projects: ProjectRow[]; routine
 type SavedRow = {
   subject_type: 'project' | 'routine'; project_id?: string; agent_id?: string; routine_id?: string; stop_percent: number | null;
 };
-
-function parsePercent(raw: string, min: number, max: number): { ok: true; value: number | null } | { ok: false; message: string } {
-  const text = raw.trim();
-  if (text === '') return { ok: true, value: null };
-  if (!/^\d+$/.test(text)) return { ok: false, message: t('ps.error.percent') };
-  const n = Number(text);
-  if (n < min || n > max) return { ok: false, message: t('ps.error.percent') };
-  return { ok: true, value: n };
-}
+type SaveFailure = { kind: 'validation' | 'network'; message: string };
 
 function firstError(errors: Record<string, string[]> | undefined, fallback: string): string {
   for (const messages of Object.values(errors ?? {})) if (messages[0]) return messages[0];
@@ -39,12 +32,16 @@ function firstError(errors: Record<string, string[]> | undefined, fallback: stri
 }
 
 function ThresholdControl({ name, value, min, max, onCommit }: {
-  name: string; value: number | null; min: number; max: number; onCommit: (next: number | null) => Promise<string | null>;
+  name: string; value: number | null; min: number; max: number;
+  onCommit: (next: number | null) => Promise<SaveFailure | null>;
 }) {
   const numberId = useId();
+  const errorId = useId();
+  const numberRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(value === null ? '' : String(value));
   const [saved, setSaved] = useState(value);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<'validation' | 'network' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inflight = useRef<number | null | undefined>(undefined);
@@ -55,57 +52,71 @@ function ThresholdControl({ name, value, min, max, onCommit }: {
     setSaved(value);
   }, [value]);
 
-  const parsed = parsePercent(text, min, max);
-  const unset = text.trim() === '';
-  const sliderValue = parsed.ok && parsed.value !== null ? parsed.value : min;
-  const stateLabel = unset ? t('ps.unset') : parsed.ok && parsed.value !== null ? t('ps.percent', { n: parsed.value }) : '';
+  const invalid = t('ps.error.percent');
+  const parsed: PercentParse = parsePercent(text, min, max, invalid);
+  const showSlider = showStopSlider(parsed);
+  const sliderValue = showSlider && parsed.ok ? parsed.value ?? min : min;
+  const stateLabel = !showSlider ? t('ps.unset') : t('ps.percent', { n: sliderValue });
   const live = busy ? t('ps.saving') : error ? '' : note === t('ps.saved') ? `${t('ps.saved')} · ${stateLabel}` : (note ?? stateLabel);
+  const describedBy = error ? errorId : undefined;
+
+  const fail = (kind: 'validation' | 'network', message: string) => {
+    setError(message);
+    setErrorKind(kind);
+    setNote(null);
+  };
 
   const commit = async (raw: string) => {
-    const next = parsePercent(raw, min, max);
-    if (!next.ok) { setError(next.message); setNote(null); return; }
-    if (next.value === saved || inflight.current === next.value) { setError(null); return; }
+    const next = parsePercent(raw, min, max, invalid);
+    if (!next.ok) { fail('validation', next.message); return; }
+    if (next.value === saved || inflight.current === next.value) { setError(null); setErrorKind(null); return; }
     const id = ++seq.current;
     inflight.current = next.value;
     setBusy(true);
     setError(null);
+    setErrorKind(null);
     setNote(t('ps.saving'));
-    const message = await onCommit(next.value);
+    const failure = await onCommit(next.value);
     if (id !== seq.current) return;
     inflight.current = undefined;
     setBusy(false);
-    if (message) { setError(message); setNote(null); return; }
+    if (failure) { fail(failure.kind, failure.message); return; }
     setSaved(next.value);
     setText(next.value === null ? '' : String(next.value));
     setNote(t('ps.saved'));
   };
 
+  const retry = () => { void commit(numberRef.current?.value ?? text); };
+
   return (
     <div className="ps-field">
       <div className="ps-control">
         <label className="sr-only" htmlFor={numberId}>{t('ps.number', { name })}</label>
-        <input id={numberId} type="number" inputMode="numeric" min={min} max={max} step={1} value={text}
-          aria-invalid={error ? true : undefined} disabled={busy}
+        <input ref={numberRef} id={numberId} type="number" inputMode="numeric" min={min} max={max} step={1} value={text}
+          aria-invalid={error ? true : undefined} aria-describedby={describedBy} disabled={busy}
           onChange={(e) => { setText(e.target.value); setNote(null); }}
           onBlur={(e) => { void commit(e.currentTarget.value); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void commit(e.currentTarget.value); } }} />
-        <input type="range" min={min} max={max} step={1} value={sliderValue} disabled={busy}
-          className={unset ? 'is-unset' : undefined} aria-label={t('ps.slider', { name })}
-          aria-valuemin={min} aria-valuemax={max} aria-valuenow={unset ? undefined : sliderValue}
-          aria-valuetext={unset ? t('ps.unset') : t('ps.percent', { n: sliderValue })}
-          onChange={(e) => setText(e.target.value)}
-          onPointerUp={(e) => { void commit((e.target as HTMLInputElement).value); }}
-          onKeyUp={(e) => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) void commit((e.currentTarget as HTMLInputElement).value); }}
-          onBlur={(e) => { void commit(e.target.value); }} />
-        <button type="button" className="ps-clear" disabled={busy || (unset && saved === null)} onClick={() => { setText(''); void commit(''); }}>
+        {showSlider && (
+          <input type="range" min={min} max={max} step={1} value={sliderValue} disabled={busy}
+            aria-label={t('ps.slider', { name })}
+            aria-invalid={error ? true : undefined} aria-describedby={describedBy}
+            aria-valuemin={min} aria-valuemax={max} aria-valuenow={sliderValue}
+            aria-valuetext={t('ps.percent', { n: sliderValue })}
+            onChange={(e) => setText(e.target.value)}
+            onPointerUp={(e) => { void commit((e.target as HTMLInputElement).value); }}
+            onKeyUp={(e) => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) void commit((e.currentTarget as HTMLInputElement).value); }}
+            onBlur={(e) => { void commit(e.target.value); }} />
+        )}
+        <button type="button" className="ps-clear" disabled={busy || (!showSlider && saved === null)} onClick={() => { setText(''); void commit(''); }}>
           {t('ps.clear')}
         </button>
       </div>
       <p className="ps-live" aria-live="polite">{live}</p>
       {error && (
-        <p className="ps-err" role="alert">
-          {error}
-          <button type="button" className="ps-retry" onClick={() => { void commit((document.getElementById(numberId) as HTMLInputElement | null)?.value ?? text); }}>{t('ps.retry')}</button>
+        <p className="ps-err">
+          <span id={errorId} role="alert">{error}</span>
+          <button type="button" className="ps-retry" onClick={retry}>{errorKind === 'validation' ? t('ps.correct') : t('ps.retry')}</button>
         </p>
       )}
     </div>
@@ -142,10 +153,14 @@ export default function PowerSaver({ semantics, gaps, projects, routines }: Prop
     return () => { offStart(); offFinish(); };
   }, []);
 
-  const save = async (body: Record<string, unknown>): Promise<string | null> => {
+  const save = async (body: Record<string, unknown>): Promise<SaveFailure | null> => {
     const res = await requestJson<{ data?: SavedRow[] }>('PATCH', '/power-saver', { thresholds: [body] });
     if (res.ok) return null;
-    return firstError(res.data.errors, res.data.message ?? t('ps.error.save'));
+    const kind = saveFailureKind(res.status, res.data.errors !== undefined);
+    const message = kind === 'validation'
+      ? firstError(res.data.errors, t('ps.error.percent'))
+      : (res.data.message ?? t('ps.error.save'));
+    return { kind, message };
   };
 
   return (

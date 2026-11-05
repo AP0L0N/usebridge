@@ -17,7 +17,6 @@
 .app .ps-meta { margin: 4px 0 0; color: var(--a-ink-600); font-size: 13px; }
 .app .ps-control { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .app .ps-control input[type='range'] { flex: 1; min-width: 100px; accent-color: var(--a-ink); }
-.app .ps-control input[type='range'].is-unset { opacity: 0.45; }
 .app .ps-control input[type='number'] { width: 5.5rem; height: 44px; padding: 0 12px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); font: 400 15px/1.5 var(--font-ui); }
 .app .ps-control input[type='number']:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
 .app .ps-clear { height: 44px; padding: 0 14px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); font: 500 14px/1.3 var(--font-ui); cursor: pointer; }
