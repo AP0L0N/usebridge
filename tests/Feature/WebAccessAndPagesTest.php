@@ -28,7 +28,9 @@ class WebAccessAndPagesTest extends TestCase
             $this->get($uri)->assertRedirect('/login');
         }
         $this->post('/projects/blue-harbor/tickets', ['title' => 'x'])->assertRedirect('/login');
-        $this->withHeader('X-Inertia', 'true')->get('/usage')->assertStatus(409)->assertHeader('X-Inertia-Location', route('login'));
+        // Send the current asset version so a built manifest does not turn this into a full reload of /usage.
+        $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertia()->getVersion()])
+            ->get('/usage')->assertStatus(409)->assertHeader('X-Inertia-Location', route('login'));
     }
 
     #[Test]

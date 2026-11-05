@@ -12,6 +12,7 @@ type StopOption = { id: string; status: 'proposed' | 'not_built' | 'rejected' | 
 type Gaps = { summary: string; chosenStopOption: string | null; stopOptions: StopOption[] };
 type ProjectRow = {
   id: string; name: string; slug: string; status: string | null; statusLabel: string; archived: boolean;
+  agentId: string | null; agentIds: string[]; agentName: string | null; projectIdsForAgent: string[];
   stopPercent: number | null; stoppableInBridge: boolean;
 };
 type RoutineRow = {
@@ -117,8 +118,13 @@ function statusText(project: ProjectRow): string {
 }
 
 function optionLabel(status: string): string {
-  if (status === 'proposed' || status === 'not_built' || status === 'rejected') return t(`ps.stop.${status}`);
+  if (status === 'proposed' || status === 'not_built' || status === 'rejected' || status === 'locked') return t(`ps.stop.${status}`);
   return status;
+}
+
+function projectAgentLine(project: ProjectRow): string {
+  const who = project.agentName ? t('ps.project.agent', { name: project.agentName }) : t('ps.project.noAgent');
+  return project.projectIdsForAgent.length > 1 ? `${who} · ${t('ps.project.shared')}` : who;
 }
 
 export default function PowerSaver({ semantics, gaps, projects, routines }: Props) {
@@ -179,7 +185,7 @@ export default function PowerSaver({ semantics, gaps, projects, routines }: Prop
             <div className="ps-row" key={project.id}>
               <div>
                 <h3 id={`ps-p-${project.id}`}>{project.name}</h3>
-                <p className="ps-meta">{project.slug}</p>
+                <p className="ps-meta">{project.slug} · {projectAgentLine(project)}</p>
               </div>
               <p className="ps-meta">{statusText(project)}</p>
               <ThresholdControl name={project.name} value={project.stopPercent} min={min} max={max}

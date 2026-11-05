@@ -21,7 +21,7 @@ final class PowerSaverCatalog
     private ?array $seen = null;
 
     /**
-     * Captain's read shape. Snake case, same as the rest of /api. The contract is proposed (`locked` false).
+     * Captain's read shape. Snake case, same as the rest of /api. Semantics are locked.
      *
      * @return array<string, mixed>
      */
@@ -164,9 +164,25 @@ final class PowerSaverCatalog
             ->get()
             ->keyBy('project_id');
 
-        return Project::query()->orderBy('name')->orderBy('id')->get()->map(function (Project $project) use ($stored): array {
+        $projects = Project::query()->orderBy('name')->orderBy('id')->get();
+        $agents = Agent::query()->get()->keyBy('id');
+        $idsByAgent = [];
+        foreach ($projects as $project) {
+            if (! is_string($project->owner_agent_id) || $project->owner_agent_id === '') {
+                continue;
+            }
+            $idsByAgent[$project->owner_agent_id][] = $project->id;
+        }
+        foreach ($idsByAgent as &$ids) {
+            sort($ids);
+        }
+        unset($ids);
+
+        return $projects->map(function (Project $project) use ($stored, $agents, $idsByAgent): array {
             /** @var PowerSaverThreshold|null $row */
             $row = $stored->get($project->id);
+            $agentId = is_string($project->owner_agent_id) && $project->owner_agent_id !== '' ? $project->owner_agent_id : null;
+            $agent = $agentId === null ? null : $agents->get($agentId);
 
             return [
                 'id' => $project->id,
@@ -175,6 +191,16 @@ final class PowerSaverCatalog
                 'status' => $project->status,
                 'status_label' => Project::statusLabel($project->status),
                 'archived' => $project->isArchived(),
+                // PM (projects.owner_agent_id). At most one. Null when the project has no PM.
+                'agent_id' => $agentId,
+                // Same PM as a list so a caller can walk mappings. Today: [] or [agent_id].
+                'agent_ids' => $agentId === null ? [] : [$agentId],
+                'agent_name' => $agent?->name ?? $agentId,
+                // Every project this PM owns here, including this one, sorted by id. Usage is not split across them.
+                'project_ids_for_agent' => $agentId === null ? [] : $idsByAgent[$agentId],
+                'split_usage' => false,
+                'usage_signal' => 'agent_total_estimated',
+                'usage_approximation' => true,
                 'stop_percent' => $row?->stop_percent,
                 'stoppable_in_bridge' => false,
                 'threshold_updated_at' => $row?->updated_at?->toIso8601String(),
@@ -221,6 +247,8 @@ final class PowerSaverCatalog
                 'routine_id' => $row['routine_id'],
                 'name' => $row['name'],
                 'seen_in_usage' => isset($this->seenRoutines()[$key]),
+                'usage_signal' => 'own_routine',
+                'unobserved_current_usage' => 0,
                 'stop_percent' => $saved?->stop_percent,
                 'stoppable_in_bridge' => false,
                 'threshold_updated_at' => $saved?->updated_at?->toIso8601String(),
@@ -300,25 +328,7 @@ final class PowerSaverCatalog
      */
     private function camelSemantics(array $semantics): array
     {
-        return [
-            'status' => $semantics['status'],
-            'locked' => $semantics['locked'],
-            'unit' => $semantics['unit'],
-            'min' => $semantics['min'],
-            'max' => $semantics['max'],
-            'unset' => $semantics['unset'],
-            'storedZeroMeans' => $semantics['stored_zero_means'],
-            'storedHundredMeans' => $semantics['stored_hundred_means'],
-            'nullMeans' => $semantics['null_means'],
-            'comparison' => $semantics['comparison'],
-            'comparisonAgreed' => $semantics['comparison_agreed'],
-            'comparisonSummary' => $semantics['comparison_summary'],
-            'usageCeilingDefined' => $semantics['usage_ceiling_defined'],
-            'projectUsageAttribution' => $semantics['project_usage_attribution'],
-            'enforcement' => $semantics['enforcement'],
-            'mutatesSubjects' => $semantics['mutates_subjects'],
-            'summary' => $semantics['summary'],
-        ];
+        return $this->camelKeys($semantics);
     }
 
     /**
@@ -327,15 +337,27 @@ final class PowerSaverCatalog
      */
     private function camelGaps(array $gaps): array
     {
-        return [
-            'projectEnabledState' => $gaps['project_enabled_state'],
-            'routineEnabledState' => $gaps['routine_enabled_state'],
-            'routineRegistry' => $gaps['routine_registry'],
-            'chosenStopOption' => $gaps['chosen_stop_option'],
-            'excludedRoutineIds' => $gaps['excluded_routine_ids'],
-            'stopOptions' => $gaps['stop_options'],
-            'summary' => $gaps['summary'],
-        ];
+        return $this->camelKeys($gaps);
+    }
+
+    /**
+     * @return array<string, mixed>|list<mixed>
+     */
+    private function camelKeys(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            return array_map($this->camelKeys(...), $value);
+        }
+        $out = [];
+        foreach ($value as $key => $item) {
+            $camel = lcfirst(str_replace('_', '', ucwords((string) $key, '_')));
+            $out[$camel] = $this->camelKeys($item);
+        }
+
+        return $out;
     }
 
     /**
@@ -351,6 +373,13 @@ final class PowerSaverCatalog
             'status' => $project['status'],
             'statusLabel' => $project['status_label'],
             'archived' => $project['archived'],
+            'agentId' => $project['agent_id'],
+            'agentIds' => $project['agent_ids'],
+            'agentName' => $project['agent_name'],
+            'projectIdsForAgent' => $project['project_ids_for_agent'],
+            'splitUsage' => $project['split_usage'],
+            'usageSignal' => $project['usage_signal'],
+            'usageApproximation' => $project['usage_approximation'],
             'stopPercent' => $project['stop_percent'],
             'stoppableInBridge' => $project['stoppable_in_bridge'],
             'thresholdUpdatedAt' => $project['threshold_updated_at'],
@@ -369,6 +398,8 @@ final class PowerSaverCatalog
             'routineId' => $routine['routine_id'],
             'name' => $routine['name'],
             'seenInUsage' => $routine['seen_in_usage'],
+            'usageSignal' => $routine['usage_signal'],
+            'unobservedCurrentUsage' => $routine['unobserved_current_usage'],
             'stopPercent' => $routine['stop_percent'],
             'stoppableInBridge' => $routine['stoppable_in_bridge'],
             'thresholdUpdatedAt' => $routine['threshold_updated_at'],

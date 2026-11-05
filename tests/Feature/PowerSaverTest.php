@@ -44,40 +44,62 @@ class PowerSaverTest extends TestCase
     }
 
     #[Test]
-    public function the_page_lists_projects_and_routines_and_says_the_contract_is_not_locked(): void
+    public function the_page_lists_projects_and_routines_under_the_locked_contract(): void
     {
         PowerSaverThreshold::factory()->routine('agent-tommy', 'weekday-desk')->percent(40)->create();
 
         $this->asOwner()->get(route('power-saver'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('PowerSaver')
-            ->where('semantics.locked', false)
-            ->where('semantics.comparisonAgreed', false)
-            ->where('semantics.comparison', 'proposed_gte')
-            ->where('semantics.enforcement', 'not_implemented')
+            ->where('semantics.locked', true)
+            ->where('semantics.comparisonAgreed', true)
+            ->where('semantics.comparison', 'gte')
+            ->where('semantics.comparisonRule', 'current_usage >= stop_percent')
+            ->where('semantics.resume', 'strict_lt')
+            ->where('semantics.resumeRule', 'current_usage < stop_percent')
+            ->where('semantics.weeklyResetReenables', true)
+            ->where('semantics.ceiling', 'shared_weekly_ultra_usage_limit')
+            ->where('semantics.ceilingScope', 'shared_across_plan_apps')
+            ->where('semantics.enforcement', 'external_only')
             ->where('semantics.mutatesSubjects', false)
-            ->where('semantics.usageCeilingDefined', false)
-            ->where('semantics.projectUsageAttribution', false)
+            ->where('semantics.bridgeComputesCurrentUsage', false)
+            ->where('semantics.usageCeilingDefined', true)
+            ->where('semantics.projectUsageAttribution', 'approximate_agent_total_not_split')
+            ->where('semantics.projectUsage.splitUsage', false)
+            ->where('semantics.routineUsage.unobservedCurrentUsage', 0)
+            ->where('semantics.projectAgentId.cardinality', 'at_most_one')
+            ->where('semantics.projectAgentIds.cardinality', 'zero_or_one')
             ->where('semantics.min', 0)
             ->where('semantics.max', 100)
-            ->where('semantics.storedZeroMeans', 'threshold')
-            ->where('semantics.nullMeans', 'no_threshold')
+            ->where('semantics.storedZeroMeans', 'stop_at_or_above_zero')
+            ->where('semantics.nullMeans', 'never_stops')
             ->where('gaps.projectEnabledState', false)
             ->where('gaps.routineEnabledState', false)
-            ->where('gaps.routineRegistry', false)
-            ->where('gaps.chosenStopOption', null)
+            ->where('gaps.bridgeCanPauseRoutines', false)
+            ->where('gaps.projectUsageIsApproximate', true)
+            ->where('gaps.chosenStopOption', 'external_only')
             ->has('projects', 2)
             ->where('projects.0.id', BridgeSeeder::PROJ_BLUE_HARBOR)
             ->where('projects.0.archived', true)
+            ->where('projects.0.agentId', 'agent-janice')
+            ->where('projects.0.agentIds', ['agent-janice'])
+            ->where('projects.0.projectIdsForAgent', [BridgeSeeder::PROJ_BLUE_HARBOR])
+            ->where('projects.0.splitUsage', false)
             ->where('projects.0.stoppableInBridge', false)
             ->where('projects.0.stopPercent', null)
             ->where('projects.1.id', BridgeSeeder::PROJ_NORTHWIND)
             ->where('projects.1.status', 'smooth')
+            ->where('projects.1.agentId', 'agent-anatoly')
+            ->where('projects.1.agentIds', ['agent-anatoly'])
             ->has('routines', 2)
             ->where('routines.0.agentName', 'Dr. Janice Polito')
+            ->where('routines.0.agentId', 'agent-janice')
             ->where('routines.0.routineId', 'support-inbox')
             ->where('routines.0.seenInUsage', true)
+            ->where('routines.0.usageSignal', 'own_routine')
+            ->where('routines.0.unobservedCurrentUsage', 0)
             ->where('routines.0.stoppableInBridge', false)
             ->where('routines.1.agentId', 'agent-tommy')
+            ->where('routines.1.routineId', 'weekday-desk')
             ->where('routines.1.seenInUsage', false)
             ->where('routines.1.stopPercent', 40));
     }
@@ -92,7 +114,7 @@ class PowerSaverTest extends TestCase
             ->component('PowerSaver')
             ->has('projects', 0)
             ->has('routines', 0)
-            ->where('gaps.chosenStopOption', null));
+            ->where('gaps.chosenStopOption', 'external_only'));
     }
 
     #[Test]
@@ -169,36 +191,54 @@ class PowerSaverTest extends TestCase
     }
 
     #[Test]
-    public function the_read_api_reports_the_proposed_contract_and_does_not_write(): void
+    public function the_read_api_reports_the_locked_contract_and_does_not_write(): void
     {
         $reader = $this->workspaceUser()->createToken('read', ['boards:read'])->plainTextToken;
 
         $this->withToken($reader)->getJson(route('api.power-saver.show'))
             ->assertOk()
-            ->assertJsonPath('data.semantics.locked', false)
-            ->assertJsonPath('data.semantics.comparison', 'proposed_gte')
-            ->assertJsonPath('data.semantics.comparison_agreed', false)
-            ->assertJsonPath('data.semantics.enforcement', 'not_implemented')
+            ->assertJsonPath('data.semantics.locked', true)
+            ->assertJsonPath('data.semantics.comparison', 'gte')
+            ->assertJsonPath('data.semantics.comparison_rule', 'current_usage >= stop_percent')
+            ->assertJsonPath('data.semantics.resume_rule', 'current_usage < stop_percent')
+            ->assertJsonPath('data.semantics.weekly_reset_reenables', true)
+            ->assertJsonPath('data.semantics.ceiling', 'shared_weekly_ultra_usage_limit')
+            ->assertJsonPath('data.semantics.ceiling_not', ['grok_bot_only_percentage', 'additional_credits'])
+            ->assertJsonPath('data.semantics.enforcement', 'external_only')
+            ->assertJsonPath('data.semantics.enforcement_actor', 'each_agent_pauses_and_resumes_its_own_routines')
             ->assertJsonPath('data.semantics.mutates_subjects', false)
-            ->assertJsonPath('data.semantics.stored_zero_means', 'threshold')
-            ->assertJsonPath('data.semantics.stored_hundred_means', 'full_ceiling')
-            ->assertJsonPath('data.semantics.null_means', 'no_threshold')
-            ->assertJsonPath('data.semantics.usage_ceiling_defined', false)
-            ->assertJsonPath('data.semantics.project_usage_attribution', false)
+            ->assertJsonPath('data.semantics.stored_zero_means', 'stop_at_or_above_zero')
+            ->assertJsonPath('data.semantics.stored_hundred_means', 'stop_only_when_fully_used')
+            ->assertJsonPath('data.semantics.null_means', 'never_stops')
+            ->assertJsonPath('data.semantics.usage_ceiling_defined', true)
+            ->assertJsonPath('data.semantics.bridge_computes_current_usage', false)
+            ->assertJsonPath('data.semantics.project_usage_attribution', 'approximate_agent_total_not_split')
+            ->assertJsonPath('data.semantics.project_usage.split_usage', false)
+            ->assertJsonPath('data.semantics.project_agent_id.cardinality', 'at_most_one')
+            ->assertJsonPath('data.semantics.project_agent_ids.cardinality', 'zero_or_one')
+            ->assertJsonPath('data.semantics.routine_usage.unobserved_current_usage', 0)
             ->assertJsonPath('data.gaps.project_enabled_state', false)
             ->assertJsonPath('data.gaps.routine_enabled_state', false)
-            ->assertJsonPath('data.gaps.chosen_stop_option', null)
+            ->assertJsonPath('data.gaps.bridge_can_pause_routines', false)
+            ->assertJsonPath('data.gaps.project_usage_is_approximate', true)
+            ->assertJsonPath('data.gaps.chosen_stop_option', 'external_only')
             ->assertJsonPath('data.gaps.stop_options.0.id', 'external_only')
-            ->assertJsonPath('data.gaps.stop_options.0.status', 'proposed')
-            ->assertJsonPath('data.gaps.stop_options.1.id', 'future_power_hold')
-            ->assertJsonPath('data.gaps.stop_options.1.status', 'not_built')
+            ->assertJsonPath('data.gaps.stop_options.0.status', 'locked')
+            ->assertJsonPath('data.gaps.stop_options.1.id', 'enabled_flag')
+            ->assertJsonPath('data.gaps.stop_options.1.status', 'rejected')
             ->assertJsonPath('data.gaps.stop_options.2.id', 'archive_or_status')
             ->assertJsonPath('data.gaps.stop_options.2.status', 'rejected')
+            ->assertJsonPath('data.projects.0.agent_id', 'agent-janice')
+            ->assertJsonPath('data.projects.0.agent_ids', ['agent-janice'])
             ->assertJsonPath('data.projects.1.id', BridgeSeeder::PROJ_NORTHWIND)
             ->assertJsonPath('data.projects.1.status', 'smooth')
+            ->assertJsonPath('data.projects.1.agent_id', 'agent-anatoly')
             ->assertJsonPath('data.projects.1.stoppable_in_bridge', false)
             ->assertJsonPath('data.routines.0.routine_id', 'support-inbox')
+            ->assertJsonPath('data.routines.0.agent_id', 'agent-janice')
             ->assertJsonPath('data.routines.0.agent_name', 'Dr. Janice Polito')
+            ->assertJsonPath('data.routines.0.usage_signal', 'own_routine')
+            ->assertJsonPath('data.routines.0.unobserved_current_usage', 0)
             ->assertJsonMissing(['routine_id' => 'unmatched']);
 
         $this->assertSame(0, PowerSaverThreshold::query()->count());
@@ -219,6 +259,42 @@ class PowerSaverTest extends TestCase
         ]]])->assertOk()->assertJsonPath('data.0.stop_percent', 55);
 
         $this->assertSame('smooth', Project::query()->find(BridgeSeeder::PROJ_NORTHWIND)->status);
+    }
+
+    #[Test]
+    public function one_agent_who_owns_several_projects_is_listed_on_each_and_usage_is_not_split(): void
+    {
+        Project::query()->whereKey(BridgeSeeder::PROJ_NORTHWIND)->update(['owner_agent_id' => 'agent-janice']);
+
+        $token = $this->workspaceUser()->createToken('read', ['boards:read'])->plainTextToken;
+        $projects = collect($this->withToken($token)->getJson(route('api.power-saver.show'))->assertOk()->json('data.projects'))
+            ->keyBy('id');
+        $shared = [BridgeSeeder::PROJ_BLUE_HARBOR, BridgeSeeder::PROJ_NORTHWIND];
+        sort($shared);
+
+        foreach ([BridgeSeeder::PROJ_BLUE_HARBOR, BridgeSeeder::PROJ_NORTHWIND] as $id) {
+            $this->assertSame('agent-janice', $projects[$id]['agent_id']);
+            $this->assertSame(['agent-janice'], $projects[$id]['agent_ids']);
+            $this->assertSame($shared, $projects[$id]['project_ids_for_agent']);
+            $this->assertFalse($projects[$id]['split_usage']);
+            $this->assertTrue($projects[$id]['usage_approximation']);
+            $this->assertSame('agent_total_estimated', $projects[$id]['usage_signal']);
+        }
+        $this->assertSame('smooth', $projects[BridgeSeeder::PROJ_NORTHWIND]['status']);
+    }
+
+    #[Test]
+    public function a_project_with_no_pm_exposes_an_empty_agent_list(): void
+    {
+        Project::query()->whereKey(BridgeSeeder::PROJ_NORTHWIND)->update(['owner_agent_id' => null]);
+
+        $token = $this->workspaceUser()->createToken('read', ['boards:read'])->plainTextToken;
+        $project = collect($this->withToken($token)->getJson(route('api.power-saver.show'))->assertOk()->json('data.projects'))
+            ->firstWhere('id', BridgeSeeder::PROJ_NORTHWIND);
+
+        $this->assertNull($project['agent_id']);
+        $this->assertSame([], $project['agent_ids']);
+        $this->assertSame([], $project['project_ids_for_agent']);
     }
 
     #[Test]
