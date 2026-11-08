@@ -6,20 +6,28 @@ use App\Models\AgentInstructionEdit;
 use App\Models\AgentProfile;
 use App\Models\UsageDay;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Tickets\HumanActors;
+use App\Support\Workspaces\CurrentWorkspace;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 /**
  * Agent instructions (docs/agent-instructions-sync.md): the profiles the daily sync pushes, and the owner's proposed
  * descriptions. Saving in Bridge never changes the agent; the sync applies a pending edit to the real profile and
  * reports applied / rejected / conflict. Bridge's copy of the description only changes through ingest() and applied().
+ * Every write runs serialised per workspace (see serialised()); a hash the sync reports is always compared, never stored blindly.
  */
 final class AgentInstructions
 {
     public const EXCERPT = 160;
 
     public const HISTORY = 5;
+
+    /** Tries of a write that lost a race on a unique key (revision, profile) before the violation is rethrown. */
+    public const ATTEMPTS = 3;
 
     /**
      * Upsert profiles (name, title, description only), then the conflict rule for each agent's pending edit: the new
@@ -30,7 +38,7 @@ final class AgentInstructions
      */
     public function ingest(array $profiles): array
     {
-        return DB::transaction(function () use ($profiles): array {
+        return $this->serialised(function () use ($profiles): array {
             $out = [];
             $now = now();
             foreach ($profiles as $p) {
@@ -63,8 +71,8 @@ final class AgentInstructions
     /** Save a new revision against the current profile; an older pending edit of this agent becomes superseded. */
     public function propose(User $user, string $agentId, string $description): AgentInstructionEdit
     {
-        return DB::transaction(function () use ($user, $agentId, $description): AgentInstructionEdit {
-            $profile = AgentProfile::query()->where('agent_id', $agentId)->lockForUpdate()->first();
+        return $this->serialised(function () use ($user, $agentId, $description): AgentInstructionEdit {
+            $profile = AgentProfile::query()->where('agent_id', $agentId)->first();
             $revision = (int) AgentInstructionEdit::query()->where('agent_id', $agentId)->max('revision') + 1;
 
             AgentInstructionEdit::query()->where('agent_id', $agentId)->where('status', AgentInstructionEdit::PENDING)
@@ -85,16 +93,21 @@ final class AgentInstructions
 
     /**
      * The sync applied the edit to the real profile: Bridge's profile copy takes the proposed text.
-     * The caller checked description_hash == sha256(proposed_description).
+     * 422 (edit stays pending) unless $descriptionHash, the hash of the description now on the real profile, equals
+     * sha256(proposed_description).
      */
-    public function applied(AgentInstructionEdit $edit): AgentInstructionEdit
+    public function applied(AgentInstructionEdit $edit, string $descriptionHash): AgentInstructionEdit
     {
-        return $this->transition($edit, function (AgentInstructionEdit $edit): void {
+        return $this->transition($edit, function (AgentInstructionEdit $edit) use ($descriptionHash): void {
             $hash = $edit->proposedHash();
+            if (! hash_equals($hash, $descriptionHash)) {
+                throw ValidationException::withMessages(['description_hash' => 'The description_hash is not the sha256 of this edit\'s proposed_description.']);
+            }
             $now = now();
-            $profile = AgentProfile::query()->firstOrNew(['agent_id' => $edit->agent_id]);
-            $profile->name ??= $this->usageAgents()[$edit->agent_id] ?? $edit->agent_id;
-            $profile->fill(['description' => $edit->proposed_description, 'description_hash' => $hash, 'synced_at' => $now])->save();
+            $values = ['description' => $edit->proposed_description, 'description_hash' => $hash, 'synced_at' => $now];
+            $profile = AgentProfile::query()->firstOrCreate(['agent_id' => $edit->agent_id],
+                [...$values, 'name' => $this->usageAgents()[$edit->agent_id] ?? $edit->agent_id]);
+            $profile->fill($values)->save();
             $edit->resolve(AgentInstructionEdit::APPLIED, null, ['applied_hash' => $hash, 'applied_at' => $now]);
         });
     }
@@ -104,9 +117,30 @@ final class AgentInstructions
         return $this->transition($edit, fn (AgentInstructionEdit $e) => $e->resolve(AgentInstructionEdit::REJECTED, $reason));
     }
 
-    public function conflict(AgentInstructionEdit $edit, ?string $reason): AgentInstructionEdit
+    /**
+     * The sync found the real profile changed since the edit was made. $currentHash (sha256 of the real description) is
+     * compared: equal to base_hash means unchanged (apply it), equal to the proposed hash means already applied; both
+     * answer 422 and the edit stays pending. Otherwise conflict, with the reported hash kept in status_reason.
+     */
+    public function conflict(AgentInstructionEdit $edit, string $currentHash, ?string $reason): AgentInstructionEdit
     {
-        return $this->transition($edit, fn (AgentInstructionEdit $e) => $e->resolve(AgentInstructionEdit::CONFLICT, $reason ?? AgentInstructionEdit::CONFLICT_REASON));
+        return $this->transition($edit, function (AgentInstructionEdit $e) use ($currentHash, $reason): void {
+            if ($e->base_hash !== null && hash_equals($e->base_hash, $currentHash)) {
+                throw ValidationException::withMessages(['current_description_hash' => 'The profile has not changed since this edit was made (current_description_hash equals base_hash): apply the edit instead.']);
+            }
+            if (hash_equals($e->proposedHash(), $currentHash)) {
+                throw ValidationException::withMessages(['current_description_hash' => 'The profile already has the proposed description (current_description_hash equals proposed_hash): report applied instead.']);
+            }
+            $e->resolve(AgentInstructionEdit::CONFLICT, self::conflictReason($reason, $currentHash));
+        });
+    }
+
+    /** "<reason> (current_description_hash <hash>)", the reason shortened so it fits status_reason (255). */
+    public static function conflictReason(?string $reason, string $currentHash): string
+    {
+        $suffix = " (current_description_hash $currentHash)";
+
+        return mb_strimwidth($reason ?? AgentInstructionEdit::CONFLICT_REASON, 0, 255 - mb_strlen($suffix), '…').$suffix;
     }
 
     /**
@@ -261,7 +295,7 @@ final class AgentInstructions
     /** Run $change on a still-pending edit (row locked); 409 from any other state. */
     private function transition(AgentInstructionEdit $edit, callable $change): AgentInstructionEdit
     {
-        return DB::transaction(function () use ($edit, $change): AgentInstructionEdit {
+        return $this->serialised(function () use ($edit, $change): AgentInstructionEdit {
             $locked = AgentInstructionEdit::query()->whereKey($edit->id)->lockForUpdate()->firstOrFail();
             if (! $locked->isPending()) {
                 throw new ConflictHttpException("This edit is {$locked->status}, not pending.");
@@ -270,5 +304,37 @@ final class AgentInstructions
 
             return $locked;
         });
+    }
+
+    /**
+     * Run $write in a transaction that first takes the current workspace row's write lock, so writes of one workspace
+     * (ingest, saves, transitions) run one after another: a first save has no profile row to lock, and two of them would
+     * otherwise read the same max(revision). The lock is a no-op UPDATE, not SELECT … FOR UPDATE, because SQLite ignores
+     * FOR UPDATE but serialises writers. A unique violation that still slips through (a writer outside this lock) rolls
+     * the attempt back and retries it, up to ATTEMPTS times; DB::transaction() does not retry those itself.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $write
+     * @return T
+     */
+    private function serialised(callable $write): mixed
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return DB::transaction(function () use ($write): mixed {
+                    $workspaceId = app(CurrentWorkspace::class)->id();
+                    if ($workspaceId !== null) {
+                        Workspace::query()->whereKey($workspaceId)->toBase()->update(['id' => DB::raw('id')]);
+                    }
+
+                    return $write();
+                });
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt >= self::ATTEMPTS) {
+                    throw $e;
+                }
+            }
+        }
     }
 }

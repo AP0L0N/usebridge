@@ -50,16 +50,13 @@ class AgentInstructionController extends Controller
         return response()->json(['data' => $this->instructions->editsForApi($status)]);
     }
 
-    /** POST /api/agent-instruction-edits/{id}/applied {description_hash}: must equal sha256(proposed_description). */
+    /** POST /api/agent-instruction-edits/{id}/applied {description_hash}: the service checks it equals sha256(proposed_description). */
     public function applied(Request $request, int $id): JsonResponse
     {
         $edit = $this->findEdit($request, $id);
         $data = $request->validate(['description_hash' => ['required', 'string', self::HASH]]);
-        if ($data['description_hash'] !== $edit->proposedHash()) {
-            throw ValidationException::withMessages(['description_hash' => 'The description_hash is not the sha256 of this edit\'s proposed_description.']);
-        }
 
-        return $this->present($this->instructions->applied($edit));
+        return $this->present($this->instructions->applied($edit, $data['description_hash']));
     }
 
     /** POST /api/agent-instruction-edits/{id}/rejected {reason?} */
@@ -71,7 +68,7 @@ class AgentInstructionController extends Controller
         return $this->present($this->instructions->rejected($edit, $data['reason'] ?? null));
     }
 
-    /** POST /api/agent-instruction-edits/{id}/conflict {current_description_hash, reason?} */
+    /** POST /api/agent-instruction-edits/{id}/conflict {current_description_hash, reason?}: 422 when it equals base_hash or proposed_hash. */
     public function conflict(Request $request, int $id): JsonResponse
     {
         $edit = $this->findEdit($request, $id);
@@ -80,7 +77,7 @@ class AgentInstructionController extends Controller
             'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
-        return $this->present($this->instructions->conflict($edit, $data['reason'] ?? null), [
+        return $this->present($this->instructions->conflict($edit, $data['current_description_hash'], $data['reason'] ?? null), [
             'current_description_hash' => $data['current_description_hash'],
         ]);
     }

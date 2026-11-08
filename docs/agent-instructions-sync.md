@@ -55,7 +55,7 @@ Bridge does not trim or empty-to-null these request bodies, so the text you send
 ```
 pending ──► applied      the sync applied it (POST …/applied), or an ingest brought exactly the proposed text
         ├─► rejected     the sync refused it (POST …/rejected)
-        ├─► conflict     the profile changed after the edit was made (ingest rule, or POST …/conflict)
+        ├─► conflict     the profile changed after the edit was made (ingest rule, or a checked POST …/conflict)
         └─► superseded   the owner saved a newer revision first
 ```
 
@@ -63,6 +63,11 @@ pending ──► applied      the sync applied it (POST …/applied), or an ing
   is kept. `revision` counts 1, 2, 3 … per agent.
 - `base_hash` is the profile's `description_hash` when the edit was saved (`null` if no profile was synced yet).
 - Only `pending` edits change state. Any transition from another state answers **409**.
+- Bridge never trusts a reported hash: `applied` and `conflict` compare it with the edit's own hashes (below), and the
+  ingest hashes the description it receives itself.
+- Writes of one workspace (ingest, saves, `applied` / `rejected` / `conflict`) run one at a time, so two saves at once
+  still get consecutive revisions and leave one `pending` edit; a write that loses a race on a unique key is retried,
+  not answered with a 500.
 - After a conflict the owner sees both texts and saves again from the current description (a new revision).
 
 ### Conflict rule (on every `POST /api/agent-profiles`)
@@ -138,7 +143,8 @@ over 20000 characters (nothing is stored).
 ### POST /api/agent-instruction-edits/{id}/applied
 
 Body `{"description_hash": "<sha256 of the description now on the real profile>"}`. It must equal
-`sha256(proposed_description)`, else **422** (nothing changes). Sets the edit `applied` (`applied_hash`, `applied_at`)
+`sha256(proposed_description)`, else **422** (the edit stays `pending`, nothing changes; checked inside the same locked
+transaction that resolves the edit). Sets the edit `applied` (`applied_hash`, `applied_at`)
 and Bridge's profile copy to the proposed text (`description`, `description_hash`, `synced_at`).
 
 **200**
@@ -156,9 +162,18 @@ Body `{"reason": "optional, ≤255"}`. Sets `rejected`. Same response shape. The
 ### POST /api/agent-instruction-edits/{id}/conflict
 
 Body `{"current_description_hash": "<sha256 of the real profile's description>", "reason": "optional, ≤255"}`.
-Sets `conflict` (reason defaults to `profile description changed after this edit was made`). The response echoes
-`current_description_hash`. The profile is not changed: send the real profile with `POST /api/agent-profiles` so the
-owner sees the current text.
+Bridge compares the hash with the edit:
+
+| `current_description_hash` | Answer | Meaning |
+|---|---|---|
+| equals the edit's `base_hash` | **422**, edit stays `pending` | The profile has not changed since the edit was made: apply it (`…/applied`) instead. |
+| equals the edit's `proposed_hash` | **422**, edit stays `pending` | The profile already has the proposed text: report `…/applied` instead. |
+| anything else | **200**, `conflict` | |
+
+On a conflict `status_reason` is `<reason> (current_description_hash <hash>)`; the reason defaults to
+`profile description changed after this edit was made` and is shortened so the whole value fits 255 characters. The
+response also echoes `current_description_hash`. The profile is not changed: send the real profile with
+`POST /api/agent-profiles` so the owner sees the current text.
 
 ### Status codes (all routes)
 
@@ -169,7 +184,7 @@ owner sees the current text.
 | 403 | Token lacks the ability, or its user is not the workspace owner |
 | 404 | Edit id not in the token's workspace |
 | 409 | Edit is not `pending` |
-| 422 | Validation (fields, sizes, hash mismatch on `applied`, unknown `status` filter) |
+| 422 | Validation (fields, sizes, hash mismatch on `applied`, `conflict` hash equal to `base_hash` or `proposed_hash`, unknown `status` filter) |
 | 429 | Rate limit |
 
 ## Daily routine

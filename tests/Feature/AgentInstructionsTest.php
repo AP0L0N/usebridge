@@ -6,10 +6,15 @@ use App\Models\AgentInstructionEdit;
 use App\Models\AgentProfile;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Agents\AgentInstructions;
 use App\Services\Usage\UsageDayImporter;
+use App\Support\Workspaces\CurrentWorkspace;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -73,6 +78,31 @@ class AgentInstructionsTest extends TestCase
     private function save(string $description, string $agentId = self::NOVA): TestResponse
     {
         return $this->postJson("/usage/agents/$agentId/instructions", ['description' => $description]);
+    }
+
+    /** A row another request wrote meanwhile, straight into the table (no events, no workspace scope). */
+    private function insertConcurrently(string $table, array $row): void
+    {
+        $now = now();
+        DB::table($table)->insert([...$row, 'workspace_id' => app(CurrentWorkspace::class)->default()->id, 'created_at' => $now, 'updated_at' => $now]);
+    }
+
+    private function concurrentProfile(string $agentId, string $description): array
+    {
+        return ['agent_id' => $agentId, 'name' => 'Synced meanwhile', 'description' => $description,
+            'description_hash' => hash('sha256', $description), 'synced_at' => now()];
+    }
+
+    /** Run $fn once, right after the first executed query whose SQL contains $needle. */
+    private function afterFirstQuery(string $needle, callable $fn): void
+    {
+        $done = false;
+        DB::listen(function (QueryExecuted $query) use ($needle, $fn, &$done): void {
+            if (! $done && str_contains($query->sql, $needle)) {
+                $done = true;
+                $fn();
+            }
+        });
     }
 
     #[Test]
@@ -299,7 +329,8 @@ class AgentInstructionsTest extends TestCase
         $two = AgentInstructionEdit::query()->where('revision', 2)->value('id');
         $this->api($token)->postJson("/api/agent-instruction-edits/$two/conflict")->assertUnprocessable();
         $this->api($token)->postJson("/api/agent-instruction-edits/$two/conflict", ['current_description_hash' => hash('sha256', 'host')])
-            ->assertOk()->assertJsonPath('data.status', 'conflict')->assertJsonPath('data.status_reason', AgentInstructionEdit::CONFLICT_REASON);
+            ->assertOk()->assertJsonPath('data.status', 'conflict')
+            ->assertJsonPath('data.status_reason', AgentInstructionEdit::CONFLICT_REASON.' (current_description_hash '.hash('sha256', 'host').')');
         $this->assertSame(self::DESCRIPTION, AgentProfile::query()->value('description'));
     }
 
@@ -327,5 +358,105 @@ class AgentInstructionsTest extends TestCase
 
         $this->api($this->ownerToken())->getJson('/api/agent-instruction-edits?status=applied')->assertOk()->assertJsonCount(0, 'data');
         $this->api($this->ownerToken())->getJson('/api/agent-instruction-edits?status=bogus')->assertUnprocessable();
+    }
+
+    #[Test]
+    public function a_conflict_report_is_compared_with_the_base_and_proposed_hash(): void
+    {
+        $this->ingest(self::DESCRIPTION);
+        $this->asOwner()->save('Proposed');
+        $id = AgentInstructionEdit::query()->value('id');
+        $token = $this->ownerToken();
+        $report = fn (string $hash, ?string $reason = null) => $this->api($token)
+            ->postJson("/api/agent-instruction-edits/$id/conflict", ['current_description_hash' => $hash, 'reason' => $reason]);
+
+        $report(hash('sha256', self::DESCRIPTION))->assertUnprocessable()->assertJsonValidationErrors('current_description_hash');
+        $report(hash('sha256', 'Proposed'))->assertUnprocessable()->assertJsonValidationErrors('current_description_hash');
+        $this->assertSame('pending', AgentInstructionEdit::query()->value('status'));
+
+        $host = hash('sha256', 'Edited on the host');
+        $report($host, 'Edited by hand')->assertOk()
+            ->assertJsonPath('data.status', 'conflict')
+            ->assertJsonPath('data.status_reason', "Edited by hand (current_description_hash $host)")
+            ->assertJsonPath('data.current_description_hash', $host);
+        $this->assertSame(self::DESCRIPTION, AgentProfile::query()->value('description'));
+        $this->assertLessThanOrEqual(255, mb_strlen(AgentInstructions::conflictReason(str_repeat('r', 255), $host)));
+    }
+
+    #[Test]
+    public function applied_with_a_wrong_hash_stays_pending_in_the_api_and_in_the_service(): void
+    {
+        $this->ingest(self::DESCRIPTION);
+        $this->asOwner()->save('Proposed');
+        $edit = AgentInstructionEdit::query()->first();
+
+        $this->api($this->ownerToken())->postJson("/api/agent-instruction-edits/{$edit->id}/applied", ['description_hash' => hash('sha256', self::DESCRIPTION)])
+            ->assertUnprocessable()->assertJsonValidationErrors('description_hash');
+
+        try {
+            app(AgentInstructions::class)->applied($edit, hash('sha256', 'Other'));
+            $this->fail('applied() accepted a hash that is not sha256(proposed_description).');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('description_hash', $e->errors());
+        }
+        $this->assertSame('pending', $edit->fresh()->status);
+        $this->assertNull($edit->fresh()->applied_hash);
+        $this->assertSame(self::DESCRIPTION, AgentProfile::query()->value('description'));
+    }
+
+    #[Test]
+    public function a_first_save_that_loses_the_revision_race_retries_instead_of_failing(): void
+    {
+        $this->loadUsage();
+        $concurrent = ['agent_id' => self::JUNIPER, 'revision' => 1, 'base_hash' => null, 'proposed_description' => 'Saved meanwhile',
+            'author' => 'tilen', 'status' => AgentInstructionEdit::PENDING];
+        // Another first save commits right after this one read max(revision); the insert of revision 1 then violates
+        // the unique key, the attempt rolls back (taking the simulated row with it) and the retry sees that row again.
+        $phase = 'armed';
+        DB::listen(function (QueryExecuted $query) use (&$phase, $concurrent): void {
+            if ($phase === 'armed' && str_contains($query->sql, 'max("revision")')) {
+                $phase = 'raced';
+                $this->insertConcurrently('agent_instruction_edits', $concurrent);
+            } elseif ($phase === 'raced' && str_contains($query->sql, 'update "workspaces"')) {
+                $phase = 'retrying';
+                $this->insertConcurrently('agent_instruction_edits', $concurrent);
+            }
+        });
+
+        $this->asOwner()->save('Mine', self::JUNIPER)->assertCreated()->assertJsonPath('data.revision', 2);
+
+        $this->assertSame('retrying', $phase);
+        $edits = AgentInstructionEdit::query()->where('agent_id', self::JUNIPER)->orderBy('revision')->get();
+        $this->assertSame([1, 2], $edits->pluck('revision')->all());
+        $this->assertSame(['superseded', 'pending'], $edits->pluck('status')->all());
+        $this->assertSame('Mine', $edits[1]->proposed_description);
+    }
+
+    #[Test]
+    public function ingest_and_applied_take_over_a_profile_row_created_in_between(): void
+    {
+        $raced = false;
+        $this->afterFirstQuery('from "agent_profiles"', function () use (&$raced): void {
+            $raced = true;
+            $this->insertConcurrently('agent_profiles', $this->concurrentProfile(self::NOVA, 'Older'));
+        });
+        $this->ingest(self::DESCRIPTION)->assertOk();
+        $this->assertTrue($raced);
+        $this->assertSame(1, AgentProfile::query()->where('agent_id', self::NOVA)->count());
+        $this->assertSame(self::DESCRIPTION, AgentProfile::query()->where('agent_id', self::NOVA)->value('description'));
+
+        $this->loadUsage();
+        $this->asOwner()->save('Juniper text', self::JUNIPER)->assertCreated();
+        $id = AgentInstructionEdit::query()->where('agent_id', self::JUNIPER)->value('id');
+        $token = $this->ownerToken();
+        $this->afterFirstQuery('from "agent_profiles"', fn () => $this->insertConcurrently('agent_profiles', $this->concurrentProfile(self::JUNIPER, 'Older')));
+
+        $this->api($token)->postJson("/api/agent-instruction-edits/$id/applied", ['description_hash' => hash('sha256', 'Juniper text')])
+            ->assertOk()->assertJsonPath('data.status', 'applied')
+            ->assertJsonPath('data.profile_description_hash', hash('sha256', 'Juniper text'));
+        $profiles = AgentProfile::query()->where('agent_id', self::JUNIPER)->get();
+        $this->assertCount(1, $profiles);
+        $this->assertSame('Juniper text', $profiles[0]->description);
+        $this->assertSame('Synced meanwhile', $profiles[0]->name);
     }
 }
