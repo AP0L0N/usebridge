@@ -26,7 +26,7 @@ names as compatibility aliases next to neutral ones with the same values: `waiti
 3. [Columns, statuses, priorities, ids](#columns-statuses-priorities-ids)
 4. [Errors and warnings](#errors-and-warnings)
 5. [The ticket object](#the-ticket-object)
-6. [Endpoints](#endpoints): columns, board, open asks, questions, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, labels, feed
+6. [Endpoints](#endpoints): columns, board, open asks, questions, tickets, move, ack, archive, comments, events, activity, project status, project list / PM, agents, agent instructions, labels, feed
 7. [Answers relay: reading Tilen's comments](#answers-relay-reading-tilens-comments)
 8. [PM run checklist](#pm-run-checklist)
 9. [r4 Questions panel: UI hook points](#r4-questions-panel-ui-hook-points)
@@ -621,6 +621,12 @@ roster JSON at `BRIDGE_ROSTER_PATH` (kept outside the repo: `{"agents": {"agent-
 {"project-id": "agent-id"}}`), adds the missing agents (existing rows untouched) and sets each listed project's PM.
 Missing, unreadable or invalid file → empty roster, one warning log line, nothing changes. Idempotent; it only inserts
 agents and changes PMs.
+
+### Agent instructions (workspace owner token)
+
+`POST /api/agent-profiles`, `GET /api/agent-instruction-edits`, `POST /api/agent-instruction-edits/{id}/applied |
+rejected | conflict`: the daily agent-profile sync. Owner tokens only. See
+[agent-instructions-sync.md](agent-instructions-sync.md).
 
 ### GET /api/labels · POST /api/labels · PATCH /api/labels/{id}
 
