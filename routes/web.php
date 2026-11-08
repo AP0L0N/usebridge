@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\AgentsController;
 use App\Http\Controllers\Auth\AccountDeletionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
@@ -125,6 +126,12 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')
         ->name('usage.agent');
+    // Agent instructions: the owner saves a proposed description (403 for others); the daily sync applies it.
+    Route::post('/usage/agents/{agentId}/instructions', [AgentsController::class, 'saveInstructions'])
+        ->where('agentId', '[A-Za-z0-9_-]{1,64}')
+        ->middleware('throttle:30,1')
+        ->name('usage.agent.instructions');
+    Route::get('/agents', [AgentsController::class, 'index'])->name('agents');
     // Cursor dashboard CSV export (individual plan): the workspace owner only; 404 for others.
     Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
     // Polymarket desk: only workspaces with the polymarket feature, and only their owner; 404 for everyone else.
@@ -132,6 +139,5 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
         ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner')->name('polymarket');
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
-    Route::redirect('/agents', '/');
     Route::redirect('/queue', '/');
 });

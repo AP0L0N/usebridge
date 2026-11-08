@@ -324,13 +324,20 @@ final class UsageReport
         return array_map(fn ($tools) => array_values(array_intersect(CliUsageDay::TOOLS, $tools)), $out);
     }
 
-    /** @return array<string, mixed>|null props for Usage/Agent, null when the agent never appears in any stored day */
-    public function agent(string $agentId, int|string $range): ?array
+    /**
+     * Props for Usage/Agent. null when the agent never appears in any stored day, unless $profileName is given (a
+     * synced agent profile): then empty usage under that name (`inUsage` false).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function agent(string $agentId, int|string $range, ?string $profileName = null): ?array
     {
         $identity = $this->findAgent($agentId);
-        if ($identity === null) {
+        if ($identity === null && $profileName === null) {
             return null;
         }
+        $inUsage = $identity !== null;
+        $identity ??= ['name' => $profileName, 'K' => 0, '_file' => ['params' => ['median_K' => 0]]];
 
         $range = self::normalizeRange($range);
         $dates = $this->dates($range);
@@ -422,6 +429,7 @@ final class UsageReport
                 'factor' => self::factor($latest, $file),
                 'K' => $latest['K'],
                 'medianK' => $file['params']['median_K'],
+                'inUsage' => $inUsage,
             ],
             'zero' => $tokens === 0,
             'stats' => [

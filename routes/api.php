@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AgentController;
+use App\Http\Controllers\Api\AgentInstructionController;
 use App\Http\Controllers\Api\BoardController;
 use App\Http\Controllers\Api\CeoQueueCompatController;
 use App\Http\Controllers\Api\LabelController;
@@ -87,6 +88,14 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     Route::get('agents', [AgentController::class, 'index'])->name('api.agents.index');
     Route::post('agents', [AgentController::class, 'store'])->name('api.agents.store');
     Route::patch('agents/{id}', [AgentController::class, 'update'])->name('api.agents.update');
+
+    // Agent instructions sync (docs/agent-instructions-sync.md): workspace owner tokens only. Reads boards:read,
+    // writes agents:write. Saving an edit in Bridge never changes the agent; the daily sync applies it.
+    Route::post('agent-profiles', [AgentInstructionController::class, 'storeProfiles'])->name('api.agent-profiles.store');
+    Route::get('agent-instruction-edits', [AgentInstructionController::class, 'index'])->name('api.agent-instruction-edits.index');
+    Route::post('agent-instruction-edits/{id}/applied', [AgentInstructionController::class, 'applied'])->whereNumber('id')->name('api.agent-instruction-edits.applied');
+    Route::post('agent-instruction-edits/{id}/rejected', [AgentInstructionController::class, 'rejected'])->whereNumber('id')->name('api.agent-instruction-edits.rejected');
+    Route::post('agent-instruction-edits/{id}/conflict', [AgentInstructionController::class, 'conflict'])->whereNumber('id')->name('api.agent-instruction-edits.conflict');
 
     // Usage: one estimator day file per POST (raw JSON body, <= 512 KB), upsert by date.
     Route::post('usage/days', [UsageDayController::class, 'store'])

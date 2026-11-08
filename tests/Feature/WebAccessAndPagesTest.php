@@ -89,9 +89,11 @@ class WebAccessAndPagesTest extends TestCase
                 ->missing('openInputs')
                 ->missing('statusUpdates'));
 
-        foreach (['/ops', '/agents', '/queue'] as $old) {
+        foreach (['/ops', '/queue'] as $old) {
             $this->get($old)->assertRedirect('/');
         }
+        // /agents was an r0 redirect; it is the Agents list now.
+        $this->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Agents/Index'));
         Carbon::setTestNow();
     }
 

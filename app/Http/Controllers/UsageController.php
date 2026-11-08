@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Agents\AgentInstructions;
 use App\Services\Usage\UsageReport;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -25,11 +26,16 @@ class UsageController extends Controller
         return Inertia::render('Usage/Overview', $props);
     }
 
-    /** GET /usage/agents/{agentId} ?range=yesterday|7|30. 404 when the agent is in no stored day. */
-    public function agent(Request $request, string $agentId, UsageReport $report): Response
+    /**
+     * GET /usage/agents/{agentId} ?range=yesterday|7|30. An agent with a synced profile but no usage day renders with
+     * empty usage; 404 when the agent has neither. `instructions`: its profile description and the owner's edits.
+     */
+    public function agent(Request $request, string $agentId, UsageReport $report, AgentInstructions $instructions): Response
     {
-        $props = $report->agent($agentId, UsageReport::normalizeRange($request->query('range')));
+        $profile = $instructions->profile($agentId);
+        $props = $report->agent($agentId, UsageReport::normalizeRange($request->query('range')), $profile?->name);
         abort_if($props === null, 404);
+        $props['instructions'] = $instructions->pageProps($agentId, AgentsController::canEdit());
 
         return Inertia::render('Usage/Agent', $props);
     }

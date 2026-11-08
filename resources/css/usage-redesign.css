@@ -234,3 +234,28 @@
 /* Generic table rows: column count comes from the content (3-7 columns); `.mono` on the table makes the first column mono. */
 .bu .tbl.mono tbody th, .bu .tbl.mono td:first-child { font-family: var(--font-mono); font-size: 12px; }
 .bu .chart .seg-hit, .bu .tip li i { outline-color: var(--chart-grid); }
+
+/* Agents list (/agents) and the Instructions section of /usage/agents/{id}. Descriptions keep their whitespace. */
+.bu .ag-tbl th[scope=row] a { color: var(--ink-950); font-weight: 600; }
+.bu .ag-title { display: block; color: var(--ink-600); font-size: 12px; font-weight: 400; }
+.bu .ag-desc { max-width: 640px; color: var(--ink-600); }
+.bu .chip.ag-conflict i { background: var(--warn); }
+.bu .chip.ag-pending i { background: var(--violet); }
+.bu .ai-card { margin-bottom: var(--space-32); }
+.bu .ai-title { color: var(--ink-950); font-weight: 600; }
+.bu .ai-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-16); max-height: 480px; overflow-y: auto; }
+.bu .ai-text.small { font-size: 12px; max-height: 200px; }
+.bu .ai-edit { display: grid; gap: var(--space-8); }
+.bu .ai-edit label { font-weight: 500; }
+.bu .ai-edit textarea { width: 100%; font: 14px/1.55 var(--font-ui); white-space: pre-wrap; border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-12); background: var(--surface); resize: vertical; }
+.bu .ai-actions { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-8); }
+.bu .ai-err { color: var(--danger, #B42318); margin: 0; }
+.bu .ai-note { margin: var(--space-16) 0 0; padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--paper); font-size: 13px; }
+.bu .ai-pending { border-color: var(--violet); }
+.bu .ai-applied { border-color: var(--ok); }
+.bu .ai-rejected, .bu .ai-conflict { border-color: var(--warn); }
+.bu .ai-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-16); margin-top: var(--space-12); }
+.bu .ai-compare h3 { font-size: 13px; margin: 0 0 var(--space-6); }
+.bu .ai-history { margin-top: var(--space-16); }
+.bu .ai-history summary { cursor: pointer; font-weight: 500; min-height: var(--tap-min); display: flex; align-items: center; }
+.bu .ai-history ol { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-12); }

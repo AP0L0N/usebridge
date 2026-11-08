@@ -3,10 +3,10 @@
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogoutBlockedUser;
 use App\Http\Middleware\WorkspaceBoundary;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -25,8 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [WorkspaceBoundary::class]);
         // The usage and Polymarket uploads are decoded only by their validators, after the size/type guard.
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
-        $middleware->trimStrings(except: [$usageUpload]);
-        $middleware->convertEmptyStringsToNull(except: [$usageUpload]);
+        // Agent descriptions are hashed byte for byte (docs/agent-instructions-sync.md): never trimmed or nulled.
+        $agentText = fn (Request $request) => $request->is('api/agent-profiles', 'usage/agents/*/instructions');
+        $middleware->trimStrings(except: [$usageUpload, $agentText]);
+        $middleware->convertEmptyStringsToNull(except: [$usageUpload, $agentText]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -5,7 +5,7 @@
  *   <AppTopBar />                    // signed-in pages: role (user / owner / admin) comes from the shared Inertia props
  *   <AppTopBar variant="guest" />    // Auth pages: the Wordmark only, linking to /
  *
- * Nav: Portfolio + Usage for everyone; Polymarket only with the workspace feature (the owner's workspace); Admin only
+ * Nav: Portfolio, Usage, Agents and Power Saver for everyone; Polymarket only with the workspace feature (the owner's workspace); Admin only
  * for admins. The "Owner" chip is the existing is_admin flag. Phone width (≤720px): the nav lives behind the menu
  * button and the account name is hidden (the avatar stays).
  */
@@ -20,6 +20,7 @@ type NavItem = { href: string; label: StrKey; feature?: 'polymarket' | 'admin' }
 export const NAV: readonly NavItem[] = [
   { href: '/', label: 'nav.portfolio' },
   { href: '/usage', label: 'nav.usage' },
+  { href: '/agents', label: 'nav.agents' },
   { href: '/power-saver', label: 'nav.powerSaver' },
   { href: '/polymarket', label: 'nav.polymarket', feature: 'polymarket' },
   { href: '/admin/users', label: 'nav.admin', feature: 'admin' },
@@ -27,9 +28,9 @@ export const NAV: readonly NavItem[] = [
 
 const under = (url: string, base: string) => url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
 
-/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /power-saver to Power Saver, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
+/** "/" and /projects/* belong to Portfolio, /usage* to Usage, /agents to Agents, /power-saver to Power Saver, /polymarket* to Polymarket, /admin* to Admin; /account* to none. */
 export function activeHref(url: string): string | null {
-  for (const base of ['/power-saver', '/usage', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
+  for (const base of ['/power-saver', '/usage', '/agents', '/polymarket', '/admin']) if (under(url, base)) return base === '/admin' ? '/admin/users' : base;
   if (under(url, '/account') || under(url, '/welcome')) return null;
   return '/';
 }

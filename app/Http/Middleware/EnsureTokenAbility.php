@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Token abilities (docs/MULTI-USER-PLAN.md §4), derived from the route: reads need boards:read, writes boards:write,
- * except status updates / project status (status:write), agents (agents:write), usage upload (usage:write) and the
+ * except status updates / project status (status:write), agents and agent instructions (agents:write), usage upload (usage:write) and the
  * Polymarket feed (polymarket:write). '*' and the legacy 'ceo' ability (BRIDGE_API_TOKEN) allow everything.
  */
 class EnsureTokenAbility
@@ -24,6 +24,10 @@ class EnsureTokenAbility
         'api.projects.status.update' => 'status:write',
         'api.agents.store' => 'agents:write',
         'api.agents.update' => 'agents:write',
+        'api.agent-profiles.store' => 'agents:write',
+        'api.agent-instruction-edits.applied' => 'agents:write',
+        'api.agent-instruction-edits.rejected' => 'agents:write',
+        'api.agent-instruction-edits.conflict' => 'agents:write',
         'api.usage.days.store' => 'usage:write',
         'api.polymarket.feed.store' => 'polymarket:write',
     ];

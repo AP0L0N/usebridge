@@ -3,6 +3,7 @@ import { useState } from 'react';
 import '../../../css/usage-redesign.css';
 import { t } from '../../lib/strings-usage';
 import { AppTopBar } from '../../Components/Shell/AppTopBar';
+import { AgentInstructionsCard } from '../../Components/Usage/AgentInstructionsCard';
 import { EstNote } from '../../Components/Usage/EstNote';
 import { Est } from '../../Components/Usage/Est';
 import { FactorBadge } from '../../Components/Usage/FactorBadge';
@@ -98,7 +99,7 @@ export default function Agent(p: AgentProps) {
             <div className="titleline">
               <span className="dot" style={{ background: 'var(--chart-2)' }} aria-hidden="true" />
               <h1>{agent.name}</h1>
-              <FactorBadge factor={agent.factor} k={Math.round(agent.K)} />
+              {agent.inUsage && <FactorBadge factor={agent.factor} k={Math.round(agent.K)} />}
               <span className="chip">{agent.rank !== null ? t('agent.badge.rank', { rank: agent.rank, of: agent.of, range: rangeTxt }) : t('agent.badge.none', { range: rangeTxt })}</span>
             </div>
             <p className="asub"><Est value={stats.tokens} /> {t('agent.sub', { range: rangeTxt })}</p>
@@ -106,13 +107,15 @@ export default function Agent(p: AgentProps) {
           <div className="tools"><RangeSeg range={p.range} /></div>
         </div>
 
+        <AgentInstructionsCard agentId={agent.id} agentName={agent.name} data={p.instructions} />
+
         <EstNote updatedAt={p.updatedAt} day={p.range === 'yesterday' ? 'yesterday' : 'today'} />
 
         {p.zero ? (
           <div className="empty zero">
             <div className="eico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></div>
-            <h2>{t('agent.zero.title', { range: inRange(p.range) })}</h2>
-            <p>{t('agent.zero.body')}</p>
+            <h2>{agent.inUsage ? t('agent.zero.title', { range: inRange(p.range) }) : t('agent.noUsage.title')}</h2>
+            <p>{agent.inUsage ? t('agent.zero.body') : t('agent.noUsage.body')}</p>
             <InfoLines unreadable={p.unreadable} />
           </div>
         ) : (

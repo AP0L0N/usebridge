@@ -95,12 +95,31 @@ export type RoutineRow = { kind: 'routine' | 'unmatched' | 'other'; routineId: s
 export type AgentProps = {
   range: Range; today: string; from: string; to: string; fromLabel: string; toLabel: string; hoursFromLabel: string;
   updatedAt: string | null;
-  agent: { id: string; name: string; color: AgentColor; rank: number | null; of: number; factor: Factor; K: number; medianK: number };
+  agent: { id: string; name: string; color: AgentColor; rank: number | null; of: number; factor: Factor; K: number; medianK: number; inUsage: boolean };
   zero: boolean;
   stats: { tokens: number; share: number; io: number; turns: number; matchedRuns: number; unmatchedRuns: number };
   days: (DayEntry & { value: number | null })[];
   hourTotals: number[]; heat: HeatRow[]; routines: RoutineRow[];
   routineTotals: { wakes: number; tokens: number }; unreadable: string[];
+  instructions: AgentInstructions;
+};
+
+/** Agent instructions (docs/agent-instructions-sync.md): the synced profile and the owner's proposed revisions. */
+export type EditStatus = 'pending' | 'applied' | 'rejected' | 'conflict' | 'superseded';
+export type InstructionEdit = {
+  id: number; revision: number; status: EditStatus; statusReason: string | null; baseHash: string | null;
+  baseDescription: string | null; proposedDescription: string; author: string;
+  createdAt: string | null; appliedAt: string | null; resolvedAt: string | null;
+};
+export type AgentInstructions = {
+  canEdit: boolean;
+  profile: { name: string; title: string | null; description: string; hash: string; syncedAt: string | null } | null;
+  latest: InstructionEdit | null;
+  history: InstructionEdit[];
+};
+export type AgentListRow = {
+  id: string; name: string; title: string | null; excerpt: string | null; syncedAt: string | null;
+  editStatus: 'pending' | 'conflict' | null; inUsage: boolean;
 };
 
 const UNITS = [
