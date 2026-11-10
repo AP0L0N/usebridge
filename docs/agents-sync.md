@@ -10,12 +10,14 @@ the same ingest step for the description, so pending owner edits follow the same
 ## Auth
 
 ```
-Authorization: Bearer $BRIDGE_AGENT_SYNC_TOKEN
+Authorization: Bearer $BRIDGE_OWNER_API_TOKEN
 Accept: application/json
 Content-Type: application/json
 ```
 
-`$BRIDGE_AGENT_SYNC_TOKEN` is an environment variable on the caller's side. Never paste the value into chat, logs,
+The import uses the existing **workspace-owner** Sanctum token: `$BRIDGE_OWNER_API_TOKEN` on prod, with `agents:write`.
+It is the same token the `POST /api/agent-profiles` sync already uses; there is no separate agent-sync token.
+`$BRIDGE_OWNER_API_TOKEN` is an environment variable on the caller's side. Never paste the value into chat, logs,
 tickets or comments.
 
 Same model as `POST /api/agent-profiles`: the token must belong to the **workspace owner** and carry `agents:write`
@@ -34,7 +36,7 @@ Send the sync file **as-is**:
 
 ```bash
 curl -sS -X POST "$BRIDGE/api/agents/sync" \
-  -H "Authorization: Bearer $BRIDGE_AGENT_SYNC_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BRIDGE_OWNER_API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d @agents-sync.json
 ```
 

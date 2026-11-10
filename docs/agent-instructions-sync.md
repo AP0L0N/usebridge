@@ -29,13 +29,14 @@ it; the agent itself is not changed yet."* Bridge's `agent_profiles.description`
 ## Auth
 
 ```
-Authorization: Bearer $BRIDGE_AGENT_SYNC_TOKEN
+Authorization: Bearer $BRIDGE_OWNER_API_TOKEN
 Accept: application/json
 Content-Type: application/json
 ```
 
-`$BRIDGE_AGENT_SYNC_TOKEN` is an environment variable on the caller's side, read from its secrets file. Never paste
-the value into chat, logs, tickets or comments.
+These routes use the existing **workspace-owner** Sanctum token: `$BRIDGE_OWNER_API_TOKEN` on prod (`agents:write` for
+`POST`), the same token the `POST /api/agent-profiles` sync already uses. `$BRIDGE_OWNER_API_TOKEN` is an environment
+variable on the caller's side, read from its secrets file. Never paste the value into chat, logs, tickets or comments.
 
 - The token must belong to the **workspace owner** (created by the owner under **Account → API tokens & MCP**). A token
   of any other user, including a member of the workspace, gets **403** on every route below.
@@ -103,7 +104,7 @@ agent each day (an agent missing from the body is left as it was).
 
 ```bash
 curl -sS -X POST "$BRIDGE/api/agent-profiles" \
-  -H "Authorization: Bearer $BRIDGE_AGENT_SYNC_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $BRIDGE_OWNER_API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
   -d '{"profiles":[{"agent_id":"df74ed60-9505-4b2b-80c5-4c3dc2b2f58b","name":"Nova","title":"Support lead","description":"You are Nova, the support lead.\n- Answer within a day"}]}'
 ```
 
