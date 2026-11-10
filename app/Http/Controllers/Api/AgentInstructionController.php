@@ -38,6 +38,39 @@ class AgentInstructionController extends Controller
         return response()->json(['data' => $this->instructions->ingest(array_values($data['profiles']))]);
     }
 
+    /**
+     * POST /api/agents/sync: the roster file as-is (docs/agents-sync.md) {generated_at?, source?, sections?, agents: [{agent_id,
+     * full_name, section, section_order, description?}]}. A full snapshot: listed agents missing from it are unlisted.
+     * Unknown fields are ignored; any invalid field answers 422 and nothing is stored.
+     */
+    public function syncRoster(Request $request): JsonResponse
+    {
+        $this->ensureOwner($request);
+        $data = $request->validate([
+            'generated_at' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'source' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'sections' => ['sometimes', 'nullable', 'array', 'max:200'],
+            'sections.*' => ['string', 'max:64'],
+            'agents' => ['required', 'array', 'list', 'min:1', 'max:200'],
+            'agents.*' => ['required', 'array'],
+            'agents.*.agent_id' => ['required', 'string', 'regex:/^[A-Za-z0-9_-]{1,64}$/', 'distinct'],
+            'agents.*.full_name' => ['required', 'string', 'max:255'],
+            'agents.*.section' => ['required', 'string', 'max:64'],
+            'agents.*.section_order' => ['required', 'integer:strict', 'between:0,99'],
+            'agents.*.description' => ['sometimes', 'nullable', 'string', 'max:20000'],
+        ]);
+
+        $agents = array_map(fn (array $a): array => [
+            'agent_id' => $a['agent_id'],
+            'full_name' => $a['full_name'],
+            'section' => $a['section'],
+            'section_order' => $a['section_order'],
+            'description' => $a['description'] ?? null,
+        ], $data['agents']);
+
+        return response()->json(['data' => $this->instructions->syncRoster($agents)]);
+    }
+
     /** GET /api/agent-instruction-edits ?status=pending (default) | applied | rejected | conflict | superseded. */
     public function index(Request $request): JsonResponse
     {

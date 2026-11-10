@@ -13,7 +13,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * GET /agents: every agent of the workspace (synced profiles + agents seen in usage files), each linking to
+ * GET /agents: the agents the roster sync listed (docs/agents-sync.md), grouped by section, each linking to
  * /usage/agents/{agentId}. POST /usage/agents/{agentId}/instructions: the workspace owner saves a proposed description
  * (a new revision, pending until the daily sync applies it; docs/agent-instructions-sync.md).
  */
@@ -23,7 +23,7 @@ class AgentsController extends Controller
 
     public function index(): Response
     {
-        return Inertia::render('Agents/Index', ['agents' => $this->instructions->list()]);
+        return Inertia::render('Agents/Index', ['sections' => $this->instructions->list()]);
     }
 
     /** {description}. 403 unless the workspace owner, 404 for an agent this workspace does not know. */

@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The usage and Polymarket uploads are decoded only by their validators, after the size/type guard.
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
         // Agent descriptions are hashed byte for byte (docs/agent-instructions-sync.md): never trimmed or nulled.
-        $agentText = fn (Request $request) => $request->is('api/agent-profiles', 'usage/agents/*/instructions');
+        $agentText = fn (Request $request) => $request->is('api/agent-profiles', 'api/agents/sync', 'usage/agents/*/instructions');
         $middleware->trimStrings(except: [$usageUpload, $agentText]);
         $middleware->convertEmptyStringsToNull(except: [$usageUpload, $agentText]);
     })
