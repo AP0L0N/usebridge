@@ -10,10 +10,8 @@ import { LatestUpdate } from '../Components/Kanban/LatestUpdate';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
 import { TicketDetail } from '../Components/Kanban/TicketDetail';
 import { ColumnLabelsSheet, type ColumnDef } from '../Components/Kanban/ColumnLabels';
-import { QuestionsPanel } from '../Components/Questions/QuestionsPanel';
 import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
-import type { QuestionsPanelData } from '../lib/questions';
 import { t as tr } from '../lib/strings';
 import {
   ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, ticketUrl, useMe,
@@ -33,8 +31,6 @@ type Props = {
   /** PUT /projects/{slug}/column-labels for a logged-in member; null when the viewer may not edit them. */
   columnLabelsUrl: string | null;
   defaultColumns: ColumnDef[];
-  /** r4 Questions panel (Questions::panel): {open, answered, closed, has_any}. */
-  questions?: QuestionsPanelData;
 };
 
 export default function BoardPage(props: Props) {
@@ -54,7 +50,7 @@ type Pending = { t: Ticket; to: ColumnKey; index: number; via: 'drag' | 'key' | 
 type Drag = { key: string; from: ColumnKey; x: number; y: number; offX: number; offY: number; w: number; over: ColumnKey | null; index: number };
 type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
 
-function Board({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, questions }: Props) {
+function Board({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns }: Props) {
   const p = board.project;
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
@@ -113,7 +109,7 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.visibilityState !== 'visible' || dragging.current || busy.current) return;
-      reload(ticketOpen ? ['board', 'statusHistory', 'latestUpdate', 'questions', 'ticket'] : ['board', 'statusHistory', 'latestUpdate', 'questions']);
+      reload(ticketOpen ? ['board', 'statusHistory', 'latestUpdate', 'ticket'] : ['board', 'statusHistory', 'latestUpdate']);
     }, POLL_MS);
     return () => window.clearInterval(id);
   }, [reload, ticketOpen]);
@@ -394,13 +390,6 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
     setOpening(t.key);
     router.visit(ticketUrl(p.slug, t.key), { only: ['ticket'], preserveState: true, preserveScroll: true, onFinish: () => setOpening(null) });
   };
-  // r4 Questions panel: "Details" opens the ticket like a card click (or by URL when it isn't on the board).
-  const detailsFor = (key: string) => {
-    const t = find(key);
-    if (t) openTicket(t);
-    else router.visit(ticketUrl(p.slug, key), { only: ['ticket'], preserveState: true, preserveScroll: true });
-  };
-  const reloadQuestions = useCallback(() => reload(['questions', 'board']), [reload]);
   const closeTicket = () => {
     const key = ticket?.key ?? opening;
     setOpening(null);
@@ -556,11 +545,6 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
           <span className="mi hide-m">{tr('portfolio.lastActivity')} <b className="name">{updateTime(p.last_activity_at, now) || '—'}</b></span>
           {filtering && <span className="mi" role="status"><b>{visible.reduce((s, c) => s + c.tickets.length, 0)}</b> {tr('board.shown', { n: 0 })} · <button type="button" className="lnk" onClick={() => { setQ(''); setFilters(NO_FILTERS); }}>{tr('dash.noresults.clear')}</button></span>}
         </p>
-
-        {questions && (
-          <QuestionsPanel data={questions} slug={p.slug} now={now} mobile={mobile} onDetails={detailsFor} onReload={reloadQuestions}
-            labelsFor={(key) => find(key)?.labels ?? []} />
-        )}
 
         {mobile && (
           <div className="ctabs" role="tablist" aria-label="Columns" ref={tabsRef}>
