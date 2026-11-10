@@ -7,7 +7,7 @@ Locked contract for Captain's enforcement routine. Bridge **stores and reads thr
 - The signed-in page is `GET /power-saver` and `PATCH /power-saver` (workspace member, same JSON body).
 - Another workspace's project or routine is not listed and cannot be written (422).
 
-The only schema change is the additive table `power_saver_thresholds` (`2026_11_05_123157_create_power_saver_thresholds_table`). Projects, agents, and usage days are not altered. There is no enabled flag. Archive and project status are not a stop.
+The only schema change is the additive table `power_saver_thresholds` (`2026_11_05_123157_create_power_saver_thresholds_table`). Projects, agents, and usage days are not altered. There is no enabled flag. An **archived** project has an effective `stop_percent` of `0` (see [Archived projects](#archived-projects)). Project **status** (smooth, waiting, …) is not a stop.
 
 ## Ceiling and comparison
 
@@ -23,6 +23,23 @@ It is not a Grok-Bot-only percentage and it is not additional credits. Bridge do
 | `1`–`99` | Stop when `current_usage >= stop_percent`. |
 
 Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, so work comes back on without a Bridge call.
+
+## Archived projects
+
+We do not work on an archived project until it is unarchived. Bridge expresses that through the threshold you already read, so an enforcement routine needs no extra rule:
+
+- **GET still lists archived projects.** They are not omitted. A client that treats a missing project as "run" (or as `null` = never stop) would otherwise keep or resume work on them.
+- `archived: true`.
+- `stop_percent: 0`. This is the **effective** value. `0` means stop when `current_usage >= 0`, which is always, including at zero usage. Enforcement must use this field, as it does for every other project.
+- `saved_stop_percent`: the stored threshold (`power_saver_thresholds.stop_percent`), or `null` when no row was ever saved. It is **not** rewritten to `0` on archive.
+- On **unarchive**, `stop_percent` is the saved value again (or `null` = never stop, when nothing was saved). No Bridge write is needed; it is computed on every read.
+- The signed-in page (`GET /power-saver`) does **not** list archived projects. They reappear there after unarchive, with their saved threshold.
+
+For a project that is not archived, `saved_stop_percent` always equals `stop_percent`.
+
+Only archive is a stop. Project **status** (smooth, waiting, …) does not change `stop_percent`. `semantics.archived_stop_percent` is `0`, `semantics.project_status_is_stop` is `false`, and `semantics.archived_project` describes the rule above. In `gaps.stop_options`, `archive_or_status` has status `archive_only`.
+
+Routines are not affected by project archive.
 
 ## What `current_usage` is made from
 
@@ -65,7 +82,18 @@ Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, 
       "project_agent_id": { "field": "agent_id", "cardinality": "at_most_one", "null_when": "no_pm" },
       "project_agent_ids": { "field": "agent_ids", "cardinality": "zero_or_one" },
       "enforcement": "external_only",
-      "mutates_subjects": false
+      "mutates_subjects": false,
+      "archived_stop_percent": 0,
+      "archived_project": {
+        "stop_percent": "effective",
+        "effective_stop_percent": 0,
+        "saved_field": "saved_stop_percent",
+        "saved_threshold_rewritten": false,
+        "unarchive_restores": "saved_stop_percent",
+        "listed_in_api": true,
+        "listed_on_page": false
+      },
+      "project_status_is_stop": false
     },
     "gaps": {
       "chosen_stop_option": "external_only",
@@ -75,6 +103,25 @@ Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, 
       "project_usage_is_approximate": true
     },
     "projects": [
+      {
+        "id": "proj-blue-harbor",
+        "name": "Blue Harbor",
+        "slug": "blue-harbor",
+        "status": "archived",
+        "status_label": "Archived",
+        "archived": true,
+        "agent_id": "agent-janice",
+        "agent_ids": ["agent-janice"],
+        "agent_name": "Dr. Janice Polito",
+        "project_ids_for_agent": ["proj-blue-harbor"],
+        "split_usage": false,
+        "usage_signal": "agent_total_estimated",
+        "usage_approximation": true,
+        "stop_percent": 0,
+        "saved_stop_percent": 70,
+        "stoppable_in_bridge": false,
+        "threshold_updated_at": "2026-11-05T12:00:00+01:00"
+      },
       {
         "id": "proj-northwind",
         "name": "Northwind",
@@ -90,6 +137,7 @@ Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, 
         "usage_signal": "agent_total_estimated",
         "usage_approximation": true,
         "stop_percent": null,
+        "saved_stop_percent": null,
         "stoppable_in_bridge": false,
         "threshold_updated_at": null
       }
@@ -112,6 +160,8 @@ Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, 
 }
 ```
 
+Project `stop_percent` is the **effective** threshold: `0` while `archived` is `true`, otherwise the saved one. `saved_stop_percent` is the stored threshold (`null` when none). Routines have only `stop_percent` (stored and effective are the same).
+
 `agent_id` is the project's PM (`owner_agent_id`): at most one, `null` when the project has no PM. `agent_ids` is that same PM as a list (`[]` or `[agent_id]`), so a caller can walk mappings without a special case. `project_ids_for_agent` is every project in this workspace with that PM, including this one, sorted by id. When that list has more than one id, those projects share one agent and each gets the agent's full estimated usage.
 
 ## PATCH `/api/power-saver`
@@ -124,3 +174,27 @@ Resume only when `current_usage < stop_percent`. The weekly reset lowers usage, 
 ```
 
 `stop_percent` is required and may be `null` (clears the row). Otherwise a whole number from 0 to 100. Floats are rejected. A project threshold must name a project in this workspace and must not send an agent or routine. A routine threshold must name an agent id (`A–Z a–z 0–9 _ -`, 1–64) and a routine id (1–120 characters) that is not `unmatched` or `other_est_tokens`. The agent must exist here, or a usage file must already list that routine. One failing item rolls the batch back. The response `data` array echoes each saved subject (`stop_percent` null after a clear).
+
+### Project items in the PATCH response
+
+PATCH writes and echoes the **saved** threshold. GET reports the **effective** one. For a project that is not archived they are the same number.
+
+```json
+{ "data": [
+  { "subject_type": "project", "project_id": "proj-blue-harbor",
+    "stop_percent": 70, "saved_stop_percent": 70,
+    "archived": true, "effective_stop_percent": 0,
+    "threshold_updated_at": "2026-11-10T08:40:00+01:00" }
+]}
+```
+
+- `stop_percent`: the saved value just written (`null` after a clear). On PATCH this is **not** the effective value.
+- `saved_stop_percent`: the same saved value, named explicitly.
+- `archived`: whether the project is archived right now.
+- `effective_stop_percent`: what GET will report as `stop_percent` (`0` while archived, else the saved value).
+
+### Writing an archived project's threshold
+
+Allowed. PATCH writes or clears only the stored row: `0` is stored only when the client sent `0`. It does not touch `archived_at` or `status`, and it does not unarchive. While the project stays archived, GET keeps returning `stop_percent: 0` with the new `saved_stop_percent`. After unarchive, GET returns that saved value as `stop_percent`.
+
+An unknown project or one from another workspace is still `422`.

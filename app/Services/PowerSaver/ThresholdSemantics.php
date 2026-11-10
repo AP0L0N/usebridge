@@ -20,6 +20,9 @@ namespace App\Services\PowerSaver;
  * that agent's whole estimated usage to each of those projects. Do not split it.
  * A routine uses its own reported by_routine usage. No observation yet means current_usage 0.
  *
+ * Archived project: the effective stop_percent is 0 (stop at any usage) until it is unarchived.
+ * The saved threshold is kept as it is and applies again after unarchive. Project status is not a stop.
+ *
  * @phpstan-type StopOption array{id: string, status: string, summary: string}
  */
 final class ThresholdSemantics
@@ -35,6 +38,17 @@ final class ThresholdSemantics
     public const CEILING = 'shared_weekly_ultra_usage_limit';
 
     public const ENFORCEMENT = 'external_only';
+
+    public const ARCHIVED_STOP_PERCENT = 0;
+
+    /**
+     * The percent enforcement must use. An archived project stops at 0. Otherwise the saved percent (null = never stop).
+     * The saved percent itself is never rewritten.
+     */
+    public static function effectiveStopPercent(?int $savedPercent, bool $archived): ?int
+    {
+        return $archived ? self::ARCHIVED_STOP_PERCENT : $savedPercent;
+    }
 
     /**
      * @return list<StopOption>
@@ -54,8 +68,8 @@ final class ThresholdSemantics
             ],
             [
                 'id' => 'archive_or_status',
-                'status' => 'rejected',
-                'summary' => 'Do not use archived or project status as a power stop. Those are the PM lifecycle.',
+                'status' => 'archive_only',
+                'summary' => 'An archived project reads as stop_percent 0, so it stops at any usage until it is unarchived. Its saved threshold is kept and applies again after unarchive. Project status (smooth, waiting) is not a stop.',
             ],
         ];
     }
@@ -115,8 +129,19 @@ final class ThresholdSemantics
             'enforcement' => self::ENFORCEMENT,
             'enforcement_actor' => 'each_agent_pauses_and_resumes_its_own_routines',
             'mutates_subjects' => false,
+            'archived_stop_percent' => self::ARCHIVED_STOP_PERCENT,
+            'archived_project' => [
+                'stop_percent' => 'effective',
+                'effective_stop_percent' => self::ARCHIVED_STOP_PERCENT,
+                'saved_field' => 'saved_stop_percent',
+                'saved_threshold_rewritten' => false,
+                'unarchive_restores' => 'saved_stop_percent',
+                'listed_in_api' => true,
+                'listed_on_page' => false,
+            ],
+            'project_status_is_stop' => false,
             'comparison_summary' => 'Stop when current usage is greater than or equal to the threshold. Turn work back on only when current usage is strictly below it. The weekly reset lowers usage, so it turns work back on by itself. Each agent pauses and resumes its own routines. Bridge does not.',
-            'summary' => 'A threshold is a whole number from 0 to 100: a percent of the shared weekly Ultra usage limit, the plan limit shared across apps. It is not a Grok-Bot-only percentage and it is not additional credits. Empty means never stop. 0 stops at or above 0%. 100 stops only when that limit is fully used. Bridge stores the number and does not stop anything.',
+            'summary' => 'A threshold is a whole number from 0 to 100: a percent of the shared weekly Ultra usage limit, the plan limit shared across apps. It is not a Grok-Bot-only percentage and it is not additional credits. Empty means never stop. 0 stops at or above 0%. 100 stops only when that limit is fully used. An archived project counts as 0 until it is unarchived, then its saved number applies again. Bridge stores the number and does not stop anything.',
         ];
     }
 
@@ -134,7 +159,7 @@ final class ThresholdSemantics
             'stop_options' => self::stopOptions(),
             'excluded_routine_ids' => ['unmatched', 'other_est_tokens'],
             'project_usage_is_approximate' => true,
-            'summary' => 'Project usage is an approximation. Bridge estimates follow the agent, not a measured per-project total. A project uses its PM (owner_agent_id). When one agent is PM of several projects, that agent’s whole estimated usage counts for each project and is not split. A routine uses its own reported usage. A routine with no usage yet counts as 0%. Archive and status are not a stop, and there is no enabled flag. Each agent pauses and resumes its own routines outside Bridge.',
+            'summary' => 'Project usage is an approximation. Bridge estimates follow the agent, not a measured per-project total. A project uses its PM (owner_agent_id). When one agent is PM of several projects, that agent’s whole estimated usage counts for each project and is not split. A routine uses its own reported usage. A routine with no usage yet counts as 0%. An archived project counts as a 0% threshold, so it stays stopped until it is unarchived. Its saved threshold is kept. Project status is not a stop, and there is no enabled flag. Each agent pauses and resumes its own routines outside Bridge.',
         ];
     }
 }
