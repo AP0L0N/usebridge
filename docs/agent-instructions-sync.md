@@ -8,6 +8,10 @@ host (`profile.json`: `name`, `title`, `description`). Bridge has no access to t
 1. it pushes the real profiles to Bridge, so Bridge shows the **actual** description, never invented text;
 2. it picks up the owner's pending edits, applies them to the real profile, and reports back.
 
+Which agents are listed on `/agents`, their full names and sections come from the roster sync, see
+[agents-sync.md](agents-sync.md) (`POST /api/agents/sync`). Its descriptions go through the same ingest and conflict
+rule as `POST /api/agent-profiles` below.
+
 The `agentId` is the agent UUID used in the usage files (for example `df74ed60-9505-4b2b-80c5-4c3dc2b2f58b`), the same
 id as in `/usage/agents/{agentId}`. It is **not** a Bridge `agents.id` (`agent-firstname`).
 
@@ -20,7 +24,7 @@ id as in `/usage/agents/{agentId}`. It is **not** a Bridge `agents.id` (`agent-f
 
 The page says so after saving: *"Saved in Bridge — pending application to the agent profile. The daily sync applies
 it; the agent itself is not changed yet."* Bridge's `agent_profiles.description` only changes through
-`POST /api/agent-profiles` and `POST /api/agent-instruction-edits/{id}/applied`.
+`POST /api/agent-profiles`, `POST /api/agents/sync` (same ingest step) and `POST /api/agent-instruction-edits/{id}/applied`.
 
 ## Auth
 
@@ -205,9 +209,12 @@ Edits saved after step 2 wait for the next day.
 
 ## Web (for reference)
 
-- `GET /agents`: every agent of the workspace (synced profiles + agents seen in usage files) with title, a description
-  excerpt, last sync time and a pending/conflict badge; each row links to `/usage/agents/{agentId}`.
-- `GET /usage/agents/{agentId}`: usage plus the **Instructions / Description** section. An agent with a profile but no
+- `GET /agents`: only the agents the roster sync listed ([agents-sync.md](agents-sync.md)), grouped by section in
+  `section_order`, sorted by full name. Each row: full name with title, a description excerpt (or "No description"),
+  last sync time and a pending/conflict badge; it links to `/usage/agents/{agentId}`. Agents seen only in usage files
+  and profiles sent only through `POST /api/agent-profiles` are not listed.
+- `GET /usage/agents/{agentId}`: usage plus the **Instructions / Description** section; the heading shows the roster
+  full name when there is one. An agent with a profile but no
   usage renders with empty usage; an agent with neither answers 404.
 - `POST /usage/agents/{agentId}/instructions` `{"description": "…"}`: workspace owner only (403 for others, 404 for an
   unknown agent, 422 when the text equals the current description). Creates the next revision.

@@ -14,9 +14,10 @@ glance which project is moving, which one is waiting on you, and what the agents
   **OpenCode Go** and **Cursor**. Coding tools come from collector files posted to the API. Cursor comes from the
   dashboard **CSV export** (individual plan), shown as one "Cursor (all agents)" account, with no invented per-agent split.
   The view tells "no file that day" apart from zero usage.
-- **Agents view**: every agent of the workspace with its title, description excerpt and last profile sync. The agent
-  page shows its real instructions (profile description, pushed by a daily sync) and lets the workspace owner propose a
-  new text; the sync applies it to the agent. See [docs/agent-instructions-sync.md](docs/agent-instructions-sync.md).
+- **Agents view**: the workspace's real agents from the roster sync, grouped by section, with full name and title,
+  description excerpt and last profile sync. See [docs/agents-sync.md](docs/agents-sync.md). The agent page shows its
+  real instructions (profile description, pushed by a daily sync) and lets the workspace owner propose a new text; the
+  sync applies it to the agent. See [docs/agent-instructions-sync.md](docs/agent-instructions-sync.md).
 - **REST API** for agents (Sanctum bearer tokens): projects, boards, tickets, comments, status updates, agents and
   labels. See [docs/API-TICKETS.md](docs/API-TICKETS.md).
 - **MCP server** at `/mcp` (streamable HTTP, JSON-RPC 2.0) with tools such as `list_projects`, `get_board`,
