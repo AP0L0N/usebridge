@@ -77,19 +77,18 @@ class PowerSaverTest extends TestCase
             ->where('gaps.bridgeCanPauseRoutines', false)
             ->where('gaps.projectUsageIsApproximate', true)
             ->where('gaps.chosenStopOption', 'external_only')
-            ->has('projects', 2)
-            ->where('projects.0.id', BridgeSeeder::PROJ_BLUE_HARBOR)
-            ->where('projects.0.archived', true)
-            ->where('projects.0.agentId', 'agent-janice')
-            ->where('projects.0.agentIds', ['agent-janice'])
-            ->where('projects.0.projectIdsForAgent', [BridgeSeeder::PROJ_BLUE_HARBOR])
+            ->where('semantics.archivedStopPercent', 0)
+            ->where('semantics.projectStatusIsStop', false)
+            ->has('projects', 1)
+            ->where('projects.0.id', BridgeSeeder::PROJ_NORTHWIND)
+            ->where('projects.0.archived', false)
+            ->where('projects.0.status', 'smooth')
+            ->where('projects.0.agentId', 'agent-anatoly')
+            ->where('projects.0.agentIds', ['agent-anatoly'])
+            ->where('projects.0.projectIdsForAgent', [BridgeSeeder::PROJ_NORTHWIND])
             ->where('projects.0.splitUsage', false)
             ->where('projects.0.stoppableInBridge', false)
             ->where('projects.0.stopPercent', null)
-            ->where('projects.1.id', BridgeSeeder::PROJ_NORTHWIND)
-            ->where('projects.1.status', 'smooth')
-            ->where('projects.1.agentId', 'agent-anatoly')
-            ->where('projects.1.agentIds', ['agent-anatoly'])
             ->has('routines', 2)
             ->where('routines.0.agentName', 'Dr. Janice Polito')
             ->where('routines.0.agentId', 'agent-janice')
@@ -227,10 +226,21 @@ class PowerSaverTest extends TestCase
             ->assertJsonPath('data.gaps.stop_options.1.id', 'enabled_flag')
             ->assertJsonPath('data.gaps.stop_options.1.status', 'rejected')
             ->assertJsonPath('data.gaps.stop_options.2.id', 'archive_or_status')
-            ->assertJsonPath('data.gaps.stop_options.2.status', 'rejected')
+            ->assertJsonPath('data.gaps.stop_options.2.status', 'archive_only')
+            ->assertJsonPath('data.semantics.archived_stop_percent', 0)
+            ->assertJsonPath('data.semantics.archived_project.stop_percent', 'effective')
+            ->assertJsonPath('data.semantics.archived_project.saved_threshold_rewritten', false)
+            ->assertJsonPath('data.semantics.project_status_is_stop', false)
+            ->assertJsonPath('data.projects.0.id', BridgeSeeder::PROJ_BLUE_HARBOR)
+            ->assertJsonPath('data.projects.0.archived', true)
+            ->assertJsonPath('data.projects.0.stop_percent', 0)
+            ->assertJsonPath('data.projects.0.saved_stop_percent', null)
             ->assertJsonPath('data.projects.0.agent_id', 'agent-janice')
             ->assertJsonPath('data.projects.0.agent_ids', ['agent-janice'])
             ->assertJsonPath('data.projects.1.id', BridgeSeeder::PROJ_NORTHWIND)
+            ->assertJsonPath('data.projects.1.archived', false)
+            ->assertJsonPath('data.projects.1.stop_percent', null)
+            ->assertJsonPath('data.projects.1.saved_stop_percent', null)
             ->assertJsonPath('data.projects.1.status', 'smooth')
             ->assertJsonPath('data.projects.1.agent_id', 'agent-anatoly')
             ->assertJsonPath('data.projects.1.stoppable_in_bridge', false)
@@ -298,6 +308,128 @@ class PowerSaverTest extends TestCase
     }
 
     #[Test]
+    public function an_archived_project_reads_as_stop_zero_and_keeps_its_saved_percent(): void
+    {
+        PowerSaverThreshold::factory()->state(['project_id' => BridgeSeeder::PROJ_BLUE_HARBOR])->percent(70)->create();
+        PowerSaverThreshold::factory()->percent(25)->create();
+
+        $projects = $this->apiProjects();
+
+        $this->assertTrue($projects[BridgeSeeder::PROJ_BLUE_HARBOR]['archived']);
+        $this->assertSame(0, $projects[BridgeSeeder::PROJ_BLUE_HARBOR]['stop_percent']);
+        $this->assertSame(70, $projects[BridgeSeeder::PROJ_BLUE_HARBOR]['saved_stop_percent']);
+        $this->assertFalse($projects[BridgeSeeder::PROJ_NORTHWIND]['archived']);
+        $this->assertSame(25, $projects[BridgeSeeder::PROJ_NORTHWIND]['stop_percent']);
+        $this->assertSame(25, $projects[BridgeSeeder::PROJ_NORTHWIND]['saved_stop_percent']);
+        $this->assertDatabaseHas('power_saver_thresholds', ['project_id' => BridgeSeeder::PROJ_BLUE_HARBOR, 'stop_percent' => 70]);
+    }
+
+    #[Test]
+    public function archiving_through_the_real_path_stops_at_zero_and_hides_the_project_without_rewriting_the_row(): void
+    {
+        PowerSaverThreshold::factory()->percent(25)->create();
+
+        $this->asOwner()->postJson(route('projects.archive', 'northwind'))->assertOk();
+
+        $northwind = $this->apiProjects()[BridgeSeeder::PROJ_NORTHWIND];
+        $this->assertTrue($northwind['archived']);
+        $this->assertSame(0, $northwind['stop_percent']);
+        $this->assertSame(25, $northwind['saved_stop_percent']);
+        $this->assertDatabaseHas('power_saver_thresholds', ['project_id' => BridgeSeeder::PROJ_NORTHWIND, 'stop_percent' => 25]);
+
+        $this->asOwner()->get(route('power-saver'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('PowerSaver')
+            ->has('projects', 0));
+    }
+
+    #[Test]
+    public function unarchiving_restores_the_saved_percent_and_the_project_reappears_on_the_page(): void
+    {
+        PowerSaverThreshold::factory()->state(['project_id' => BridgeSeeder::PROJ_BLUE_HARBOR])->percent(70)->create();
+
+        $this->asOwner()->postJson(route('projects.unarchive', 'blue-harbor'))->assertOk();
+
+        $blueHarbor = $this->apiProjects()[BridgeSeeder::PROJ_BLUE_HARBOR];
+        $this->assertFalse($blueHarbor['archived']);
+        $this->assertSame(70, $blueHarbor['stop_percent']);
+        $this->assertSame(70, $blueHarbor['saved_stop_percent']);
+
+        $this->asOwner()->get(route('power-saver'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('projects', 2)
+            ->where('projects.0.id', BridgeSeeder::PROJ_BLUE_HARBOR)
+            ->where('projects.0.archived', false)
+            ->where('projects.0.stopPercent', 70)
+            ->where('projects.1.id', BridgeSeeder::PROJ_NORTHWIND));
+    }
+
+    #[Test]
+    public function unarchiving_a_project_with_no_saved_threshold_never_stops(): void
+    {
+        $this->assertSame(0, $this->apiProjects()[BridgeSeeder::PROJ_BLUE_HARBOR]['stop_percent']);
+
+        $this->asOwner()->postJson(route('projects.unarchive', 'blue-harbor'))->assertOk();
+
+        $blueHarbor = $this->apiProjects()[BridgeSeeder::PROJ_BLUE_HARBOR];
+        $this->assertFalse($blueHarbor['archived']);
+        $this->assertNull($blueHarbor['stop_percent']);
+        $this->assertNull($blueHarbor['saved_stop_percent']);
+        $this->assertDatabaseMissing('power_saver_thresholds', ['project_id' => BridgeSeeder::PROJ_BLUE_HARBOR]);
+    }
+
+    #[Test]
+    public function writing_an_archived_projects_threshold_changes_only_the_saved_row(): void
+    {
+        $project = Project::query()->findOrFail(BridgeSeeder::PROJ_BLUE_HARBOR);
+        $before = [$project->status, $project->archived_at?->toIso8601String()];
+        $writer = $this->workspaceUser()->createToken('write', ['boards:write'])->plainTextToken;
+
+        $this->withToken($writer)->patchJson(route('api.power-saver.update'), ['thresholds' => [[
+            'subject_type' => 'project', 'project_id' => $project->id, 'stop_percent' => 45,
+        ]]])->assertOk()
+            ->assertJsonPath('data.0.stop_percent', 45)
+            ->assertJsonPath('data.0.saved_stop_percent', 45)
+            ->assertJsonPath('data.0.archived', true)
+            ->assertJsonPath('data.0.effective_stop_percent', 0);
+
+        $this->assertDatabaseHas('power_saver_thresholds', ['project_id' => $project->id, 'stop_percent' => 45]);
+        $project->refresh();
+        $this->assertSame($before, [$project->status, $project->archived_at?->toIso8601String()]);
+        $blueHarbor = $this->apiProjects()[$project->id];
+        $this->assertSame(0, $blueHarbor['stop_percent']);
+        $this->assertSame(45, $blueHarbor['saved_stop_percent']);
+
+        $this->asOwner()->patchJson(route('power-saver.update'), ['thresholds' => [[
+            'subject_type' => 'project', 'project_id' => $project->id, 'stop_percent' => null,
+        ]]])->assertOk()
+            ->assertJsonPath('data.0.stop_percent', null)
+            ->assertJsonPath('data.0.saved_stop_percent', null)
+            ->assertJsonPath('data.0.effective_stop_percent', 0);
+        $this->assertDatabaseMissing('power_saver_thresholds', ['project_id' => $project->id]);
+        $this->assertSame(0, $this->apiProjects()[$project->id]['stop_percent']);
+
+        $this->asOwner()->patchJson(route('power-saver.update'), ['thresholds' => [[
+            'subject_type' => 'project', 'project_id' => $project->id, 'stop_percent' => 60,
+        ]]])->assertOk();
+        $this->asOwner()->postJson(route('projects.unarchive', 'blue-harbor'))->assertOk();
+
+        $blueHarbor = $this->apiProjects()[$project->id];
+        $this->assertSame(60, $blueHarbor['stop_percent']);
+        $this->assertSame(60, $blueHarbor['saved_stop_percent']);
+    }
+
+    #[Test]
+    public function writing_an_active_projects_threshold_echoes_matching_saved_and_effective_values(): void
+    {
+        $this->asOwner()->patchJson(route('power-saver.update'), ['thresholds' => [[
+            'subject_type' => 'project', 'project_id' => BridgeSeeder::PROJ_NORTHWIND, 'stop_percent' => 30,
+        ]]])->assertOk()
+            ->assertJsonPath('data.0.stop_percent', 30)
+            ->assertJsonPath('data.0.saved_stop_percent', 30)
+            ->assertJsonPath('data.0.archived', false)
+            ->assertJsonPath('data.0.effective_stop_percent', 30);
+    }
+
+    #[Test]
     public function another_workspace_cannot_see_or_set_these_thresholds(): void
     {
         PowerSaverThreshold::factory()->percent(33)->create();
@@ -317,5 +449,18 @@ class PowerSaverTest extends TestCase
         $this->assertDatabaseHas('power_saver_thresholds', [
             'project_id' => BridgeSeeder::PROJ_NORTHWIND, 'stop_percent' => 33,
         ]);
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function apiProjects(): array
+    {
+        $token = $this->workspaceUser()->createToken('read', ['boards:read'])->plainTextToken;
+        $this->app['auth']->forgetGuards();
+
+        return collect($this->withToken($token)->getJson(route('api.power-saver.show'))->assertOk()->json('data.projects'))
+            ->keyBy('id')
+            ->all();
     }
 }

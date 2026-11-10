@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Lists projects and agent routines with their stored stop percents, and writes those percents.
+ * Lists projects and agent routines with their stop percents, and writes those percents.
+ * A project's listed stop_percent is the effective one (0 while archived); saved_stop_percent is the stored row.
  * Reads projects and usage days. Writes only power_saver_thresholds. Never archives, never sets status,
  * never enables or disables a subject.
  */
@@ -37,6 +38,7 @@ final class PowerSaverCatalog
 
     /**
      * Inertia props. Same facts as the API, camelCase like the other Bridge pages.
+     * Archived projects are left out: nobody works on them, and their effective stop is 0 until unarchived.
      *
      * @return array<string, mixed>
      */
@@ -47,7 +49,10 @@ final class PowerSaverCatalog
         return [
             'semantics' => $this->camelSemantics($api['semantics']),
             'gaps' => $this->camelGaps($api['gaps']),
-            'projects' => array_map($this->camelProject(...), $api['projects']),
+            'projects' => array_values(array_map(
+                $this->camelProject(...),
+                array_filter($api['projects'], fn (array $project): bool => ! $project['archived']),
+            )),
             'routines' => array_map($this->camelRoutine(...), $api['routines']),
         ];
     }
@@ -79,7 +84,8 @@ final class PowerSaverCatalog
 
         if ($type === PowerSaverThreshold::TYPE_PROJECT) {
             $projectId = (string) $item['project_id'];
-            if (! Project::query()->whereKey($projectId)->exists()) {
+            $project = Project::query()->find($projectId);
+            if (! $project instanceof Project) {
                 throw ValidationException::withMessages([
                     "thresholds.$index.project_id" => __('power.errors.unknown_project'),
                 ]);
@@ -92,10 +98,14 @@ final class PowerSaverCatalog
                 'routine_id' => null,
             ], $percent);
 
+            // stop_percent here is the saved value just written. GET reports the effective one (0 while archived).
             return [
                 'subject_type' => PowerSaverThreshold::TYPE_PROJECT,
                 'project_id' => $projectId,
                 'stop_percent' => $percent,
+                'saved_stop_percent' => $percent,
+                'archived' => $project->isArchived(),
+                'effective_stop_percent' => ThresholdSemantics::effectiveStopPercent($percent, $project->isArchived()),
                 'threshold_updated_at' => $this->updatedAt($identity),
             ];
         }
@@ -183,6 +193,8 @@ final class PowerSaverCatalog
             $row = $stored->get($project->id);
             $agentId = is_string($project->owner_agent_id) && $project->owner_agent_id !== '' ? $project->owner_agent_id : null;
             $agent = $agentId === null ? null : $agents->get($agentId);
+            $archived = $project->isArchived();
+            $saved = $row?->stop_percent;
 
             return [
                 'id' => $project->id,
@@ -190,7 +202,7 @@ final class PowerSaverCatalog
                 'slug' => $project->slug,
                 'status' => $project->status,
                 'status_label' => Project::statusLabel($project->status),
-                'archived' => $project->isArchived(),
+                'archived' => $archived,
                 // PM (projects.owner_agent_id). At most one. Null when the project has no PM.
                 'agent_id' => $agentId,
                 // Same PM as a list so a caller can walk mappings. Today: [] or [agent_id].
@@ -201,7 +213,10 @@ final class PowerSaverCatalog
                 'split_usage' => false,
                 'usage_signal' => 'agent_total_estimated',
                 'usage_approximation' => true,
-                'stop_percent' => $row?->stop_percent,
+                // Effective: what enforcement compares against. 0 while archived, else the saved percent.
+                'stop_percent' => ThresholdSemantics::effectiveStopPercent($saved, $archived),
+                // The stored row (null when none). Kept through archive; applies again after unarchive.
+                'saved_stop_percent' => $saved,
                 'stoppable_in_bridge' => false,
                 'threshold_updated_at' => $row?->updated_at?->toIso8601String(),
             ];

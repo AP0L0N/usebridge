@@ -112,13 +112,8 @@ function ThresholdControl({ name, value, min, max, onCommit }: {
   );
 }
 
-function statusText(project: ProjectRow): string {
-  if (project.archived && project.status !== 'archived') return `${project.statusLabel} · ${t('ps.status.archived')}`;
-  return project.statusLabel;
-}
-
 function optionLabel(status: string): string {
-  if (status === 'proposed' || status === 'not_built' || status === 'rejected' || status === 'locked') return t(`ps.stop.${status}`);
+  if (status === 'proposed' || status === 'not_built' || status === 'rejected' || status === 'locked' || status === 'archive_only') return t(`ps.stop.${status}`);
   return status;
 }
 
@@ -131,6 +126,8 @@ export default function PowerSaver({ semantics, gaps, projects, routines }: Prop
   const [pageLoading, setPageLoading] = useState(false);
   const min = semantics.min;
   const max = semantics.max;
+  // The server already leaves archived projects out; this only guards against a stale payload.
+  const activeProjects = projects.filter((project) => !project.archived);
 
   useEffect(() => {
     const offStart = router.on('start', (event) => {
@@ -176,18 +173,18 @@ export default function PowerSaver({ semantics, gaps, projects, routines }: Prop
         <section className="ps-card" aria-labelledby="ps-projects" aria-busy={pageLoading}>
           <h2 id="ps-projects">{t('ps.projects.title')}</h2>
           <p className="ps-sub">{t('ps.projects.sub')}</p>
-          {pageLoading ? <Skeleton /> : projects.length === 0 ? (
+          {pageLoading ? <Skeleton /> : activeProjects.length === 0 ? (
             <div className="ps-empty">
               <h3>{t('ps.projects.empty.title')}</h3>
               <p>{t('ps.projects.empty.body')}</p>
             </div>
-          ) : projects.map((project) => (
+          ) : activeProjects.map((project) => (
             <div className="ps-row" key={project.id}>
               <div>
                 <h3 id={`ps-p-${project.id}`}>{project.name}</h3>
                 <p className="ps-meta">{project.slug} · {projectAgentLine(project)}</p>
               </div>
-              <p className="ps-meta">{statusText(project)}</p>
+              <p className="ps-meta">{project.statusLabel}</p>
               <ThresholdControl name={project.name} value={project.stopPercent} min={min} max={max}
                 onCommit={(stop_percent) => save({ subject_type: 'project', project_id: project.id, stop_percent })} />
             </div>

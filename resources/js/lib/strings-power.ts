@@ -4,7 +4,7 @@ export const S = {
   'ps.summary': 'Stop thresholds as a percent of the shared weekly usage limit. Bridge stores them and does not turn anything off.',
   'ps.loading': 'Loading Power Saver',
   'ps.projects.title': 'Projects',
-  'ps.projects.sub': 'Every project in this workspace',
+  'ps.projects.sub': 'Every project in this workspace that is not archived. An archived project stops at 0% until it is unarchived, then its saved threshold applies again.',
   'ps.projects.empty.title': 'No projects yet',
   'ps.projects.empty.body': 'Projects show up here after you create one. Each one can have its own threshold.',
   'ps.routines.title': 'Agent routines',
@@ -22,7 +22,6 @@ export const S = {
   'ps.error.percent': 'Enter a whole number from 0 to 100, or leave it empty for no threshold.',
   'ps.error.save': '✕ Couldn’t save that. Check your connection and try again.',
   'ps.retry': 'Try again',
-  'ps.status.archived': 'Archived',
   'ps.project.agent': 'Owning agent · {name}',
   'ps.project.noAgent': 'No owning agent',
   'ps.project.shared': 'Same agent on other projects · usage is not split',
@@ -34,6 +33,7 @@ export const S = {
   'ps.stop.proposed': 'Proposed',
   'ps.stop.not_built': 'Not built',
   'ps.stop.rejected': 'Not used',
+  'ps.stop.archive_only': 'Archive only',
 } as const;
 
 export type PowerStrKey = keyof typeof S;
