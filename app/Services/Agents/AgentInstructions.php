@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Tickets\HumanActors;
 use App\Support\Workspaces\CurrentWorkspace;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +18,8 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 /**
  * Agent instructions (docs/agent-instructions-sync.md): the profiles the daily sync pushes, and the owner's proposed
  * descriptions. Saving in Bridge never changes the agent; the sync applies a pending edit to the real profile and
- * reports applied / rejected / conflict. Bridge's copy of the description only changes through ingest() and applied().
+ * reports applied / rejected / conflict. Bridge's copy of the description only changes through ingest(), syncRoster()
+ * (the same ingest step, docs/agents-sync.md) and applied().
  * Every write runs serialised per workspace (see serialised()); a hash the sync reports is always compared, never stored blindly.
  */
 final class AgentInstructions
@@ -26,12 +28,16 @@ final class AgentInstructions
 
     public const HISTORY = 5;
 
+    /** Between name and title in a roster full_name ("Shodan · Lead Developer"). */
+    public const TITLE_SEPARATOR = ' · ';
+
     /** Tries of a write that lost a race on a unique key (revision, profile) before the violation is rethrown. */
     public const ATTEMPTS = 3;
 
     /**
      * Upsert profiles (name, title, description only), then the conflict rule for each agent's pending edit: the new
      * description equals the proposed text -> applied; its hash differs from the edit's base_hash -> conflict.
+     * Never touches the roster columns (full_name, section, section_order, listed).
      *
      * @param  list<array{agent_id: string, name: string, title?: ?string, description?: ?string}>  $profiles
      * @return list<array{agent_id: string, description_hash: string, pending_edit_status: ?string}>
@@ -39,33 +45,98 @@ final class AgentInstructions
     public function ingest(array $profiles): array
     {
         return $this->serialised(function () use ($profiles): array {
-            $out = [];
             $now = now();
-            foreach ($profiles as $p) {
-                $description = $p['description'] ?? '';
-                $hash = AgentProfile::hashOf($description);
-                AgentProfile::query()->updateOrCreate(['agent_id' => $p['agent_id']], [
-                    'name' => $p['name'],
-                    'title' => filled($p['title'] ?? null) ? $p['title'] : null,
-                    'description' => $description,
-                    'description_hash' => $hash,
-                    'synced_at' => $now,
+
+            return array_map(fn (array $p): array => $this->ingestOne($p, $now), $profiles);
+        });
+    }
+
+    /**
+     * The roster sync (POST /api/agents/sync, docs/agents-sync.md): a full snapshot of the real agents. Each agent goes
+     * through the same ingest step as POST /api/agent-profiles (description, hash, conflict rule for its pending edit)
+     * and is stored with full_name, section, section_order and listed. Listed profiles missing from the snapshot become
+     * unlisted (kept, with their edits). "unchanged": an already listed row with the same full_name, section,
+     * section_order and description.
+     *
+     * @param  list<array{agent_id: string, full_name: string, section: string, section_order: int, description?: ?string}>  $agents
+     * @return array{received: int, created: int, updated: int, unchanged: int, unlisted: int, sections: list<string>, agents: list<array{agent_id: string, result: string, description_hash: string, pending_edit_status: ?string}>}
+     */
+    public function syncRoster(array $agents): array
+    {
+        return $this->serialised(function () use ($agents): array {
+            $now = now();
+            $ids = array_column($agents, 'agent_id');
+            $before = AgentProfile::query()->whereIn('agent_id', $ids)->get()->keyBy('agent_id');
+            $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
+            $results = [];
+
+            foreach ($agents as $a) {
+                $description = $a['description'] ?? '';
+                /** @var AgentProfile|null $old */
+                $old = $before->get($a['agent_id']);
+                $result = match (true) {
+                    $old === null => 'created',
+                    $old->listed && $old->full_name === $a['full_name'] && $old->section === $a['section']
+                        && $old->section_order === $a['section_order'] && (string) $old->description === $description => 'unchanged',
+                    default => 'updated',
+                };
+                $counts[$result]++;
+
+                [$name, $title] = self::splitFullName($a['full_name']);
+                $ingested = $this->ingestOne(['agent_id' => $a['agent_id'], 'name' => $name, 'title' => $title, 'description' => $description], $now, [
+                    'full_name' => $a['full_name'],
+                    'section' => $a['section'],
+                    'section_order' => $a['section_order'],
+                    'listed' => true,
+                    'roster_synced_at' => $now,
                 ]);
-
-                $edit = $this->pendingFor($p['agent_id']);
-                if ($edit !== null) {
-                    if ($edit->proposed_description === $description) {
-                        $edit->resolve(AgentInstructionEdit::APPLIED, null, ['applied_hash' => $hash, 'applied_at' => $now]);
-                    } elseif ($edit->base_hash !== $hash) {
-                        $edit->resolve(AgentInstructionEdit::CONFLICT, AgentInstructionEdit::CONFLICT_REASON);
-                    }
-                }
-
-                $out[] = ['agent_id' => $p['agent_id'], 'description_hash' => $hash, 'pending_edit_status' => $edit?->status];
+                $results[] = ['agent_id' => $a['agent_id'], 'result' => $result, ...array_diff_key($ingested, ['agent_id' => true])];
             }
 
-            return $out;
+            $unlisted = AgentProfile::query()->where('listed', true)->whereNotIn('agent_id', $ids)->update(['listed' => false]);
+
+            return [
+                'received' => count($agents),
+                ...$counts,
+                'unlisted' => $unlisted,
+                'sections' => self::orderSections(array_map(fn (array $a): array => [$a['section'], $a['section_order']], $agents)),
+                'agents' => $results,
+            ];
         });
+    }
+
+    /**
+     * "Shodan · Lead Developer" -> ["Shodan", "Lead Developer"]; split on the first " · ". No separator: [full name, null].
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    public static function splitFullName(string $fullName): array
+    {
+        $at = mb_strpos($fullName, self::TITLE_SEPARATOR);
+        if ($at === false) {
+            return [$fullName, null];
+        }
+        $name = mb_substr($fullName, 0, $at);
+        $title = mb_substr($fullName, $at + mb_strlen(self::TITLE_SEPARATOR));
+
+        return [$name === '' ? $fullName : $name, $title === '' ? null : $title];
+    }
+
+    /**
+     * Section names ordered by their section_order (the lowest one an agent of that section carries), then by name.
+     *
+     * @param  list<array{0: string, 1: int}>  $pairs  [section, section_order]
+     * @return list<string>
+     */
+    public static function orderSections(array $pairs): array
+    {
+        $orders = [];
+        foreach ($pairs as [$section, $order]) {
+            $orders[$section] = min($orders[$section] ?? $order, $order);
+        }
+        uksort($orders, fn (string $a, string $b): int => $orders[$a] <=> $orders[$b] ?: strcmp($a, $b));
+
+        return array_keys($orders);
     }
 
     /** Save a new revision against the current profile; an older pending edit of this agent becomes superseded. */
@@ -173,37 +244,41 @@ final class AgentInstructions
     }
 
     /**
-     * Every agent of the workspace for the Agents page: profiles plus agents seen in usage files, by name.
+     * The Agents page: only profiles the roster sync listed (never usage-only ids or legacy-ingest-only profiles), grouped
+     * by section in section order (orderSections()), each section sorted by full name, case-insensitive, then id.
      *
-     * @return list<array{id: string, name: string, title: ?string, excerpt: ?string, syncedAt: ?string, editStatus: ?string, inUsage: bool}>
+     * @return list<array{name: string, agents: list<array{id: string, fullName: string, name: string, title: ?string, excerpt: ?string, syncedAt: ?string, editStatus: ?string}>}>
      */
     public function list(): array
     {
-        $profiles = AgentProfile::query()->get()->keyBy('agent_id');
-        $usage = $this->usageAgents();
-        $latest = AgentInstructionEdit::query()->orderBy('revision')->get()->keyBy('agent_id');
+        $profiles = AgentProfile::query()->where('listed', true)->get();
+        $latest = AgentInstructionEdit::query()->whereIn('agent_id', $profiles->pluck('agent_id'))->orderBy('revision')->get()->keyBy('agent_id');
 
-        $rows = [];
-        foreach (array_unique([...$profiles->keys()->all(), ...array_keys($usage)]) as $id) {
-            $id = (string) $id;
-            /** @var AgentProfile|null $profile */
-            $profile = $profiles->get($id);
+        $sections = [];
+        foreach ($profiles as $profile) {
             /** @var AgentInstructionEdit|null $edit */
-            $edit = $latest->get($id);
-            $rows[] = [
-                'id' => $id,
-                'name' => $profile->name ?? $usage[$id],
-                'title' => $profile?->title,
-                'excerpt' => $profile === null ? null : self::excerpt((string) $profile->description),
-                'syncedAt' => $profile?->synced_at?->toIso8601String(),
+            $edit = $latest->get($profile->agent_id);
+            $excerpt = self::excerpt((string) $profile->description);
+            $sections[(string) $profile->section][] = [
+                'id' => $profile->agent_id,
+                'fullName' => $profile->displayName(),
+                'name' => $profile->name,
+                'title' => $profile->title,
+                'excerpt' => $excerpt === '' ? null : $excerpt,
+                'syncedAt' => $profile->synced_at?->toIso8601String(),
                 // Only what still needs the owner or the sync: a pending or conflicting latest revision.
                 'editStatus' => in_array($edit?->status, [AgentInstructionEdit::PENDING, AgentInstructionEdit::CONFLICT], true) ? $edit->status : null,
-                'inUsage' => isset($usage[$id]),
             ];
         }
-        usort($rows, fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']) ?: strcmp($a['id'], $b['id']));
 
-        return $rows;
+        $order = self::orderSections($profiles->map(fn (AgentProfile $p): array => [(string) $p->section, (int) $p->section_order])->all());
+
+        return array_map(function (string $name) use ($sections): array {
+            $rows = $sections[$name];
+            usort($rows, fn (array $a, array $b): int => strcasecmp($a['fullName'], $b['fullName']) ?: strcmp($a['id'], $b['id']));
+
+            return ['name' => $name, 'agents' => $rows];
+        }, $order);
     }
 
     /** The agent has a profile or appears in a usage file of this workspace. */
@@ -233,6 +308,7 @@ final class AgentInstructions
             'profile' => $profile === null ? null : [
                 'name' => $profile->name,
                 'title' => $profile->title,
+                'fullName' => $profile->displayName(),
                 'description' => (string) $profile->description,
                 'hash' => $profile->description_hash,
                 'syncedAt' => $profile->synced_at?->toIso8601String(),
@@ -284,6 +360,38 @@ final class AgentInstructions
         }
 
         return $seen;
+    }
+
+    /**
+     * One profile of ingest() / syncRoster(): upsert (plus the roster columns in $roster), then the conflict rule.
+     *
+     * @param  array{agent_id: string, name: string, title?: ?string, description?: ?string}  $p
+     * @param  array<string, mixed>  $roster
+     * @return array{agent_id: string, description_hash: string, pending_edit_status: ?string}
+     */
+    private function ingestOne(array $p, CarbonInterface $now, array $roster = []): array
+    {
+        $description = $p['description'] ?? '';
+        $hash = AgentProfile::hashOf($description);
+        AgentProfile::query()->updateOrCreate(['agent_id' => $p['agent_id']], [
+            'name' => $p['name'],
+            'title' => filled($p['title'] ?? null) ? $p['title'] : null,
+            'description' => $description,
+            'description_hash' => $hash,
+            'synced_at' => $now,
+            ...$roster,
+        ]);
+
+        $edit = $this->pendingFor($p['agent_id']);
+        if ($edit !== null) {
+            if ($edit->proposed_description === $description) {
+                $edit->resolve(AgentInstructionEdit::APPLIED, null, ['applied_hash' => $hash, 'applied_at' => $now]);
+            } elseif ($edit->base_hash !== $hash) {
+                $edit->resolve(AgentInstructionEdit::CONFLICT, AgentInstructionEdit::CONFLICT_REASON);
+            }
+        }
+
+        return ['agent_id' => $p['agent_id'], 'description_hash' => $hash, 'pending_edit_status' => $edit?->status];
     }
 
     private function pendingFor(string $agentId): ?AgentInstructionEdit

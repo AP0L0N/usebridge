@@ -1,0 +1,13 @@
+{
+  "generated_at": "2037-10-19T05:00:00+02:00",
+  "source": "synthetic test roster",
+  "sections": ["Project managers", "Development", "Trading", "Unassigned"],
+  "agents": [
+    {"agent_id": "a1000000-0000-4000-8000-000000000001", "full_name": "Zed · Lead Developer", "section": "Development", "section_order": 1, "description": "You are Zed, the lead developer.\n- Review every pull request  ", "model": "ignored"},
+    {"agent_id": "a1000000-0000-4000-8000-000000000002", "full_name": "Mira Holt · QA Specialist", "section": "Development", "section_order": 1, "description": ""},
+    {"agent_id": "a1000000-0000-4000-8000-000000000003", "full_name": "bea Quill · Orbitline", "section": "Project managers", "section_order": 0, "description": "You run the Orbitline project."},
+    {"agent_id": "a1000000-0000-4000-8000-000000000004", "full_name": "Ada Vale · Atlas Room", "section": "Project managers", "section_order": 0, "description": "You run the Atlas project."},
+    {"agent_id": "a1000000-0000-4000-8000-000000000005", "full_name": "Otto Lark", "section": "Trading", "section_order": 2, "description": "You watch the markets."},
+    {"agent_id": "a1000000-0000-4000-8000-000000000006", "full_name": "Pim · Helper", "section": "Unassigned", "section_order": 3, "description": null}
+  ]
+}

@@ -113,14 +113,16 @@ export type InstructionEdit = {
 };
 export type AgentInstructions = {
   canEdit: boolean;
-  profile: { name: string; title: string | null; description: string; hash: string; syncedAt: string | null } | null;
+  profile: { name: string; title: string | null; fullName: string; description: string; hash: string; syncedAt: string | null } | null;
   latest: InstructionEdit | null;
   history: InstructionEdit[];
 };
+/** /agents (docs/agents-sync.md): agents the roster sync listed, one entry per section in section order. */
 export type AgentListRow = {
-  id: string; name: string; title: string | null; excerpt: string | null; syncedAt: string | null;
-  editStatus: 'pending' | 'conflict' | null; inUsage: boolean;
+  id: string; fullName: string; name: string; title: string | null; excerpt: string | null; syncedAt: string | null;
+  editStatus: 'pending' | 'conflict' | null;
 };
+export type AgentSection = { name: string; agents: AgentListRow[] };
 
 const UNITS = [
   { min: 1e9, div: 1e9, unit: 'B', word: 'billion' },

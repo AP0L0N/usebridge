@@ -25,6 +25,7 @@ class EnsureTokenAbility
         'api.agents.store' => 'agents:write',
         'api.agents.update' => 'agents:write',
         'api.agent-profiles.store' => 'agents:write',
+        'api.agents.sync' => 'agents:write',
         'api.agent-instruction-edits.applied' => 'agents:write',
         'api.agent-instruction-edits.rejected' => 'agents:write',
         'api.agent-instruction-edits.conflict' => 'agents:write',

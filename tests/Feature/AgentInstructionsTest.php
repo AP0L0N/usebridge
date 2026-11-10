@@ -106,26 +106,33 @@ class AgentInstructionsTest extends TestCase
     }
 
     #[Test]
-    public function the_agents_page_lists_profiles_and_usage_agents_with_links_and_the_nav_has_agents(): void
+    public function the_agents_page_lists_roster_agents_with_links_and_the_nav_has_agents(): void
     {
         $this->loadUsage();
         $this->ingest(str_repeat('Long instructions. ', 20))->assertOk();
         $this->asOwner()->save('Proposed text')->assertCreated();
 
-        $response = $this->get('/agents')->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
+        // A legacy ingest alone does not list the agent, nor does a usage file (docs/agents-sync.md).
+        $this->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('sections', []));
+
+        $this->api($this->ownerToken())->postJson('/api/agents/sync', ['agents' => [[
+            'agent_id' => self::NOVA, 'full_name' => 'Nova · Support lead', 'section' => 'Support', 'section_order' => 0,
+            'description' => str_repeat('Long instructions. ', 20),
+        ]]])->assertOk();
+
+        $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Agents/Index')
-            ->where('agents', function ($agents) {
-                $rows = collect($agents)->keyBy('id');
-                $nova = $rows[self::NOVA];
+            ->where('sections', function ($sections) {
+                $this->assertCount(1, $sections);
+                $this->assertSame('Support', $sections[0]['name']);
+                $this->assertSame([self::NOVA], collect($sections[0]['agents'])->pluck('id')->all());
+                $nova = $sections[0]['agents'][0];
+                $this->assertSame('Nova · Support lead', $nova['fullName']);
                 $this->assertSame('Support lead', $nova['title']);
                 $this->assertSame(160, mb_strlen($nova['excerpt']));
                 $this->assertStringEndsWith('…', $nova['excerpt']);
                 $this->assertNotNull($nova['syncedAt']);
                 $this->assertSame('pending', $nova['editStatus']);
-                $this->assertFalse($nova['inUsage']);
-                $this->assertNull($rows[self::JUNIPER]['syncedAt']);
-                $this->assertTrue($rows[self::JUNIPER]['inUsage']);
 
                 return true;
             }));

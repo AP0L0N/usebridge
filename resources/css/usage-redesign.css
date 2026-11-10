@@ -237,7 +237,8 @@
 
 /* Agents list (/agents) and the Instructions section of /usage/agents/{id}. Descriptions keep their whitespace. */
 .bu .ag-tbl th[scope=row] a { color: var(--ink-950); font-weight: 600; }
-.bu .ag-title { display: block; color: var(--ink-600); font-size: 12px; font-weight: 400; }
+.bu .ag-sec + .ag-sec { margin-top: var(--space-32); }
+.bu .ag-sec h2 { margin: 0 0 var(--space-12); }
 .bu .ag-desc { max-width: 640px; color: var(--ink-600); }
 .bu .chip.ag-conflict i { background: var(--warn); }
 .bu .chip.ag-pending i { background: var(--violet); }

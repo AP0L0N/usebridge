@@ -92,6 +92,8 @@ Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-t
     // Agent instructions sync (docs/agent-instructions-sync.md): workspace owner tokens only. Reads boards:read,
     // writes agents:write. Saving an edit in Bridge never changes the agent; the daily sync applies it.
     Route::post('agent-profiles', [AgentInstructionController::class, 'storeProfiles'])->name('api.agent-profiles.store');
+    // Roster sync (docs/agents-sync.md): the full list of real agents with sections; only these show on /agents.
+    Route::post('agents/sync', [AgentInstructionController::class, 'syncRoster'])->name('api.agents.sync');
     Route::get('agent-instruction-edits', [AgentInstructionController::class, 'index'])->name('api.agent-instruction-edits.index');
     Route::post('agent-instruction-edits/{id}/applied', [AgentInstructionController::class, 'applied'])->whereNumber('id')->name('api.agent-instruction-edits.applied');
     Route::post('agent-instruction-edits/{id}/rejected', [AgentInstructionController::class, 'rejected'])->whereNumber('id')->name('api.agent-instruction-edits.rejected');

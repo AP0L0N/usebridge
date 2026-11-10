@@ -84,9 +84,10 @@ export default function Agent(p: AgentProps) {
   const hourScope = p.range === 7 ? '' : p.range === 'yesterday' ? `yesterday (${p.toLabel}) · ` : `last 7 days (${p.hoursFromLabel} – ${p.toLabel}) · `;
 
   const total = stats.matchedRuns + stats.unmatchedRuns;
+  const fullName = p.instructions.profile?.fullName ?? agent.name;
   return (
     <>
-      <Head title={`${agent.name} · ${t('usage.title')}`} />
+      <Head title={`${fullName} · ${t('usage.title')}`} />
       <AppTopBar />
       <div className="bu">
       <main className="wrap">
@@ -98,7 +99,7 @@ export default function Agent(p: AgentProps) {
           <div>
             <div className="titleline">
               <span className="dot" style={{ background: 'var(--chart-2)' }} aria-hidden="true" />
-              <h1>{agent.name}</h1>
+              <h1>{fullName}</h1>
               {agent.inUsage && <FactorBadge factor={agent.factor} k={Math.round(agent.K)} />}
               <span className="chip">{agent.rank !== null ? t('agent.badge.rank', { rank: agent.rank, of: agent.of, range: rangeTxt }) : t('agent.badge.none', { range: rangeTxt })}</span>
             </div>
