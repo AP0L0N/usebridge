@@ -29,8 +29,10 @@ class HandleInertiaRequests extends Middleware
             // Lazy: resolved at render time, after EnsureUserWorkspace set the workspace (false for guests). polymarket: the
             // workspace owner only. admin: the Admin nav item, only for a logged-in is_admin user
             // (RequireAdmin answers 404 to everyone else).
+            // Nav v3: polymarket and power_saver also need their app switch (RequireAppFeature, default off).
             'features' => fn () => [
-                Workspace::FEATURE_POLYMARKET => app(CurrentWorkspace::class)->hasOwnerFeature(Workspace::FEATURE_POLYMARKET),
+                Workspace::FEATURE_POLYMARKET => RequireAppFeature::enabled('polymarket') && app(CurrentWorkspace::class)->hasOwnerFeature(Workspace::FEATURE_POLYMARKET),
+                'power_saver' => RequireAppFeature::enabled('power_saver'),
                 'admin' => self::user()['is_admin'] ?? false,
             ],
             // Site footer (every page): legal links + AGPL source link; the EN | SL switch only on the legal pages.

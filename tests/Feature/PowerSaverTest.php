@@ -22,6 +22,8 @@ class PowerSaverTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Nav v3 hides Polymarket and Power Saver by default; these tests cover the features switched on.
+        config(['bridge.features.polymarket' => true, 'bridge.features.power_saver' => true]);
         $this->seed(BridgeSeeder::class);
         Project::query()->whereKey(BridgeSeeder::PROJ_NORTHWIND)->update(['status' => 'smooth', 'archived_at' => null]);
         Project::query()->whereKey(BridgeSeeder::PROJ_BLUE_HARBOR)->update(['status' => 'archived', 'archived_at' => now()]);

@@ -94,4 +94,11 @@ return [
     // at all, absent from the HTML; on = they render as amber "PLACEHOLDER · Tilen to approve, do not ship" boxes.
     // One flag only: the old BRIDGE_LANDING_PENDING is retired and no longer read.
     'landing_drafts' => filter_var(env('BRIDGE_LANDING_SHOW_DRAFTS', false), FILTER_VALIDATE_BOOL),
+
+    // Nav v3 (portfolio-workstreams README §6): hidden features, one switch each, default off. Off = no nav item and the
+    // web routes (/polymarket*, /power-saver*) redirect to /portfolio. Code, data, jobs and the /api routes stay as they are.
+    'features' => [
+        'polymarket' => filter_var(env('BRIDGE_FEATURE_POLYMARKET', false), FILTER_VALIDATE_BOOL),
+        'power_saver' => filter_var(env('BRIDGE_FEATURE_POWER_SAVER', false), FILTER_VALIDATE_BOOL),
+    ],
 ];

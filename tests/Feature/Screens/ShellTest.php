@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Screens;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use App\Services\Auth\AccountService;
 use App\Support\Workspaces\CurrentWorkspace;
@@ -23,6 +24,8 @@ class ShellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Nav v3 hides Polymarket and Power Saver by default; these tests cover the features switched on.
+        config(['bridge.features.polymarket' => true, 'bridge.features.power_saver' => true]);
         Notification::fake();
         $this->tilen = app(CurrentWorkspace::class)->default()->owner; // backfilled owner, is_admin, polymarket on
         $this->sam = app(AccountService::class)->register('Sam Rivera', 'sam@example.test', 'garden-planner-27');
@@ -48,7 +51,7 @@ class ShellTest extends TestCase
     {
         $this->actingAs($this->tilen)->get('/usage')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->where('auth.user.is_admin', true)
-            ->where('auth.user.initials', \App\Http\Middleware\HandleInertiaRequests::initials($this->tilen->name))
+            ->where('auth.user.initials', HandleInertiaRequests::initials($this->tilen->name))
             ->where('features.polymarket', true)
             ->where('features.admin', true));
     }
@@ -75,8 +78,8 @@ class ShellTest extends TestCase
     #[Test]
     public function initials_for_the_avatar(): void
     {
-        $this->assertSame('SR', \App\Http\Middleware\HandleInertiaRequests::initials('Sam Rivera'));
-        $this->assertSame('T', \App\Http\Middleware\HandleInertiaRequests::initials(' Tilen '));
-        $this->assertSame('ŽK', \App\Http\Middleware\HandleInertiaRequests::initials('žan kos lee'));
+        $this->assertSame('SR', HandleInertiaRequests::initials('Sam Rivera'));
+        $this->assertSame('T', HandleInertiaRequests::initials(' Tilen '));
+        $this->assertSame('ŽK', HandleInertiaRequests::initials('žan kos lee'));
     }
 }

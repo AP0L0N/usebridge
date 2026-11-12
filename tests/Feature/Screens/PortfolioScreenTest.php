@@ -6,6 +6,7 @@ use App\Models\Agent;
 use App\Models\Project;
 use App\Models\ProjectStatusEvent;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Auth\AccountService;
 use App\Support\BoardColumns;
 use App\Support\Workspaces\CurrentWorkspace;
@@ -25,13 +26,15 @@ class PortfolioScreenTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Nav v3 hides Polymarket and Power Saver by default; these tests cover the features switched on.
+        config(['bridge.features.polymarket' => true, 'bridge.features.power_saver' => true]);
         Notification::fake();
         $this->sam = app(AccountService::class)->register('Sam Rivera', 'sam@example.test', 'garden-planner-27');
     }
 
     private function project(User $user, string $name, array $attrs = []): Project
     {
-        $ws = $user->workspaces()->first() ?? \App\Models\Workspace::query()->where('owner_user_id', $user->id)->firstOrFail();
+        $ws = $user->workspaces()->first() ?? Workspace::query()->where('owner_user_id', $user->id)->firstOrFail();
 
         $id = $user->is($this->sam) ? 'agent-ava' : 'agent-lee-pm'; // agents.id is unique across workspaces
 
@@ -47,7 +50,7 @@ class PortfolioScreenTest extends TestCase
 
     private function event(User $user, Project $p, string $source): void
     {
-        app(CurrentWorkspace::class)->runAs($p->workspace_id ? \App\Models\Workspace::query()->findOrFail($p->workspace_id) : $user->workspaces()->first(), fn () => ProjectStatusEvent::query()->create([
+        app(CurrentWorkspace::class)->runAs($p->workspace_id ? Workspace::query()->findOrFail($p->workspace_id) : $user->workspaces()->first(), fn () => ProjectStatusEvent::query()->create([
             'id' => 'pse-'.$p->id.$source, 'project_id' => $p->id, 'to_status' => 'smooth', 'set_by' => 'agent-ava', 'set_by_type' => 'agent', 'source' => $source, 'created_at' => now(),
         ]));
     }

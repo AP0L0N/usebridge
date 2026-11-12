@@ -17,6 +17,13 @@ class PolymarketDeskStatesTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Nav v3 hides Polymarket by default; these tests cover the feature switched on.
+        config(['bridge.features.polymarket' => true]);
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();

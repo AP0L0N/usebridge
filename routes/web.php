@@ -27,6 +27,7 @@ use App\Http\Controllers\UsageController;
 use App\Http\Middleware\EnsureUserWorkspace;
 use App\Http\Middleware\LegacyReadOnly;
 use App\Http\Middleware\RequireAdmin;
+use App\Http\Middleware\RequireAppFeature;
 use App\Http\Middleware\RequireVerifiedEmail;
 use App\Http\Middleware\RequireWorkspaceFeature;
 use App\Http\Middleware\ShowLandingToGuests;
@@ -97,7 +98,8 @@ Route::middleware(['auth', EnsureUserWorkspace::class])->group(function () {
 Route::get('/', PortfolioController::class)->middleware([ShowLandingToGuests::class, EnsureUserWorkspace::class])->name('portfolio');
 
 Route::middleware(EnsureUserWorkspace::class)->group(function () {
-    Route::get('/portfolio', fn () => redirect()->route('portfolio'));
+    // The Finder keeps its selection in the URL (/portfolio?project=…), so Back from a board returns to the same state.
+    Route::get('/portfolio', PortfolioController::class)->name('portfolio.finder');
     Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
     Route::post('/projects/{slug}/inputs/{id}/resolve', [ProjectController::class, 'resolveInput'])
@@ -120,8 +122,11 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::patch('/projects/{slug}/status', [TicketController::class, 'status'])->name('projects.status.update');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');
-    Route::get('/power-saver', [PowerSaverController::class, 'show'])->name('power-saver');
-    Route::patch('/power-saver', [PowerSaverController::class, 'update'])->middleware('throttle:30,1')->name('power-saver.update');
+    // Nav v3: Power Saver is hidden behind BRIDGE_FEATURE_POWER_SAVER (off = redirect to /portfolio).
+    Route::middleware(RequireAppFeature::class.':power_saver')->group(function () {
+        Route::get('/power-saver', [PowerSaverController::class, 'show'])->name('power-saver');
+        Route::patch('/power-saver', [PowerSaverController::class, 'update'])->middleware('throttle:30,1')->name('power-saver.update');
+    });
     Route::get('/usage', [UsageController::class, 'index'])->name('usage');
     Route::get('/usage/agents/{agentId}', [UsageController::class, 'agent'])
         ->where('agentId', '[A-Za-z0-9_-]{1,64}')
@@ -134,9 +139,14 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::get('/agents', [AgentsController::class, 'index'])->name('agents');
     // Cursor dashboard CSV export (individual plan): the workspace owner only; 404 for others.
     Route::post('/usage/cursor-csv', [CursorCsvController::class, 'store'])->middleware('throttle:cursor-csv')->name('usage.cursor-csv');
-    // Polymarket desk: only workspaces with the polymarket feature, and only their owner; 404 for everyone else.
+    // Polymarket desk: hidden behind BRIDGE_FEATURE_POLYMARKET (off = redirect to /portfolio); when on, only workspaces
+    // with the polymarket feature, and only their owner; 404 for everyone else.
     Route::get('/polymarket', [PolymarketController::class, 'index'])
-        ->middleware(RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner')->name('polymarket');
+        ->middleware([RequireAppFeature::class.':polymarket', RequireWorkspaceFeature::class.':'.Workspace::FEATURE_POLYMARKET.',owner'])->name('polymarket');
+    // Anything else under the hidden features: /portfolio while the switch is off, 404 when it is on.
+    foreach (['polymarket' => 'polymarket', 'power-saver' => 'power_saver'] as $path => $feature) {
+        Route::get("/$path/{rest}", fn () => abort(404))->where('rest', '.*')->middleware(RequireAppFeature::class.':'.$feature);
+    }
     // r0 screens removed in r1.
     Route::redirect('/ops', '/');
     Route::redirect('/queue', '/');

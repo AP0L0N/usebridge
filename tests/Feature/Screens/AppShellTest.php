@@ -29,6 +29,8 @@ class AppShellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Nav v3 hides Polymarket and Power Saver by default; these tests cover the features switched on.
+        config(['bridge.features.polymarket' => true, 'bridge.features.power_saver' => true]);
         Notification::fake();
         $this->owner = app(CurrentWorkspace::class)->default()->owner;
         $this->sam = app(AccountService::class)->register('Sam Rivera', 'sam@example.test', 'garden-planner-27');

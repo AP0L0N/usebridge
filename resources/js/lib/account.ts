@@ -4,7 +4,7 @@
 export type AuthUser = { id: number; name: string; email: string; initials: string; is_admin: boolean; email_verified: boolean; actor_id: string };
 export type Shared = {
   auth?: { user: AuthUser | null };
-  features?: { polymarket?: boolean; admin?: boolean };
+  features?: { polymarket?: boolean; power_saver?: boolean; admin?: boolean };
   flash?: { success?: string | null; error?: string | null };
   footer?: Footer;
 };
