@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Models\Ticket;
 use App\Services\Tickets\TicketView;
+use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -23,6 +24,7 @@ class ListTickets extends BridgeTool
         return [
             'project' => $schema->string()->description('Project id or slug (list_projects).'),
             'status' => $schema->string()->description('Column key(s), comma-separated: '.implode(', ', BoardColumns::keys()).'.'),
+            'workstream' => $schema->string()->description('Workstream id, or name with `project` (list_workstreams; older names still match).'),
             'label' => $schema->string()->description('Label name.'),
             'assignee' => $schema->string()->description('Agent id, "owner" (the workspace owner), a person id (user:…), or "none" for unassigned.'),
             'q' => $schema->string()->description('Text in the title or key.'),
@@ -33,8 +35,12 @@ class ListTickets extends BridgeTool
     protected function run(Request $request): array
     {
         $args = $request->all(['status', 'label', 'assignee', 'q', 'limit']);
-        if ($request->get('project') !== null) {
-            $args['project_id'] = $this->project($request)->id;
+        $project = $request->get('project') !== null ? $this->project($request) : null;
+        if ($project !== null) {
+            $args['project_id'] = $project->id;
+        }
+        if (filled($request->get('workstream'))) {
+            $args['workstream_id'] = Workstreams::filterId($project, (string) $request->get('workstream'));
         }
         $f = validator($args, TicketView::filterRules())->validate();
         $q = TicketView::filter(Ticket::query()->with(TicketView::with()), $f)->limit((int) ($f['limit'] ?? self::DEFAULT_LIMIT));

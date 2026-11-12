@@ -35,7 +35,8 @@ class MultiUserMigrationTest extends TestCase
         $agentBot->createToken('agent-janice');
         DB::table('agents')->insert(['id' => 'agent-janice', 'name' => 'Janice', 'role_label' => 'PM']);
         DB::table('projects')->insert(['id' => 'proj-x', 'name' => 'X', 'slug' => 'x', 'owner_agent_id' => 'agent-janice']);
-        DB::table('tickets')->insert(['id' => 'tk-1', 'project_id' => 'proj-x', 'key' => 'X-1', 'title' => 'T', 'status' => 'todo', 'created_by' => 'agent-janice', 'created_by_type' => 'agent']);
+        DB::table('workstreams')->insert(['id' => 'ws-x', 'project_id' => 'proj-x', 'name' => 'General', 'is_default' => true]);
+        DB::table('tickets')->insert(['id' => 'tk-1', 'project_id' => 'proj-x', 'workstream_id' => 'ws-x', 'key' => 'X-1', 'title' => 'T', 'status' => 'todo', 'created_by' => 'agent-janice', 'created_by_type' => 'agent']);
         DB::table('usage_days')->insert(['date' => '2026-10-30', 'generated_at' => '2026-10-31 00:00:00', 'est_tokens_total' => 1, 'payload' => '{}']);
 
         return [$captain, $agentBot];

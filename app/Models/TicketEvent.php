@@ -18,6 +18,8 @@ class TicketEvent extends Model
         'ask_dismissed', 'ask_restored',
         // r4 QA MED-1: a newer owner input superseded pending ones (to: {comment_ids, by_comment_id}).
         'input_superseded',
+        // Workstreams: the ticket moved to another workstream (from/to: {workstream_id, name}).
+        'workstream',
     ];
 
     public const UPDATED_AT = null;

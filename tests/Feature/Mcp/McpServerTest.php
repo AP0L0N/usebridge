@@ -20,7 +20,7 @@ class McpServerTest extends TestCase
 
     private const TOOLS = [
         'comment_ticket', 'create_ticket', 'get_board', 'get_ticket', 'list_agents', 'list_labels', 'list_open_asks',
-        'list_projects', 'list_questions', 'list_tickets', 'move_ticket', 'post_status', 'set_project_status', 'update_ticket',
+        'list_projects', 'list_questions', 'list_tickets', 'list_workstreams', 'move_ticket', 'post_status', 'set_project_status', 'update_ticket',
     ];
 
     private Workspace $workspace;

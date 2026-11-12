@@ -3,15 +3,20 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use App\Support\TicketPrefix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
 {
     use BelongsToWorkspace;
+
+    /** Deleting a project is a soft delete (recoverable): rows, tickets and history stay. */
+    use SoftDeletes;
 
     /** PM-set status (PATCH /api/projects/{id}/status); null = "Status not set". */
     public const STATUSES = ['smooth', 'waiting', 'archived'];
@@ -46,9 +51,11 @@ class Project extends Model
         // still globally unique (docs/MULTI-USER-PLAN.md §1), so all workspaces count as taken.
         static::creating(function (Project $project) {
             if (blank($project->ticket_prefix)) {
-                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::acrossWorkspaces()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+                $project->ticket_prefix = TicketPrefix::forProject((string) $project->id, (string) $project->name, static::acrossWorkspaces()->withTrashed()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
             }
         });
+        // Every project starts with its default workstream "General" (README §3.1, §4).
+        static::created(fn (Project $project) => Workstreams::ensureDefault($project));
     }
 
     /** This project's board columns (own labels over the defaults). @return list<array{key:string,label:string,order:int}> */
@@ -101,6 +108,11 @@ class Project extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
+    }
+
+    public function workstreams(): HasMany
+    {
+        return $this->hasMany(Workstream::class);
     }
 
     public function statusEvents(): HasMany

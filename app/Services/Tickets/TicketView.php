@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
+use App\Models\Workstream;
 use App\Services\ProjectStatus;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
@@ -28,6 +29,7 @@ final class TicketView
     {
         return [
             'project',
+            'workstream',
             'labels',
             'viewerReadState',
             'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'is_tilen_input', 'retracted_at', 'created_at']),
@@ -72,6 +74,9 @@ final class TicketView
             'id' => $t->id,
             'key' => $t->key,
             'project_id' => $t->project_id,
+            // Workstream by id; the name is always the current one (README §5).
+            'workstream_id' => $t->workstream_id,
+            'workstream' => $t->workstream?->name,
             'pm_agent_id' => $t->project->owner_agent_id,
             'title' => $t->title,
             'description' => $t->description,
@@ -240,7 +245,10 @@ final class TicketView
             'ticket_id' => $e->ticket_id,
             'project_id' => $e->project_id,
             'type' => $e->type,
-            'from' => $e->from,
+            // A workstream move names the old workstream as it was; `deleted` marks one deleted since ("Mobile (deleted)").
+            'from' => $e->type === 'workstream' && is_array($e->from)
+                ? [...$e->from, 'deleted' => Workstream::withTrashed()->find($e->from['workstream_id'] ?? null)?->trashed() ?? true]
+                : $e->from,
             'to' => $e->to,
             'actor_id' => $e->actor_id,
             'actor_type' => $e->actor_type,
@@ -261,6 +269,8 @@ final class TicketView
     {
         return [
             'project_id' => ['nullable', 'string'],
+            'workstream_id' => ['nullable', 'string'],
+            'workstream' => ['nullable', 'string', 'max:120'],
             'status' => ['nullable', 'string', function ($attr, $value, $fail) {
                 foreach (explode(',', (string) $value) as $s) {
                     if (! in_array(trim($s), BoardColumns::keys(), true)) {
@@ -287,6 +297,11 @@ final class TicketView
     {
         if (! empty($f['project_id'])) {
             $q->where('project_id', $f['project_id']);
+        }
+        // Never the tickets of a deleted (soft-deleted) project.
+        $q->whereIn('project_id', Project::query()->select('id'));
+        if (! empty($f['workstream_id'])) {
+            $q->where('workstream_id', $f['workstream_id']);
         }
         if (! empty($f['status'])) {
             $q->whereIn('status', array_map('trim', explode(',', $f['status'])));

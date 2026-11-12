@@ -55,7 +55,14 @@ final class TicketService
             'labels' => ['sometimes', 'nullable', 'array', 'max:20'],
             'labels.*' => ['required', 'string', 'max:24'],
             ...self::placementRules(),
+            ...self::workstreamRules(),
         ];
+    }
+
+    /** Optional workstream (id, current or older name); omitted = the project's default (create) / unchanged. */
+    public static function workstreamRules(): array
+    {
+        return ['workstream' => ['sometimes', 'nullable', 'string', 'max:120']];
     }
 
     /** POST /api/tickets/{ticket}/move and MCP move_ticket. */
@@ -65,6 +72,7 @@ final class TicketService
             'status' => ['required', Rule::in(BoardColumns::keys())],
             ...self::placementRules(),
             ...self::askRules(),
+            ...self::workstreamRules(),
         ];
     }
 
@@ -110,12 +118,14 @@ final class TicketService
                 throw ValidationException::withMessages(['ask' => self::askRequired($project)]);
             }
             [$assigneeType, $assigneeId] = $this->assignee($data) ?? [null, null];
+            $workstream = Workstreams::forTicket($project, $data['workstream'] ?? null, $actor);
             $now = Carbon::now();
 
             $ticket = new Ticket;
             $ticket->forceFill([
                 'id' => 'tk-'.Str::lower((string) Str::ulid()),
                 'project_id' => $project->id,
+                'workstream_id' => $workstream->id,
                 'key' => $this->nextKey($project),
                 'title' => trim($data['title']),
                 'description' => $data['description'] ?? null,
@@ -151,7 +161,7 @@ final class TicketService
         $locked = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
         $prefix = $locked->ticket_prefix;
         if (blank($prefix)) {
-            $prefix = TicketPrefix::forProject((string) $locked->id, (string) $locked->name, Project::acrossWorkspaces()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
+            $prefix = TicketPrefix::forProject((string) $locked->id, (string) $locked->name, Project::acrossWorkspaces()->withTrashed()->whereNotNull('ticket_prefix')->pluck('ticket_prefix'));
         }
         $seq = (int) $locked->ticket_seq;
         do {
@@ -201,6 +211,7 @@ final class TicketService
                 }
             }
             $this->applyAsk($ticket, $data, $actor);
+            $this->applyWorkstream($ticket, $data, $actor);
             if (array_key_exists('labels', $data)) {
                 $this->syncLabels($ticket, $data['labels'] ?? [], $actor);
             }
@@ -226,6 +237,7 @@ final class TicketService
 
         return DB::transaction(function () use ($ticket, $data, $actor) {
             $this->applyAsk($ticket, $data, $actor);
+            $this->applyWorkstream($ticket, $data, $actor);
             $this->moveWithin($ticket, $data['status'], $data, $actor);
             Project::touchActivity($ticket->project_id);
 
@@ -346,6 +358,15 @@ final class TicketService
         if ($to !== []) {
             $this->event($ticket, 'ask_set', $from, $to, $actor);
         }
+    }
+
+    /** `workstream` given and different: the ticket moves there (logged as a `workstream` event). */
+    private function applyWorkstream(Ticket $ticket, array $data, Actor $actor): void
+    {
+        if (TicketService::clean($data['workstream'] ?? null) === null) {
+            return;
+        }
+        Workstreams::moveTicket($ticket, Workstreams::forTicket($ticket->project, $data['workstream'], $actor), $actor);
     }
 
     /** @return array<string, mixed> only the ask fields present in $data, normalised */
@@ -638,6 +659,7 @@ final class TicketService
     /** 409 for edits on an archived ticket or a ticket of an archived project. */
     public function ensureWritable(Ticket $ticket): void
     {
+        abort_if($ticket->project->trashed(), 404, "Unknown ticket '{$ticket->key}'.");
         abort_if($ticket->project->isArchived(), 409, "Project {$ticket->project->name} is archived; tickets are read-only.");
         abort_if($ticket->archived_at !== null, 409, "Ticket {$ticket->key} is archived; unarchive it first.");
     }
@@ -648,6 +670,7 @@ final class TicketService
         $e->forceFill([
             'ticket_id' => $ticket->id,
             'project_id' => $ticket->project_id,
+            'workstream_id' => $ticket->workstream_id,
             'type' => $type,
             'from' => $from,
             'to' => $to,

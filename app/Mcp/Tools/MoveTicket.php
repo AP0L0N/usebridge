@@ -26,6 +26,7 @@ class MoveTicket extends BridgeTool
             'position' => $schema->integer()->min(0)->description('0-based position in the column (default: end).'),
             'before_id' => $schema->string()->description('Place before this ticket id.'),
             'after_id' => $schema->string()->description('Place after this ticket id.'),
+            'workstream' => $schema->string()->max(120)->description('Optional: move the ticket into this workstream too (id or name, list_workstreams; a new name creates it).'),
             'ask' => $schema->string()->max(280)->description('Question for the workspace owner (needed for waiting_tilen).'),
             'ask_context' => $schema->string()->max(500),
             'ask_options' => $schema->array()->items($schema->string()->max(60))->max(4),

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
 use App\Services\Tickets\HumanActors;
+use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -43,9 +44,25 @@ class Ticket extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // workstream_id is NOT NULL: a row written without one (seeders, carry-over) lands in the project's default.
+        static::creating(function (Ticket $ticket) {
+            if ($ticket->workstream_id === null && $ticket->project_id !== null) {
+                $ticket->workstream_id = Workstreams::defaultIdFor((string) $ticket->project_id);
+            }
+        });
+    }
+
+    /** withTrashed: a soft-deleted project's tickets still render (API lists filter them out). */
     public function project(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(Project::class)->withTrashed();
+    }
+
+    public function workstream(): BelongsTo
+    {
+        return $this->belongsTo(Workstream::class)->withTrashed();
     }
 
     public function labels(): BelongsToMany

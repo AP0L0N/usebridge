@@ -23,6 +23,7 @@ class CreateTicket extends BridgeTool
             'project' => $schema->string()->description('Project id or slug (list_projects).')->required(),
             'title' => $schema->string()->max(140)->required(),
             ...$this->ticketFields($schema),
+            'workstream' => $schema->string()->max(120)->description('Optional: workstream id or name (list_workstreams). Omit it for the project\'s default workstream; a new name creates the workstream.'),
             'actor' => $this->actorField($schema),
         ];
     }

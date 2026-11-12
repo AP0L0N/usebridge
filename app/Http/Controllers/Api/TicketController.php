@@ -10,6 +10,7 @@ use App\Models\TicketEvent;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\TicketService;
 use App\Services\Tickets\TicketView;
+use App\Services\Tickets\Workstreams;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,6 +30,9 @@ class TicketController extends Controller
         $f = $request->validate(TicketView::filterRules());
         foreach (['needs_pm_pickup', 'unread_for_me', 'unread_for_owner', 'unread_for_tilen', 'blocked', 'include_archived'] as $k) {
             $f[$k] = self::flag($f[$k] ?? false);
+        }
+        if (filled($f['workstream'] ?? null)) {
+            $f['workstream_id'] = Workstreams::filterId(empty($f['project_id']) ? null : $this->projectById($f['project_id']), $f['workstream']);
         }
         $q = TicketView::filter(Ticket::query()->with(TicketView::with()), $f)->limit((int) ($f['limit'] ?? 100));
         $view = new TicketView;
