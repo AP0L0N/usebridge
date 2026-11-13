@@ -34,7 +34,7 @@ export default function AgentsIndex({ sections }: { sections: AgentSection[] }) 
                 <ul className="ag-grid">
                   {section.agents.map((a) => (
                     <li key={a.id}>
-                      <Link className="ag-tile" href={a.url}
+                      <Link className="ag-tile" href={`/usage/agents/${encodeURIComponent(a.id)}`}
                         aria-label={a.title ? t('agents.tile', { name: a.name, title: a.title }) : t('agents.tile.noTitle', { name: a.name })}>
                         <span className="ag-avi" aria-hidden="true">{a.initials}</span>
                         <span className="ag-name">{a.name}</span>

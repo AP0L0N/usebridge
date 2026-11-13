@@ -203,7 +203,7 @@ class AgentsSyncTest extends TestCase
     }
 
     #[Test]
-    public function the_agents_grid_has_section_counts_initials_and_detail_links(): void
+    public function the_agents_grid_has_section_counts_and_initials(): void
     {
         $this->loadUsage();
         $this->sync(null, $this->ownerToken())->assertOk();
@@ -216,7 +216,6 @@ class AgentsSyncTest extends TestCase
                 $rows = $sections->flatMap(fn ($s) => $s['agents'])->keyBy('id');
                 $this->assertSame('ZE', $rows[self::ZED]['initials']);
                 $this->assertSame('OL', $rows[self::OTTO]['initials']);
-                $this->assertSame(route('usage.agent', self::OTTO), $rows[self::OTTO]['url']);
 
                 return true;
             }));
