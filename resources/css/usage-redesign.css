@@ -236,12 +236,6 @@
 .bu .chart .seg-hit, .bu .tip li i { outline-color: var(--chart-grid); }
 
 /* Agents list (/agents) and the Instructions section of /usage/agents/{id}. Descriptions keep their whitespace. */
-.bu .ag-tbl th[scope=row] a { color: var(--ink-950); font-weight: 600; }
-.bu .ag-sec + .ag-sec { margin-top: var(--space-32); }
-.bu .ag-sec h2 { margin: 0 0 var(--space-12); }
-.bu .ag-desc { max-width: 640px; color: var(--ink-600); }
-.bu .chip.ag-conflict i { background: var(--warn); }
-.bu .chip.ag-pending i { background: var(--violet); }
 .bu .ai-card { margin-bottom: var(--space-32); }
 .bu .ai-title { color: var(--ink-950); font-weight: 600; }
 .bu .ai-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.55; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-16); max-height: 480px; overflow-y: auto; }
@@ -260,3 +254,20 @@
 .bu .ai-history { margin-top: var(--space-16); }
 .bu .ai-history summary { cursor: pointer; font-weight: 500; min-height: var(--tap-min); display: flex; align-items: center; }
 .bu .ai-history ol { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-12); }
+
+/* Agents avatar grid (portfolio-workstreams README §1.4; AG / Agent tile 75:11): 5 per row at 1440, 2 on a phone. */
+.bu .ag-sec h2 { display: flex; align-items: baseline; gap: var(--space-8); margin: 0 0 var(--space-16); }
+.bu .ag-sec + .ag-sec { margin-top: var(--space-40); }
+.bu .ag-n { font: 500 12px/1 var(--font-mono); color: var(--ink-600); letter-spacing: 0; }
+.bu .ag-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 176px); gap: var(--space-16); }
+.bu .ag-tile { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); height: 100%; padding: var(--space-24) var(--space-12) var(--space-20); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: 0 1px 2px #0B0C0F0F; color: var(--ink-950); text-align: center; text-decoration: none; transition: border-color 160ms, box-shadow 160ms; }
+.bu .ag-tile:hover { border-color: var(--ink-400); box-shadow: 0 1px 2px #0B0C0F0F, 0 8px 24px #0B0C0F0F; }
+.bu .ag-tile:focus-visible { outline: 2px solid #5B3FE0; outline-offset: 2px; }
+.bu .ag-avi { display: grid; place-items: center; width: 72px; height: 72px; margin-bottom: var(--space-12); border-radius: 50%; background: #1C1E24; box-shadow: inset 0 0 0 1px #4A4F5C; color: #fff; font: 500 22px/1 'Geist Mono', ui-monospace, monospace; letter-spacing: 0.02em; }
+.bu .ag-name { font-size: 15px; font-weight: 500; line-height: 1.4; }
+.bu .ag-title { color: var(--ink-600); font-size: 13px; line-height: 1.45; }
+.bu .ag-empty { padding: var(--space-48) var(--space-24); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); text-align: center; }
+.bu .ag-empty h2 { margin: 0 0 var(--space-8); }
+.bu .ag-empty p { margin: 0; color: var(--ink-600); }
+@media (max-width: 1099px) { .bu .ag-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } }
+@media (max-width: 720px) { .bu .ag-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-12); } }

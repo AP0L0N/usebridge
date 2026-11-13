@@ -7,6 +7,7 @@ import {
 } from './Bits';
 import { IconCal16, IconChev } from '../AppIcons';
 import { ago, updateTime } from '../../lib/dates';
+import { t as tw } from '../../lib/strings-workstreams';
 import { t as tr } from '../../lib/strings';
 import {
   ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe, viaLabel,
@@ -49,6 +50,10 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
     case 'input_acked': return 'Your input picked up';
     case 'archived': return 'Archived';
     case 'unarchived': return 'Unarchived';
+    case 'workstream': {
+      const fromName = String(from.name ?? '');
+      return tw('hist.workstream', { from: from.deleted ? tw('hist.deleted', { name: fromName }) : fromName, to: String(to.name ?? '') });
+    }
     default: return null;
   }
 }

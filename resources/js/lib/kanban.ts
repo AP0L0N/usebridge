@@ -251,7 +251,7 @@ export class ApiError extends Error {
 }
 
 /** JSON write to a Bridge web endpoint (logged-in session). Throws ApiError with the server's message on failure. */
-export async function send<T = unknown>(method: 'POST' | 'PATCH', url: string, body: Record<string, unknown> = {}): Promise<T> {
+export async function send<T = unknown>(method: 'POST' | 'PATCH' | 'DELETE', url: string, body: Record<string, unknown> = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, {

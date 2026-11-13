@@ -10,6 +10,9 @@ import { LatestUpdate } from '../Components/Kanban/LatestUpdate';
 import { AskPrompt, MoveSheet } from '../Components/Kanban/MoveSheet';
 import { TicketDetail } from '../Components/Kanban/TicketDetail';
 import { ColumnLabelsSheet, type ColumnDef } from '../Components/Kanban/ColumnLabels';
+import { BoardWorkstreamNav } from '../Components/Workstreams/BoardNav';
+import { t as tw } from '../lib/strings-workstreams';
+import { boardUrl, finderUrl, type WorkstreamRow } from '../lib/workstreams';
 import type { Shared } from '../lib/account';
 import { updateTime } from '../lib/dates';
 import { t as tr } from '../lib/strings';
@@ -31,6 +34,9 @@ type Props = {
   /** PUT /projects/{slug}/column-labels for a logged-in member; null when the viewer may not edit them. */
   columnLabelsUrl: string | null;
   defaultColumns: ColumnDef[];
+  /** Workstream tabs (board order, the viewer's badges) and the selected one (?ws=); the board shows only its tickets. */
+  workstreams: WorkstreamRow[];
+  workstream: string;
 };
 
 export default function BoardPage(props: Props) {
@@ -50,8 +56,10 @@ type Pending = { t: Ticket; to: ColumnKey; index: number; via: 'drag' | 'key' | 
 type Drag = { key: string; from: ColumnKey; x: number; y: number; offX: number; offY: number; w: number; over: ColumnKey | null; index: number };
 type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
 
-function Board({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns }: Props) {
+function Board({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, workstreams, workstream }: Props) {
   const p = board.project;
+  const wsName = workstreams.find((w) => w.id === workstream)?.name ?? '';
+  const here = boardUrl(p.slug, workstream);
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
   const signedIn = usePage<Shared>().props.auth?.user != null;
@@ -395,7 +403,7 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
     setOpening(null);
     returnTo = key ?? null;
     if (openedHere.current) { openedHere.current = false; window.history.back(); }
-    else router.visit(`/projects/${p.slug}`, { preserveState: true, preserveScroll: true });
+    else router.visit(here, { preserveState: true, preserveScroll: true });
   };
   // Opening marks the ticket seen (clears its unread strip on the next board payload).
   const seenKey = useRef<string | null>(null);
@@ -501,7 +509,7 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
       <Head title={p.name} />
       <AppTopBar />
       <main className="kb">
-        <Link className="kb-back" href="/"><IcBack />{tr('board.back')}</Link>
+        <Link className="kb-back" href={finderUrl(p.slug)}><IcBack />{tw('bd.back')}</Link>
         <div className="kb-head">
           <div className="kb-title">
             <h1>{p.name}</h1>
@@ -537,8 +545,9 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
         <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
           onChanged={() => reload(['board', 'statusHistory'])} />
         <LatestUpdate update={latestUpdate} now={now} />
+        <BoardWorkstreamNav slug={p.slug} projectName={p.name} rows={workstreams} current={workstream} readOnly={p.archived || !signedIn} mobile={mobile} />
         <p className="bsum">
-          <span className="mi"><b>{open}</b> {tr('board.open', { n: open })}</span>
+          <span className="mi"><b>{open}</b> {tw('bd.open', { name: wsName })}</span>
           <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { column: lcFirst(colLabel(WAITING)) })}</span>
           <span className="mi"><b>{blocked}</b> {tr('board.blocked', { n: blocked })}</span>
           {p.pm_name && <span className="mi hide-m">{tr('portfolio.pm')} <b className="name">{p.pm_name}</b></span>}
@@ -587,9 +596,9 @@ function Board({ board, statusHistory, latestUpdate = null, people, labels, done
                   <button className="colmore" type="button" onClick={() => router.reload({ only: ['board', 'doneAll'], data: { done: 'all' } })}>{tr('board.col.showOlder', { n: board.done_older_count })}</button>
                 )}
                 {c.key === 'done' && doneAll && (
-                  <button className="colmore" type="button" onClick={() => router.visit(`/projects/${p.slug}`, { only: ['board', 'doneAll'], preserveState: true, preserveScroll: true })}>{tr('board.col.showRecent')}</button>
+                  <button className="colmore" type="button" onClick={() => router.visit(here, { only: ['board', 'doneAll'], preserveState: true, preserveScroll: true })}>{tr('board.col.showRecent')}</button>
                 )}
-                {QUICK_ADD.includes(c.key) && <QuickAdd col={c.key} slug={p.slug} open={adding === c.key} setOpen={(v) => setAdding(v ? c.key : null)} onAdded={(key) => { own.current.add(key); reload(['board']); }} />}
+                {QUICK_ADD.includes(c.key) && <QuickAdd col={c.key} slug={p.slug} workstream={workstream} open={adding === c.key} setOpen={(v) => setAdding(v ? c.key : null)} onAdded={(key) => { own.current.add(key); reload(['board']); }} />}
               </section>
             );
           })}
@@ -672,7 +681,7 @@ function EmptyColumn({ k }: { k: ColumnKey }) {
   return <div className="cempty"><IconInbox20 /><b>{tr(`board.empty.${k}`)}</b>{k !== 'done' && <span>{tr('board.empty.drag')}</span>}</div>;
 }
 
-function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug: string; open: boolean; setOpen: (v: boolean) => void; onAdded: (key: string) => void }) {
+function QuickAdd({ col, slug, workstream, open, setOpen, onAdded }: { col: ColumnKey; slug: string; workstream: string; open: boolean; setOpen: (v: boolean) => void; onAdded: (key: string) => void }) {
   const [title, setTitle] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'err'>('idle');
   const input = useRef<HTMLTextAreaElement>(null);
@@ -681,7 +690,7 @@ function QuickAdd({ col, slug, open, setOpen, onAdded }: { col: ColumnKey; slug:
     if (!title.trim()) return;
     setState('busy');
     try {
-      const r = await send<{ data: Ticket }>('POST', `/projects/${slug}/tickets`, { title: title.trim(), status: col });
+      const r = await send<{ data: Ticket }>('POST', `/projects/${slug}/tickets`, { title: title.trim(), status: col, workstream });
       setTitle(''); setState('idle');
       onAdded(r.data.key);
     } catch {

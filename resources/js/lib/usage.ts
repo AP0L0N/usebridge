@@ -121,8 +121,11 @@ export type AgentInstructions = {
 export type AgentListRow = {
   id: string; fullName: string; name: string; title: string | null; excerpt: string | null; syncedAt: string | null;
   editStatus: 'pending' | 'conflict' | null;
+  /** Avatar grid: two Geist Mono letters and the detail page (/usage/agents/{id}, unchanged). */
+  initials: string;
+  url: string;
 };
-export type AgentSection = { name: string; agents: AgentListRow[] };
+export type AgentSection = { name: string; count: number; agents: AgentListRow[] };
 
 const UNITS = [
   { min: 1e9, div: 1e9, unit: 'B', word: 'billion' },
