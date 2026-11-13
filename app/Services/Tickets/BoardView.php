@@ -55,10 +55,12 @@ final class BoardView
         ];
     }
 
-    public function build(Project $p, ?CarbonInterface $doneSince = null, bool $includeArchived = false): array
+    /** $workstreamId: only that workstream's tickets (the board's workstream tabs); null = the whole project. */
+    public function build(Project $p, ?CarbonInterface $doneSince = null, bool $includeArchived = false, ?string $workstreamId = null): array
     {
         $doneSince ??= Carbon::now()->subDays(self::DONE_DAYS);
-        $q = Ticket::query()->where('project_id', $p->id)->with(TicketView::with());
+        $q = Ticket::query()->where('project_id', $p->id)->with(TicketView::with())
+            ->when($workstreamId !== null, fn ($w) => $w->where('workstream_id', $workstreamId));
         if (! $includeArchived) {
             $q->whereNull('archived_at');
         }
@@ -66,6 +68,7 @@ final class BoardView
             ->orderBy('position')->orderBy('key')->get();
         $this->view->preloadCommentSources($tickets->filter(fn (Ticket $t) => $t->comments->isNotEmpty())->modelKeys());
         $doneOlder = Ticket::query()->where('project_id', $p->id)->where('status', BoardColumns::DONE)
+            ->when($workstreamId !== null, fn ($w) => $w->where('workstream_id', $workstreamId))
             ->when(! $includeArchived, fn ($w) => $w->whereNull('archived_at'))
             ->where(fn ($w) => $w->whereNull('done_at')->orWhere('done_at', '<', $doneSince))->count();
 

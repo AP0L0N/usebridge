@@ -203,6 +203,34 @@ class AgentsSyncTest extends TestCase
     }
 
     #[Test]
+    public function the_agents_grid_has_section_counts_initials_and_detail_links(): void
+    {
+        $this->loadUsage();
+        $this->sync(null, $this->ownerToken())->assertOk();
+
+        $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Agents/Index')
+            ->where('sections', function ($sections) {
+                $sections = collect($sections);
+                $this->assertSame([2, 2, 1, 1], $sections->pluck('count')->all());
+                $rows = $sections->flatMap(fn ($s) => $s['agents'])->keyBy('id');
+                $this->assertSame('ZE', $rows[self::ZED]['initials']);
+                $this->assertSame('OL', $rows[self::OTTO]['initials']);
+                $this->assertSame(route('usage.agent', self::OTTO), $rows[self::OTTO]['url']);
+
+                return true;
+            }));
+        // The tile's target is the unchanged detail page.
+        $this->get('/usage/agents/'.self::OTTO)->assertOk()->assertInertia(fn (Assert $page) => $page->component('Usage/Agent'));
+    }
+
+    #[Test]
+    public function the_agents_grid_is_empty_before_the_first_sync(): void
+    {
+        $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('sections', []));
+    }
+
+    #[Test]
     public function the_agents_page_lists_only_roster_agents_grouped_and_sorted_by_full_name(): void
     {
         $this->loadUsage();

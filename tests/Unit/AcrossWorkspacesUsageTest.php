@@ -41,6 +41,7 @@ class AcrossWorkspacesUsageTest extends TestCase
     public function across_workspaces_is_used_only_in_the_allowed_places(): void
     {
         $this->assertSame([
+            'app/Http/Controllers/ProjectSetupController.php' => 1, // Portfolio "New project": slugs are still globally unique
             'app/Models/Concerns/BelongsToWorkspace.php' => 2, // the definition + parentWorkspaceId() (console writes)
             'app/Models/Project.php' => 1,                     // ticket_prefix: globally unique for now
             'app/Services/Auth/TokenAgents.php' => 2,          // token agent filtered by the token's explicit workspace_id + global agent id

@@ -39,15 +39,16 @@ class TicketController extends Controller
         return $projects->show($request, $slug, $ticket);
     }
 
-    /** Quick add: {title*, status backlog|todo (default backlog)}. */
+    /** Quick add: {title*, status backlog|todo (default backlog), workstream (the board's tab; default the project's default)}. */
     public function store(Request $request, string $slug): JsonResponse|RedirectResponse
     {
         $project = $this->projectBySlug($slug);
         $data = $request->validate([
             'title' => ['required', 'string', 'max:140'],
             'status' => ['nullable', Rule::in([BoardColumns::BACKLOG, BoardColumns::TODO])],
+            ...TicketService::workstreamRules(),
         ]);
-        $ticket = $this->tickets->create($project, ['title' => $data['title'], 'status' => $data['status'] ?? BoardColumns::BACKLOG], $this->actor($request));
+        $ticket = $this->tickets->create($project, ['title' => $data['title'], 'status' => $data['status'] ?? BoardColumns::BACKLOG, 'workstream' => $data['workstream'] ?? null], $this->actor($request));
 
         return $this->respond($request, $ticket, 201);
     }

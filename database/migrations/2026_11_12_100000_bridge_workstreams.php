@@ -25,6 +25,7 @@ return new class extends Migration
 
     public function up(): void
     {
+        $this->refuseInsideTransaction();
         Schema::create('workstreams', function (Blueprint $table) {
             $table->string('id')->primary(); // ws-<ulid>
             $table->foreignId('workspace_id')->nullable()->index()->constrained('workspaces');
@@ -111,8 +112,20 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Inside a transaction SQLite ignores `PRAGMA foreign_keys = off`, so rebuilding `tickets` would cascade-delete its
+     * comments, events and labels. Refuse instead of risking that.
+     */
+    private function refuseInsideTransaction(): void
+    {
+        if (DB::getDriverName() === 'sqlite' && DB::transactionLevel() > 0) {
+            throw new RuntimeException('Run this migration outside a database transaction (SQLite rebuilds the tickets table).');
+        }
+    }
+
     public function down(): void
     {
+        $this->refuseInsideTransaction();
         Schema::table('tickets', function (Blueprint $table) {
             $table->dropForeign(['workstream_id']);
             $table->dropIndex(['workstream_id', 'status']);

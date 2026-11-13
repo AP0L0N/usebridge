@@ -9,6 +9,8 @@ use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use App\Models\Ticket;
+use App\Models\User;
+use App\Models\Workstream;
 use App\Services\InputResolution;
 use App\Services\QuestionAnswer;
 use App\Services\Tickets\Actor;
@@ -18,6 +20,7 @@ use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\ProjectStatusService;
 use App\Services\Tickets\Questions;
 use App\Services\Tickets\TicketView;
+use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -38,9 +41,17 @@ class ProjectController extends Controller
         $project = Project::query()->where('slug', $slug)->firstOrFail();
         $view = new TicketView;
         $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
+        $workstream = self::workstream($project, $request->query('ws'), $ticket);
+        // Opening a workstream's board clears its badge for this user right away (README §2).
+        if ($request->user() instanceof User) {
+            Workstreams::markViewed($workstream, $request->user());
+        }
 
         return Inertia::render('Board', [
-            'board' => fn () => (new BoardView($view))->build($project, $doneSince),
+            'board' => fn () => (new BoardView($view))->build($project, $doneSince, false, $workstream->id),
+            // Workstream tabs (README §1.3): board order, the viewer's badges; `workstream` = the selected id (?ws=).
+            'workstreams' => fn () => Workstreams::rowsFor([$project], $request->user())[$project->id] ?? [],
+            'workstream' => $workstream->id,
             'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
             // Go-live N1: the newest posted status update (POST /api/status-updates, MCP post_status), shown under the status.
             'latestUpdate' => fn () => self::latestUpdate($project, $view),
@@ -59,6 +70,20 @@ class ProjectController extends Controller
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
             'now' => now()->toIso8601String(),
         ]);
+    }
+
+    /** ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the first tab. */
+    public static function workstream(Project $project, mixed $ref, ?Ticket $ticket = null): Workstream
+    {
+        if (is_string($ref) && ($found = Workstreams::resolve($project, $ref))) {
+            return $found;
+        }
+        if ($ticket !== null && ($own = Workstream::query()->find($ticket->workstream_id))) {
+            return $own;
+        }
+        Workstreams::ensureDefault($project);
+
+        return Workstreams::ordered($project)->first();
     }
 
     /** @return array{id:string,body:string,agent_id:string,agent_name:?string,source:?string,created_at:?string,count:int}|null */

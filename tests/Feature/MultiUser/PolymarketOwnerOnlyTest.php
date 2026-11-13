@@ -21,6 +21,13 @@ class PolymarketOwnerOnlyTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Nav v3 hides Polymarket by default; these tests cover the feature switched on.
+        config(['bridge.features.polymarket' => true]);
+    }
+
     private function ingest(string $token): TestResponse
     {
         $this->app['auth']->forgetGuards();

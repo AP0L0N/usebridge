@@ -21,9 +21,31 @@ class AgentsController extends Controller
 {
     public function __construct(private readonly AgentInstructions $instructions) {}
 
+    /** Avatar grid (README §1.4): sections with a count; each tile has Geist Mono initials and opens /usage/agents/{id}. */
     public function index(): Response
     {
-        return Inertia::render('Agents/Index', ['sections' => $this->instructions->list()]);
+        $sections = array_map(fn (array $section): array => [
+            ...$section,
+            'count' => count($section['agents']),
+            'agents' => array_map(fn (array $a): array => [
+                ...$a,
+                'initials' => self::initials((string) ($a['name'] ?: $a['fullName'])),
+                'url' => route('usage.agent', $a['id']),
+            ], $section['agents']),
+        ], $this->instructions->list());
+
+        return Inertia::render('Agents/Index', ['sections' => $sections]);
+    }
+
+    /** "Ava" → "AV", "Sam Rivera" → "SR" (two letters, upper case). */
+    public static function initials(string $name): string
+    {
+        $words = preg_split('/[^\p{L}\p{N}]+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $letters = count($words) >= 2
+            ? mb_substr($words[0], 0, 1).mb_substr($words[1], 0, 1)
+            : mb_substr($words[0] ?? '?', 0, 2);
+
+        return mb_strtoupper($letters);
     }
 
     /** {description}. 403 unless the workspace owner, 404 for an agent this workspace does not know. */

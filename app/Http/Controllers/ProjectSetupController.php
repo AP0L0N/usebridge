@@ -29,6 +29,9 @@ class ProjectSetupController extends Controller
     public function store(Request $request): JsonResponse
     {
         $this->authorizeMember($request);
+        if (! $request->has('slug') && ! $request->has('ticket_prefix')) {
+            return $this->storeFromPortfolio($request);
+        }
         $request->merge([
             'slug' => is_string($request->input('slug')) ? Str::lower(trim($request->input('slug'))) : $request->input('slug'),
             'ticket_prefix' => is_string($request->input('ticket_prefix')) ? Str::upper(trim($request->input('ticket_prefix'))) : $request->input('ticket_prefix'),
@@ -64,6 +67,85 @@ class ProjectSetupController extends Controller
             'description' => $project->description,
             'column_labels_url' => route('projects.column-labels.update', $project->slug),
         ]], 201);
+    }
+
+    /**
+     * Portfolio "New project" {name}: name required, unique among active projects, at most 60 characters; slug and
+     * ticket prefix are generated. The project starts with its default workstream "General" (Project::created).
+     */
+    private function storeFromPortfolio(Request $request): JsonResponse
+    {
+        $name = $this->validProjectName($request);
+        $project = Project::create([
+            'id' => 'proj-'.Str::lower((string) Str::ulid()),
+            'name' => $name,
+            'slug' => self::freeSlug($name),
+            'last_activity_at' => now(),
+        ]);
+
+        return response()->json(['data' => [
+            'id' => $project->id,
+            'name' => $project->name,
+            'slug' => $project->slug,
+            'ticket_prefix' => $project->ticket_prefix,
+            'url' => '/portfolio?project='.$project->slug,
+        ]], 201);
+    }
+
+    /** PATCH /projects/{slug} {name}: rename (same rules as New project). The slug stays, so links and agents keep working. */
+    public function rename(Request $request, string $slug): JsonResponse
+    {
+        $this->authorizeMember($request);
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        abort_if($project->isArchived(), 409, "Project {$project->name} is archived; unarchive it to rename it.");
+        $project->forceFill(['name' => $this->validProjectName($request, $project)])->save();
+
+        return response()->json(['data' => ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug]]);
+    }
+
+    /**
+     * DELETE /projects/{slug} {confirm_name}: the user typed the project's name. A soft delete (recoverable): the
+     * project, its workstreams, tickets and history stay in the database, hidden everywhere.
+     */
+    public function destroy(Request $request, string $slug): JsonResponse
+    {
+        $this->authorizeMember($request);
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        $request->validate(['confirm_name' => ['required', 'string', function (string $attr, mixed $value, \Closure $fail) use ($project) {
+            if (trim((string) $value) !== $project->name) {
+                $fail("Type \"{$project->name}\" to confirm.");
+            }
+        }]]);
+        $project->delete();
+
+        return response()->json(['data' => ['id' => $project->id, 'deleted' => true]]);
+    }
+
+    private function validProjectName(Request $request, ?Project $except = null): string
+    {
+        $request->merge(['name' => is_string($request->input('name')) ? trim(preg_replace('/\s+/u', ' ', $request->input('name')) ?? '') : $request->input('name')]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:60', function (string $attr, mixed $value, \Closure $fail) use ($except) {
+            $taken = Project::query()->whereNull('archived_at')->where(fn ($q) => $q->whereNull('status')->orWhere('status', '!=', 'archived'))
+                ->when($except, fn ($q) => $q->whereKeyNot($except->id))
+                ->whereRaw('lower(name) = ?', [Str::lower((string) $value)])->exists();
+            if ($taken) {
+                $fail('You already have a project with this name.');
+            }
+        }]], ['name.required' => 'Give the project a name.', 'name.max' => 'Keep it to 60 characters.']);
+
+        return $data['name'];
+    }
+
+    /** A globally unique slug from the name ("Podcast site" → podcast-site, podcast-site-2, …). */
+    private static function freeSlug(string $name): string
+    {
+        $base = Str::limit(Str::slug($name), 56, '') ?: 'project';
+        $slug = $base;
+        for ($i = 2; Project::acrossWorkspaces()->withTrashed()->where('slug', $slug)->exists(); $i++) {
+            $slug = $base.'-'.$i;
+        }
+
+        return $slug;
     }
 
     /**

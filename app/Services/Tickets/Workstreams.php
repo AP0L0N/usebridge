@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workstream;
 use App\Models\WorkstreamEvent;
 use App\Models\WorkstreamView;
+use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -148,6 +149,49 @@ final class Workstreams
         ];
     }
 
+    /**
+     * Rows for the Finder's column 2 and the board tabs, per project id, in board order: live ticket counts, "for you"
+     * (waiting on the owner), all-done, and the user's badge. Archived projects get no badges (README §2).
+     *
+     * @param  iterable<Project>  $projects
+     * @return array<string, list<array{id:string,name:string,isDefault:bool,tickets:int,forYou:int,open:int,allDone:bool,badge:int}>>
+     */
+    public static function rowsFor(iterable $projects, ?User $user): array
+    {
+        $projects = collect($projects);
+        $ids = $projects->map(fn (Project $p) => $p->id)->all();
+        $byProject = Workstream::query()->whereIn('project_id', $ids)->get()->groupBy('project_id');
+        $counts = Ticket::query()->whereIn('project_id', $ids)->whereNull('archived_at')
+            ->selectRaw('workstream_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as waiting, sum(case when status = ? then 1 else 0 end) as done', [BoardColumns::WAITING_TILEN, BoardColumns::DONE])
+            ->groupBy('workstream_id')->get()->keyBy('workstream_id');
+        $live = $projects->reject(fn (Project $p) => $p->isArchived())->map(fn (Project $p) => $p->id)->all();
+        $badges = self::badges($byProject->toBase()->only($live)->flatten(1)->pluck('id')->all(), $user);
+
+        $out = [];
+        foreach ($projects as $project) {
+            $list = ($byProject[$project->id] ?? collect())
+                ->sortBy(fn (Workstream $w) => [$w->is_default ? 1 : 0, $w->position, $w->created_at?->getTimestamp() ?? 0, $w->id])->values();
+            $out[$project->id] = $list->map(function (Workstream $w) use ($counts, $badges) {
+                $c = $counts[$w->id] ?? null;
+                $total = (int) ($c->total ?? 0);
+                $done = (int) ($c->done ?? 0);
+
+                return [
+                    'id' => $w->id,
+                    'name' => $w->name,
+                    'isDefault' => $w->is_default,
+                    'tickets' => $total,
+                    'forYou' => (int) ($c->waiting ?? 0),
+                    'open' => $total - $done,
+                    'allDone' => $total > 0 && $done === $total,
+                    'badge' => $badges[$w->id] ?? 0,
+                ];
+            })->all();
+        }
+
+        return $out;
+    }
+
     /** A list filter's workstream: a ws-… id anywhere in the workspace, a name only within $project. 422 when unknown. */
     public static function filterId(?Project $project, string $ref): string
     {
@@ -202,9 +246,10 @@ final class Workstreams
         self::ensureOpen($project);
         $count = Ticket::query()->where('workstream_id', $ws->id)->count();
         $others = Workstream::query()->where('project_id', $project->id)->whereKeyNot($ws->id)->get();
-        $needsTarget = $count > 0 || $ws->is_default || $others->isEmpty();
         $targetId = TicketService::clean($targetId);
         $newName = TicketService::clean($newName);
+        // An explicit target is kept even for an empty workstream: older names then point there.
+        $needsTarget = $count > 0 || $ws->is_default || $others->isEmpty() || $targetId !== null || $newName !== null;
 
         $target = null;
         if ($needsTarget) {

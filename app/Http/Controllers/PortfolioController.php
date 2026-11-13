@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ProjectStatusEvent;
+use App\Models\TicketEvent;
+use App\Models\User;
+use App\Models\Workstream;
 use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\Questions;
+use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use App\Support\Onboarding\ReadyBanner;
 use Illuminate\Http\Request;
@@ -28,19 +32,72 @@ class PortfolioController extends Controller
         $sources = ProjectStatusEvent::query()->whereIn('project_id', $projects->modelKeys())
             ->orderByDesc('created_at')->orderByDesc('id')->get(['project_id', 'source'])
             ->unique('project_id')->pluck('source', 'project_id');
+        $user = $request->user();
+        $workstreams = Workstreams::rowsFor($projects, $user);
+        $models = $projects->keyBy('id');
         $projects = $projects
-            ->map(fn (Project $p) => [...ProjectStatus::summary($p, null, $names), 'columnLabels' => $p->column_labels ?? (object) [], 'pmStatusSource' => $p->status_set_at ? ($sources[$p->id] ?? null) : null])
+            ->map(fn (Project $p) => [
+                ...ProjectStatus::summary($p, null, $names),
+                'columnLabels' => $p->column_labels ?? (object) [],
+                'pmStatusSource' => $p->status_set_at ? ($sources[$p->id] ?? null) : null,
+                'createdAt' => $p->created_at?->toIso8601String(),
+                // Finder column 2 (README §1.1, §2): workstreams in board order with the viewer's badges; the project dot is
+                // "any badge" (archived projects have none).
+                'workstreams' => $workstreams[$p->id] ?? [],
+                'hasChanges' => collect($workstreams[$p->id] ?? [])->contains(fn (array $w) => $w['badge'] > 0),
+            ])
             ->sort(self::order(...))
             ->values();
+        $selected = is_string($request->query('project')) ? $request->query('project') : null;
 
         return Inertia::render('Portfolio', [
             'projects' => $projects,
+            // Finder selection (/portfolio?project={slug}); column 3's change list loads for it only (partial reload).
+            'selected' => $selected,
+            'preview' => fn () => $selected !== null && ($project = $models->firstWhere('slug', $selected)) ? self::preview($project, $user, $names) : null,
             'now' => now()->toIso8601String(),
             // ?ready={slug} after onboarding: banner + connect card (null otherwise).
             'welcome' => ReadyBanner::props($request),
             // The workspace's default column names (each card prefers its project's own columnLabels).
             'columns' => array_map(fn (array $c) => ['key' => $c['key'], 'label' => $c['label']], BoardColumns::all()),
         ]);
+    }
+
+    /**
+     * Column 3 "Changes since you last looked": the viewer's unseen changes across the project's workstreams, newest
+     * first. Reading it does not clear anything (only opening a workstream's board does).
+     *
+     * @param  array<string, string>  $names
+     * @return array{slug:string,total:int,workstreams:int,changes:list<array<string, mixed>>}
+     */
+    public static function preview(Project $project, ?User $user, array $names): array
+    {
+        if ($project->isArchived() || $user === null) {
+            return ['slug' => $project->slug, 'total' => 0, 'workstreams' => 0, 'changes' => []];
+        }
+        $streams = Workstream::query()->where('project_id', $project->id)->get()->keyBy('id');
+        $badges = Workstreams::badges($streams->keys()->all(), $user);
+        $events = Workstreams::changeEvents($streams->keys()->all(), $user)->load('ticket:id,key,title');
+        $columns = collect($project->boardColumns())->pluck('label', 'key');
+
+        return [
+            'slug' => $project->slug,
+            'total' => array_sum($badges),
+            'workstreams' => count(array_filter($badges)),
+            'changes' => $events->map(fn (TicketEvent $e) => [
+                'id' => $e->id,
+                'type' => $e->type,
+                'workstreamId' => $e->workstream_id,
+                'workstream' => $streams[$e->workstream_id]->name ?? '',
+                'actor' => Actor::label($e->actor_id, $names) ?? $e->actor_id,
+                'key' => $e->ticket?->key,
+                'title' => $e->ticket?->title,
+                'column' => $e->type === 'moved' ? ($columns[$e->to['status'] ?? ''] ?? null) : null,
+                'assignee' => $e->type === 'assigned' ? Actor::label($e->to['id'] ?? null, $names) : null,
+                'fromWorkstream' => $e->type === 'workstream' ? ($e->from['name'] ?? null) : null,
+                'at' => $e->created_at?->toIso8601String(),
+            ])->values()->all(),
+        ];
     }
 
     /**
