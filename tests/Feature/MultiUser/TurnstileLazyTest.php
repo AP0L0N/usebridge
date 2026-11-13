@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\MultiUser;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Services\Auth\SignupBotCheck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
@@ -28,10 +29,24 @@ class TurnstileLazyTest extends TestCase
         config(['turnstile.site_key' => 'site-key-public', 'turnstile.secret_key' => null]);
     }
 
+    /**
+     * Inertia partial-visit headers, including the current asset version so a built manifest doesn't trigger a 409.
+     *
+     * @return array<string, string>
+     */
+    private function inertiaHeaders(): array
+    {
+        return [
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+            'X-Requested-With' => 'XMLHttpRequest',
+        ];
+    }
+
     #[Test]
     public function the_signup_page_sets_only_the_session_and_xsrf_cookies(): void
     {
-        foreach ([[], ['X-Inertia' => 'true', 'X-Requested-With' => 'XMLHttpRequest']] as $headers) {
+        foreach ([[], $this->inertiaHeaders()] as $headers) {
             $res = $this->withHeaders($headers)->get('/signup')->assertOk();
             $names = array_map(fn ($c) => $c->getName(), $res->headers->getCookies());
 
@@ -47,7 +62,7 @@ class TurnstileLazyTest extends TestCase
         $this->assertStringNotContainsString(self::CF, $html);
         $this->assertDoesNotMatchRegularExpression('/<script[^>]+turnstile/i', $html);
 
-        $props = $this->withHeaders(['X-Inertia' => 'true', 'X-Requested-With' => 'XMLHttpRequest'])->get('/signup')->json('props');
+        $props = $this->withHeaders($this->inertiaHeaders())->get('/signup')->json('props');
         $this->assertSame('site-key-public', $props['turnstileSiteKey']);
         $this->assertStringNotContainsString(self::CF, json_encode($props));
         $this->assertStringNotContainsString(self::CF, (string) file_get_contents(resource_path('views/app.blade.php')));
