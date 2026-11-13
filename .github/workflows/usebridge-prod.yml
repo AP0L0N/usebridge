@@ -1,0 +1,40 @@
+# Bridge production CD: main -> xerxes /var/www/usebridge (https://usebridge.si).
+# The runner only reaches xerxes through the deploy key's forced command (usebridge-release-ssh), never a shell.
+# Flow and exit codes: .github/scripts/usebridge-cd.sh and deploy-scripts/usebridge-CD-README.md ("GitHub Actions later").
+name: usebridge-prod
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a running deploy: a cancelled job drops the SSH session, possibly mid-switch.
+# Queued runs wait; the core's flock and --expect-current also refuse overlapping deploys.
+concurrency:
+  group: usebridge-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # workflow_dispatch from another branch must not deploy prod
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # composer, npm ci, phpunit, typecheck and two builds all run on xerxes
+    timeout-minutes: 60
+    steps:
+      - name: Check out the CD helper
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      # preflight -> test -> deploy --expect-current <@@CUR> --prune -> smoke + postcheck -> rollback on failure.
+      # An already-live SHA (@@NOOP=1) is a successful no-op: smoke only.
+      # Never add --skip-tests or --force-redeploy here. Migrations are never rolled back.
+      - name: Deploy to production
+        env:
+          USEBRIDGE_DEPLOY_SSH_KEY: ${{ secrets.USEBRIDGE_DEPLOY_SSH_KEY }}
+        run: bash .github/scripts/usebridge-cd.sh prod
