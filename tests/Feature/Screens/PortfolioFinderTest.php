@@ -92,24 +92,21 @@ class PortfolioFinderTest extends TestCase
     }
 
     #[Test]
-    public function delete_needs_the_typed_name_and_is_a_soft_delete(): void
+    public function there_is_no_project_delete_only_archive(): void
     {
         $ticket = $this->api()->newTicket();
-
-        $this->asOwner()->deleteJson('/projects/blue-harbor', ['confirm_name' => 'Blue'])->assertUnprocessable()->assertJsonValidationErrors('confirm_name');
         $name = Project::query()->findOrFail(self::BH)->name;
-        $this->deleteJson('/projects/blue-harbor', ['confirm_name' => $name])->assertOk()->assertJsonPath('data.deleted', true);
 
-        $this->assertSoftDeleted('projects', ['id' => self::BH]);
-        $this->assertDatabaseHas('tickets', ['key' => $ticket['key']]);
-        $this->assertSame(1, Workstream::query()->where('project_id', self::BH)->count(), 'workstreams are kept');
-        $this->get('/portfolio')->assertInertia(fn (Assert $p) => $p->where('projects', fn ($projects) => ! collect($projects)->contains('id', self::BH)));
-        $this->get('/projects/blue-harbor')->assertNotFound();
-        $this->api()->getJson('/api/tickets')->assertOk()->assertJsonCount(0, 'data');
+        $this->asOwner()->deleteJson('/projects/blue-harbor', ['confirm_name' => $name])->assertMethodNotAllowed();
+        $this->assertNotSoftDeleted('projects', ['id' => self::BH]);
 
-        // Recoverable.
-        Project::withTrashed()->findOrFail(self::BH)->restore();
+        $this->postJson('/projects/blue-harbor/archive')->assertOk();
+        $this->assertNotSoftDeleted('projects', ['id' => self::BH]);
+        $this->assertTrue(Project::query()->findOrFail(self::BH)->isArchived());
         $this->assertSame(1, Ticket::query()->where('project_id', self::BH)->count());
+        $this->get('/portfolio')->assertInertia(fn (Assert $p) => $p->where('projects', fn ($projects) => collect($projects)->firstWhere('id', self::BH)['archived'] === true));
+        $this->get('/projects/blue-harbor')->assertOk();
+        $this->assertDatabaseHas('tickets', ['key' => $ticket['key']]);
     }
 
     #[Test]
@@ -135,7 +132,5 @@ class PortfolioFinderTest extends TestCase
     {
         $this->postJson('/projects', ['name' => 'X'])->assertUnauthorized();
         $this->patchJson('/projects/blue-harbor', ['name' => 'X'])->assertUnauthorized();
-        $this->deleteJson('/projects/blue-harbor', ['confirm_name' => 'X'])->assertUnauthorized();
-        $this->assertNotSoftDeleted('projects', ['id' => self::BH]);
     }
 }

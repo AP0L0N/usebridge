@@ -103,24 +103,6 @@ class ProjectSetupController extends Controller
         return response()->json(['data' => ['id' => $project->id, 'name' => $project->name, 'slug' => $project->slug]]);
     }
 
-    /**
-     * DELETE /projects/{slug} {confirm_name}: the user typed the project's name. A soft delete (recoverable): the
-     * project, its workstreams, tickets and history stay in the database, hidden everywhere.
-     */
-    public function destroy(Request $request, string $slug): JsonResponse
-    {
-        $this->authorizeMember($request);
-        $project = Project::query()->where('slug', $slug)->firstOrFail();
-        $request->validate(['confirm_name' => ['required', 'string', function (string $attr, mixed $value, \Closure $fail) use ($project) {
-            if (trim((string) $value) !== $project->name) {
-                $fail("Type \"{$project->name}\" to confirm.");
-            }
-        }]]);
-        $project->delete();
-
-        return response()->json(['data' => ['id' => $project->id, 'deleted' => true]]);
-    }
-
     private function validProjectName(Request $request, ?Project $except = null): string
     {
         $request->merge(['name' => is_string($request->input('name')) ? trim(preg_replace('/\s+/u', ' ', $request->input('name')) ?? '') : $request->input('name')]);

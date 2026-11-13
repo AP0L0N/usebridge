@@ -6,7 +6,7 @@ import { Highlight } from '../Components/Highlight';
 import { Sheet, ToastHost, useMedia, useToasts } from '../Components/Kanban/Bits';
 import { StatusForm } from '../Components/Kanban/StatusBlock';
 import { ConnectBotCard, ReadyBanner, type Welcome } from '../Components/Onboarding/ReadyBanner';
-import { DeleteProjectDialog, DeleteWorkstreamDialog, MoveAllDialog, NameDialog, errorText, takenNames } from '../Components/Workstreams/Dialogs';
+import { DeleteWorkstreamDialog, MoveAllDialog, NameDialog, errorText, takenNames } from '../Components/Workstreams/Dialogs';
 import {
   ActionMenu, CountBadge, IcArchive, IcArrowRight, IcEdit, IcFolder, IcHistory, IcLeft, IcLines, IcPlus, IcRight, IcStar, IcTrash, IcUp, IcDown, UnreadDot, type MenuItem,
 } from '../Components/Workstreams/Ui';
@@ -39,7 +39,6 @@ const COLS: [ColumnKey, StrKey][] = [
 type Dialog =
   | { kind: 'newProject' }
   | { kind: 'renameProject'; p: FinderProject }
-  | { kind: 'deleteProject'; p: FinderProject }
   | { kind: 'status'; p: FinderProject }
   | { kind: 'newWs'; p: FinderProject }
   | { kind: 'renameWs'; p: FinderProject; ws: WorkstreamRow }
@@ -206,27 +205,18 @@ function Portfolio({ projects, selected, preview, now, welcome, columns }: Props
   const setArchived = (p: FinderProject, archive: boolean, rethrow = false) => mutate(
     patchProject(p.id, (x) => ({ ...x, archived: archive, pmStatus: archive ? 'archived' : x.pmStatus === 'archived' ? null : x.pmStatus })),
     () => send('POST', `/projects/${p.slug}/${archive ? 'archive' : 'unarchive'}`), t(archive ? 'toast.archived' : 'toast.unarchived', { name: p.name }), rethrow);
-  const deleteProject = async (p: FinderProject) => {
-    await send('DELETE', `/projects/${p.slug}`, { confirm_name: p.name });
-    setDialog(null);
-    toasts.push({ body: t('toast.deletedProject', { name: p.name }) });
-    router.visit(finderUrl(null, q, showArchived), { replace: true });
-  };
 
   // ------------------------------------------------------------ menus
   const projectItems = (p: FinderProject): MenuItem[] => isArchived(p)
     ? [
       { label: t('fd.menu.unarchive'), icon: <IcArchive />, onSelect: () => setArchived(p, false) },
-      'sep',
-      { label: t('fd.menu.deleteProject'), icon: <IcTrash />, danger: true, onSelect: () => setDialog({ kind: 'deleteProject', p }) },
     ]
     : [
       { label: t('fd.menu.renameProject'), icon: <IcEdit />, onSelect: () => (desktop ? setInline({ kind: 'renameProject', projectId: p.id }) : setDialog({ kind: 'renameProject', p })) },
       { label: t('fd.menu.setStatus'), icon: <IcHistory />, onSelect: () => setDialog({ kind: 'status', p }) },
       { label: t('fd.menu.newWorkstream'), icon: <IcPlus />, onSelect: () => (desktop ? setInline({ kind: 'addWs', projectId: p.id }) : setDialog({ kind: 'newWs', p })) },
-      { label: t('fd.menu.archive'), icon: <IcArchive />, onSelect: () => setArchived(p, true) },
       'sep',
-      { label: t('fd.menu.deleteProject'), icon: <IcTrash />, danger: true, onSelect: () => setDialog({ kind: 'deleteProject', p }) },
+      { label: t('fd.menu.archive'), icon: <IcArchive />, onSelect: () => setArchived(p, true) },
     ];
   const wsItems = (p: FinderProject, ws: WorkstreamRow): MenuItem[] => {
     const custom = p.workstreams.filter((w) => !w.isDefault);
@@ -427,10 +417,6 @@ function Portfolio({ projects, selected, preview, now, welcome, columns }: Props
       {dialog?.kind === 'moveAll' && (
         <MoveAllDialog ws={dialog.ws} others={dialog.p.workstreams.filter((w) => w.id !== dialog.ws.id)}
           onSubmit={async (id, name) => { await moveAll(dialog.p, dialog.ws, id, name); setDialog(null); }} onClose={() => setDialog(null)} />
-      )}
-      {dialog?.kind === 'deleteProject' && (
-        <DeleteProjectDialog name={dialog.p.name} workstreams={dialog.p.workstreams.length} tickets={dialog.p.workstreams.reduce((s, w) => s + w.tickets, 0)} archived={isArchived(dialog.p)}
-          onDelete={() => deleteProject(dialog.p)} onArchive={async () => { await setArchived(dialog.p, true, true); setDialog(null); }} onClose={() => setDialog(null)} />
       )}
       {dialog?.kind === 'status' && (
         <Sheet label={t('fd.menu.setStatus')} onClose={() => setDialog(null)}>

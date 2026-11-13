@@ -193,31 +193,5 @@ export function MoveAllDialog({ ws, others, onSubmit, onClose, restoreFocus }: {
   );
 }
 
-/** Delete a project: Archive suggested first; Delete only once the exact name is typed. Soft delete on the server. */
-export function DeleteProjectDialog({ name, workstreams, tickets, archived, onDelete, onArchive, onClose, restoreFocus }: {
-  name: string; workstreams: number; tickets: number; archived: boolean;
-  onDelete: () => Promise<void>; onArchive: () => Promise<void>; onClose: () => void; restoreFocus?: () => HTMLElement | null | undefined;
-}) {
-  const [typed, setTyped] = useState('');
-  const { busy, error, run } = useSubmit();
-  const id = useId();
-  const ok = typed.trim() === name;
-  return (
-    <Shell title={t('dlg.delProject.title', { name })} onClose={onClose} restoreFocus={restoreFocus}>
-      <form onSubmit={(e) => { e.preventDefault(); if (ok) run(onDelete, 'confirm_name'); }}>
-        <p className="wsd-p">{t('dlg.delProject.body', { ws: tn(workstreams, 'fd.preview.ws.one', 'fd.preview.ws.many'), tickets: ticketsText(tickets) })}</p>
-        <label className="wsd-label" htmlFor={id}>{t('dlg.delProject.confirm', { name })}</label>
-        <input id={id} className="wsd-in" value={typed} autoFocus autoComplete="off" onChange={(e) => setTyped(e.target.value)} />
-        {error && <p className="err-line" role="alert">{error}</p>}
-        <div className="wsd-act">
-          <button type="button" className="abtn" onClick={onClose}>{t('dlg.cancel')}</button>
-          {!archived && <button type="button" className="abtn" disabled={busy} onClick={() => run(onArchive)}>{t('dlg.delProject.archive')}</button>}
-          <button type="submit" className="btn dng" disabled={busy || !ok}>{busy ? t('dlg.saving') : t('dlg.delProject.submit')}</button>
-        </div>
-      </form>
-    </Shell>
-  );
-}
-
 /** The live "unique" check needs the other names; exported for inline inputs. */
 export const takenNames = (rows: WorkstreamRow[], except?: string) => rows.filter((r) => r.id !== except).map((r) => r.name);

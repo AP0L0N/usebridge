@@ -95,7 +95,6 @@ Route::middleware(['auth', EnsureUserWorkspace::class])->group(function () {
     Route::put('/projects/{slug}/column-labels', [ProjectSetupController::class, 'updateColumnLabels'])->name('projects.column-labels.update');
     // Portfolio Finder (README §3): rename / soft-delete a project; add, rename, delete (with ticket transfer), reorder workstreams.
     Route::patch('/projects/{slug}', [ProjectSetupController::class, 'rename'])->middleware('throttle:60,1')->name('projects.rename');
-    Route::delete('/projects/{slug}', [ProjectSetupController::class, 'destroy'])->middleware('throttle:30,1')->name('projects.destroy');
     Route::post('/projects/{slug}/workstreams', [WorkstreamController::class, 'store'])->middleware('throttle:60,1')->name('workstreams.store');
     Route::patch('/projects/{slug}/workstreams/{id}', [WorkstreamController::class, 'update'])->middleware('throttle:60,1')->name('workstreams.update');
     Route::delete('/projects/{slug}/workstreams/{id}', [WorkstreamController::class, 'destroy'])->middleware('throttle:60,1')->name('workstreams.destroy');
