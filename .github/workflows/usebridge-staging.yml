@@ -1,0 +1,45 @@
+# Bridge staging CD: development -> xerxes /var/www/bridge-staging (https://stage.usebridge.si, basic auth).
+# The runner only reaches xerxes through the deploy key's forced command (usebridge-release-ssh), never a shell.
+# Flow and exit codes: .github/scripts/usebridge-cd.sh and deploy-scripts/usebridge-CD-README.md ("GitHub Actions later").
+#
+# Staging is parked: there is no `development` branch yet and the stage vhosts are disabled. Until both change,
+# preflight refuses ("staging vhosts disabled") and this job fails on purpose. CD never runs a2ensite.
+name: usebridge-staging
+
+on:
+  push:
+    branches: [development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a running deploy: a cancelled job drops the SSH session, possibly mid-switch.
+# Queued runs wait; the core's flock and --expect-current also refuse overlapping deploys.
+concurrency:
+  group: usebridge-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # workflow_dispatch from another branch must not deploy staging
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    # composer, npm ci, phpunit, typecheck and two builds all run on xerxes
+    timeout-minutes: 60
+    steps:
+      - name: Check out the CD helper
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      # preflight -> test -> deploy --expect-current <@@CUR> --prune -> smoke + postcheck -> rollback on failure.
+      # An already-live SHA (@@NOOP=1) is a successful no-op: smoke only.
+      # Never add --skip-tests or --force-redeploy here. Migrations are never rolled back.
+      - name: Deploy to staging
+        env:
+          USEBRIDGE_DEPLOY_SSH_KEY: ${{ secrets.USEBRIDGE_DEPLOY_SSH_KEY }}
+          USEBRIDGE_STAGING_BASIC_AUTH_USER: ${{ secrets.USEBRIDGE_STAGING_BASIC_AUTH_USER }}
+          USEBRIDGE_STAGING_BASIC_AUTH_PASS: ${{ secrets.USEBRIDGE_STAGING_BASIC_AUTH_PASS }}
+        run: bash .github/scripts/usebridge-cd.sh staging
