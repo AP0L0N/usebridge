@@ -89,10 +89,15 @@ export function deleteMode(ws: Pick<WorkstreamRow, 'tickets' | 'isDefault'>, oth
 /** Board URL of a workstream (`/projects/{slug}?ws={id}`). */
 export const boardUrl = (slug: string, wsId: string) => `/projects/${slug}?ws=${encodeURIComponent(wsId)}`;
 
-/** Finder URL for a selection (`/portfolio?project={slug}`), keeping search / archived flags. */
-export function finderUrl(slug: string | null, q = '', archived = false): string {
+/**
+ * Finder URL for a selection (`/portfolio?project={slug}`), keeping search / archived flags. `ws`: the workstream whose
+ * board is open as the next column (`&ws={id}`); `ticket`: a ticket open over that board (`&ticket={key}`).
+ */
+export function finderUrl(slug: string | null, q = '', archived = false, ws: string | null = null, ticket: string | null = null): string {
   const u = new URLSearchParams();
   if (slug) u.set('project', slug);
+  if (slug && ws) u.set('ws', ws);
+  if (slug && ws && ticket) u.set('ticket', ticket);
   if (q) u.set('q', q);
   if (archived) u.set('archived', '1');
   const s = u.toString();

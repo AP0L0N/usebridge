@@ -40,7 +40,6 @@ class ProjectController extends Controller
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
         $view = new TicketView;
-        $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
         $workstream = self::workstream($project, $request->query('ws'), $ticket);
         // Opening a workstream's board clears its badge for this user right away (README §2).
         if ($request->user() instanceof User) {
@@ -48,6 +47,28 @@ class ProjectController extends Controller
         }
 
         return Inertia::render('Board', [
+            ...self::boardProps($request, $project, $workstream, $ticket, $view),
+            // r4 Questions for you: the open asks, oldest first (OpenAsks; also GET /api/projects/{id}/asks). Answer = the
+            // owner input comment route (projects.tickets.comments.store); partial reload only=openAsks,board after it.
+            'openAsks' => fn () => OpenAsks::list($project, $view),
+            // r4 Questions panel (design/r4): {open, answered, closed, has_any} (Questions::panel; also GET
+            // /api/projects/{id}/questions). Writes: projects.questions.answer|dismiss|restore; reload only=questions,board.
+            'questions' => fn () => Questions::panel($project, $view),
+            'now' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Props of one workstream's board (the Board page, and the Portfolio's board column): closures, so partial reloads
+     * (30 s poll: only=board, ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket.
+     *
+     * @return array<string, mixed>
+     */
+    public static function boardProps(Request $request, Project $project, Workstream $workstream, ?Ticket $ticket, TicketView $view): array
+    {
+        $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
+
+        return [
             'board' => fn () => (new BoardView($view))->build($project, $doneSince, false, $workstream->id),
             // Workstream tabs (README §1.3): board order, the viewer's badges; `workstream` = the selected id (?ws=).
             'workstreams' => fn () => Workstreams::rowsFor([$project], $request->user())[$project->id] ?? [],
@@ -55,12 +76,6 @@ class ProjectController extends Controller
             'statusHistory' => fn () => (new ProjectStatusService)->history($project, $view, 50),
             // Go-live N1: the newest posted status update (POST /api/status-updates, MCP post_status), shown under the status.
             'latestUpdate' => fn () => self::latestUpdate($project, $view),
-            // r4 Questions for you: the open asks, oldest first (OpenAsks; also GET /api/projects/{id}/asks). Answer = the
-            // owner input comment route (projects.tickets.comments.store); partial reload only=openAsks,board after it.
-            'openAsks' => fn () => OpenAsks::list($project, $view),
-            // r4 Questions panel (design/r4): {open, answered, closed, has_any} (Questions::panel; also GET
-            // /api/projects/{id}/questions). Writes: projects.questions.answer|dismiss|restore; reload only=questions,board.
-            'questions' => fn () => Questions::panel($project, $view),
             'people' => fn () => self::people(HumanActors::viewerId()),
             'labels' => fn () => Label::query()->orderBy('name')->get()->map->toView()->values()->all(),
             'doneAll' => $doneSince !== null,
@@ -68,8 +83,7 @@ class ProjectController extends Controller
             'columnLabelsUrl' => $request->user() !== null ? route('projects.column-labels.update', $project->slug) : null,
             'defaultColumns' => BoardColumns::all(),
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
-            'now' => now()->toIso8601String(),
-        ]);
+        ];
     }
 
     /** ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the first tab. */

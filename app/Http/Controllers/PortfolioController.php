@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ProjectStatusEvent;
+use App\Models\Ticket;
 use App\Models\TicketEvent;
 use App\Models\User;
 use App\Models\Workstream;
@@ -11,6 +12,7 @@ use App\Services\ProjectStatus;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\OpenAsks;
 use App\Services\Tickets\Questions;
+use App\Services\Tickets\TicketView;
 use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
 use App\Support\Onboarding\ReadyBanner;
@@ -33,6 +35,14 @@ class PortfolioController extends Controller
             ->orderByDesc('created_at')->orderByDesc('id')->get(['project_id', 'source'])
             ->unique('project_id')->pluck('source', 'project_id');
         $user = $request->user();
+        $selected = is_string($request->query('project')) ? $request->query('project') : null;
+        // Board column (/portfolio?project={slug}&ws={id}[&ticket={key}]): the workstream's Kanban board as the next
+        // column, same props as the Board page. Opening it clears the workstream's badge (before the rows are built).
+        $boardProject = $selected !== null ? $projects->firstWhere('slug', $selected) : null;
+        $board = $boardProject !== null && is_string($request->query('ws')) ? Workstreams::resolve($boardProject, $request->query('ws')) : null;
+        if ($board !== null && $user instanceof User) {
+            Workstreams::markViewed($board, $user);
+        }
         $workstreams = Workstreams::rowsFor($projects, $user);
         $models = $projects->keyBy('id');
         $projects = $projects
@@ -48,9 +58,9 @@ class PortfolioController extends Controller
             ])
             ->sort(self::order(...))
             ->values();
-        $selected = is_string($request->query('project')) ? $request->query('project') : null;
 
         return Inertia::render('Portfolio', [
+            ...self::boardColumn($request, $boardProject, $board),
             'projects' => $projects,
             // Finder selection (/portfolio?project={slug}); column 3's change list loads for it only (partial reload).
             'selected' => $selected,
@@ -61,6 +71,22 @@ class PortfolioController extends Controller
             // The workspace's default column names (each card prefers its project's own columnLabels).
             'columns' => array_map(fn (array $c) => ['key' => $c['key'], 'label' => $c['label']], BoardColumns::all()),
         ]);
+    }
+
+    /**
+     * The board column's props (ProjectController::boardProps); all null while no workstream is selected.
+     *
+     * @return array<string, mixed>
+     */
+    private static function boardColumn(Request $request, ?Project $project, ?Workstream $workstream): array
+    {
+        if ($project === null || $workstream === null) {
+            return array_fill_keys(['board', 'workstreams', 'workstream', 'statusHistory', 'latestUpdate', 'people', 'labels', 'doneAll', 'columnLabelsUrl', 'defaultColumns', 'ticket'], null);
+        }
+        $ref = $request->query('ticket');
+        $ticket = is_string($ref) ? Ticket::findByRef($ref) : null;
+
+        return ProjectController::boardProps($request, $project, $workstream, $ticket?->project_id === $project->id ? $ticket : null, new TicketView);
     }
 
     /**

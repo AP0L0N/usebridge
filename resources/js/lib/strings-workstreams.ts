@@ -71,6 +71,7 @@ export const S = {
   'fd.change.unassigned': '{actor} unassigned {key} “{title}”',
   'fd.change.workstream': '{actor} moved {key} “{title}” here from {from}',
   // Footer
+  'fd.board.aria': '{name} board',
   'fd.crumb.portfolio': 'Portfolio',
   'fd.crumb.archived': 'Archived',
   'fd.keys': '↑↓ move · → or Enter opens · ← back',

@@ -56,6 +56,10 @@ test('finder selection lives in the URL', () => {
   assert.equal(finderUrl(null), '/portfolio');
   assert.equal(finderUrl('garden-planner'), '/portfolio?project=garden-planner');
   assert.equal(finderUrl('garden-planner', 'front', true), '/portfolio?project=garden-planner&q=front&archived=1');
+  // The board column (?ws=) and a ticket over it (?ticket=) need a project.
+  assert.equal(finderUrl('garden-planner', '', false, 'ws-1'), '/portfolio?project=garden-planner&ws=ws-1');
+  assert.equal(finderUrl('garden-planner', 'front', false, 'ws-1', 'GP-4'), '/portfolio?project=garden-planner&ws=ws-1&ticket=GP-4&q=front');
+  assert.equal(finderUrl(null, '', false, 'ws-1', 'GP-4'), '/portfolio');
 });
 
 test('keyboard: up/down within a column, right/enter into workstreams, enter opens, left goes back', () => {
