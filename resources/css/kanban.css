@@ -88,7 +88,7 @@
   .kb-back:hover{color:var(--a-ink)}
   .kb-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 32px;flex-wrap:wrap}
   .kb-title{display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap}
-  .kb-title h1{margin:0;min-width:0;overflow-wrap:anywhere;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink)}
+  .kb-title h1,.kb-title h2{margin:0;min-width:0;overflow-wrap:anywhere;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink)}
   .kb-sample{display:inline-flex;align-items:center;height:24px;padding:0 8px;border:1px dashed var(--a-ink-400);border-radius:6px;color:var(--a-ink-600);font:500 12px/1.35 var(--font-mono);letter-spacing:0;white-space:nowrap}
   .kb-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .kb-search{display:flex;align-items:center;gap:8px;width:280px;height:44px;padding:0 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);color:var(--a-ink-400)}
@@ -180,6 +180,10 @@
   .unr.pend{background:color-mix(in srgb,var(--a-signal) 35%,var(--a-surface));color:var(--a-ink)}
   .tmeta{display:flex;align-items:center;gap:4px 8px;flex-wrap:wrap;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
   .tmeta .id{color:var(--a-ink-400)}
+  /* Ticket reference in text ([[ticket:…]] → TicketRef): the card's key type, link-styled. */
+  .tref{display:inline;padding:0 4px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-paper);color:var(--a-ink);font:500 0.86em/1.35 var(--font-mono);letter-spacing:0;text-decoration:underline;text-decoration-color:var(--a-ink-400);text-underline-offset:2px;cursor:pointer;white-space:nowrap}
+  .tref:hover{border-color:var(--a-ink-400);text-decoration-color:currentColor}
+  .tref:focus-visible{outline:2px solid var(--a-focus);outline-offset:1px}
   .tmeta .mic{display:inline-flex;align-items:center;gap:4px;color:var(--a-ink-600)}
   .tmeta .due{display:inline-flex;align-items:center;gap:4px;color:var(--a-ink)}
   .tmeta .due.soon{color:var(--a-warn)}

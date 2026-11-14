@@ -3,6 +3,7 @@ import { Avatar, IcComment, IcMove, LabelChip, ViaLine, WaitAge, personType } fr
 import { IconCal12 } from '../AppIcons';
 import { dueLabel, dueSoon, firstName, ticketUrl, type Person, type Ticket } from '../../lib/kanban';
 import { t as str } from '../../lib/strings';
+import { RefTemplate, RefText, SLOT } from '../TicketRefs';
 
 type Props = {
   t: Ticket;
@@ -23,9 +24,9 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
   const cls = ['tk', t.status === 'done' && 'done', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
   const strips: ReactNode[] = [];
   if (t.status === 'waiting_tilen' && t.ask) {
-    strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p>{t.ask}</p></div>);
+    strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p><RefText text={t.ask} plain /></p></div>);
   }
-  if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span>{str('board.card.blocked', { reason: t.blocked_reason })}</span></p>);
+  if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={str('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} plain /></span></p>);
   if (t.unread_for_me) {
     strips.push(<p key="new" className="unr new"><span className="dotk" aria-hidden="true" />{str('board.card.newReply', { name: firstName(t.latest_unread_author?.name) || 'the PM' })}</p>);
   } else if (t.needs_pm_pickup) {

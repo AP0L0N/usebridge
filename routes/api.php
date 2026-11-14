@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\TicketCommentController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\UsageDayController;
 use App\Http\Middleware\EnsureTokenAbility;
+use App\Http\Middleware\ExpandTicketRefs;
 use App\Http\Middleware\GuardPolymarketUpload;
 use App\Http\Middleware\GuardUsageUpload;
 use App\Http\Middleware\LegacyReadOnly;
@@ -26,9 +27,9 @@ use App\Http\Middleware\ResolveTokenWorkspace;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Route;
 
-// Every route: the token's workspace (ResolveTokenWorkspace), 120 requests/min per token (throttle:api-token) and the
-// ability its route needs (EnsureTokenAbility).
-Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, 'throttle:api-token', EnsureTokenAbility::class])->group(function () {
+// Every route: the token's workspace (ResolveTokenWorkspace), stored ticket tokens expanded to plain keys in the JSON
+// (ExpandTicketRefs), 120 requests/min per token (throttle:api-token) and the ability its route needs (EnsureTokenAbility).
+Route::middleware(['auth:sanctum', ResolveTokenWorkspace::class, ExpandTicketRefs::class, 'throttle:api-token', EnsureTokenAbility::class])->group(function () {
     Route::apiResource('projects', ProjectController::class)->names('api.projects');
     Route::post('projects/{id}/archive', [ProjectController::class, 'archive'])->name('api.projects.archive');
     Route::post('projects/{id}/unarchive', [ProjectController::class, 'unarchive'])->name('api.projects.unarchive');

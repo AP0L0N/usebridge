@@ -49,6 +49,7 @@ class AcrossWorkspacesUsageTest extends TestCase
             'app/Services/Tickets/Workstreams.php' => 1,       // a ticket row's project by id (Ticket::creating, console writes)
             'app/Services/Usage/CliUsageImporter.php' => 3,    // markers/rows/upsert, each filtered by the explicit current workspace_id
             'app/Services/Usage/CursorCsvImporter.php' => 2,   // edge-day marker + stored calls, filtered by the same explicit workspace_id
+            'app/Support/TicketRefs.php' => 1,                 // ticket keys mentioned in a saved row, filtered by that row's explicit workspace_id
         ], $this->uses('/acrossWorkspaces\s*\(/'));
     }
 
@@ -67,6 +68,7 @@ class AcrossWorkspacesUsageTest extends TestCase
             'app/Services/Auth/AccountPurge.php' => 7,   // console purge: rows of the purged user's own workspaces only, never a response
             'app/Services/Auth/DeviceSessions.php' => 3, // sessions (not workspace-owned)
             'app/Services/BridgeRoster.php' => 1,        // project_pm_events insert, workspace_id = the project's
+            'app/Support/TicketRefs.php' => 4,           // migration backfill: keys resolved within each row's own workspace_id, rows updated by id, never a response
         ], $this->uses('/DB::(table|select|update|delete|insert|statement)\s*\(/'));
     }
 }

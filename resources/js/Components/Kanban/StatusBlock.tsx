@@ -3,6 +3,7 @@ import { ConfirmSheet, IcChev, IcHist, PmBadge, PlainBadge, Sheet, refocus, useD
 import { updateTime } from '../../lib/dates';
 import { STATUS_LABEL, archiveMessage, firstName, send, useMe, viaLabel, type PmStatus, type StatusEvent, type StatusSubject } from '../../lib/kanban';
 import { t } from '../../lib/strings';
+import { RefText } from '../TicketRefs';
 
 /** "Janice (PM)", "Sam Rivera", "Captain William Diego (CEO)"; "You" when $me (the signed-in user's actor id) set it. */
 export function setByLabel(by: string | null, name: string | null, pmId: string | null, me: string | null): string {
@@ -26,7 +27,7 @@ export function HistoryList({ events, pmId, now }: { events: StatusEvent[]; pmId
       {events.map((e) => (
         <li key={e.id}>
           <PlainBadge status={e.to_status} />
-          <p className="n">{e.note ? `“${e.note}”` : <span className="dim2">{t('ticket.history.empty')}</span>}</p>
+          <p className="n">{e.note ? <>“<RefText text={e.note} />”</> : <span className="dim2">{t('ticket.history.empty')}</span>}</p>
           <p>{setByLabel(e.set_by, e.set_by_name, pmId, me)} · {updateTime(e.created_at, now)} · {viaLabel(e.source, e.set_by_type === 'agent')}</p>
         </li>
       ))}
@@ -108,7 +109,7 @@ export function StatusBlock({ project: p, history, now, mobile, historyOpen, set
               <span>Set by <b>{p.status_set_by === p.pm_agent_id ? `${firstName(p.status_set_by_name ?? p.pm_name)} (PM)` : setByLabel(p.status_set_by, p.status_set_by_name, p.pm_agent_id, me)}</b> · <time dateTime={p.status_set_at}>{updateTime(p.status_set_at, now)}</time></span>
               <span className="via">{viaAgent && <span className="agentdot" aria-hidden="true" />}{viaLabel(history[0]?.source, viaAgent)}</span>
             </p>
-            {p.status_note && <p className="snote">“{p.status_note}”</p>}
+            {p.status_note && <p className="snote">“<RefText text={p.status_note} />”</p>}
           </>
         ) : <p className="sset">{t('portfolio.noStatus')}</p>}
       </div>
@@ -180,7 +181,7 @@ export function StatusForm({ project: p, onDone, onCancel, onArchive }: { projec
       </fieldset>
       <div className="other">
         <label className="flabel" htmlFor="pst-note">Note (optional)</label>
-        {p.status_note && <p className="hint cur">{noteOwner(p, me)}: “{p.status_note}”</p>}
+        {p.status_note && <p className="hint cur">{noteOwner(p, me)}: “<RefText text={p.status_note} />”</p>}
         <textarea id="pst-note" className="qta" maxLength={NOTE_MAX} placeholder="Why? (optional)" value={note}
           aria-describedby="pst-count" onChange={(e) => setNote(e.target.value)} />
         <p className="hint count" id="pst-count">{note.length}/{NOTE_MAX}</p>

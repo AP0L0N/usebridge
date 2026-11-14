@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Ticket;
 use App\Services\Tickets\Actor;
 use App\Support\BoardColumns;
+use App\Support\TicketRefs;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\JsonSchema\Types\Type;
@@ -43,7 +44,8 @@ abstract class BridgeTool extends Tool
             return Response::error('Not found.');
         }
 
-        return Response::text(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        // Stored ticket tokens go out as the current plain key ("BR-9"), like the REST API (TicketRefs).
+        return Response::text(TicketRefs::expand(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
     }
 
     /** @return array<string, mixed> the JSON payload (same shapes as the REST API) */

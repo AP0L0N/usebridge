@@ -23,6 +23,7 @@ use App\Http\Controllers\ProjectSetupController;
 use App\Http\Controllers\QuestionPanelController;
 use App\Http\Controllers\StatusUpdateController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketRefController;
 use App\Http\Controllers\UsageController;
 use App\Http\Controllers\WorkstreamController;
 use App\Http\Middleware\EnsureUserWorkspace;
@@ -128,6 +129,9 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::post('/projects/{slug}/tickets/{key}/unarchive', [TicketController::class, 'unarchive'])->name('projects.tickets.unarchive');
     Route::post('/projects/{slug}/tickets/{key}/seen', [TicketController::class, 'seen'])->name('projects.tickets.seen');
     Route::post('/projects/{slug}/seen', [TicketController::class, 'projectSeen'])->name('projects.seen');
+    // Ticket references in text ([[ticket:id|key]], App\Support\TicketRefs): batch lookup for the chips, modal payload by id.
+    Route::get('/ticket-refs', [TicketRefController::class, 'index'])->name('ticket-refs.index');
+    Route::get('/ticket-refs/{id}', [TicketRefController::class, 'show'])->where('id', 'tk-[A-Za-z0-9_-]+')->name('ticket-refs.show');
     Route::patch('/projects/{slug}/status', [TicketController::class, 'status'])->name('projects.status.update');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');

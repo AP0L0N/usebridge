@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Models\Concerns\StoresTicketRefs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -10,7 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * superseded_at / superseded_by_comment_id: an owner input replaced by a newer one before the PM picked it up. */
 class TicketComment extends Model
 {
-    use BelongsToWorkspace;
+    use BelongsToWorkspace, StoresTicketRefs;
+
+    /** Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). */
+    public const TICKET_REF_FIELDS = ['body'];
 
     protected $guarded = [];
 

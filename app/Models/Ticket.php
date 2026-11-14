@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Models\Concerns\StoresTicketRefs;
 use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
@@ -16,7 +17,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** A Kanban ticket (SPEC §6). Never hard-deleted: archived_at is the soft archive. */
 class Ticket extends Model
 {
-    use BelongsToWorkspace;
+    use BelongsToWorkspace, StoresTicketRefs;
+
+    /** Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). */
+    public const TICKET_REF_FIELDS = ['description', 'ask', 'ask_context', 'blocked_reason'];
 
     public const PRIORITIES = ['p1', 'p2', 'p3'];
 

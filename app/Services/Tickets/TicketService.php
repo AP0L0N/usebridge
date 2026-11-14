@@ -10,6 +10,7 @@ use App\Models\TicketComment;
 use App\Models\TicketEvent;
 use App\Support\BoardColumns;
 use App\Support\TicketPrefix;
+use App\Support\TicketRefs;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -184,9 +185,11 @@ final class TicketService
 
         return DB::transaction(function () use ($ticket, $data, $actor) {
             foreach (['title', 'description'] as $f) {
-                if (array_key_exists($f, $data) && $data[$f] !== $ticket->{$f}) {
+                // The description is compared (and stored) with its ticket references as tokens (TicketRefs).
+                $new = array_key_exists($f, $data) && $f === 'description' ? TicketRefs::tokenize($data[$f], $ticket->workspace_id) : ($data[$f] ?? null);
+                if (array_key_exists($f, $data) && $new !== $ticket->{$f}) {
                     $old = $ticket->{$f};
-                    $ticket->{$f} = $f === 'title' ? trim((string) $data[$f]) : $data[$f];
+                    $ticket->{$f} = $f === 'title' ? trim((string) $new) : $new;
                     $this->event($ticket, 'edited', [$f => $old], [$f => $ticket->{$f}], $actor);
                 }
             }
@@ -204,7 +207,7 @@ final class TicketService
                 $ticket->due_on = $data['due_on'];
             }
             if (array_key_exists('blocked_reason', $data)) {
-                $new = self::clean($data['blocked_reason']);
+                $new = TicketRefs::tokenize(self::clean($data['blocked_reason']), $ticket->workspace_id);
                 if ($new !== $ticket->blocked_reason) {
                     $this->event($ticket, $new === null ? 'unblocked' : 'blocked', ['blocked_reason' => $ticket->blocked_reason], ['blocked_reason' => $new], $actor);
                     $ticket->blocked_reason = $new;
@@ -345,7 +348,7 @@ final class TicketService
 
     private function applyAsk(Ticket $ticket, array $data, Actor $actor): void
     {
-        $ask = $this->askFields($data);
+        $ask = $this->askFields($data, $ticket->workspace_id);
         $from = [];
         $to = [];
         foreach ($ask as $f => $v) {
@@ -369,15 +372,16 @@ final class TicketService
         Workstreams::moveTicket($ticket, Workstreams::forTicket($ticket->project, $data['workstream'], $actor), $actor);
     }
 
-    /** @return array<string, mixed> only the ask fields present in $data, normalised */
-    private function askFields(array $data): array
+    /** @return array<string, mixed> only the ask fields present in $data, normalised (ticket references as tokens when $workspaceId is given) */
+    private function askFields(array $data, ?int $workspaceId = null): array
     {
         $out = [];
+        $refs = fn (?string $v) => $workspaceId === null ? $v : TicketRefs::tokenize($v, $workspaceId);
         if (array_key_exists('ask', $data)) {
-            $out['ask'] = self::clean($data['ask']);
+            $out['ask'] = $refs(self::clean($data['ask']));
         }
         if (array_key_exists('ask_context', $data)) {
-            $out['ask_context'] = self::clean($data['ask_context']);
+            $out['ask_context'] = $refs(self::clean($data['ask_context']));
         }
         if (array_key_exists('ask_options', $data)) {
             $opts = array_values(array_filter(array_map(fn ($o) => trim((string) $o), $data['ask_options'] ?? []), fn ($o) => $o !== ''));

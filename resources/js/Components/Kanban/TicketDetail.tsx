@@ -1,6 +1,7 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MarkdownBody } from '../MarkdownBody';
+import { RefTemplate, RefText, SLOT, refsToPlain } from '../TicketRefs';
 import {
   Avatar, IcBack, IcClock, IcEdit, IcMore, IcOk, IcX, LabelChip, Sheet, WaitAge,
   personType, useDismiss, useFocusTrap, useScrimDismiss, useToasts,
@@ -43,7 +44,7 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
     case 'priority': return `Priority set to ${String(to.priority ?? 'p3').toUpperCase()}`;
     case 'due': return to.due_on ? `Due set to ${dueLabel(String(to.due_on))}` : 'Due date cleared';
     case 'labelled': return 'Labels changed';
-    case 'blocked': return `Blocked · ${String(to.blocked_reason ?? '')}`;
+    case 'blocked': return `Blocked · ${refsToPlain(String(to.blocked_reason ?? ''))}`;
     case 'unblocked': return 'Unblocked';
     case 'ask_set': return 'Ask updated';
     case 'edited': return 'title' in to ? 'Title edited' : 'Description edited';
@@ -239,7 +240,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
                 <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
               </div>
               {mobile && <div className="mf">{dsum}</div>}
-              {t.blocked_reason && <p className="blk"><span className="pri-dot" aria-hidden="true" /><span>{tr('board.card.blocked', { reason: t.blocked_reason })}</span></p>}
+              {t.blocked_reason && <p className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={tr('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} /></span></p>}
               {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
               <Description t={t} onSave={(d) => patch({ description: d })} />
               <hr className="kb-div" />
@@ -364,7 +365,7 @@ function Description({ t, onSave }: { t: Ticket; onSave: (d: string | null) => v
   useDirty('description', dirty);
   // Esc leaves the editor; unsaved text asks first, and Discard drops it.
   const leave = () => (dirty ? askDiscard(() => setEdit(false)) : setEdit(false));
-  const start = () => { const text = t.description ?? ''; setVal(text); setBase(text); setEdit(true); };
+  const start = () => { const text = refsToPlain(t.description) ?? ''; setVal(text); setBase(text); setEdit(true); };
   return (
     <section className="dsec" aria-labelledby="desc-h">
       <h2 className="kb-sect" id="desc-h">{tr('ticket.description')} {!edit && <button className="gbtn" type="button" onClick={start}><IcEdit />{tr('ticket.labels.edit')}</button>}</h2>
@@ -411,7 +412,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   const showForm = !((sent || answered) && !changing);
   useDirty('reply', showForm && note.trim() !== base.trim());
   const startChange = () => {
-    const prefill = last?.input_choice && last.body !== last.input_choice ? last.body ?? '' : '';
+    const prefill = last?.input_choice && last.body !== last.input_choice ? refsToPlain(last.body) ?? '' : '';
     setChanging(true); setChoice(last?.input_choice ?? null); setNote(prefill); setBase(prefill);
   };
 
@@ -430,7 +431,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   };
 
   if (sent && !changing && last) {
-    const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (last.body ?? '').split('\n')[0];
+    const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (refsToPlain(last.body) ?? '').split('\n')[0];
     return (
       <section className="tin sent" aria-labelledby="tin-h">
         <div className="tih"><span className="tag">{tr('ticket.input.sent.tag')}</span><h2 id="tin-h">{tr('ticket.input.sent.title', { name: pmFirst })}</h2></div>
@@ -441,7 +442,7 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
   }
 
   if (answered && !changing && last) {
-    const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (last.body ?? '').split('\n')[0];
+    const answer = last.input_choice && last.input_choice !== 'other' ? last.input_choice : (refsToPlain(last.body) ?? '').split('\n')[0];
     return (
       <section className="tin sent" aria-labelledby="tin-h">
         <div className="tih"><span className="tag">{tr('ticket.input.answered.tag')}</span><h2 id="tin-h">{tr('ticket.input.answered.title', { when: answeredAt(last.created_at, now) })}</h2></div>
@@ -458,12 +459,12 @@ function InputBox({ t, detail, pm, slug, now, onSent }: { t: Ticket; detail: Det
         <span className="tag">{tr('ticket.input.tag')}</span><h2 id="tin-h">{tr('ticket.input.needs', { name: pmFirst })}</h2>
         {t.waiting_level && <WaitAge level={t.waiting_level} days={days} />}
       </div>
-      <p className="askq" id="tin-q">{t.ask}</p>
-      {t.ask_context && <p className="askc" id="tin-c">{t.ask_context}</p>}
+      <p className="askq" id="tin-q"><RefText text={t.ask} /></p>
+      {t.ask_context && <p className="askc" id="tin-c"><RefText text={t.ask_context} /></p>}
       <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
         {opts.length > 0 && (
           <fieldset className="sfs">
-            <legend className="sr-only">{t.ask}</legend>
+            <legend className="sr-only">{refsToPlain(t.ask)}</legend>
             <div className="opts">
               {[...opts, 'other'].map((o) => (
                 <label key={o} className="optc">
