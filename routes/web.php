@@ -131,7 +131,8 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::post('/projects/{slug}/seen', [TicketController::class, 'projectSeen'])->name('projects.seen');
     // Ticket references in text ([[ticket:id|key]], App\Support\TicketRefs): batch lookup for the chips, modal payload by id.
     Route::get('/ticket-refs', [TicketRefController::class, 'index'])->name('ticket-refs.index');
-    Route::get('/ticket-refs/{id}', [TicketRefController::class, 'show'])->where('id', 'tk-[A-Za-z0-9_-]+')->name('ticket-refs.show');
+    // {id}: a ticket id from a token, or a key (?ticket=KEY deep links to a ticket of another project).
+    Route::get('/ticket-refs/{id}', [TicketRefController::class, 'show'])->where('id', 'tk-[A-Za-z0-9_-]+|[A-Za-z][A-Za-z0-9]{0,7}-\d+')->name('ticket-refs.show');
     Route::patch('/projects/{slug}/status', [TicketController::class, 'status'])->name('projects.status.update');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');

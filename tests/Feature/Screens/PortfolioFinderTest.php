@@ -50,15 +50,15 @@ class PortfolioFinderTest extends TestCase
     }
 
     #[Test]
-    public function workstream_rows_carry_ticket_counts_for_you_and_all_done(): void
+    public function workstream_rows_carry_ticket_counts_for_you_blocked_and_all_done(): void
     {
-        $this->api()->newTicket();
+        $this->api()->newTicket(['blocked_reason' => 'Needs the logo']);
         $this->waitingTicket();
-        $this->newTicket(['status' => 'done']);
+        $this->newTicket(['status' => 'done', 'blocked_reason' => 'Done tickets do not count']);
 
         $this->asOwner()->get('/portfolio')->assertInertia(fn (Assert $p) => $p->where('projects', function ($projects) {
             $row = collect($projects)->firstWhere('id', self::BH)['workstreams'][0];
-            $this->assertSame([3, 1, 2, false], [$row['tickets'], $row['forYou'], $row['open'], $row['allDone']]);
+            $this->assertSame([3, 1, 2, 1, false], [$row['tickets'], $row['forYou'], $row['open'], $row['blocked'], $row['allDone']]);
 
             return true;
         }));

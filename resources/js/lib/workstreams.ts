@@ -9,6 +9,8 @@ export interface WorkstreamRow {
   tickets: number;
   forYou: number;
   open: number;
+  /** Open tickets with a blocked reason (the board column's header counts while it loads). */
+  blocked: number;
   allDone: boolean;
   /** Changes since this user last opened the board (0 = hidden). */
   badge: number;
@@ -30,6 +32,7 @@ export interface Change {
   workstreamId: string;
   workstream: string;
   actor: string;
+  ticketId: string | null;
   key: string | null;
   title: string | null;
   column: string | null;
@@ -87,6 +90,13 @@ export function deleteMode(ws: Pick<WorkstreamRow, 'tickets' | 'isDefault'>, oth
 }
 
 /** Board URL of a workstream (`/projects/{slug}?ws={id}`). */
+/** Rail initials (WS / Project rail item 84:1081): first letters of the first two words, else the first two letters. */
+export function initials(name: string): string {
+  const words = name.trim().split(/[\s_-]+/).filter(Boolean);
+  const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '').slice(0, 2);
+  return letters.toUpperCase();
+}
+
 export const boardUrl = (slug: string, wsId: string) => `/projects/${slug}?ws=${encodeURIComponent(wsId)}`;
 
 /**

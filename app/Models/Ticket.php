@@ -19,8 +19,13 @@ class Ticket extends Model
 {
     use BelongsToWorkspace, StoresTicketRefs;
 
-    /** Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). */
-    public const TICKET_REF_FIELDS = ['description', 'ask', 'ask_context', 'blocked_reason'];
+    /**
+     * Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). Column => its max
+     * length in characters (varchar), null = TEXT; a value whose tokenized form would not fit is stored as typed.
+     *
+     * @var array<string, int|null>
+     */
+    public const TICKET_REF_FIELDS = ['description' => null, 'ask' => 280, 'ask_context' => 500, 'blocked_reason' => 140];
 
     public const PRIORITIES = ['p1', 'p2', 'p3'];
 

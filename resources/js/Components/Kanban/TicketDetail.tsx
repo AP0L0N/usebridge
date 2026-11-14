@@ -29,6 +29,8 @@ type Props = {
   onStatus: (t: Ticket, to: ColumnKey) => void;
   onChanged: () => void;
   onArchived: (t: Ticket) => void;
+  /** Opened from a chip inside another ticket (README §11.3): a back arrow to that ticket instead of stacking modals. */
+  back?: { key: string; onBack: () => void };
 };
 
 const COLNAME = (cols: Column[], k: unknown) => cols.find((c) => c.key === k)?.label ?? String(k ?? '');
@@ -97,7 +99,7 @@ function useDirty(field: string, dirty: boolean) {
 /** Which draft the discard dialog talks about. */
 const DISCARD_COPY: Record<string, 'note' | 'comment' | 'desc'> = { reply: 'note', composer: 'comment', description: 'desc', labels: 'desc' };
 
-export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived }: Props) {
+export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived, back }: Props) {
   const t: Ticket = detail ?? fallback;
   const ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -219,7 +221,9 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
       <div className="ovl kb-ovl" {...scrim}>
         <div ref={ref} className="kb-drawer" role="dialog" aria-modal="true" aria-labelledby="dlg-t" onFocus={(e) => { lastFocus.current = e.target as HTMLElement; }}>
           <div className="kb-dh">
-            <button className="gbtn only-m" type="button" onClick={requestClose}><IcBack />{tr('ticket.back')}</button>
+            {back ? (
+              <button className="gbtn kb-dback" type="button" aria-label={tr('ticketRef.back', { key: back.key })} onClick={back.onBack}><IcChevL /><span>{back.key}</span></button>
+            ) : <button className="gbtn only-m" type="button" onClick={requestClose}><IcBack />{tr('ticket.back')}</button>}
             <span className="kb-crumb only-d">{project.name}&nbsp;/&nbsp;<b>{t.key}</b></span>
             <span className="spacer" />
             <div className="pwrap" ref={menuRef}>
@@ -237,7 +241,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
             <div className="kb-main">
               {t.labels.length > 0 && <div className="kb-tl"><div className="lbs">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div></div>}
               <div className="kb-tl">
-                <h1 id="dlg-t" ref={titleRef} tabIndex={-1}>{t.title}</h1>
+                <h1 id="dlg-t" ref={titleRef} tabIndex={-1}><RefText text={t.title_refs ?? t.title} /></h1>
               </div>
               {mobile && <div className="mf">{dsum}</div>}
               {t.blocked_reason && <p className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={tr('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} /></span></p>}
@@ -598,3 +602,5 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
     </form>
   );
 }
+
+const IcChevL = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;

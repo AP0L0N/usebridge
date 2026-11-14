@@ -19,7 +19,7 @@ class TicketRefController extends Controller
 {
     use FindsTickets;
 
-    /** GET /ticket-refs?ids=tk-a,tk-b → {data: {id: {key, title, project_slug, archived}}}; unknown ids are left out. */
+    /** GET /ticket-refs?ids=tk-a,tk-b → {data: {id: {key, title, project_slug, archived, status, status_label, assignee_id, assignee_name}}}; unknown ids are left out. */
     public function index(Request $request): JsonResponse
     {
         $ids = $request->query('ids');
@@ -29,7 +29,7 @@ class TicketRefController extends Controller
         return response()->json(['data' => (object) TicketRefs::resolve($ids)]);
     }
 
-    /** GET /ticket-refs/{id}: the ticket detail plus what TicketDetail needs (project, columns, people, labels). */
+    /** GET /ticket-refs/{id or key}: the ticket detail plus what TicketDetail needs (project, columns, people, labels). */
     public function show(string $id): JsonResponse
     {
         $ticket = $this->ticket($id);

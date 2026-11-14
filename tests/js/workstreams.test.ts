@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, nameError, othersWithChanges, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
+import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
 
-const ws = (name: string, badge = 0, extra: Partial<WorkstreamRow> = {}): WorkstreamRow => ({ id: `ws-${name}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, allDone: false, badge, ...extra });
+const ws = (name: string, badge = 0, extra: Partial<WorkstreamRow> = {}): WorkstreamRow => ({ id: `ws-${name}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false, badge, ...extra });
 const projects = [
   { name: 'Garden planner', archived: false, pmStatus: 'waiting' as const, workstreams: [ws('Frontend'), ws('General')] },
   { name: 'Recipe box', archived: false, pmStatus: null, workstreams: [ws('Mobile'), ws('General')] },
@@ -70,4 +70,11 @@ test('keyboard: up/down within a column, right/enter into workstreams, enter ope
   assert.deepEqual(finderKey('Enter', { col: 1, index: 1 }, [3, 2]), { focus: { col: 1, index: 1 }, open: true });
   assert.deepEqual(finderKey('ArrowLeft', { col: 1, index: 1 }, [3, 2]), { focus: { col: 0, index: -1 } });
   assert.equal(finderKey('ArrowRight', { col: 0, index: 0 }, [3, 0]), null);
+});
+
+test('rail initials: first letters of two words, else two letters', () => {
+  assert.equal(initials('Garden planner'), 'GP');
+  assert.equal(initials('Client site redesign'), 'CS');
+  assert.equal(initials('Bridge'), 'BR');
+  assert.equal(initials('  internal-tools '), 'IT');
 });

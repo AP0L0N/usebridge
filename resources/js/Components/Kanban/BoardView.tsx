@@ -1,11 +1,12 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, PointerEvent as RPointerEvent, ReactNode } from 'react';
 import { AppTopBar } from '../Shell/AppTopBar';
 import { IconChev, IconInbox20, IconSearch16, IconX16 } from '../AppIcons';
 import { IcFilter, IcHist, IcOk, IcPlus, MOBILE, Sheet, refocus, useDismiss, useMedia, useToasts } from './Bits';
 import { TicketCard } from './TicketCard';
 import { StatusBlock, setByLabel } from './StatusBlock';
+import { RefSourceCtx } from '../TicketRefs';
 import { LatestUpdate } from './LatestUpdate';
 import { AskPrompt, MoveSheet } from './MoveSheet';
 import { TicketDetail } from './TicketDetail';
@@ -50,6 +51,10 @@ type Props = BoardProps & {
    * (column 2 is the workstream list); the title is the workstream's name.
    */
   embedded?: boolean;
+  /** Embedded: the full-page board ("Open full page", README §10.1). */
+  fullPage?: string;
+  /** Embedded on phones: where the workstream switcher goes (stays on /portfolio). */
+  wsHref?: (id: string) => string;
 };
 
 /** Board filters (local state, like search). `replies` / `pickup` match the card chips "New reply from …" / "Your input · not picked up yet". */
@@ -69,7 +74,7 @@ type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
  * One workstream's Kanban board (SPEC §2): the Board page, and the Portfolio's board column (`embedded`). Data comes
  * from the page's Inertia props (ProjectController::boardProps); reloads are partial visits of the current page.
  */
-export function BoardView({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, workstreams, workstream, here, ticketHref, embedded = false }: Props) {
+export function BoardView({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, workstreams, workstream, here, ticketHref, embedded = false, fullPage, wsHref }: Props) {
   const p = board.project;
   const wsName = workstreams.find((w) => w.id === workstream)?.name ?? '';
   const toasts = useToasts();
@@ -516,16 +521,25 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
 
   const dragged = drag ? find(drag.key) : undefined;
 
+  // Portfolio board column on desktop (README §10.1): a compact header above the board; phones get the board page's layout.
+  const compact = embedded && !mobile;
+  const emptyColumn = compact && all.length === 0 && !filtering && adding === null;
   const Root = embedded ? 'div' : 'main';
   return (
     <>
       {!embedded && <Head title={p.name} />}
       {!embedded && <AppTopBar />}
-      <Root className={embedded ? 'kb kb-embed' : 'kb'}>
-        {!embedded && <Link className="kb-back" href={finderUrl(p.slug)}><IcBack />{tw('bd.back')}</Link>}
+      <Root className={compact ? 'kb kb-embed kb-compact' : embedded ? 'kb kb-embed' : 'kb'}>
+        {!embedded && <Link className="kb-back" href={finderUrl(p.slug, '', false, workstream)}><IcBack />{tw('bd.back')}</Link>}
+        {compact ? (
+          <BoardColumnHead name={wsName} meta={tw('bd.col.meta', { open, waiting: waitingCount, blocked })} fullPage={fullPage}>
+            <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
+            <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tw('bd.col.new')}</button>
+          </BoardColumnHead>
+        ) : (
         <div className="kb-head">
           <div className="kb-title">
-            {embedded ? <h2>{wsName}</h2> : <h1>{p.name}</h1>}
+            <h1>{p.name}</h1>
             {!signedIn && <span className="kb-sample">{tr('board.sample')}</span>}
           </div>
           <div className="kb-tools">
@@ -555,18 +569,23 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
             <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tr('board.add')}</button>
           </div>
         </div>
-        <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
-          onChanged={() => reload(['board', 'statusHistory'])} />
-        <LatestUpdate update={latestUpdate} now={now} />
-        {!embedded && <BoardWorkstreamNav slug={p.slug} projectName={p.name} rows={workstreams} current={workstream} readOnly={p.archived || !signedIn} mobile={mobile} />}
-        <p className="bsum">
+        )}
+        {!compact && (
+          <>
+            <StatusBlock project={p} history={statusHistory} now={now} mobile={mobile} historyOpen={historyOpen} setHistoryOpen={setHistoryOpen}
+              onChanged={() => reload(['board', 'statusHistory'])} />
+            <LatestUpdate update={latestUpdate} now={now} />
+            <BoardWorkstreamNav slug={p.slug} projectName={p.name} rows={workstreams} current={workstream} readOnly={p.archived || !signedIn} mobile={mobile} wsHref={wsHref} />
+          </>
+        )}
+        {!compact && <p className="bsum">
           <span className="mi"><b>{open}</b> {tw('bd.open', { name: wsName })}</span>
           <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { column: lcFirst(colLabel(WAITING)) })}</span>
           <span className="mi"><b>{blocked}</b> {tr('board.blocked', { n: blocked })}</span>
           {p.pm_name && <span className="mi hide-m">{tr('portfolio.pm')} <b className="name">{p.pm_name}</b></span>}
           <span className="mi hide-m">{tr('portfolio.lastActivity')} <b className="name">{updateTime(p.last_activity_at, now) || '—'}</b></span>
           {filtering && <span className="mi" role="status"><b>{visible.reduce((s, c) => s + c.tickets.length, 0)}</b> {tr('board.shown', { n: 0 })} · <button type="button" className="lnk" onClick={() => { setQ(''); setFilters(NO_FILTERS); }}>{tr('dash.noresults.clear')}</button></span>}
-        </p>
+        </p>}
 
         {mobile && (
           <div className="ctabs" role="tablist" aria-label="Columns" ref={tabsRef}>
@@ -579,6 +598,13 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           </div>
         )}
 
+        {emptyColumn ? (
+          <div className="fd-empty kb-cempty">
+            <b>{tw('bd.col.empty.title', { name: wsName })}</b>
+            <p>{tw('bd.col.empty.body', { fallback: workstreams.find((w) => w.isDefault)?.name ?? wsName })}</p>
+            <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tw('bd.col.new')}</button>
+          </div>
+        ) : (
         <div className="board" ref={boardRef}
           onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
           onTouchEnd={(e) => swipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)}>
@@ -616,7 +642,8 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
             );
           })}
         </div>
-        {!mobile && (
+        )}
+        {!mobile && !compact && (
           <div className="khint">
             <div className="trk" aria-hidden="true"><div className="fil" style={{ left: `${hint.left * 100}%`, width: `${hint.w * 100}%` }} /></div>
             <p>{tr('board.scrollHint', { cols: cols.slice(1).map((c) => c.label).join(', ') })}</p>
@@ -661,6 +688,8 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           }} />
       )}
       {shownKey && fallback && (
+        // A chip inside this modal opens its ticket in TicketRefHost's modal, in place of this one (README §11.3).
+        <RefSourceCtx.Provider value={{ id: fallback.id, key: fallback.key, host: false, pushed: openedHere.current, release: () => { openedHere.current = false; returnTo = null; }, base: here }}>
         <TicketDetail key={shownKey} detail={ticket && ticket.key === shownKey ? ticket : null} fallback={fallback} project={p} people={people} labels={labels}
           columns={cols} now={now} mobile={mobile} onClose={closeTicket}
           onStatus={(t, to) => requestMove({ t, to, index: 0, via: 'detail' })}
@@ -673,6 +702,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
             closeTicket();
             reload(['board']);
           }} />
+        </RefSourceCtx.Provider>
       )}
     </>
   );
@@ -811,3 +841,37 @@ function FilterMenu({ filters, setFilters, n, tickets, people, labels }: {
   );
 }
 
+const IcExpand = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+);
+
+/** Compact header of the Portfolio board column: workstream name, counts, tools, and "Open full page" (README §10.1). */
+export function BoardColumnHead({ name, meta, fullPage, children }: { name: string; meta: ReactNode; fullPage?: string; children?: ReactNode }) {
+  return (
+    <div className="kb-chead">
+      <div className="kb-ctitle">
+        <h2>{name}</h2>
+        <p className="kb-cmeta">{meta}</p>
+      </div>
+      <div className="kb-tools">
+        {children}
+        {fullPage && <Link className="kb-full" href={fullPage} aria-label={tw('bd.col.full')} title={tw('bd.col.full')}><IcExpand /></Link>}
+      </div>
+    </div>
+  );
+}
+
+/** Loading state of the board column (87:1166): the header, then skeleton columns and cards. */
+export function BoardColumnSkeleton({ name, meta, fullPage }: { name: string; meta: ReactNode; fullPage?: string }) {
+  const cards = [2, 1, 2, 2, 1];
+  return (
+    <div className="kb kb-embed kb-compact" aria-busy="true">
+      <BoardColumnHead name={name} meta={meta} fullPage={fullPage} />
+      <div className="board kb-skel" aria-hidden="true">
+        {cards.map((n, i) => (
+          <div key={i} className="col"><i className="sk-h" />{Array.from({ length: n }, (_, j) => <div key={j} className="sk-card"><i /><i /><i /></div>)}</div>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -15,8 +15,10 @@ import { ActionMenu, CountBadge, IcDown, IcEdit, IcPlus, IcRight, IcStar, IcTras
 
 type Dialog = { kind: 'add' } | { kind: 'rename'; ws: WorkstreamRow } | { kind: 'delete'; ws: WorkstreamRow } | null;
 
-export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, readOnly, mobile }: {
+export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, readOnly, mobile, wsHref = (id) => boardUrl(slug, id) }: {
   slug: string; projectName: string; rows: WorkstreamRow[]; current: string; readOnly: boolean; mobile: boolean;
+  /** Where a workstream opens (the Portfolio's phone drill-in keeps the user on /portfolio). Default: its board page. */
+  wsHref?: (id: string) => string;
 }) {
   const toasts = useToasts();
   const [rows, setRows] = useState(initial);
@@ -72,7 +74,7 @@ export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, 
           onSubmit={async (name) => {
             const r = await send<{ data: { id: string } }>('POST', `/projects/${slug}/workstreams`, { name });
             setDialog(null);
-            router.visit(boardUrl(slug, r.data.id));
+            router.visit(wsHref(r.data.id));
           }} />
       )}
       {dialog?.kind === 'rename' && (
@@ -90,7 +92,7 @@ export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, 
             setDialog(null);
             toasts.push({ body: t('toast.deletedWs', { name: dialog.ws.name }) });
             const next = r.data.target?.id ?? rows.find((w) => w.id !== dialog.ws.id)?.id;
-            router.visit(next ? boardUrl(slug, next) : `/projects/${slug}`);
+            router.visit(next ? wsHref(next) : `/projects/${slug}`);
           }} />
       )}
     </>
@@ -114,7 +116,7 @@ export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, 
             <ul className="fd-list">
               {rows.map((w) => (
                 <li key={w.id}>
-                  <Link href={boardUrl(slug, w.id)} className={`fd-wrow${w.id === cur.id ? ' on' : ''}`} aria-current={w.id === cur.id ? 'page' : undefined} onClick={() => setSheet(false)}>
+                  <Link href={wsHref(w.id)} className={`fd-wrow${w.id === cur.id ? ' on' : ''}`} aria-current={w.id === cur.id ? 'page' : undefined} onClick={() => setSheet(false)}>
                     <span className="fd-rtext">
                       <span className="fd-rname">{w.name}{w.isDefault && <span className="fd-chip">{t('fd.ws.default')}</span>}</span>
                       <span className="fd-rmeta">{[tn(w.tickets, 'fd.ws.tickets.one', 'fd.ws.tickets.many'), w.forYou ? t('fd.ws.forYou', { n: w.forYou }) : null].filter(Boolean).join(' · ')}</span>
@@ -143,7 +145,7 @@ export function BoardWorkstreamNav({ slug, projectName, rows: initial, current, 
       <span className="kb-wslabel" id="kb-wslabel">{t('bd.workstream')}</span>
       <nav className="kb-tabs" aria-labelledby="kb-wslabel">
         {rows.map((w) => (
-          <Link key={w.id} href={boardUrl(slug, w.id)} className="kb-tab" aria-current={w.id === cur.id ? 'page' : undefined} preserveScroll>
+          <Link key={w.id} href={wsHref(w.id)} className="kb-tab" aria-current={w.id === cur.id ? 'page' : undefined} preserveScroll>
             {w.name}{!readOnly && w.id !== cur.id && <CountBadge n={w.badge} />}
           </Link>
         ))}

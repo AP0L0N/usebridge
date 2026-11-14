@@ -176,15 +176,18 @@ exists in your workspace, so people can open it in one click.
   (`text`, `context`, `answer_text`), required input and next step `text`, each `KEY-<number>` of an existing ticket is
   stored as the reference token `[[ticket:<ticket id>|<key when saved>]]`, e.g. `[[ticket:tk-01jc…|BR-9]]`. Keys of
   tickets that do not exist stay plain text, and nothing inside a URL, a Markdown link, inline code / a code block or
-  an existing token is changed. Lowercase (`br-9`) is not a key. Ticket titles and workstream / project names are never
-  changed.
+  an existing token is changed. Lowercase (`br-9`) is not a key. A key of another project in your workspace counts.
+  Ticket titles and workstream / project names are never changed. When the text with tokens would no longer fit the
+  field (e.g. a 140-character `blocked_reason` right at the limit), it is stored exactly as sent, without tokens.
 - **On read** (every REST response and every MCP tool result): tokens are expanded back to the ticket's **current**
   key, so you always get plain text such as `"Blocked on BR-9"` and never see a token. The token holds the ticket id,
   so a reference keeps pointing at the same ticket even if its key or the project prefix changes. A ticket that can no
   longer be found reads as the key stored in the token.
 - Sending the same text again is not a change (no new `edited` / `ask_set` / `blocked` event).
-- In the Bridge UI a reference shows as a ticket chip with the current key (title on hover); clicking it opens that
-  ticket in a modal on the current page.
+- In the Bridge UI a reference shows as a ticket chip with the current key and a status dot (key, status, title and
+  assignee on hover); clicking it opens that ticket in a modal on the current page (`?ticket=KEY` in the URL).
+- Text saved before references existed is converted by an operator command, not on deploy: see
+  [TICKET-REFS.md](TICKET-REFS.md).
 
 ---
 

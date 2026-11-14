@@ -186,7 +186,7 @@ final class TicketService
         return DB::transaction(function () use ($ticket, $data, $actor) {
             foreach (['title', 'description'] as $f) {
                 // The description is compared (and stored) with its ticket references as tokens (TicketRefs).
-                $new = array_key_exists($f, $data) && $f === 'description' ? TicketRefs::tokenize($data[$f], $ticket->workspace_id) : ($data[$f] ?? null);
+                $new = array_key_exists($f, $data) && $f === 'description' ? TicketRefs::tokenize($data[$f], $ticket->workspace_id, Ticket::TICKET_REF_FIELDS['description']) : ($data[$f] ?? null);
                 if (array_key_exists($f, $data) && $new !== $ticket->{$f}) {
                     $old = $ticket->{$f};
                     $ticket->{$f} = $f === 'title' ? trim((string) $new) : $new;
@@ -207,7 +207,7 @@ final class TicketService
                 $ticket->due_on = $data['due_on'];
             }
             if (array_key_exists('blocked_reason', $data)) {
-                $new = TicketRefs::tokenize(self::clean($data['blocked_reason']), $ticket->workspace_id);
+                $new = TicketRefs::tokenize(self::clean($data['blocked_reason']), $ticket->workspace_id, Ticket::TICKET_REF_FIELDS['blocked_reason']);
                 if ($new !== $ticket->blocked_reason) {
                     $this->event($ticket, $new === null ? 'unblocked' : 'blocked', ['blocked_reason' => $ticket->blocked_reason], ['blocked_reason' => $new], $actor);
                     $ticket->blocked_reason = $new;
@@ -376,12 +376,12 @@ final class TicketService
     private function askFields(array $data, ?int $workspaceId = null): array
     {
         $out = [];
-        $refs = fn (?string $v) => $workspaceId === null ? $v : TicketRefs::tokenize($v, $workspaceId);
+        $refs = fn (?string $v, string $field) => $workspaceId === null ? $v : TicketRefs::tokenize($v, $workspaceId, Ticket::TICKET_REF_FIELDS[$field]);
         if (array_key_exists('ask', $data)) {
-            $out['ask'] = $refs(self::clean($data['ask']));
+            $out['ask'] = $refs(self::clean($data['ask']), 'ask');
         }
         if (array_key_exists('ask_context', $data)) {
-            $out['ask_context'] = $refs(self::clean($data['ask_context']));
+            $out['ask_context'] = $refs(self::clean($data['ask_context']), 'ask_context');
         }
         if (array_key_exists('ask_options', $data)) {
             $opts = array_values(array_filter(array_map(fn ($o) => trim((string) $o), $data['ask_options'] ?? []), fn ($o) => $o !== ''));

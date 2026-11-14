@@ -99,6 +99,84 @@
 .app .fd-c3.fd-board { padding: 0; gap: 0; }
 .app .fd-board .kb-embed { min-height: 0; padding: 24px 28px 28px; gap: 16px; }
 .app .fd-phone .kb-embed { min-height: 0; padding: 0; }
+
+/* ───────────── Board as column (README §10, 85:1078 · 87:1166 · 87:1629 · 87:2683 · 87:2092) ─────────────
+   With a board open, Projects is a 64px initials rail (WS / Project rail item 84:1081) that expands back to the 280px
+   list on hover or keyboard focus, pushing the other columns (no overlay). Workstreams stay 300, or a 48px letter rail
+   (≤1280 automatically, or the user's toggle). Rows keep one markup: the rail only restyles them, so focus never moves. */
+.app .fd-ini, .app .fd-railonly { display: none; }
+.app .fd-frame.fd-boarding { grid-template-columns: 64px 300px minmax(0, 1fr); transition: grid-template-columns .18s ease; }
+.app .fd-frame.fd-boarding:has(.fd-c1:hover, .fd-c1:focus-within) { grid-template-columns: 280px 300px minmax(0, 1fr); }
+.app .fd-frame.fd-boarding.fd-wsrail { grid-template-columns: 64px 48px minmax(0, 1fr); }
+.app .fd-frame.fd-boarding.fd-wsrail:has(.fd-c1:hover, .fd-c1:focus-within) { grid-template-columns: 280px 48px minmax(0, 1fr); }
+@media (prefers-reduced-motion: reduce) { .app .fd-frame.fd-boarding { transition: none; } }
+.app .fd-boarding .fd-col { overflow: hidden; }
+
+/* collapsed project rail */
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch .fd-ov,
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-rtext,
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-chev,
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-aico,
+.app .fd-wsrail .fd-c2 .fd-rtext, .app .fd-wsrail .fd-c2 .ws-badge, .app .fd-wsrail .fd-c2 .fd-chev {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch .fd-sq { border: 0; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-foot,
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-none,
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-archh { display: none; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-scroll,
+.app .fd-wsrail .fd-c2 .fd-scroll { padding: 12px 0; overflow-x: hidden; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-list { gap: 16px; align-items: center; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow {
+  position: relative; justify-content: center; width: 40px; height: 40px; min-height: 40px; padding: 0; gap: 0;
+  border: 1px solid var(--a-line); border-radius: 50%; background: var(--a-surface);
+}
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow:hover { border-color: var(--a-ink-400); }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ini,
+.app .fd-wsrail .fd-c2 .fd-ini { display: block; font: 500 13px/1 var(--font-mono); letter-spacing: 0; }
+.app .fd-boarding .fd-c1:not(:hover, :focus-within) .ws-dot { position: absolute; top: 1px; right: 1px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
+
+/* workstreams letter rail (87:2683) */
+.app .fd-railhead { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
+.app .fd-railbtn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: var(--a-ink); cursor: pointer; }
+.app .fd-railbtn:hover { background: var(--a-paper); }
+.app .fd-wsrail .fd-c2 .fd-ptitle, .app .fd-wsrail .fd-c2 .fd-wh, .app .fd-wsrail .fd-c2 .fd-foot, .app .fd-wsrail .fd-c2 .fd-addws,
+.app .fd-wsrail .fd-c2 .fd-inline, .app .fd-wsrail .fd-c2 .fd-archnote, .app .fd-wsrail .fd-c2 .fd-empty { display: none; }
+.app .fd-wsrail .fd-c2 .fd-list { gap: 16px; align-items: center; }
+.app .fd-wsrail .fd-c2 .fd-wrow {
+  position: relative; justify-content: center; width: 32px; height: 32px; min-height: 32px; padding: 0; gap: 0;
+  border: 1px solid var(--a-line); border-radius: 50%; background: var(--a-surface);
+}
+.app .fd-wsrail .fd-c2 .fd-wli:hover .fd-wrow, .app .fd-wsrail .fd-c2 .fd-wli:focus-within .fd-wrow { background: var(--a-paper); }
+.app .fd-wsrail .fd-c2 .fd-wrow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
+.app .fd-wsrail .fd-c2 .fd-railonly { display: block; position: absolute; top: 0; right: 0; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
+
+/* compact board header + board (85:1078) */
+.app .fd-board .kb-compact { padding: 0; gap: 0; height: 100%; min-height: 0; }
+.app .kb-chead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-bottom: 1px solid var(--a-line); background: var(--a-surface); }
+.app .kb-ctitle { min-width: 0; }
+.app .kb-ctitle h2 { margin: 0; font: 600 22px/1.25 var(--font-ui); letter-spacing: -0.02em; color: var(--a-ink); overflow-wrap: anywhere; }
+.app .kb-cmeta { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--a-ink-600); }
+.app .kb-chead .kb-tools { flex-wrap: nowrap; }
+.app .kb-full { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); flex: none; }
+.app .kb-full:hover { border-color: var(--a-ink-400); }
+.app .kb-full:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
+.app .kb-compact .board { flex: 1; min-height: 0; padding: 16px; align-items: stretch; background: var(--a-paper); }
+.app .kb-compact .board .col { flex: 0 0 200px; min-width: 200px; overflow-y: auto; }
+.app .kb-cempty { flex: 1; background: var(--a-paper); }
+.app .kb-cempty b { font: 600 22px/1.3 var(--font-ui); letter-spacing: -0.02em; }
+.app .kb-cempty p { max-width: 460px; }
+/* loading skeleton (87:1166) */
+.app .kb-skel .col { gap: 10px; }
+.app .kb-skel .sk-h { display: block; width: 60%; height: 12px; margin: 10px 8px 6px; border-radius: 6px; background: rgb(11 12 15 / 0.06); }
+.app .kb-skel .sk-card { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 18px; border-radius: 12px; background: var(--a-surface); }
+.app .kb-skel .sk-card i { display: block; height: 10px; border-radius: 5px; background: var(--a-paper); }
+.app .kb-skel .sk-card i:nth-child(1) { width: 30%; }
+.app .kb-skel .sk-card i:nth-child(2) { width: 75%; }
+.app .kb-skel .sk-card i:nth-child(3) { width: 50%; }
+@media (prefers-reduced-motion: no-preference) { .app .kb-skel i { animation: pf-pulse 1.4s ease-in-out infinite; } }
 .app .fd-phead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .app .fd-phead h2 { margin: 0; font: 600 22px/1.25 var(--font-ui); letter-spacing: -0.02em; }
 .app .fd-pmeta { margin: 4px 0 0; color: var(--a-ink-600); font-size: 14px; line-height: 1.45; }

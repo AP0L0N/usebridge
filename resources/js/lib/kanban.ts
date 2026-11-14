@@ -19,6 +19,8 @@ export interface Ticket {
   project_id: string;
   pm_agent_id: string | null;
   title: string;
+  /** Web board / detail only: the title with references to existing tickets as [[ticket:…]] tokens (read time). */
+  title_refs?: string;
   description: string | null;
   status: ColumnKey;
   status_label: string;

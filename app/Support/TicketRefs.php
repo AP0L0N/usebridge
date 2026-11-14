@@ -10,8 +10,7 @@ use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use App\Models\Ticket;
 use App\Models\TicketComment;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Tickets\Actor;
 
 /**
  * Ticket references in stored text (docs/API-TICKETS.md "Ticket references").
@@ -21,7 +20,9 @@ use Illuminate\Support\Facades\Schema;
  * only the fallback text when the ticket can no longer be found. Keys of tickets that do not exist stay plain text, and
  * nothing inside a URL, a Markdown link, inline code / a code block or an existing token is touched.
  *
- * Write paths: every model with StoresTicketRefs tokenizes its TICKET_REF_FIELDS when saved (web, REST, MCP, services).
+ * Write paths: every model with StoresTicketRefs tokenizes its TICKET_REF_FIELDS when saved (web, REST, MCP, services),
+ * only when the result fits the column (TICKET_REF_FIELDS lengths). Existing text: `php artisan bridge:ticket-refs`
+ * (TicketRefsBackfill, docs/TICKET-REFS.md), run by hand, never by a migration.
  * Read paths: the REST API (ExpandTicketRefs middleware) and MCP tools (BridgeTool) expand tokens back to the current
  * key, so clients never see tokens; the web app gets the raw tokens and renders them as ticket chips
  * (resources/js/lib/ticketRefs.ts), resolving them in one batch (GET /ticket-refs).
@@ -41,8 +42,9 @@ final class TicketRefs
     private const SCAN = '/(?<skip>```.*?(?:```|\z)|~~~.*?(?:~~~|\z)|`[^`\n]*`|\[\[ticket:[^\]\n]*\]\]|\[[^\]\n]*\]\([^)\n]*\)|<[a-z][a-z0-9+.-]*:[^>\s]*>|\b(?i:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>]+)|(?<![\w\/.#@-])(?<key>'.self::KEY.')(?![\w-])/s';
 
     /**
-     * Every stored text column that can mention tickets (ticket titles, workstream / project names and agent
-     * instructions are left alone on purpose). Table => model; the columns are the model's TICKET_REF_FIELDS.
+     * Every stored text column that can mention tickets (workstream / project names and agent instructions are left
+     * alone on purpose; ticket titles stay plain and get read-time references, tokenizeMany). Table => model; the
+     * columns and their lengths are the model's TICKET_REF_FIELDS.
      *
      * @var array<string, class-string>
      */
@@ -57,8 +59,15 @@ final class TicketRefs
         'next_steps' => NextStep::class,
     ];
 
-    /** Mentions of existing tickets -> tokens. $workspaceId: whose tickets count (null = the current workspace scope). */
-    public static function tokenize(?string $text, ?int $workspaceId = null): ?string
+    /** Bytes a MySQL TEXT column holds (TICKET_REF_FIELDS null): production is MySQL (README), tests SQLite. */
+    public const TEXT_BYTES = 65535;
+
+    /**
+     * Mentions of existing tickets -> tokens. $workspaceId: whose tickets count (null = the current workspace scope).
+     * $maxChars: the column's length (TICKET_REF_FIELDS; null = TEXT). When the tokenized text would not fit, the text
+     * is returned as typed: a token is never cut by a short column, the mention just stays a plain key.
+     */
+    public static function tokenize(?string $text, ?int $workspaceId = null, ?int $maxChars = null): ?string
     {
         if ($text === null || ! preg_match('/'.self::KEY.'/', $text)) {
             return $text;
@@ -67,8 +76,45 @@ final class TicketRefs
         if ($keys === []) {
             return $text;
         }
+        $out = self::replaceKeys($text, self::idsByKey($keys, $workspaceId));
 
-        return self::replaceKeys($text, self::idsByKey($keys, $workspaceId));
+        return self::fits($out, $maxChars) ? $out : $text;
+    }
+
+    /** Whether $value fits a column of $maxChars characters (varchar), or a TEXT column when null. */
+    public static function fits(string $value, ?int $maxChars): bool
+    {
+        return $maxChars === null ? strlen($value) <= self::TEXT_BYTES : mb_strlen($value) <= $maxChars;
+    }
+
+    /**
+     * Read-time references for texts that are stored plain (ticket titles: README §11.2 "Kanban card titles"): mentions
+     * of existing tickets as tokens, all texts resolved in one query. Never stored; titles keep the key as typed.
+     *
+     * @param  array<array-key, string>  $texts
+     * @return array<array-key, string> same keys; only texts that gained a token
+     */
+    public static function tokenizeMany(array $texts, ?int $workspaceId = null): array
+    {
+        $mentioned = [];
+        foreach ($texts as $i => $text) {
+            if (preg_match('/'.self::KEY.'/', $text) && ($keys = self::mentionedKeys($text)) !== []) {
+                $mentioned[$i] = $keys;
+            }
+        }
+        if ($mentioned === []) {
+            return [];
+        }
+        $ids = self::idsByKey(array_values(array_unique(array_merge(...array_values($mentioned)))), $workspaceId);
+        $out = [];
+        foreach (array_keys($mentioned) as $i) {
+            $tokenized = self::replaceKeys($texts[$i], $ids);
+            if ($tokenized !== $texts[$i]) {
+                $out[$i] = $tokenized;
+            }
+        }
+
+        return $out;
     }
 
     /** Tokens -> the current key (falls back to the key in the token, else nothing). @param array<string, array{key:string}>|null $resolved */
@@ -92,11 +138,18 @@ final class TicketRefs
         return array_values(array_unique($m[1]));
     }
 
+    /** Number of tokens in $text (repeats counted). */
+    public static function tokenCount(string $text): int
+    {
+        return (int) preg_match_all(self::TOKEN, $text);
+    }
+
     /**
-     * Tickets by id, in the current workspace scope (archived tickets included): one query.
+     * Tickets by id, in the current workspace scope (any project, archived tickets included): one query. What a chip and
+     * its popover show (README §11.2): key, title, status (column key + the project's label), assignee.
      *
      * @param  list<string>  $ids
-     * @return array<string, array{key:string,title:string,project_slug:?string,archived:bool}>
+     * @return array<string, array{key:string,title:string,project_slug:?string,archived:bool,status:string,status_label:string,assignee_id:?string,assignee_name:?string}>
      */
     public static function resolve(array $ids): array
     {
@@ -104,16 +157,29 @@ final class TicketRefs
         if ($ids === []) {
             return [];
         }
+        $names = Actor::names();
 
         return Ticket::query()->whereIn('tickets.id', $ids)
             ->leftJoin('projects', 'projects.id', '=', 'tickets.project_id')
-            ->get(['tickets.id', 'tickets.key', 'tickets.title', 'tickets.archived_at', 'projects.slug as project_slug'])
+            ->get(['tickets.id', 'tickets.key', 'tickets.title', 'tickets.status', 'tickets.assignee_id', 'tickets.archived_at', 'projects.slug as project_slug', 'projects.column_labels'])
             ->mapWithKeys(fn (Ticket $t) => [$t->id => [
                 'key' => (string) $t->key,
                 'title' => (string) $t->title,
                 'project_slug' => $t->getAttribute('project_slug'),
                 'archived' => $t->archived_at !== null,
+                'status' => (string) $t->status,
+                'status_label' => self::columnLabel((string) $t->status, $t->getAttribute('column_labels')),
+                'assignee_id' => $t->assignee_id,
+                'assignee_name' => Actor::label($t->assignee_id, $names),
             ]])->all();
+    }
+
+    /** The project's own label of a column (projects.column_labels, raw JSON from the join), else the default. */
+    private static function columnLabel(string $status, mixed $labels): string
+    {
+        $own = is_string($labels) ? json_decode($labels, true) : $labels;
+
+        return BoardColumns::labelFor($status, is_array($own) ? $own : null);
     }
 
     /** @return list<string> keys mentioned outside the protected spans */
@@ -124,59 +190,8 @@ final class TicketRefs
         return array_values(array_unique(array_filter(array_map(fn (array $x) => $x['key'] ?? null, $m))));
     }
 
-    /**
-     * Backfill (the 2026_11_14 migration): tokenize ($expand false) or expand ($expand true) every column of MODELS,
-     * chunked by primary key, raw queries (no model events, timestamps untouched). Idempotent: tokens are never
-     * re-tokenized, plain text is never re-expanded. Tickets resolve within the row's own workspace.
-     *
-     * @return array<string, int> references converted per table
-     */
-    public static function backfill(bool $expand = false, int $chunk = 500): array
-    {
-        $counts = [];
-        foreach (self::MODELS as $table => $model) {
-            $columns = array_values(array_filter($model::TICKET_REF_FIELDS, fn (string $c) => Schema::hasColumn($table, $c)));
-            if ($columns === [] || ! Schema::hasTable($table)) {
-                continue;
-            }
-            $hasWorkspace = Schema::hasColumn($table, 'workspace_id');
-            $counts[$table] = 0;
-            DB::table($table)
-                ->where(function ($q) use ($columns, $expand) {
-                    foreach ($columns as $c) {
-                        $expand ? $q->orWhere($c, 'like', '%[[ticket:%') : $q->orWhere($c, 'like', '%-%');
-                    }
-                })
-                ->select(['id', ...$columns, ...($hasWorkspace ? ['workspace_id'] : [])])
-                ->chunkById($chunk, function ($rows) use ($table, $columns, $expand, &$counts) {
-                    $lookup = $expand ? self::keysById($rows, $columns) : self::idsByKeyPerWorkspace($rows, $columns);
-                    foreach ($rows as $row) {
-                        $changes = [];
-                        foreach ($columns as $c) {
-                            $old = $row->{$c};
-                            if (! is_string($old)) {
-                                continue;
-                            }
-                            $new = $expand
-                                ? self::expand($old, $lookup)
-                                : self::replaceKeys($old, $lookup[(int) ($row->workspace_id ?? 0)] ?? []);
-                            if ($new !== $old) {
-                                $changes[$c] = $new;
-                                $counts[$table] += abs(count(self::tokens($new)) - count(self::tokens($old)));
-                            }
-                        }
-                        if ($changes !== []) {
-                            DB::table($table)->where('id', $row->id)->update($changes);
-                        }
-                    }
-                });
-        }
-
-        return $counts;
-    }
-
-    /** @param array<string, string> $idsByKey */
-    private static function replaceKeys(string $text, array $idsByKey): string
+    /** @param array<string, string> $idsByKey key => ticket id */
+    public static function replaceKeys(string $text, array $idsByKey): string
     {
         if ($idsByKey === []) {
             return $text;
@@ -198,67 +213,5 @@ final class TicketRefs
         $q = $workspaceId !== null ? Ticket::acrossWorkspaces()->where('workspace_id', $workspaceId) : Ticket::query();
 
         return $q->whereIn('key', $keys)->pluck('id', 'key')->all();
-    }
-
-    /** @return list<string> */
-    private static function tokens(string $text): array
-    {
-        preg_match_all(self::TOKEN, $text, $m);
-
-        return $m[0];
-    }
-
-    /**
-     * Backfill up(): the keys mentioned in a chunk, resolved per workspace (one query per workspace in the chunk).
-     *
-     * @param  iterable<object>  $rows
-     * @param  list<string>  $columns
-     * @return array<int, array<string, string>> workspace id (0 = none) => key => ticket id
-     */
-    private static function idsByKeyPerWorkspace(iterable $rows, array $columns): array
-    {
-        $keys = [];
-        foreach ($rows as $row) {
-            foreach ($columns as $c) {
-                if (is_string($row->{$c})) {
-                    $workspace = (int) ($row->workspace_id ?? 0);
-                    $keys[$workspace] ??= [];
-                    array_push($keys[$workspace], ...self::mentionedKeys($row->{$c}));
-                }
-            }
-        }
-        $out = [];
-        foreach ($keys as $workspace => $list) {
-            if ($list !== []) {
-                $out[$workspace] = DB::table('tickets')->whereIn('key', array_unique($list))
-                    ->when($workspace !== 0, fn ($q) => $q->where('workspace_id', $workspace))
-                    ->pluck('id', 'key')->all();
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * Backfill down(): tokens of a chunk resolve in any workspace (ids are global).
-     *
-     * @param  iterable<object>  $rows
-     * @param  list<string>  $columns
-     * @return array<string, array{key:string}>
-     */
-    private static function keysById(iterable $rows, array $columns): array
-    {
-        $ids = [];
-        foreach ($rows as $row) {
-            foreach ($columns as $c) {
-                array_push($ids, ...self::ids(is_string($row->{$c}) ? $row->{$c} : null));
-            }
-        }
-        if ($ids === []) {
-            return [];
-        }
-
-        return DB::table('tickets')->whereIn('id', array_unique($ids))->pluck('key', 'id')
-            ->map(fn ($key) => ['key' => (string) $key])->all();
     }
 }

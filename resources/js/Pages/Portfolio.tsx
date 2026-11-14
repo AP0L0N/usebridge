@@ -4,10 +4,10 @@ import { AppTopBar } from '../Components/Shell/AppTopBar';
 import { IconSearch20, IconX } from '../Components/AppIcons';
 import { Highlight } from '../Components/Highlight';
 import { Sheet, ToastHost, useMedia, useToasts } from '../Components/Kanban/Bits';
-import { BoardView, type BoardProps } from '../Components/Kanban/BoardView';
+import { BoardColumnSkeleton, BoardView, type BoardProps } from '../Components/Kanban/BoardView';
 import { StatusForm } from '../Components/Kanban/StatusBlock';
 import { ConnectBotCard, ReadyBanner, type Welcome } from '../Components/Onboarding/ReadyBanner';
-import { RefText, TicketRefHost } from '../Components/TicketRefs';
+import { RefText, SLOT, TicketRef, TicketRefHost } from '../Components/TicketRefs';
 import { DeleteWorkstreamDialog, MoveAllDialog, NameDialog, errorText, takenNames } from '../Components/Workstreams/Dialogs';
 import {
   ActionMenu, CountBadge, IcArchive, IcArrowRight, IcEdit, IcFolder, IcHistory, IcLeft, IcLines, IcPlus, IcRight, IcStar, IcTrash, IcUp, IcDown, UnreadDot, type MenuItem,
@@ -15,9 +15,9 @@ import {
 import { ago, longDate } from '../lib/dates';
 import { firstName, send, type ColumnKey, type StatusSubject } from '../lib/kanban';
 import { t as tk, type StrKey } from '../lib/strings';
-import { t, tn } from '../lib/strings-workstreams';
+import { t, t as tw, tn } from '../lib/strings-workstreams';
 import {
-  filterProjects, filterWorkstreams, finderKey, finderUrl, isArchived, nameError,
+  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError,
   type Change, type FinderFocus, type FinderProject, type Preview, type WorkstreamRow,
 } from '../lib/workstreams';
 
@@ -38,6 +38,8 @@ const BOARD_ONLY = ['board', 'workstreams', 'workstream', 'statusHistory', 'late
 
 /** Desktop Finder from 1024px (README §1.1); below that the columns become drill-in screens (§1.2). */
 const DESKTOP = '(min-width: 1024px)';
+/** At 1280 and below the workstreams collapse to a 48px letter rail while a board is open (README §10.2). */
+const NARROW = '(max-width: 1280px)';
 
 const COLS: [ColumnKey, StrKey][] = [
   ['backlog', 'portfolio.col.backlog'], ['todo', 'portfolio.col.todo'], ['in_progress', 'portfolio.col.in_progress'],
@@ -98,7 +100,7 @@ export default function PortfolioPage(props: Props) {
   return (
     <div className="kanban app">
       <ToastHost>
-        <TicketRefHost reloadOnly={['projects', 'board', 'statusHistory', 'latestUpdate']}><Portfolio {...props} /></TicketRefHost>
+        <TicketRefHost reloadOnly={['projects', 'board', 'statusHistory', 'latestUpdate']} claimed={!!props.ticket}><Portfolio {...props} /></TicketRefHost>
       </ToastHost>
     </div>
   );
@@ -108,6 +110,9 @@ function Portfolio(props: Props) {
   const { projects, selected, preview, now, welcome, columns } = props;
   const toasts = useToasts();
   const desktop = useMedia(DESKTOP);
+  const narrow = useMedia(NARROW);
+  /** The user's workstream-rail choice while a board is open (README §10.2); null = automatic (collapsed at ≤1280). */
+  const [wsRail, setWsRail] = useState<boolean | null>(null);
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
   const [sel, setSel] = useState<string | null>(selected);
@@ -178,6 +183,10 @@ function Portfolio(props: Props) {
   const visible = useMemo(() => [...active, ...archived], [active, archived]);
   const current = rows.find((p) => p.slug === sel) ?? null;
   const streams = current ? filterWorkstreams(current, query) : [];
+  const boardWs = current && selWs ? current.workstreams.find((w) => w.id === selWs) ?? null : null;
+  /** Desktop with a board open (README §10.1): Projects collapse to a 64px rail; workstreams to 48 at ≤1280 (§10.2). */
+  const boarding = desktop && !!boardWs;
+  const wsCollapsed = boarding && (wsRail ?? narrow);
   const live = rows.filter((p) => !isArchived(p));
   const archivedCount = rows.length - live.length;
   const summary = showArchived
@@ -203,7 +212,7 @@ function Portfolio(props: Props) {
   const addWorkstream = (p: FinderProject, name: string, rethrow = false) => mutate(
     patchStreams(p.id, (ws) => {
       const d = ws.findIndex((w) => w.isDefault);
-      const row: WorkstreamRow = { id: `tmp-${Date.now()}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, allDone: false, badge: 0 };
+      const row: WorkstreamRow = { id: `tmp-${Date.now()}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false, badge: 0 };
       return d < 0 ? [...ws, row] : [...ws.slice(0, d), row, ...ws.slice(d)];
     }),
     () => send('POST', `/projects/${p.slug}/workstreams`, { name }), undefined, rethrow);
@@ -214,7 +223,7 @@ function Portfolio(props: Props) {
     patchStreams(p.id, (list) => list.filter((w) => w.id !== ws.id).map((w) => (w.id === body.target_id ? { ...w, tickets: w.tickets + ws.tickets, isDefault: w.isDefault || ws.isDefault } : w))),
     () => send('DELETE', `/projects/${p.slug}/workstreams/${ws.id}`, body), t('toast.deletedWs', { name: ws.name }), true);
   const moveAll = (p: FinderProject, ws: WorkstreamRow, targetId: string, targetName: string) => mutate(
-    patchStreams(p.id, (list) => list.map((w) => (w.id === ws.id ? { ...w, tickets: 0, forYou: 0, open: 0, allDone: false } : w.id === targetId ? { ...w, tickets: w.tickets + ws.tickets } : w))),
+    patchStreams(p.id, (list) => list.map((w) => (w.id === ws.id ? { ...w, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false } : w.id === targetId ? { ...w, tickets: w.tickets + ws.tickets } : w))),
     () => send('POST', `/projects/${p.slug}/workstreams/${ws.id}/move-tickets`, { target_id: targetId }),
     t('toast.movedAll', { tickets: tn(ws.tickets, 'dlg.delWs.tickets.one', 'dlg.delWs.tickets.many'), name: targetName }), true);
   const reorder = (p: FinderProject, ws: WorkstreamRow, direction: 'up' | 'down') => mutate(
@@ -268,13 +277,28 @@ function Portfolio(props: Props) {
   const onKey = (col: 0 | 1, index: number) => (e: KeyboardEvent) => {
     if (inline || e.altKey || e.metaKey || e.ctrlKey) return;
     if (col === 1 && e.key === 'Enter') return; // the link itself opens the board column
+    if (boarding && e.key === 'ArrowLeft' && col === 0) {
+      // ← in the expanded project rail collapses it: focus goes back to the open workstream (README §10.1).
+      e.preventDefault();
+      wsRefs.current[Math.max(0, streams.findIndex((w) => w.id === selWs))]?.focus();
+      return;
+    }
+    if (boarding && e.key === 'ArrowRight' && col === 1) {
+      // → on the open workstream focuses the board column; on another one opens its board.
+      e.preventDefault();
+      const w = streams[index];
+      if (w && w.id === selWs) document.querySelector<HTMLElement>('.fd-board .tkl, .fd-board .kb-chead button')?.focus();
+      else if (w && current) selectWs(current.slug, w.id);
+      return;
+    }
     const r = finderKey(e.key, { col, index } as FinderFocus, [visible.length, current ? streams.length : 0]);
     if (!r) return;
     e.preventDefault();
     if (r.focus.col === 0) {
       const i = r.focus.index < 0 ? Math.max(0, visible.findIndex((p) => p.slug === sel)) : r.focus.index;
       projRefs.current[i]?.focus();
-      if (r.focus.index >= 0 && visible[i] && visible[i].slug !== sel) select(visible[i].slug);
+      // While a board is open, ↑/↓ in the rail only move focus (Enter / click switches), so browsing keeps the board.
+      if (!boarding && r.focus.index >= 0 && visible[i] && visible[i].slug !== sel) select(visible[i].slug);
     } else {
       wsRefs.current[r.focus.index]?.focus();
     }
@@ -318,6 +342,7 @@ function Portfolio(props: Props) {
           onClick={() => select(p.slug, !desktop)} onKeyDown={onKey(0, i)}
           onDoubleClick={() => { if (desktop && !isArchived(p)) setInline({ kind: 'renameProject', projectId: p.id }); }}>
           {archivedSection && <span className="fd-aico"><IcArchive /></span>}
+          <span className="fd-ini" aria-hidden="true">{initials(p.name)}</span>
           <span className="fd-rtext">
             <span className="fd-rname"><Highlight text={p.name} q={query} /></span>
             <span className="fd-rmeta">{projectMeta(p, now)}</span>
@@ -349,14 +374,16 @@ function Portfolio(props: Props) {
             if (!on) selectWs(p.slug, w.id, !desktop);
           }}
           onDoubleClick={(e) => { if (desktop && !readOnly) { e.preventDefault(); setInline({ kind: 'renameWs', wsId: w.id }); } }}>
+          <span className="fd-ini" aria-hidden="true">{w.name.trim().charAt(0).toUpperCase()}</span>
           <span className="fd-rtext">
             <span className="fd-rname"><Highlight text={w.name} q={query} />{w.isDefault && <span className="fd-chip">{t('fd.ws.default')}</span>}</span>
             <span className="fd-rmeta">{streamMeta(w)}</span>
           </span>
           {!readOnly && <CountBadge n={w.badge} />}
+          {!readOnly && w.badge > 0 && <span className="ws-dot fd-railonly" aria-hidden="true" />}
           <span className="fd-chev"><IcRight /></span>
         </a>
-        {desktop && !readOnly && <ActionMenu className="fd-wmenu" label={t('fd.menu.ws', { name: w.name })} items={wsItems(p, w)} />}
+        {desktop && !readOnly && !wsCollapsed && <ActionMenu className="fd-wmenu" label={t('fd.menu.ws', { name: w.name })} items={wsItems(p, w)} />}
       </li>
     );
   };
@@ -377,7 +404,7 @@ function Portfolio(props: Props) {
           </>
         )}
       </div>
-      <p className="fd-foot">{t('fd.projects.hint')}</p>
+      <p className="fd-foot">{boarding ? t('fd.rail.hint') : t('fd.projects.hint')}</p>
     </section>
   );
 
@@ -394,8 +421,16 @@ function Portfolio(props: Props) {
     <section className="fd-col fd-c2" aria-label={current ? t('fd.workstreams.aria', { name: current.name }) : t('fd.workstreams')}>
       {current ? (
         <>
+          {wsCollapsed && (
+            <div className="fd-ch fd-railhead">
+              <button type="button" className="fd-railbtn" aria-label={t('fd.ws.expand')} aria-expanded="false" onClick={() => setWsRail(false)}><IcRight /></button>
+            </div>
+          )}
           <div className="fd-ch fd-ptitle">
             <h2 className="fd-pname">{current.name}</h2>
+            {boarding && narrow && !wsCollapsed && (
+              <button type="button" className="fd-sq" aria-label={t('fd.ws.collapse')} aria-expanded="true" onClick={() => setWsRail(true)}><IcLeft /></button>
+            )}
             {isArchived(current)
               ? <span className="fd-archchip"><IcArchive />{t('fd.archived')}</span>
               : <ActionMenu label={t('fd.menu.project', { name: current.name })} items={projectItems(current)} className="fd-pmenu" />}
@@ -425,7 +460,6 @@ function Portfolio(props: Props) {
   );
 
   // ------------------------------------------------------------ board column (?ws=): the Kanban board, next to the workstreams
-  const boardWs = current && selWs ? current.workstreams.find((w) => w.id === selWs) ?? null : null;
   const boardProps: BoardProps | null = current && boardWs && props.board && props.workstream === boardWs.id && props.board.project.slug === current.slug ? {
     board: props.board, statusHistory: props.statusHistory ?? [], latestUpdate: props.latestUpdate ?? null, people: props.people ?? [], labels: props.labels ?? [],
     doneAll: !!props.doneAll, ticket: props.ticket ?? null, now, columnLabelsUrl: props.columnLabelsUrl ?? null, defaultColumns: props.defaultColumns ?? [],
@@ -433,8 +467,13 @@ function Portfolio(props: Props) {
   } : null;
   const boardView = current && boardWs && (boardProps
     ? <BoardView key={`${current.slug}:${boardWs.id}`} {...boardProps} embedded here={finderUrl(current.slug, q, showArchived, boardWs.id)}
-      ticketHref={(key) => finderUrl(current.slug, q, showArchived, boardWs.id, key)} />
-    : <div className="kb kb-embed"><div className="fd-skel" aria-hidden="true"><i /><i /><i /></div></div>);
+      ticketHref={(key) => finderUrl(current.slug, q, showArchived, boardWs.id, key)} fullPage={boardUrl(current.slug, boardWs.id)}
+      wsHref={(id) => finderUrl(current.slug, q, showArchived, id)} />
+    : desktop
+      ? <BoardColumnSkeleton name={boardWs.name} fullPage={boardUrl(current.slug, boardWs.id)}
+        meta={tw('bd.col.meta', { open: boardWs.open, waiting: boardWs.forYou, blocked: boardWs.blocked })} />
+      : <div className="kb kb-embed"><div className="fd-skel" aria-hidden="true"><i /><i /><i /></div></div>);
+
 
   const dialogs = (
     <>
@@ -494,7 +533,7 @@ function Portfolio(props: Props) {
         <main className="fd fd-phone">
           {current && boardWs ? (
             <>
-              <button type="button" className="fd-back" onClick={() => selectWs(current.slug, null)}><IcLeft />{current.name}</button>
+              <button type="button" className="fd-back" onClick={() => selectWs(current.slug, null)}><IcLeft />{t('fd.back.workstreams')}</button>
               {boardView}
             </>
           ) : current ? (
@@ -549,7 +588,7 @@ function Portfolio(props: Props) {
         {header}
         <ReadyBanner welcome={welcome} />
         {rows.length === 0 ? <div className="fd-frame fd-frame-empty"><EmptyPortfolio onNew={() => setDialog({ kind: 'newProject' })} /></div> : (
-          <div className="fd-frame">
+          <div className={['fd-frame', boarding && 'fd-boarding', wsCollapsed && 'fd-wsrail'].filter(Boolean).join(' ')}>
             {projectsColumn}
             {streamsColumn}
             {current && boardWs ? (
@@ -567,7 +606,7 @@ function Portfolio(props: Props) {
             {current && <><IcRight /><span aria-current={boardWs ? undefined : 'page'}>{current.name}</span></>}
             {boardWs && <><IcRight /><span aria-current="page">{boardWs.name}</span></>}
           </nav>
-          <p className="fd-keys">{t('fd.keys')}</p>
+          <p className="fd-keys">{t(boardWs ? 'fd.keys.board' : 'fd.keys')}</p>
         </div>
         <ConnectBotCard welcome={welcome} />
       </main>
@@ -635,6 +674,13 @@ function StatusCard({ p, now }: { p: FinderProject; now: string }) {
       {p.pmStatusNote && <p className="fd-q">“<RefText text={p.pmStatusNote} />”</p>}
     </div>
   );
+}
+
+/** A change line with the ticket key as a ticket chip (README §11.2 "agent activity"). */
+function ChangeText({ c }: { c: Change }) {
+  if (!c.ticketId) return <>{changeText(c)}</>;
+  const [before, after = ''] = changeText({ ...c, key: SLOT }).split(SLOT);
+  return <>{before}<TicketRef id={c.ticketId} fallback={c.key} />{after}</>;
 }
 
 function changeText(c: Change): string {
@@ -706,7 +752,7 @@ function PreviewColumn({ p, preview, now, columns, onUnarchive }: { p: FinderPro
                         <li key={c.id}>
                           <i className="fd-cdot" aria-hidden="true" />
                           <span className="lb">{c.workstream}</span>
-                          <span className="fd-ctext">{changeText(c)}</span>
+                          <span className="fd-ctext"><ChangeText c={c} /></span>
                           <time className="pf-mono" dateTime={c.at ?? undefined}>{ago(c.at, now)}</time>
                         </li>
                       ))}

@@ -22,6 +22,7 @@ use App\Services\Tickets\Questions;
 use App\Services\Tickets\TicketView;
 use App\Services\Tickets\Workstreams;
 use App\Support\BoardColumns;
+use App\Support\TicketRefs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,7 +70,7 @@ class ProjectController extends Controller
         $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
 
         return [
-            'board' => fn () => (new BoardView($view))->build($project, $doneSince, false, $workstream->id),
+            'board' => fn () => self::withTitleRefs((new BoardView($view))->build($project, $doneSince, false, $workstream->id), $project),
             // Workstream tabs (README §1.3): board order, the viewer's badges; `workstream` = the selected id (?ws=).
             'workstreams' => fn () => Workstreams::rowsFor([$project], $request->user())[$project->id] ?? [],
             'workstream' => $workstream->id,
@@ -84,6 +85,30 @@ class ProjectController extends Controller
             'defaultColumns' => BoardColumns::all(),
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
         ];
+    }
+
+    /**
+     * Card titles with ticket references (README §11.2): `title_refs` = the title with mentions of existing tickets as
+     * [[ticket:…]] tokens, only on cards whose title mentions one. Read time only (titles are stored plain); web only,
+     * so the REST / MCP board stays as it was.
+     *
+     * @param  array{columns: list<array{tickets: list<array<string, mixed>>}>}  $board
+     * @return array<string, mixed>
+     */
+    private static function withTitleRefs(array $board, Project $project): array
+    {
+        $titles = [];
+        foreach ($board['columns'] as $c => $col) {
+            foreach ($col['tickets'] as $i => $t) {
+                $titles["$c:$i"] = (string) $t['title'];
+            }
+        }
+        foreach (TicketRefs::tokenizeMany($titles, $project->workspace_id) as $at => $tokenized) {
+            [$c, $i] = explode(':', $at);
+            $board['columns'][(int) $c]['tickets'][(int) $i]['title_refs'] = $tokenized;
+        }
+
+        return $board;
     }
 
     /** ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the first tab. */
@@ -120,7 +145,13 @@ class ProjectController extends Controller
     /** Ticket detail for the modal: detail() plus when the signed-in user last opened it (the thread's "New" divider). */
     public static function ticketDetail(Ticket $ticket, TicketView $view): array
     {
-        return [...$view->detail($ticket), 'last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String()];
+        $titleRefs = TicketRefs::tokenizeMany([(string) $ticket->title], $ticket->workspace_id)[0] ?? null;
+
+        return [
+            ...$view->detail($ticket),
+            'last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String(),
+            ...($titleRefs !== null ? ['title_refs' => $titleRefs] : []),
+        ];
     }
 
     /**

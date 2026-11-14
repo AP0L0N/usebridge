@@ -116,6 +116,7 @@ class PortfolioController extends Controller
                 'workstreamId' => $e->workstream_id,
                 'workstream' => $streams[$e->workstream_id]->name ?? '',
                 'actor' => Actor::label($e->actor_id, $names) ?? $e->actor_id,
+                'ticketId' => $e->ticket?->id,
                 'key' => $e->ticket?->key,
                 'title' => $e->ticket?->title,
                 'column' => $e->type === 'moved' ? ($columns[$e->to['status'] ?? ''] ?? null) : null,

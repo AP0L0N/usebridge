@@ -13,6 +13,7 @@ use App\Services\Polymarket\InvalidPolymarketFeed;
 use App\Services\Polymarket\PolymarketFeedImporter;
 use App\Services\Polymarket\PolymarketFeedValidator;
 use App\Services\Tickets\LegacyCarryOver;
+use App\Services\Tickets\TicketRefsBackfill;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\CursorCsvImporter;
@@ -204,6 +205,33 @@ Artisan::command('bridge:tickets-migrate {--dry-run : Compute and roll back, wri
 
     return 0;
 })->purpose('Carry open Questions / Required inputs / Next steps over to tickets (idempotent; --dry-run writes nothing)');
+
+// Ticket references in existing text (docs/TICKET-REFS.md): plain keys of existing tickets → [[ticket:<id>|<key>]],
+// or back with --revert. Not a migration: DevOps runs it after a backup and a --dry-run count.
+Artisan::command('bridge:ticket-refs {--dry-run : Count what would change, write nothing} {--revert : Expand tokens back to plain keys} {--table= : Only this table}', function (TicketRefsBackfill $backfill) {
+    $dry = (bool) $this->option('dry-run');
+    $revert = (bool) $this->option('revert');
+    try {
+        $r = $backfill->run($revert, $dry, $this->option('table') ?: null);
+    } catch (InvalidArgumentException $e) {
+        $this->error($e->getMessage());
+
+        return 1;
+    }
+    $this->info(($dry ? 'DRY RUN (nothing written) · ' : '').($revert ? 'tokens → plain keys' : 'plain keys → tokens'));
+    $total = ['scanned' => 0, 'changed' => 0, 'refs' => 0, 'skipped' => 0];
+    $rows = [];
+    foreach ($r as $column => $c) {
+        $rows[] = [$column, $c['scanned'], $c['changed'], $c['refs'], $c['skipped']];
+        foreach ($total as $k => $n) {
+            $total[$k] = $n + $c[$k];
+        }
+    }
+    $rows[] = ['total', ...array_values($total)];
+    $this->table(['table.column', 'rows scanned', $dry ? 'rows would change' : 'rows changed', $dry ? 'refs would convert' : 'refs converted', 'skipped (too long)'], $rows);
+
+    return 0;
+})->purpose('Ticket references in stored text: keys → [[ticket:id|key]] tokens, or --revert (chunked, idempotent; --dry-run writes nothing)');
 
 // Roster (BridgeRoster, JSON at BRIDGE_ROSTER_PATH): add missing agents, set the PM per active project. Idempotent; the
 // 2026_10_29_120000 migration applies it on deploy, this re-runs or previews it. Only inserts agents / changes PMs.

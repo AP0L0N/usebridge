@@ -11,8 +11,13 @@ class Question extends Model
 {
     use BelongsToWorkspace, StoresTicketRefs;
 
-    /** Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). */
-    public const TICKET_REF_FIELDS = ['text', 'context', 'answer_text'];
+    /**
+     * Text that may mention tickets: stored with [[ticket:…]] tokens (StoresTicketRefs, TicketRefs). Column => its max
+     * length in characters (varchar), null = TEXT; a value whose tokenized form would not fit is stored as typed.
+     *
+     * @var array<string, int|null>
+     */
+    public const TICKET_REF_FIELDS = ['text' => 1000, 'context' => 500, 'answer_text' => null];
 
     public const TYPES = ['yesno', 'text'];
 

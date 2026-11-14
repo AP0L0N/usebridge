@@ -24,9 +24,9 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
   const cls = ['tk', t.status === 'done' && 'done', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
   const strips: ReactNode[] = [];
   if (t.status === 'waiting_tilen' && t.ask) {
-    strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p><RefText text={t.ask} plain /></p></div>);
+    strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p><RefText text={t.ask} inert /></p></div>);
   }
-  if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={str('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} plain /></span></p>);
+  if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={str('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} inert /></span></p>);
   if (t.unread_for_me) {
     strips.push(<p key="new" className="unr new"><span className="dotk" aria-hidden="true" />{str('board.card.newReply', { name: firstName(t.latest_unread_author?.name) || 'the PM' })}</p>);
   } else if (t.needs_pm_pickup) {
@@ -47,7 +47,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
           tabIndex={lift ? -1 : undefined}
           onClick={onOpen ? (e) => onOpen(t, e) : undefined}
           onKeyDown={onKeyDown ? (e) => onKeyDown(e, t) : undefined}
-        >{t.title}</a>
+        ><RefText text={t.title_refs ?? t.title} inert /></a>
       </h3>
       {via && <ViaLine name={firstName(via.author_name) || via.author_id} at={via.created_at} now={now} source={via.source} />}
       {strips}

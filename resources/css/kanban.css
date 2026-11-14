@@ -164,6 +164,8 @@
   .tk h3{margin:0;font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;overflow-wrap:anywhere}
   .tkl{color:inherit;text-decoration:none}
   .tkl::after{content:"";position:absolute;inset:-1px;border-radius:var(--radius-md)}
+  /* a reference chip inside the card (title, ask, blocked) sits above the stretched link, so it opens its own ticket */
+  .tk .tref[data-ticket-ref]{position:relative;z-index:1}
   .tkl:focus-visible{outline:0}
   .tk .tkmv,.tk .lb,.tk .tmeta,.tk .askb,.tk .blk,.tk .unr,.tk .via,.tk>svg{position:relative;z-index:1}
   .tk.done h3{color:var(--a-ink-600)}
@@ -180,10 +182,23 @@
   .unr.pend{background:color-mix(in srgb,var(--a-signal) 35%,var(--a-surface));color:var(--a-ink)}
   .tmeta{display:flex;align-items:center;gap:4px 8px;flex-wrap:wrap;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
   .tmeta .id{color:var(--a-ink-400)}
-  /* Ticket reference in text ([[ticket:…]] → TicketRef): the card's key type, link-styled. */
-  .tref{display:inline;padding:0 4px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-paper);color:var(--a-ink);font:500 0.86em/1.35 var(--font-mono);letter-spacing:0;text-decoration:underline;text-decoration-color:var(--a-ink-400);text-underline-offset:2px;cursor:pointer;white-space:nowrap}
-  .tref:hover{border-color:var(--a-ink-400);text-decoration-color:currentColor}
-  .tref:focus-visible{outline:2px solid var(--a-focus);outline-offset:1px}
+  /* REF / Ticket chip (84:1097, README §11.2): Geist Mono key, paper tint, 6px status dot, 6px radius, no underline;
+     hover / focus: light agent ring + Shadow/XS. Unresolved keys are plain text (no chip). */
+  .tref{display:inline-flex;align-items:center;gap:5px;vertical-align:baseline;margin:0 1px;padding:0 6px;border:1px solid var(--a-line);border-radius:6px;background:var(--a-paper);color:var(--a-ink);font:500 0.86em/1.55 var(--font-mono);letter-spacing:0;text-decoration:none;white-space:nowrap;cursor:pointer;transition:background-color .12s,border-color .12s,box-shadow .12s}
+  .tref .tdot{width:6px;height:6px;border-radius:50%;flex:none}
+  .tref .tdot:not([class*=" c-"]){background:var(--a-ink-400)}
+  .tref:hover,.tref.hov,.tref:focus-visible{border-color:color-mix(in srgb,var(--a-agent) 70%,var(--a-surface));background:color-mix(in srgb,var(--a-agent) 10%,var(--a-surface));box-shadow:0 0 0 2px color-mix(in srgb,var(--a-agent) 16%,transparent),var(--a-shadow-xs);outline:none}
+  /* REF / Ticket popover (84:1106): not a dialog; key + status, title, assignee, hint. */
+  .trefpop{position:fixed;z-index:70;width:280px;padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:12px;box-shadow:var(--a-shadow-pop);display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+  .trefpop .trp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .trefpop .tref{cursor:default}
+  .trefpop .tref:hover{border-color:var(--a-line);background:var(--a-paper);box-shadow:none}
+  .trp-st{padding:2px 8px;border-radius:6px;font:500 12px/1.5 var(--font-mono);background:var(--a-paper);color:var(--a-ink-600);white-space:nowrap}
+  .trp-st.s-in_progress,.trp-st.s-waiting_tilen,.trp-st.s-review{background:color-mix(in srgb,var(--a-warn) 12%,var(--a-surface));color:var(--a-warn)}
+  .trp-st.s-done{background:color-mix(in srgb,var(--a-ok) 12%,var(--a-surface));color:var(--a-ok)}
+  .trp-t{margin:0;font:500 15px/1.4 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink);overflow-wrap:anywhere}
+  .trp-a{display:flex;align-items:center;gap:8px;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
+  .trp-hint{margin:0;font:400 12px/1.4 var(--font-ui);color:var(--a-ink-400)}
   .tmeta .mic{display:inline-flex;align-items:center;gap:4px;color:var(--a-ink-600)}
   .tmeta .due{display:inline-flex;align-items:center;gap:4px;color:var(--a-ink)}
   .tmeta .due.soon{color:var(--a-warn)}
@@ -335,14 +350,17 @@
   .toast.err{background:var(--a-risk)}
 
   /* ================= ticket drawer ================= */
-  .kb-drawer{position:absolute;top:0;right:0;bottom:0;width:1450px;max-width:100vw;background:var(--a-surface);box-shadow:var(--a-shadow-pop);display:flex;flex-direction:column}
+  /* Ticket modal (README §11.3, 90:318): centred, max ~720 x ~820, 20px radius, Shadow/Soft, the body scrolls; phones: full-height sheet. */
+  .kb-drawer{position:absolute;inset:0;margin:auto;width:min(720px,calc(100vw - 48px));height:min(820px,calc(100vh - 48px));background:var(--a-surface);border-radius:20px;overflow:hidden;box-shadow:var(--shadow-soft,var(--a-shadow-pop));display:flex;flex-direction:column}
+  .kb-dback{display:inline-flex;align-items:center;gap:6px;margin-right:12px;font:400 14px/1.45 var(--font-mono);color:var(--a-ink-600)}
+  .kb-dback:hover{color:var(--a-ink)}
   .kb-dh{display:flex;align-items:center;gap:4px;height:64px;flex:none;padding:0 12px 0 24px;border-bottom:1px solid var(--a-line);background:var(--a-surface)}
   .kb-crumb{display:inline-flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
   .kb-crumb b{font:400 14px/1.45 var(--font-mono);color:var(--a-ink)}
   .kb-dh .spacer{flex:1}
   .kb-db{flex:1;overflow-y:auto;overscroll-behavior:contain;display:flex;gap:24px;padding:24px;align-items:flex-start}
   .kb-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:28px}
-  .kb-side{width:264px;flex:none;display:flex;flex-direction:column;gap:0;position:sticky;top:0}
+  .kb-side{width:220px;flex:none;display:flex;flex-direction:column;gap:0;position:sticky;top:0}
   .kb-tl{display:flex;flex-direction:column;gap:10px}
   .kb-tl h1{margin:0;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink);overflow-wrap:anywhere}
   .kb-sect{font:500 16px/1.35 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink);display:flex;align-items:center;gap:8px;margin:0}
@@ -468,7 +486,7 @@
     .swipe i.on{background:var(--a-ink)}
     .khint{display:none}
     /* ticket = full-screen sheet */
-    .kb-drawer{width:100vw}
+    .kb-drawer{width:100vw;height:100%;border-radius:0;box-shadow:none}
     .kb-dh{padding:0 8px 0 4px;position:sticky;top:0;z-index:2}
     .kb-db{flex-direction:column;padding:16px 16px 40px;gap:24px}
     .kb-tl h1{font-size:24px}

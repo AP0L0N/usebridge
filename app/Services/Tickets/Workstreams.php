@@ -162,7 +162,7 @@ final class Workstreams
         $ids = $projects->map(fn (Project $p) => $p->id)->all();
         $byProject = Workstream::query()->whereIn('project_id', $ids)->get()->groupBy('project_id');
         $counts = Ticket::query()->whereIn('project_id', $ids)->whereNull('archived_at')
-            ->selectRaw('workstream_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as waiting, sum(case when status = ? then 1 else 0 end) as done', [BoardColumns::WAITING_TILEN, BoardColumns::DONE])
+            ->selectRaw('workstream_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as waiting, sum(case when status = ? then 1 else 0 end) as done, sum(case when blocked_reason is not null and status != ? then 1 else 0 end) as blocked', [BoardColumns::WAITING_TILEN, BoardColumns::DONE, BoardColumns::DONE])
             ->groupBy('workstream_id')->get()->keyBy('workstream_id');
         $live = $projects->reject(fn (Project $p) => $p->isArchived())->map(fn (Project $p) => $p->id)->all();
         $badges = self::badges($byProject->toBase()->only($live)->flatten(1)->pluck('id')->all(), $user);
@@ -183,6 +183,7 @@ final class Workstreams
                     'tickets' => $total,
                     'forYou' => (int) ($c->waiting ?? 0),
                     'open' => $total - $done,
+                    'blocked' => (int) ($c->blocked ?? 0),
                     'allDone' => $total > 0 && $done === $total,
                     'badge' => $badges[$w->id] ?? 0,
                 ];
