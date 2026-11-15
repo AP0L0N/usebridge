@@ -39,11 +39,11 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
   );
   if (simple) {
     const dot = cardDot(t);
-    const state = dot ? str(`board.card.dot.${dot}`) : null;
+    // Blocked / new activity are announced; the column colour is decorative (the column already says it).
+    const state = dot === 'blocked' || dot === 'new' ? str(`board.card.dot.${dot}`) : null;
     return (
       <div className={cls} data-key={t.key} onPointerDown={onPointerDown ? (e) => onPointerDown(e, t) : undefined}>
-        {/* always rendered: with no dot the slot stays empty so titles line up */}
-        <span className={`sdot${dot ? ` ${dot}` : ''}`} role={state ? 'img' : undefined} aria-label={state ?? undefined} aria-hidden={state ? undefined : true} />
+        <span className={`sdot ${state ? dot : `c-${dot}`}`} role={state ? 'img' : undefined} aria-label={state ?? undefined} aria-hidden={state ? undefined : true} />
         <h3>{link(state ? `${t.key}: ${t.title} (${state})` : `${t.key}: ${t.title}`)}</h3>
         {onMove && (
           <button className="tkmv" type="button" aria-label={str('board.move.aria', { key: t.key })} onClick={() => onMove(t)}><IcMove />{str('board.move')}</button>

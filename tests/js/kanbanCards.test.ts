@@ -17,12 +17,13 @@ test('card view: Simple by default, Detailed once picked, survives a storage tha
   assert.equal(readCardView(null), 'simple');
 });
 
-test('the simple card dot shows the most urgent state: blocked > new activity > waiting on you > not picked up', () => {
-  const quiet = { status: 'todo' as const, blocked_reason: null, unread_for_me: false, ask: null, waiting_level: null, owner_answered_ask: false, needs_pm_pickup: false };
-  assert.equal(cardDot(quiet), null);
-  assert.equal(cardDot({ ...quiet, needs_pm_pickup: true }), 'pickup');
-  assert.equal(cardDot({ ...quiet, status: 'waiting_tilen', ask: 'Which logo?', needs_pm_pickup: true }), 'waiting');
-  assert.equal(cardDot({ ...quiet, status: 'waiting_tilen', ask: 'Which logo?', owner_answered_ask: true, needs_pm_pickup: true }), 'pickup');
-  assert.equal(cardDot({ ...quiet, waiting_level: 2, unread_for_me: true }), 'new');
-  assert.equal(cardDot({ ...quiet, waiting_level: 2, unread_for_me: true, blocked_reason: 'No API key' }), 'blocked');
+test('the simple card dot shows the most urgent state: blocked > new activity > the column colour', () => {
+  const quiet = { status: 'todo' as const, blocked_reason: null, unread_for_me: false };
+  assert.equal(cardDot(quiet), 'todo');
+  for (const status of ['backlog', 'todo', 'in_progress', 'waiting_tilen', 'review', 'done'] as const) {
+    assert.equal(cardDot({ ...quiet, status }), status);
+  }
+  assert.equal(cardDot({ ...quiet, status: 'waiting_tilen', unread_for_me: true }), 'new');
+  assert.equal(cardDot({ ...quiet, status: 'waiting_tilen', unread_for_me: true, blocked_reason: 'No API key' }), 'blocked');
+  assert.equal(cardDot({ ...quiet, status: 'done', blocked_reason: 'No API key' }), 'blocked');
 });

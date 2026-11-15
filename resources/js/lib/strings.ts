@@ -180,8 +180,6 @@ export const S = {
   'board.cards.detailedTip': 'Detailed cards: labels, replies, dates and people',
   'board.card.dot.blocked': 'Blocked',
   'board.card.dot.new': 'New activity',
-  'board.card.dot.waiting': 'Waiting on you',
-  'board.card.dot.pickup': 'Your input not picked up yet',
   'board.scrollHint': 'Swipe for {cols}',
   'board.filter.title': 'Filter tickets',
   'board.filter.assignee': 'Assignee',
