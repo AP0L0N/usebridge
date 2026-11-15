@@ -18,6 +18,7 @@ import { finderUrl, type WorkstreamRow } from '../../lib/workstreams';
 import type { Shared } from '../../lib/account';
 import { updateTime } from '../../lib/dates';
 import { t as tr } from '../../lib/strings';
+import { readCardView, saveCardView, type CardView } from '../../lib/kanbanCards';
 import {
   ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, useMe,
   type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type LatestUpdate as LatestUpdateData, type StatusEvent, type Ticket, type TicketDetail as Detail,
@@ -81,6 +82,14 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
   const wsName = workstreams.find((w) => w.id === workstream)?.name ?? '';
   const toasts = useToasts();
   const mobile = useMedia(MOBILE);
+  /** Card view (Simple = title + status dot), saved across reloads and shared by the full page and the Portfolio column; Simple by default. */
+  const [cardView, setCardView] = useState<CardView>(() => readCardView(typeof window === 'undefined' ? null : window.localStorage));
+  const pickCardView = (view: CardView) => {
+    setCardView(view);
+    saveCardView(window.localStorage, view);
+  };
+  const simple = cardView === 'simple';
+  const cardViewControl = <CardViewControl value={cardView} onChange={pickCardView} />;
   const signedIn = usePage<Shared>().props.auth?.user != null;
   const me = useMe();
 
@@ -534,7 +543,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
       <Root className={compact ? 'kb kb-embed kb-compact' : embedded ? 'kb kb-embed' : 'kb'}>
         {!embedded && <Link className="kb-back" href={finderUrl(p.slug, '', false, workstream)}><IcBack />{tw('bd.back')}</Link>}
         {compact ? (
-          <BoardColumnHead name={wsName} meta={tw('bd.col.meta', { open, waiting: waitingCount, blocked })} fullPage={fullPage} actions={actions}>
+          <BoardColumnHead name={wsName} meta={tw('bd.col.meta', { open, waiting: waitingCount, blocked })} fullPage={fullPage} view={cardViewControl} actions={actions}>
             <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
             <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tw('bd.col.new')}</button>
           </BoardColumnHead>
@@ -543,7 +552,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           <div className="kb-title">
             <h1>{p.name}</h1>
             {!signedIn && <span className="kb-sample">{tr('board.sample')}</span>}
-            {embedded && actions && <div className="kb-hactions">{actions}</div>}
+            <div className="kb-hactions">{cardViewControl}{embedded && actions}</div>
           </div>
           <div className="kb-tools">
             {mobile ? (
@@ -614,14 +623,14 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           {visible.map((c) => {
             // The dragged / keyboard-picked card leaves its column; a placeholder (drag) or the picked card (keyboard) shows where it lands.
             const items = c.tickets.filter((t) => t.key !== drag?.key && t.key !== pick?.key).map((t) => (
-              <TicketCard key={t.key} t={t} slug={p.slug} people={people} now={now} flash={flash.has(t.key)}
+              <TicketCard key={t.key} t={t} slug={p.slug} people={people} now={now} simple={simple} flash={flash.has(t.key)}
                 onOpen={openTicket} onKeyDown={onCardKey} onPointerDown={onCardPointerDown} onMove={mobile ? setMoveFor : undefined} />
             ));
             const at = (i: number) => (c.key === WAITING ? items.length : Math.min(i, items.length));
             if (drag && drag.over === c.key) items.splice(at(drag.index), 0, <div key="ph" className="ph" aria-hidden="true" />);
             const picked = pick && pick.col === c.key ? find(pick.key) : undefined;
             if (pick && picked) {
-              items.splice(at(pick.index), 0, <TicketCard key={picked.key} t={picked} slug={p.slug} people={people} now={now} picked onOpen={openTicket} onKeyDown={onCardKey} />);
+              items.splice(at(pick.index), 0, <TicketCard key={picked.key} t={picked} slug={p.slug} people={people} now={now} simple={simple} picked onOpen={openTicket} onKeyDown={onCardKey} />);
             }
             const over = (drag && drag.over === c.key) || (pick && pick.col === c.key);
             const cls = ['col', c.key === WAITING && 'wt', c.key === tab && 'on', over && 'over'].filter(Boolean).join(' ');
@@ -660,7 +669,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
 
       {drag && dragged && (
         <div className="ghost" style={{ left: drag.x - drag.offX, top: drag.y - drag.offY, width: drag.w }} aria-hidden="true">
-          <TicketCard t={dragged} slug={p.slug} people={people} now={now} lift />
+          <TicketCard t={dragged} slug={p.slug} people={people} now={now} simple={simple} lift />
         </div>
       )}
       {colLabelsOpen && columnLabelsUrl && (
@@ -848,8 +857,32 @@ const IcExpand = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
+const CARD_VIEWS: CardView[] = ['simple', 'detailed'];
+
+/** "Simple" | "Detailed" card view, a radio group: arrow keys move the choice, only the checked option is in the tab order. */
+function CardViewControl({ value, onChange }: { value: CardView; onChange: (view: CardView) => void }) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) {
+      return;
+    }
+    e.preventDefault();
+    const next = CARD_VIEWS[(CARD_VIEWS.indexOf(value) + step + CARD_VIEWS.length) % CARD_VIEWS.length]!;
+    onChange(next);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-view="${next}"]`)?.focus();
+  };
+  return (
+    <div className="kb-view" role="radiogroup" aria-label={tr('board.cards.label')} onKeyDown={onKeyDown}>
+      {CARD_VIEWS.map((v) => (
+        <button key={v} type="button" role="radio" data-view={v} aria-checked={v === value} tabIndex={v === value ? 0 : -1}
+          title={tr(v === 'simple' ? 'board.cards.simpleTip' : 'board.cards.detailedTip')} onClick={() => onChange(v)}>{tr(v === 'simple' ? 'board.cards.simple' : 'board.cards.detailed')}</button>
+      ))}
+    </div>
+  );
+}
+
 /** Compact header of the Portfolio board column: workstream name, counts, tools, and "Open full page" (README §10.1). */
-export function BoardColumnHead({ name, meta, fullPage, actions, children }: { name: string; meta: ReactNode; fullPage?: string; actions?: ReactNode; children?: ReactNode }) {
+export function BoardColumnHead({ name, meta, fullPage, view, actions, children }: { name: string; meta: ReactNode; fullPage?: string; view?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
     <div className="kb-chead">
       <div className="kb-ctitle">
@@ -859,6 +892,7 @@ export function BoardColumnHead({ name, meta, fullPage, actions, children }: { n
       <div className="kb-tools">
         {children}
         {fullPage && <Link className="kb-full" href={fullPage} aria-label={tw('bd.col.full')} title={tw('bd.col.full')}><IcExpand /></Link>}
+        {view}
         {actions}
       </div>
     </div>

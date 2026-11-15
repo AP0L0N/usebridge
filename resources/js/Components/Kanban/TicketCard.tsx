@@ -3,6 +3,7 @@ import { Avatar, IcComment, IcMove, LabelChip, ViaLine, WaitAge, personType } fr
 import { IconCal12 } from '../AppIcons';
 import { dueLabel, dueSoon, firstName, ticketUrl, type Person, type Ticket } from '../../lib/kanban';
 import { t as str } from '../../lib/strings';
+import { cardDot } from '../../lib/kanbanCards';
 import { RefTemplate, RefText, SLOT } from '../TicketRefs';
 
 type Props = {
@@ -12,6 +13,8 @@ type Props = {
   now: string;
   lift?: boolean;
   picked?: boolean;
+  /** Simple card: only the status dot and the title (the board header's "Simple" | "Detailed" control). */
+  simple?: boolean;
   flash?: boolean;
   onOpen?: (t: Ticket, e: MouseEvent) => void;
   onMove?: (t: Ticket) => void;
@@ -20,8 +23,34 @@ type Props = {
 };
 
 /** Ticket card (screen 2). The title link stretches over the whole card; the mobile "Move" button sits above it. */
-export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, onMove, onKeyDown, onPointerDown }: Props) {
-  const cls = ['tk', t.status === 'done' && 'done', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
+export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, onOpen, onMove, onKeyDown, onPointerDown }: Props) {
+  const cls = ['tk', simple && 'simple', t.status === 'done' && 'done', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
+  const link = (label: string) => (
+    <a
+      className="tkl"
+      href={ticketUrl(slug, t.key)}
+      draggable={false}
+      aria-roledescription="draggable ticket"
+      aria-label={label}
+      tabIndex={lift ? -1 : undefined}
+      onClick={onOpen ? (e) => onOpen(t, e) : undefined}
+      onKeyDown={onKeyDown ? (e) => onKeyDown(e, t) : undefined}
+    ><RefText text={t.title_refs ?? t.title} inert /></a>
+  );
+  if (simple) {
+    const dot = cardDot(t);
+    const state = dot ? str(`board.card.dot.${dot}`) : null;
+    return (
+      <div className={cls} data-key={t.key} onPointerDown={onPointerDown ? (e) => onPointerDown(e, t) : undefined}>
+        {/* always rendered: with no dot the slot stays empty so titles line up */}
+        <span className={`sdot${dot ? ` ${dot}` : ''}`} role={state ? 'img' : undefined} aria-label={state ?? undefined} aria-hidden={state ? undefined : true} />
+        <h3>{link(state ? `${t.key}: ${t.title} (${state})` : `${t.key}: ${t.title}`)}</h3>
+        {onMove && (
+          <button className="tkmv" type="button" aria-label={str('board.move.aria', { key: t.key })} onClick={() => onMove(t)}><IcMove />{str('board.move')}</button>
+        )}
+      </div>
+    );
+  }
   const strips: ReactNode[] = [];
   if (t.status === 'waiting_tilen' && t.ask) {
     strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p><RefText text={t.ask} inert /></p></div>);
@@ -37,18 +66,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, flash, onOpen, 
   return (
     <div className={cls} data-key={t.key} onPointerDown={onPointerDown ? (e) => onPointerDown(e, t) : undefined}>
       {t.labels.length > 0 && <div className="lbs">{t.labels.map((l) => <LabelChip key={l.id} label={l} />)}</div>}
-      <h3>
-        <a
-          className="tkl"
-          href={ticketUrl(slug, t.key)}
-          draggable={false}
-          aria-roledescription="draggable ticket"
-          aria-label={`${t.key}: ${t.title}`}
-          tabIndex={lift ? -1 : undefined}
-          onClick={onOpen ? (e) => onOpen(t, e) : undefined}
-          onKeyDown={onKeyDown ? (e) => onKeyDown(e, t) : undefined}
-        ><RefText text={t.title_refs ?? t.title} inert /></a>
-      </h3>
+      <h3>{link(`${t.key}: ${t.title}`)}</h3>
       {via && <ViaLine name={firstName(via.author_name) || via.author_id} at={via.created_at} now={now} source={via.source} />}
       {strips}
       <div className="tmeta">
