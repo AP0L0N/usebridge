@@ -76,7 +76,6 @@ export const S = {
   'fd.crumb.archived': 'Archived',
   'fd.keys': '↑↓ move · → or Enter opens · ← back',
   'fd.keys.board': '↑↓ move · Enter opens a ticket · ← back',
-  'fd.rail.hint': 'Hover or ← expands the rail to the full project list. Click a project to switch.',
   'fd.projects.collapse': 'Collapse projects',
   'fd.projects.expand': 'Expand projects',
   'fd.ws.collapse': 'Collapse workstreams',
@@ -88,6 +87,7 @@ export const S = {
   // Menus
   'fd.menu.project': '{name} actions',
   'fd.menu.ws': '{name} actions',
+  'fd.menu.wsTooltip': 'Workstream actions',
   'fd.menu.renameProject': 'Rename project',
   'fd.menu.setStatus': 'Set project status',
   'fd.menu.newWorkstream': 'New workstream',

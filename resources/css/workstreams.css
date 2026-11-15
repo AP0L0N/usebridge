@@ -44,7 +44,6 @@
 .app .fd-sq { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--a-line); border-radius: var(--radius-sm); background: var(--a-surface); color: var(--a-ink); cursor: pointer; flex: none; }
 .app .fd-sq:hover { border-color: var(--a-ink-400); }
 .app .fd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.app .fd-li { position: relative; }
 
 /* WS / Project row */
 .app .fd-prow, .app .fd-wrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--a-ink); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
@@ -63,11 +62,6 @@
 .app .fd-archh { padding: 16px 12px 8px; border-top: 1px solid var(--a-line); margin: 8px -8px 0; padding-left: 20px; }
 .app .fd-archh svg { color: var(--a-ink-600); }
 
-/* WS / Stream row: ⋯ appears on hover / focus, left of the badge */
-.app .fd-wli .fd-wmenu { position: absolute; top: 12px; right: 64px; opacity: 0; pointer-events: none; }
-.app .fd-wli:hover .fd-wmenu, .app .fd-wli:focus-within .fd-wmenu, .app .fd-wmenu:has([aria-expanded=true]) { opacity: 1; pointer-events: auto; }
-.app .fd-wli:hover .fd-wrow, .app .fd-wli:focus-within .fd-wrow { background: var(--a-paper); }
-.app .fd-wli:hover .fd-wrow .ws-badge, .app .fd-wli:focus-within .fd-wrow .ws-badge { margin-left: 44px; }
 
 .app .fd-ptitle { border-bottom: 1px solid var(--a-line); min-height: 64px; padding-top: 12px; padding-bottom: 12px; }
 .app .fd-pname { margin: 0; font: 500 17px/1.3 var(--font-ui); letter-spacing: -0.01em; overflow-wrap: anywhere; }
@@ -101,44 +95,42 @@
 .app .fd-phone .kb-embed { min-height: 0; padding: 0; }
 
 /* ───────────── Board as column (README §10, 85:1078 · 87:1166 · 87:1629 · 87:2683 · 87:2092) ─────────────
-   With a board open, Projects stay a 280px list; the user can collapse them to a 64px initials rail (WS / Project rail
-   item 84:1081, remembered across reloads) that expands back on hover or keyboard focus, pushing the other columns (no
-   overlay). Workstreams stay 300, or a 48px letter rail (≤1280 automatically, or the user's toggle). Rows keep one markup: the rail only restyles them, so focus never moves. */
+   Projects stay a 280px list; only the user's « collapses them to a 64px initials rail (WS / Project rail item 84:1081,
+   remembered across reloads) and only its » opens them again: no hover or focus expand. Workstreams stay 300, or a 48px letter rail (≤1280 automatically, or the user's toggle). Rows keep one markup: the rail only restyles them, so focus never moves. */
 .app .fd-ini, .app .fd-railonly { display: none; }
 .app .fd-frame.fd-boarding { --fd-c1: 280px; --fd-c2: 300px; }
 .app .fd-frame.fd-boarding.fd-wsrail { --fd-c2: 48px; }
 .app .fd-frame.fd-prail { --fd-c1: 64px; }
-.app .fd-frame.fd-prail:has(.fd-c1:hover, .fd-c1:focus-within) { --fd-c1: 280px; }
 .app .fd-frame.fd-boarding, .app .fd-frame.fd-prail { transition: grid-template-columns .18s ease; }
 @media (prefers-reduced-motion: reduce) { .app .fd-frame.fd-boarding, .app .fd-frame.fd-prail { transition: none; } }
 .app .fd-boarding .fd-col, .app .fd-prail .fd-c1 { overflow: hidden; }
 .app .fd-c1 > .fd-ch .fd-ov { margin-right: auto; }
 
 /* collapsed project rail (the user's toggle, never automatic) */
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch .fd-ov,
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-rtext,
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-chev,
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-aico,
+.app .fd-prail .fd-c1 .fd-ch { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
+.app .fd-prail .fd-c1 .fd-ch .fd-ov,
+.app .fd-prail .fd-c1 .fd-rtext,
+.app .fd-prail .fd-c1 .fd-chev,
+.app .fd-prail .fd-c1 .fd-aico,
 .app .fd-wsrail .fd-c2 .fd-rtext, .app .fd-wsrail .fd-c2 .ws-badge, .app .fd-wsrail .fd-c2 .fd-chev {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch .fd-pnew { display: none; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-foot,
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-none,
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-archh { display: none; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-scroll,
+.app .fd-prail .fd-c1 .fd-ch .fd-pnew { display: none; }
+.app .fd-prail .fd-c1 .fd-foot,
+.app .fd-prail .fd-c1 .fd-none,
+.app .fd-prail .fd-c1 .fd-archh { display: none; }
+.app .fd-prail .fd-c1 .fd-scroll,
 .app .fd-wsrail .fd-c2 .fd-scroll { padding: 12px 0; overflow-x: hidden; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-list { gap: 16px; align-items: center; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow {
+.app .fd-prail .fd-c1 .fd-list { gap: 16px; align-items: center; }
+.app .fd-prail .fd-c1 .fd-prow {
   position: relative; justify-content: center; width: 40px; height: 40px; min-height: 40px; padding: 0; gap: 0;
   border: 1px solid var(--a-line); border-radius: 50%; background: var(--a-surface);
 }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow:hover { border-color: var(--a-ink-400); }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ini,
+.app .fd-prail .fd-c1 .fd-prow:hover { border-color: var(--a-ink-400); }
+.app .fd-prail .fd-c1 .fd-prow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
+.app .fd-prail .fd-c1 .fd-ini,
 .app .fd-wsrail .fd-c2 .fd-ini { display: block; font: 500 13px/1 var(--font-mono); letter-spacing: 0; }
-.app .fd-prail .fd-c1:not(:hover, :focus-within) .ws-dot { position: absolute; top: 1px; right: 1px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
+.app .fd-prail .fd-c1 .ws-dot { position: absolute; top: 1px; right: 1px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
 
 /* workstreams letter rail (87:2683) */
 .app .fd-railhead { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
@@ -165,6 +157,8 @@
 .app .kb-full { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--a-line); border-radius: var(--radius-md); background: var(--a-surface); color: var(--a-ink); flex: none; }
 .app .kb-full:hover { border-color: var(--a-ink-400); }
 .app .kb-full:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
+/* the open workstream's ⋯ (always visible): right end of the compact header, and of the title row on phones */
+.app .kb-hactions { margin-left: auto; }
 .app .kb-compact .board { flex: 1; min-height: 0; padding: 16px; align-items: stretch; background: var(--a-paper); }
 .app .kb-compact .board .col { flex: 1 1 0; min-width: 200px; overflow-y: auto; }
 .app .kb-cempty { flex: 1; background: var(--a-paper); }
@@ -282,7 +276,7 @@
 .kanban .kb-wssheet .shh h3 { margin-bottom: 0; }
 .kanban .kb-wssheet .shh .sub2 { margin: 2px 20px 8px; }
 .kanban .kb-wssheet .fd-list { padding: 0 16px; }
-.kanban .kb-wssheet .fd-wrow.on, .app .fd-wrow.on, .app .fd-wli:hover .fd-wrow.on, .app .fd-wli:focus-within .fd-wrow.on { background: var(--a-ink); color: #fff; }
+.kanban .kb-wssheet .fd-wrow.on, .app .fd-wrow.on { background: var(--a-ink); color: #fff; }
 .kanban .kb-wssheet .fd-wrow.on .fd-rmeta, .kanban .kb-wssheet .fd-wrow.on .fd-chev, .app .fd-wrow.on .fd-rmeta, .app .fd-wrow.on .fd-chev { color: var(--a-ink-400); }
 .kanban .kb-wssheet .fd-wrow.on .fd-chip, .app .fd-wrow.on .fd-chip { background: transparent; color: #fff; border-color: var(--a-ink-600); }
 .kanban .kb-wssheet .shf { display: flex; align-items: center; gap: 12px; margin: 12px 16px 0; padding-top: 16px; border-top: 1px solid var(--a-line); }

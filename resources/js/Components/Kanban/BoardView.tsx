@@ -55,6 +55,8 @@ type Props = BoardProps & {
   fullPage?: string;
   /** Embedded on phones: where the workstream switcher goes (stays on /portfolio). */
   wsHref?: (id: string) => string;
+  /** Embedded: the workstream's "⋯" actions menu, at the right end of the header. */
+  actions?: ReactNode;
 };
 
 /** Board filters (local state, like search). `replies` / `pickup` match the card chips "New reply from …" / "Your input · not picked up yet". */
@@ -74,7 +76,7 @@ type Pick = { key: string; from: ColumnKey; col: ColumnKey; index: number };
  * One workstream's Kanban board (SPEC §2): the Board page, and the Portfolio's board column (`embedded`). Data comes
  * from the page's Inertia props (ProjectController::boardProps); reloads are partial visits of the current page.
  */
-export function BoardView({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, workstreams, workstream, here, ticketHref, embedded = false, fullPage, wsHref }: Props) {
+export function BoardView({ board, statusHistory, latestUpdate = null, people, labels, doneAll, ticket, now, columnLabelsUrl, defaultColumns, workstreams, workstream, here, ticketHref, embedded = false, fullPage, wsHref, actions }: Props) {
   const p = board.project;
   const wsName = workstreams.find((w) => w.id === workstream)?.name ?? '';
   const toasts = useToasts();
@@ -532,7 +534,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
       <Root className={compact ? 'kb kb-embed kb-compact' : embedded ? 'kb kb-embed' : 'kb'}>
         {!embedded && <Link className="kb-back" href={finderUrl(p.slug, '', false, workstream)}><IcBack />{tw('bd.back')}</Link>}
         {compact ? (
-          <BoardColumnHead name={wsName} meta={tw('bd.col.meta', { open, waiting: waitingCount, blocked })} fullPage={fullPage}>
+          <BoardColumnHead name={wsName} meta={tw('bd.col.meta', { open, waiting: waitingCount, blocked })} fullPage={fullPage} actions={actions}>
             <FilterMenu filters={filters} setFilters={setFilters} n={nFilters} tickets={all} people={people} labels={labels} />
             <button className="btn grow" type="button" onClick={addTop}><IcPlus />{tw('bd.col.new')}</button>
           </BoardColumnHead>
@@ -541,6 +543,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           <div className="kb-title">
             <h1>{p.name}</h1>
             {!signedIn && <span className="kb-sample">{tr('board.sample')}</span>}
+            {embedded && actions && <div className="kb-hactions">{actions}</div>}
           </div>
           <div className="kb-tools">
             {mobile ? (
@@ -846,7 +849,7 @@ const IcExpand = () => (
 );
 
 /** Compact header of the Portfolio board column: workstream name, counts, tools, and "Open full page" (README §10.1). */
-export function BoardColumnHead({ name, meta, fullPage, children }: { name: string; meta: ReactNode; fullPage?: string; children?: ReactNode }) {
+export function BoardColumnHead({ name, meta, fullPage, actions, children }: { name: string; meta: ReactNode; fullPage?: string; actions?: ReactNode; children?: ReactNode }) {
   return (
     <div className="kb-chead">
       <div className="kb-ctitle">
@@ -856,17 +859,18 @@ export function BoardColumnHead({ name, meta, fullPage, children }: { name: stri
       <div className="kb-tools">
         {children}
         {fullPage && <Link className="kb-full" href={fullPage} aria-label={tw('bd.col.full')} title={tw('bd.col.full')}><IcExpand /></Link>}
+        {actions}
       </div>
     </div>
   );
 }
 
 /** Loading state of the board column (87:1166): the header, then skeleton columns and cards. */
-export function BoardColumnSkeleton({ name, meta, fullPage }: { name: string; meta: ReactNode; fullPage?: string }) {
+export function BoardColumnSkeleton({ name, meta, fullPage, actions }: { name: string; meta: ReactNode; fullPage?: string; actions?: ReactNode }) {
   const cards = [2, 1, 2, 2, 1];
   return (
     <div className="kb kb-embed kb-compact" aria-busy="true">
-      <BoardColumnHead name={name} meta={meta} fullPage={fullPage} />
+      <BoardColumnHead name={name} meta={meta} fullPage={fullPage} actions={actions} />
       <div className="board kb-skel" aria-hidden="true">
         {cards.map((n, i) => (
           <div key={i} className="col"><i className="sk-h" />{Array.from({ length: n }, (_, j) => <div key={j} className="sk-card"><i /><i /><i /></div>)}</div>

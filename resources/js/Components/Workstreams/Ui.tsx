@@ -25,6 +25,8 @@ const svg = (d: string, size = 16) => (
 );
 export const IcRight = () => svg('M6 4l4 4-4 4');
 export const IcLeft = () => svg('M10 4L6 8l4 4');
+export const IcLeftDouble = () => svg('M8 4L4 8l4 4M12 4L8 8l4 4');
+export const IcRightDouble = () => svg('M4 4l4 4-4 4M8 4l4 4-4 4');
 export const IcArrowRight = () => svg('M3 8h10M9 4l4 4-4 4');
 export const IcArrowLeft = () => svg('M13 8H3M7 4L3 8l4 4');
 export const IcPlus = () => svg('M8 3v10M3 8h10');
@@ -44,8 +46,8 @@ export const IcMore = () => (
 export type MenuItem = { label: string; icon?: ReactNode; danger?: boolean; disabled?: boolean; onSelect: () => void } | 'sep';
 
 /** "⋯" button with a popover menu (roving arrows, Esc / outside click close, focus back on the button). */
-export function ActionMenu({ label, items, className = '', buttonText, onOpenChange }: {
-  label: string; items: MenuItem[]; className?: string; buttonText?: string; onOpenChange?: (open: boolean) => void;
+export function ActionMenu({ label, items, className = '', buttonText, tooltip, onOpenChange }: {
+  label: string; items: MenuItem[]; className?: string; buttonText?: string; tooltip?: string; onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpenState] = useState(false);
   const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
@@ -71,7 +73,7 @@ export function ActionMenu({ label, items, className = '', buttonText, onOpenCha
   return (
     <div className={`ws-menu ${className}`} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
       <button ref={btn} type="button" className={buttonText ? 'ws-actbtn' : 'ws-more'} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? id : undefined}
-        aria-label={buttonText ? undefined : label} onClick={() => (open ? close() : (setOpen(true), window.setTimeout(() => focusItem(0), 0)))}
+        aria-label={buttonText ? undefined : label} title={tooltip} onClick={() => (open ? close() : (setOpen(true), window.setTimeout(() => focusItem(0), 0)))}
         onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setOpen(true); window.setTimeout(() => focusItem(0), 0); } }}>
         <IcMore />{buttonText && <span>{buttonText}</span>}
       </button>

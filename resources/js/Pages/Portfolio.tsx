@@ -10,7 +10,7 @@ import { ConnectBotCard, ReadyBanner, type Welcome } from '../Components/Onboard
 import { RefText, SLOT, TicketRef, TicketRefHost } from '../Components/TicketRefs';
 import { DeleteWorkstreamDialog, MoveAllDialog, NameDialog, errorText, takenNames } from '../Components/Workstreams/Dialogs';
 import {
-  ActionMenu, CountBadge, IcArchive, IcArrowRight, IcEdit, IcFolder, IcHistory, IcLeft, IcLines, IcPlus, IcRight, IcStar, IcTrash, IcUp, IcDown, UnreadDot, type MenuItem,
+  ActionMenu, CountBadge, IcArchive, IcArrowRight, IcEdit, IcFolder, IcHistory, IcLeft, IcLeftDouble, IcLines, IcPlus, IcRight, IcRightDouble, IcStar, IcTrash, IcUp, IcDown, UnreadDot, type MenuItem,
 } from '../Components/Workstreams/Ui';
 import { ago, longDate } from '../lib/dates';
 import { firstName, send, type ColumnKey, type StatusSubject } from '../lib/kanban';
@@ -266,7 +266,7 @@ function Portfolio(props: Props) {
     const i = custom.findIndex((w) => w.id === ws.id);
     return [
       { label: t('fd.menu.openBoard'), icon: <IcArrowRight />, onSelect: () => selectWs(p.slug, ws.id, !desktop) },
-      { label: t('fd.menu.rename'), icon: <IcEdit />, onSelect: () => (desktop ? setInline({ kind: 'renameWs', wsId: ws.id }) : setDialog({ kind: 'renameWs', p, ws })) },
+      { label: t('fd.menu.rename'), icon: <IcEdit />, onSelect: () => (desktop && !wsCollapsed ? setInline({ kind: 'renameWs', wsId: ws.id }) : setDialog({ kind: 'renameWs', p, ws })) },
       { label: t('fd.menu.moveAll'), icon: <IcLines />, disabled: ws.tickets === 0 || p.workstreams.length < 2, onSelect: () => setDialog({ kind: 'moveAll', p, ws }) },
       ...(!ws.isDefault ? [
         { label: t('fd.menu.makeDefault'), icon: <IcStar />, onSelect: () => makeDefault(p, ws) },
@@ -285,7 +285,7 @@ function Portfolio(props: Props) {
     if (inline || e.altKey || e.metaKey || e.ctrlKey) return;
     if (col === 1 && e.key === 'Enter') return; // the link itself opens the board column
     if (boarding && e.key === 'ArrowLeft' && col === 0) {
-      // ← in the project list goes back to the open workstream (and lets a hover-expanded rail collapse again, README §10.1).
+      // ← in the project list goes back to the open workstream (README §10.1).
       e.preventDefault();
       wsRefs.current[Math.max(0, streams.findIndex((w) => w.id === selWs))]?.focus();
       return;
@@ -344,7 +344,7 @@ function Portfolio(props: Props) {
       );
     }
     return (
-      <li key={p.id} className="fd-li">
+      <li key={p.id}>
         <button ref={(el) => { projRefs.current[i] = el; }} type="button" className={`fd-prow${on ? ' on' : ''}${archivedSection ? ' arch' : ''}`} aria-current={on ? 'true' : undefined}
           onClick={() => select(p.slug, !desktop)} onKeyDown={onKey(0, i)}
           onDoubleClick={() => { if (desktop && !isArchived(p)) setInline({ kind: 'renameProject', projectId: p.id }); }}>
@@ -373,7 +373,7 @@ function Portfolio(props: Props) {
     }
     const on = w.id === selWs;
     return (
-      <li key={w.id} className="fd-li fd-wli" onContextMenu={(e) => { if (!desktop && !readOnly) { e.preventDefault(); setDialog({ kind: 'wsActions', p, ws: w }); } }}>
+      <li key={w.id} className="fd-wli" onContextMenu={(e) => { if (!desktop && !readOnly) { e.preventDefault(); setDialog({ kind: 'wsActions', p, ws: w }); } }}>
         <a ref={(el) => { wsRefs.current[i] = el; }} href={finderUrl(p.slug, q, showArchived, w.id)} className={`fd-wrow${on ? ' on' : ''}`} aria-current={on ? 'true' : undefined} onKeyDown={onKey(1, i)}
           onClick={(e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return; // a new tab keeps working
@@ -390,7 +390,6 @@ function Portfolio(props: Props) {
           {!readOnly && w.badge > 0 && <span className="ws-dot fd-railonly" aria-hidden="true" />}
           <span className="fd-chev"><IcRight /></span>
         </a>
-        {desktop && !readOnly && !wsCollapsed && <ActionMenu className="fd-wmenu" label={t('fd.menu.ws', { name: w.name })} items={wsItems(p, w)} />}
       </li>
     );
   };
@@ -401,8 +400,8 @@ function Portfolio(props: Props) {
         <h2 className="fd-ov">{t('fd.projects')} <span className="fd-n">{live.length}</span></h2>
         <button type="button" className="fd-sq fd-pnew" aria-label={t('fd.project.newAria')} onClick={() => setDialog({ kind: 'newProject' })}><IcPlus /></button>
         {desktop && (projCollapsed
-          ? <button type="button" className="fd-railbtn" aria-label={t('fd.projects.expand')} aria-expanded="false" onClick={() => toggleProjRail(false)}><IcRight /></button>
-          : <button type="button" className="fd-sq" aria-label={t('fd.projects.collapse')} aria-expanded="true" onClick={(e) => { toggleProjRail(true); if (e.detail > 0) e.currentTarget.blur(); }}><IcLeft /></button>)}
+          ? <button type="button" className="fd-railbtn" aria-label={t('fd.projects.expand')} title={t('fd.projects.expand')} aria-expanded="false" onClick={() => toggleProjRail(false)}><IcRightDouble /></button>
+          : <button type="button" className="fd-sq" aria-label={t('fd.projects.collapse')} title={t('fd.projects.collapse')} aria-expanded="true" onClick={() => toggleProjRail(true)}><IcLeftDouble /></button>)}
       </div>
       <div className="fd-scroll">
         {visible.length === 0 && query && <p className="fd-none">{t('fd.projects.none', { q: query })}</p>}
@@ -414,7 +413,7 @@ function Portfolio(props: Props) {
           </>
         )}
       </div>
-      <p className="fd-foot">{projCollapsed ? t('fd.rail.hint') : t('fd.projects.hint')}</p>
+      <p className="fd-foot">{t('fd.projects.hint')}</p>
     </section>
   );
 
@@ -475,12 +474,16 @@ function Portfolio(props: Props) {
     doneAll: !!props.doneAll, ticket: props.ticket ?? null, now, columnLabelsUrl: props.columnLabelsUrl ?? null, defaultColumns: props.defaultColumns ?? [],
     workstreams: props.workstreams ?? [], workstream: boardWs.id,
   } : null;
+  /** The open workstream's actions, in the board header (none on an archived project, which is read-only). */
+  const boardActions = current && boardWs && !isArchived(current)
+    ? <ActionMenu label={t('fd.menu.ws', { name: boardWs.name })} tooltip={t('fd.menu.wsTooltip')} items={wsItems(current, boardWs)} />
+    : null;
   const boardView = current && boardWs && (boardProps
     ? <BoardView key={`${current.slug}:${boardWs.id}`} {...boardProps} embedded here={finderUrl(current.slug, q, showArchived, boardWs.id)}
       ticketHref={(key) => finderUrl(current.slug, q, showArchived, boardWs.id, key)} fullPage={boardUrl(current.slug, boardWs.id)}
-      wsHref={(id) => finderUrl(current.slug, q, showArchived, id)} />
+      wsHref={(id) => finderUrl(current.slug, q, showArchived, id)} actions={boardActions} />
     : desktop
-      ? <BoardColumnSkeleton name={boardWs.name} fullPage={boardUrl(current.slug, boardWs.id)}
+      ? <BoardColumnSkeleton name={boardWs.name} fullPage={boardUrl(current.slug, boardWs.id)} actions={boardActions}
         meta={tw('bd.col.meta', { open: boardWs.open, waiting: boardWs.forYou, blocked: boardWs.blocked })} />
       : <div className="kb kb-embed"><div className="fd-skel" aria-hidden="true"><i /><i /><i /></div></div>);
 
