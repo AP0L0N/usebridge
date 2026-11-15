@@ -97,6 +97,28 @@ export function initials(name: string): string {
   return letters.toUpperCase();
 }
 
+/** localStorage key of the user's Projects-column collapse choice ('1' = collapsed to the initials rail). */
+export const PROJECTS_RAIL_KEY = 'bridge.portfolio.projectsRail';
+
+/** The saved Projects-column choice: collapsed only when the user collapsed it; open by default or when storage is unavailable. */
+export function readProjectsRail(storage: Pick<Storage, 'getItem'> | null | undefined): boolean {
+  try {
+    return storage?.getItem(PROJECTS_RAIL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Saves the Projects-column choice; a storage that refuses (private mode, quota) just keeps it for this visit. */
+export function saveProjectsRail(storage: Pick<Storage, 'setItem' | 'removeItem'> | null | undefined, collapsed: boolean): void {
+  try {
+    if (collapsed) storage?.setItem(PROJECTS_RAIL_KEY, '1');
+    else storage?.removeItem(PROJECTS_RAIL_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export const boardUrl = (slug: string, wsId: string) => `/projects/${slug}?ws=${encodeURIComponent(wsId)}`;
 
 /**

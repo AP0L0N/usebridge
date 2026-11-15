@@ -33,7 +33,7 @@
 .app .fd-search { width: 300px; }
 .app .fd-new { height: 44px; padding: 0 16px; }
 
-.app .fd-frame { display: grid; grid-template-columns: 312px 312px minmax(0, 1fr); min-height: 720px; height: calc(100vh - 64px - 200px); max-height: 980px; background: var(--a-surface); border: 1px solid var(--a-line); border-radius: var(--radius-md); box-shadow: var(--a-shadow-xs); overflow: hidden; }
+.app .fd-frame { --fd-c1: 312px; --fd-c2: 312px; display: grid; grid-template-columns: var(--fd-c1) var(--fd-c2) minmax(0, 1fr); min-height: 720px; height: calc(100vh - 64px - 200px); max-height: 980px; background: var(--a-surface); border: 1px solid var(--a-line); border-radius: var(--radius-md); box-shadow: var(--a-shadow-xs); overflow: hidden; }
 .app .fd-frame-empty { display: grid; grid-template-columns: 1fr; place-items: center; }
 .app .fd-col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .app .fd-c1, .app .fd-c2 { border-right: 1px solid var(--a-line); }
@@ -101,42 +101,44 @@
 .app .fd-phone .kb-embed { min-height: 0; padding: 0; }
 
 /* ───────────── Board as column (README §10, 85:1078 · 87:1166 · 87:1629 · 87:2683 · 87:2092) ─────────────
-   With a board open, Projects is a 64px initials rail (WS / Project rail item 84:1081) that expands back to the 280px
-   list on hover or keyboard focus, pushing the other columns (no overlay). Workstreams stay 300, or a 48px letter rail
-   (≤1280 automatically, or the user's toggle). Rows keep one markup: the rail only restyles them, so focus never moves. */
+   With a board open, Projects stay a 280px list; the user can collapse them to a 64px initials rail (WS / Project rail
+   item 84:1081, remembered across reloads) that expands back on hover or keyboard focus, pushing the other columns (no
+   overlay). Workstreams stay 300, or a 48px letter rail (≤1280 automatically, or the user's toggle). Rows keep one markup: the rail only restyles them, so focus never moves. */
 .app .fd-ini, .app .fd-railonly { display: none; }
-.app .fd-frame.fd-boarding { grid-template-columns: 64px 300px minmax(0, 1fr); transition: grid-template-columns .18s ease; }
-.app .fd-frame.fd-boarding:has(.fd-c1:hover, .fd-c1:focus-within) { grid-template-columns: 280px 300px minmax(0, 1fr); }
-.app .fd-frame.fd-boarding.fd-wsrail { grid-template-columns: 64px 48px minmax(0, 1fr); }
-.app .fd-frame.fd-boarding.fd-wsrail:has(.fd-c1:hover, .fd-c1:focus-within) { grid-template-columns: 280px 48px minmax(0, 1fr); }
-@media (prefers-reduced-motion: reduce) { .app .fd-frame.fd-boarding { transition: none; } }
-.app .fd-boarding .fd-col { overflow: hidden; }
+.app .fd-frame.fd-boarding { --fd-c1: 280px; --fd-c2: 300px; }
+.app .fd-frame.fd-boarding.fd-wsrail { --fd-c2: 48px; }
+.app .fd-frame.fd-prail { --fd-c1: 64px; }
+.app .fd-frame.fd-prail:has(.fd-c1:hover, .fd-c1:focus-within) { --fd-c1: 280px; }
+.app .fd-frame.fd-boarding, .app .fd-frame.fd-prail { transition: grid-template-columns .18s ease; }
+@media (prefers-reduced-motion: reduce) { .app .fd-frame.fd-boarding, .app .fd-frame.fd-prail { transition: none; } }
+.app .fd-boarding .fd-col, .app .fd-prail .fd-c1 { overflow: hidden; }
+.app .fd-c1 > .fd-ch .fd-ov { margin-right: auto; }
 
-/* collapsed project rail */
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch .fd-ov,
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-rtext,
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-chev,
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-aico,
+/* collapsed project rail (the user's toggle, never automatic) */
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch .fd-ov,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-rtext,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-chev,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-aico,
 .app .fd-wsrail .fd-c2 .fd-rtext, .app .fd-wsrail .fd-c2 .ws-badge, .app .fd-wsrail .fd-c2 .fd-chev {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ch .fd-sq { border: 0; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-foot,
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-none,
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-archh { display: none; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-scroll,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ch .fd-pnew { display: none; }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-foot,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-none,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-archh { display: none; }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-scroll,
 .app .fd-wsrail .fd-c2 .fd-scroll { padding: 12px 0; overflow-x: hidden; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-list { gap: 16px; align-items: center; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow {
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-list { gap: 16px; align-items: center; }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow {
   position: relative; justify-content: center; width: 40px; height: 40px; min-height: 40px; padding: 0; gap: 0;
   border: 1px solid var(--a-line); border-radius: 50%; background: var(--a-surface);
 }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow:hover { border-color: var(--a-ink-400); }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-prow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .fd-ini,
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow:hover { border-color: var(--a-ink-400); }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-prow.on { background: var(--a-ink); border-color: var(--a-ink); color: #fff; }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .fd-ini,
 .app .fd-wsrail .fd-c2 .fd-ini { display: block; font: 500 13px/1 var(--font-mono); letter-spacing: 0; }
-.app .fd-boarding .fd-c1:not(:hover, :focus-within) .ws-dot { position: absolute; top: 1px; right: 1px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
+.app .fd-prail .fd-c1:not(:hover, :focus-within) .ws-dot { position: absolute; top: 1px; right: 1px; width: 7px; height: 7px; box-shadow: 0 0 0 2px var(--a-surface); }
 
 /* workstreams letter rail (87:2683) */
 .app .fd-railhead { justify-content: center; padding: 0; min-height: 64px; border-bottom: 1px solid var(--a-line); }
@@ -288,7 +290,7 @@
 .kanban .kb-archived { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--radius-md); background: var(--a-paper); border: 1px solid var(--a-line); color: var(--a-ink-800); font-size: 15px; }
 
 @media (max-width: 1279px) {
-    .app .fd-frame { grid-template-columns: 280px 280px minmax(0, 1fr); }
+    .app .fd-frame { --fd-c1: 280px; --fd-c2: 280px; }
     .app .fd-search { width: 260px; }
 }
 @media (min-width: 721px) { .kanban .sheet.wsd .grab { display: none; } .kanban .sheet.wsd { padding-top: 16px; } }

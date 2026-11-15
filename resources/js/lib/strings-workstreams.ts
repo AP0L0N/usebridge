@@ -77,6 +77,8 @@ export const S = {
   'fd.keys': '↑↓ move · → or Enter opens · ← back',
   'fd.keys.board': '↑↓ move · Enter opens a ticket · ← back',
   'fd.rail.hint': 'Hover or ← expands the rail to the full project list. Click a project to switch.',
+  'fd.projects.collapse': 'Collapse projects',
+  'fd.projects.expand': 'Expand projects',
   'fd.ws.collapse': 'Collapse workstreams',
   'fd.ws.expand': 'Expand workstreams',
   'fd.back.workstreams': 'Workstreams',

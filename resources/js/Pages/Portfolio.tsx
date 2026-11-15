@@ -17,7 +17,7 @@ import { firstName, send, type ColumnKey, type StatusSubject } from '../lib/kanb
 import { t as tk, type StrKey } from '../lib/strings';
 import { t, t as tw, tn } from '../lib/strings-workstreams';
 import {
-  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError,
+  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError, readProjectsRail, saveProjectsRail,
   type Change, type FinderFocus, type FinderProject, type Preview, type WorkstreamRow,
 } from '../lib/workstreams';
 
@@ -113,6 +113,12 @@ function Portfolio(props: Props) {
   const narrow = useMedia(NARROW);
   /** The user's workstream-rail choice while a board is open (README §10.2); null = automatic (collapsed at ≤1280). */
   const [wsRail, setWsRail] = useState<boolean | null>(null);
+  /** The user's Projects-column choice (saved across reloads): open by default, collapsed to the 64px initials rail only by its toggle. */
+  const [projRail, setProjRail] = useState(() => readProjectsRail(typeof window === 'undefined' ? null : window.localStorage));
+  const toggleProjRail = (collapsed: boolean) => {
+    setProjRail(collapsed);
+    saveProjectsRail(window.localStorage, collapsed);
+  };
   const [q, setQ] = useState(() => readUrl().q);
   const [showArchived, setShowArchived] = useState(() => readUrl().archived);
   const [sel, setSel] = useState<string | null>(selected);
@@ -184,8 +190,9 @@ function Portfolio(props: Props) {
   const current = rows.find((p) => p.slug === sel) ?? null;
   const streams = current ? filterWorkstreams(current, query) : [];
   const boardWs = current && selWs ? current.workstreams.find((w) => w.id === selWs) ?? null : null;
-  /** Desktop with a board open (README §10.1): Projects collapse to a 64px rail; workstreams to 48 at ≤1280 (§10.2). */
+  /** Desktop with a board open (README §10.1): workstreams collapse to 48 at ≤1280 (§10.2); Projects stay open unless the user collapses them. */
   const boarding = desktop && !!boardWs;
+  const projCollapsed = desktop && projRail;
   const wsCollapsed = boarding && (wsRail ?? narrow);
   const live = rows.filter((p) => !isArchived(p));
   const archivedCount = rows.length - live.length;
@@ -278,7 +285,7 @@ function Portfolio(props: Props) {
     if (inline || e.altKey || e.metaKey || e.ctrlKey) return;
     if (col === 1 && e.key === 'Enter') return; // the link itself opens the board column
     if (boarding && e.key === 'ArrowLeft' && col === 0) {
-      // ← in the expanded project rail collapses it: focus goes back to the open workstream (README §10.1).
+      // ← in the project list goes back to the open workstream (and lets a hover-expanded rail collapse again, README §10.1).
       e.preventDefault();
       wsRefs.current[Math.max(0, streams.findIndex((w) => w.id === selWs))]?.focus();
       return;
@@ -392,7 +399,10 @@ function Portfolio(props: Props) {
     <section className="fd-col fd-c1" aria-label={t('fd.projects.aria')}>
       <div className="fd-ch">
         <h2 className="fd-ov">{t('fd.projects')} <span className="fd-n">{live.length}</span></h2>
-        <button type="button" className="fd-sq" aria-label={t('fd.project.newAria')} onClick={() => setDialog({ kind: 'newProject' })}><IcPlus /></button>
+        <button type="button" className="fd-sq fd-pnew" aria-label={t('fd.project.newAria')} onClick={() => setDialog({ kind: 'newProject' })}><IcPlus /></button>
+        {desktop && (projCollapsed
+          ? <button type="button" className="fd-railbtn" aria-label={t('fd.projects.expand')} aria-expanded="false" onClick={() => toggleProjRail(false)}><IcRight /></button>
+          : <button type="button" className="fd-sq" aria-label={t('fd.projects.collapse')} aria-expanded="true" onClick={(e) => { toggleProjRail(true); if (e.detail > 0) e.currentTarget.blur(); }}><IcLeft /></button>)}
       </div>
       <div className="fd-scroll">
         {visible.length === 0 && query && <p className="fd-none">{t('fd.projects.none', { q: query })}</p>}
@@ -404,7 +414,7 @@ function Portfolio(props: Props) {
           </>
         )}
       </div>
-      <p className="fd-foot">{boarding ? t('fd.rail.hint') : t('fd.projects.hint')}</p>
+      <p className="fd-foot">{projCollapsed ? t('fd.rail.hint') : t('fd.projects.hint')}</p>
     </section>
   );
 
@@ -588,7 +598,7 @@ function Portfolio(props: Props) {
         {header}
         <ReadyBanner welcome={welcome} />
         {rows.length === 0 ? <div className="fd-frame fd-frame-empty"><EmptyPortfolio onNew={() => setDialog({ kind: 'newProject' })} /></div> : (
-          <div className={['fd-frame', boarding && 'fd-boarding', wsCollapsed && 'fd-wsrail'].filter(Boolean).join(' ')}>
+          <div className={['fd-frame', boarding && 'fd-boarding', wsCollapsed && 'fd-wsrail', projCollapsed && 'fd-prail'].filter(Boolean).join(' ')}>
             {projectsColumn}
             {streamsColumn}
             {current && boardWs ? (

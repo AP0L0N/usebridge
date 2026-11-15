@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
+import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, PROJECTS_RAIL_KEY, readProjectsRail, saveProjectsRail, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
 
 const ws = (name: string, badge = 0, extra: Partial<WorkstreamRow> = {}): WorkstreamRow => ({ id: `ws-${name}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false, badge, ...extra });
 const projects = [
@@ -77,4 +77,19 @@ test('rail initials: first letters of two words, else two letters', () => {
   assert.equal(initials('Client site redesign'), 'CS');
   assert.equal(initials('Bridge'), 'BR');
   assert.equal(initials('  internal-tools '), 'IT');
+});
+
+test('projects rail: open by default, collapsed only after the user collapses it, survives a broken storage', () => {
+  const data = new Map<string, string>();
+  const storage = { getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => { data.set(k, v); }, removeItem: (k: string) => { data.delete(k); } };
+  assert.equal(readProjectsRail(storage), false);
+  saveProjectsRail(storage, true);
+  assert.equal(data.get(PROJECTS_RAIL_KEY), '1');
+  assert.equal(readProjectsRail(storage), true);
+  saveProjectsRail(storage, false);
+  assert.equal(readProjectsRail(storage), false);
+  const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } };
+  assert.equal(readProjectsRail(broken), false);
+  assert.doesNotThrow(() => saveProjectsRail(broken, true));
+  assert.equal(readProjectsRail(null), false);
 });
