@@ -164,7 +164,7 @@
 .app .kb-full:hover { border-color: var(--a-ink-400); }
 .app .kb-full:focus-visible { outline: 2px solid var(--a-focus); outline-offset: 2px; }
 .app .kb-compact .board { flex: 1; min-height: 0; padding: 16px; align-items: stretch; background: var(--a-paper); }
-.app .kb-compact .board .col { flex: 0 0 200px; min-width: 200px; overflow-y: auto; }
+.app .kb-compact .board .col { flex: 1 1 0; min-width: 200px; overflow-y: auto; }
 .app .kb-cempty { flex: 1; background: var(--a-paper); }
 .app .kb-cempty b { font: 600 22px/1.3 var(--font-ui); letter-spacing: -0.02em; }
 .app .kb-cempty p { max-width: 460px; }
