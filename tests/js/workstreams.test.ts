@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, PROJECTS_RAIL_KEY, readProjectsRail, saveProjectsRail, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
+import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, PROJECTS_RAIL_KEY, readProjectsRail, saveProjectsRail, streamMeta, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
 
 const ws = (name: string, badge = 0, extra: Partial<WorkstreamRow> = {}): WorkstreamRow => ({ id: `ws-${name}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false, badge, ...extra });
 const projects = [
@@ -92,4 +92,12 @@ test('projects rail: open by default, collapsed only after the user collapses it
   assert.equal(readProjectsRail(broken), false);
   assert.doesNotThrow(() => saveProjectsRail(broken, true));
   assert.equal(readProjectsRail(null), false);
+});
+
+test('stream meta counts only open tickets and says just "all done" when nothing is open', () => {
+  assert.equal(streamMeta(ws('General', 0, { tickets: 24, open: 0, allDone: true })), 'all done');
+  assert.equal(streamMeta(ws('Mixed', 0, { tickets: 9, open: 3, forYou: 1 })), '3 tickets · 1 for you');
+  assert.equal(streamMeta(ws('Mixed', 0, { tickets: 9, open: 1 })), '1 ticket');
+  assert.equal(streamMeta(ws('Active', 0, { tickets: 2, open: 2 })), '2 tickets');
+  assert.equal(streamMeta(ws('Empty')), '0 tickets');
 });

@@ -17,7 +17,7 @@ import { firstName, send, type ColumnKey, type StatusSubject } from '../lib/kanb
 import { t as tk, type StrKey } from '../lib/strings';
 import { t, t as tw, tn } from '../lib/strings-workstreams';
 import {
-  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError, readProjectsRail, saveProjectsRail,
+  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError, readProjectsRail, saveProjectsRail, streamMeta,
   type Change, type FinderFocus, type FinderProject, type Preview, type WorkstreamRow,
 } from '../lib/workstreams';
 
@@ -83,13 +83,11 @@ function projectMeta(p: FinderProject, now: string): string {
   return [pm, rest].filter(Boolean).join(' · ');
 }
 
-/** Stream meta: "9 tickets · 1 for you" · "11 tickets · all done". */
-function streamMeta(w: WorkstreamRow): string {
-  const parts = [tn(w.tickets, 'fd.ws.tickets.one', 'fd.ws.tickets.many')];
-  if (w.allDone) parts.push(t('fd.ws.allDone'));
-  else if (w.forYou > 0) parts.push(t('fd.ws.forYou', { n: w.forYou }));
-  return parts.join(' · ');
-}
+/** A target row's counts once another workstream's tickets move into it (optimistic, until the reload). */
+const mergeCounts = (to: WorkstreamRow, from: WorkstreamRow): Pick<WorkstreamRow, 'tickets' | 'open' | 'forYou' | 'allDone'> => ({
+  tickets: to.tickets + from.tickets, open: to.open + from.open, forYou: to.forYou + from.forYou,
+  allDone: to.tickets + from.tickets > 0 && to.open + from.open === 0,
+});
 
 const subject = (p: FinderProject): StatusSubject => ({
   name: p.name, slug: p.slug, status: p.pmStatus, status_note: p.pmStatusNote, status_set_by: p.pmStatusSetBy, status_set_by_name: p.pmStatusSetByName,
@@ -227,10 +225,10 @@ function Portfolio(props: Props) {
     patchStreams(p.id, (list) => list.map((w) => (w.id === ws.id ? { ...w, name } : w))),
     () => send('PATCH', `/projects/${p.slug}/workstreams/${ws.id}`, { name }), t('toast.renamedWs', { name }), rethrow);
   const deleteWorkstream = (p: FinderProject, ws: WorkstreamRow, body: { target_id?: string; new_name?: string }) => mutate(
-    patchStreams(p.id, (list) => list.filter((w) => w.id !== ws.id).map((w) => (w.id === body.target_id ? { ...w, tickets: w.tickets + ws.tickets, isDefault: w.isDefault || ws.isDefault } : w))),
+    patchStreams(p.id, (list) => list.filter((w) => w.id !== ws.id).map((w) => (w.id === body.target_id ? { ...w, ...mergeCounts(w, ws), isDefault: w.isDefault || ws.isDefault } : w))),
     () => send('DELETE', `/projects/${p.slug}/workstreams/${ws.id}`, body), t('toast.deletedWs', { name: ws.name }), true);
   const moveAll = (p: FinderProject, ws: WorkstreamRow, targetId: string, targetName: string) => mutate(
-    patchStreams(p.id, (list) => list.map((w) => (w.id === ws.id ? { ...w, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false } : w.id === targetId ? { ...w, tickets: w.tickets + ws.tickets } : w))),
+    patchStreams(p.id, (list) => list.map((w) => (w.id === ws.id ? { ...w, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false } : w.id === targetId ? { ...w, ...mergeCounts(w, ws) } : w))),
     () => send('POST', `/projects/${p.slug}/workstreams/${ws.id}/move-tickets`, { target_id: targetId }),
     t('toast.movedAll', { tickets: tn(ws.tickets, 'dlg.delWs.tickets.one', 'dlg.delWs.tickets.many'), name: targetName }), true);
   const reorder = (p: FinderProject, ws: WorkstreamRow, direction: 'up' | 'down') => mutate(

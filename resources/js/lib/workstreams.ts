@@ -1,5 +1,6 @@
 // Portfolio Finder + board workstreams: shared types and pure helpers (no React), tested in tests/js/workstreams.test.ts.
 import type { PortfolioProject } from './kanban.ts';
+import { t, tn } from './strings-workstreams.ts';
 
 /** One workstream row (Finder column 2, board tabs), from Workstreams::rowsFor. */
 export interface WorkstreamRow {
@@ -53,6 +54,14 @@ export function badgeText(n: number): string | null {
 }
 
 export const isArchived = (p: Pick<PortfolioProject, 'archived' | 'pmStatus'>) => p.archived || p.pmStatus === 'archived';
+
+/** Stream meta: "3 tickets · 1 for you" (done tickets not counted) · "all done". */
+export function streamMeta(w: Pick<WorkstreamRow, 'open' | 'forYou' | 'allDone'>): string {
+  if (w.allDone) return t('fd.ws.allDone');
+  const parts = [tn(w.open, 'fd.ws.tickets.one', 'fd.ws.tickets.many')];
+  if (w.forYou > 0) parts.push(t('fd.ws.forYou', { n: w.forYou }));
+  return parts.join(' · ');
+}
 
 /**
  * Column 1's lists. Search matches project and workstream names (case-insensitive). "Show archived" off: archived
