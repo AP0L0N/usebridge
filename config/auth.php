@@ -42,6 +42,11 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // /mcp only: an OAuth access token (docs/MCP-OAUTH.md), resolved in AppServiceProvider.
+        'mcp-oauth' => [
+            'driver' => 'mcp-oauth',
+        ],
     ],
 
     /*

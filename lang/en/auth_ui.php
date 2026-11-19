@@ -173,4 +173,23 @@ return [
         'link_invalid' => 'This verification link is invalid or has expired. Links work for 60 minutes; send yourself a new one below.',
         'link_invalid_guest' => 'This verification link is invalid or has expired. Log in and send yourself a new one.',
     ],
+
+    // OAuth consent for an MCP client (GET /oauth/authorize, docs/MCP-OAUTH.md).
+    'oauth' => [
+        'title' => 'Connect an app',
+        'heading' => 'Connect :client to Bridge?',
+        'body' => ':client wants to use Bridge over MCP as :email, in the workspace :workspace.',
+        'can' => 'It will be able to read and change your projects, boards and tickets, and post status updates.',
+        'redirect_label' => 'After you decide, you go back to',
+        'dynamic_note' => 'This app registered itself with Bridge and is not verified. Approve only if you started this connection and trust the address above.',
+        'revoke_note' => 'You can disconnect it at any time under Account → API tokens.',
+        'unverified' => 'Verify your email address before you connect an app. Then start the connection again.',
+        'approve' => 'Approve',
+        'deny' => 'Deny',
+        'busy' => 'Connecting…',
+        'busy_note' => 'Connecting, please wait.',
+        'error_heading' => 'This connection cannot continue',
+        'error_help' => 'Go back to the app and start the connection again. If it keeps failing, the app is not set up correctly for Bridge.',
+        'continue' => 'Continue to Bridge',
+    ],
 ];

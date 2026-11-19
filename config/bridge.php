@@ -30,6 +30,14 @@ return [
     'org_timezone' => 'Europe/Ljubljana',
 
     /*
+    | OAuth for the MCP server (docs/MCP-OAUTH.md). dynamic_registration: MCP clients may register themselves as
+    | public clients at POST /oauth/register (RFC 7591). false = only clients made with bridge:mcp-oauth-client.
+    */
+    'mcp_oauth' => [
+        'dynamic_registration' => filter_var(env('BRIDGE_MCP_OAUTH_DCR', true), FILTER_VALIDATE_BOOL),
+    ],
+
+    /*
     | Multi-user (docs/MULTI-USER-PLAN.md). default_workspace: slug of the owner's workspace (BRIDGE_WORKSPACE_SLUG),
     | created by the backfill migration with the name BRIDGE_WORKSPACE_NAME; console writes without a workspace act
     | in it. An already migrated database must keep the slug it was created with: set BRIDGE_WORKSPACE_SLUG to it.

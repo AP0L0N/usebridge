@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\AccountDeletion;
 use App\Services\Auth\LoginService;
+use App\Services\Auth\McpOAuth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,6 +23,14 @@ class LoginController extends Controller
             'remember' => ['sometimes', 'boolean'],
         ]);
         $user = $this->login->login($data['email'], $data['password'], (bool) ($data['remember'] ?? false), $request->ip(), $request->session());
+
+        // An MCP client sent the guest here from the OAuth consent screen: back to it (docs/MCP-OAUTH.md).
+        $consent = McpOAuth::intendedAuthorizeUrl($request->session()->get('url.intended'));
+        if ($consent !== null) {
+            $request->session()->forget('url.intended');
+
+            return response()->json(['user' => self::user($user), 'redirect' => $consent]);
+        }
 
         // Unverified: the verify notice first (resend there; the boards still work without verifying).
         return response()->json(['user' => self::user($user), 'redirect' => route($user->hasVerifiedEmail() ? 'portfolio' : 'verification.notice')]);

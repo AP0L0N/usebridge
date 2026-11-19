@@ -5,6 +5,7 @@ use App\Http\Controllers\AgentsController;
 use App\Http\Controllers\Auth\AccountDeletionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\McpOAuthController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Auth\SessionController;
@@ -87,6 +88,12 @@ Route::middleware(RequireAdmin::class)->prefix('admin')->group(function () {
     Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users');
     Route::post('/users/{id}/disable', [AdminUserController::class, 'disable'])->whereNumber('id')->name('admin.users.disable');
     Route::post('/users/{id}/enable', [AdminUserController::class, 'enable'])->whereNumber('id')->name('admin.users.enable');
+});
+
+// OAuth consent for MCP clients (docs/MCP-OAUTH.md): a guest logs in first and comes back (LoginController).
+Route::middleware(EnsureUserWorkspace::class)->group(function () {
+    Route::get('/oauth/authorize', [McpOAuthController::class, 'consent'])->name('mcp.oauth.authorize');
+    Route::post('/oauth/authorize', [McpOAuthController::class, 'decide'])->middleware('throttle:30,1')->name('mcp.oauth.decide');
 });
 
 Route::get('/welcome', OnboardingController::class)->middleware(['auth', EnsureUserWorkspace::class])->name('onboarding');

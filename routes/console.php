@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\McpOAuthClient;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Auth\AccountDeletion;
 use App\Services\Auth\AccountPurge;
+use App\Services\Auth\McpOAuth;
 use App\Services\BridgeRoster;
 use App\Services\Ops\CopiedTokenRotation;
 use App\Services\Ops\StagingOnlyGuard;
@@ -381,3 +383,56 @@ Artisan::command('bridge:verify-email {--email= : The user\'s login email} {--fo
 
     return 0;
 })->purpose('Staging only: mark a user\'s email as verified (prints the user id only)');
+
+// OAuth clients of the MCP server (docs/MCP-OAUTH.md): create a confidential client for an app that asks for a client
+// id + secret (Gemini), list the clients, or revoke one together with every connection it holds. The secret is printed
+// once; only its sha256 is stored.
+Artisan::command('bridge:mcp-oauth-client {name? : Name shown on the consent screen, e.g. "Gemini"} {--redirect=* : Redirect URI the app shows (repeat for several)} {--public : No secret (PKCE only)} {--list : List the clients} {--revoke= : Client id to revoke, with all its connections}', function (McpOAuth $oauth) {
+    if ($this->option('list')) {
+        $this->table(['Client id', 'Name', 'Type', 'Redirect URIs', 'Created', 'Revoked'], McpOAuthClient::query()->orderBy('created_at')->get()
+            ->map(fn (McpOAuthClient $c) => [$c->id, $c->name, ($c->isConfidential() ? 'confidential' : 'public').($c->is_dynamic ? ', self-registered' : ''),
+                implode("\n", $c->redirect_uris ?? []), $c->created_at?->toDateString(), $c->revoked_at?->toDateString() ?? '']));
+
+        return 0;
+    }
+    if ($this->option('revoke') !== null) {
+        $client = McpOAuthClient::query()->find($this->option('revoke'));
+        if ($client === null) {
+            $this->error('No client with that id.');
+
+            return 1;
+        }
+        $grants = $oauth->revokeClient($client);
+        $this->info("Revoked {$client->name} ({$client->id}) and $grants connection(s).");
+
+        return 0;
+    }
+
+    $name = trim((string) $this->argument('name'));
+    $redirects = array_values(array_filter(array_map('trim', (array) $this->option('redirect'))));
+    if ($name === '' || $redirects === []) {
+        $this->error('Give a name and at least one --redirect=<uri> (the redirect URI the app shows).');
+
+        return 1;
+    }
+    foreach ($redirects as $uri) {
+        if (! McpOAuth::validRedirectUri($uri)) {
+            $this->error("$uri: not a valid redirect URI (https, http on localhost, or an app scheme; no fragment).");
+
+            return 1;
+        }
+    }
+    ['client' => $client, 'secret' => $secret] = $oauth->createClient($name, $redirects, confidential: ! $this->option('public'));
+    $this->info("Created the OAuth client \"{$client->name}\".");
+    $this->line('MCP server URL: '.McpOAuth::resource());
+    $this->line('Client ID:      '.$client->id);
+    $this->line('Client secret:  '.($secret ?? '(none: public client, PKCE only)'));
+    foreach ($client->redirect_uris as $uri) {
+        $this->line('Redirect URI:   '.$uri);
+    }
+    if ($secret !== null) {
+        $this->warn('The secret is shown only this once; Bridge stores its hash.');
+    }
+
+    return 0;
+})->purpose('Create, list or revoke OAuth clients of the MCP server (prints client id and secret once)');

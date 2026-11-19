@@ -87,6 +87,9 @@ npx tsc --noEmit
 
 Claude Code: `claude mcp add --transport http bridge https://your-host/mcp --header "Authorization: Bearer <token>"`.
 
+Apps that connect through OAuth instead of a pasted token (for example Gemini) are covered in
+[docs/MCP-OAUTH.md](docs/MCP-OAUTH.md).
+
 The same token works for the REST API (`Authorization: Bearer <token>`, `Accept: application/json`). Rate limit: 120
 requests per minute per token.
 

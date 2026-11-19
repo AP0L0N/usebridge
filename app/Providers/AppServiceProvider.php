@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Auth\McpOAuth;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -30,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
 
             return route('login'); // the login screen
         });
+
+        // /mcp also accepts OAuth access tokens (auth:sanctum,mcp-oauth; docs/MCP-OAUTH.md).
+        Auth::viaRequest('mcp-oauth', fn (Request $request) => McpOAuth::userForBearer($request->bearerToken()));
 
         // Open sign-up: 5 per IP and hour (relayed decision 1).
         RateLimiter::for('signup', fn (Request $request) => Limit::perHour(5)->by('signup:'.$request->ip())
