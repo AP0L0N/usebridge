@@ -176,10 +176,11 @@
   .tkl:focus-visible{outline:0}
   .tk .tkmv,.tk .lb,.tk .tmeta,.tk .askb,.tk .blk,.tk .unr,.tk .via,.tk>svg{position:relative;z-index:1}
   .tk.done h3{color:var(--a-ink-600)}
-  /* simple card (board header "Simple"): 8px status dot + title clamped to 2 lines. Dot (README §10.1): blocked = risk,
+  /* simple card (board header "Simple"): 8px status dot + the full title, wrapping (also long unbroken strings), never
+     clamped; this rule also undoes the phone .tk h3 clamp. Dot (README §10.1): blocked = risk,
      new activity = agent, otherwise the column's .c-* colour (same as the column header dot). */
   .tk.simple{flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:10px;padding:10px 12px}
-  .tk.simple h3{flex:1 1 0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+  .tk.simple h3{flex:1 1 0;display:block;-webkit-line-clamp:none;line-clamp:none;overflow:visible;overflow-wrap:anywhere}
   .sdot{width:8px;height:8px;margin-top:5px;border-radius:50%;flex:none}
   .sdot.blocked{background:var(--a-risk)}
   .sdot.new{background:var(--a-agent)}
