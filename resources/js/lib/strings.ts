@@ -137,6 +137,16 @@ export const S = {
   'shell.tokens': 'API tokens & MCP',
   'shell.logout': 'Log out',
   'shell.loggingOut': 'Logging out…',
+  // Global search (Cmd+K / Ctrl+K from any app page).
+  'search.label': 'Search Bridge',
+  'search.placeholder': 'Search tickets, projects and workstreams',
+  'search.hint': 'Type a ticket key like CC-50, or part of a title or name.',
+  'search.none': 'Nothing matches “{q}”.',
+  'search.error': 'Search didn’t load. Try again.',
+  'search.group.tickets': 'Tickets',
+  'search.group.projects': 'Projects',
+  'search.group.workstreams': 'Workstreams',
+  'search.archived': 'Archived',
   // Redesign: Kanban board + ticket drawer (screen 2). Column labels come from the server (per-project names win).
   'board.back': 'All projects',
   'board.sample': 'Sample data',

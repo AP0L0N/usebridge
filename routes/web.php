@@ -21,6 +21,7 @@ use App\Http\Controllers\PowerSaverController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectSetupController;
 use App\Http\Controllers\QuestionPanelController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatusUpdateController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketRefController;
@@ -133,6 +134,8 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::get('/ticket-refs', [TicketRefController::class, 'index'])->name('ticket-refs.index');
     // {id}: a ticket id from a token, or a key (?ticket=KEY deep links to a ticket of another project).
     Route::get('/ticket-refs/{id}', [TicketRefController::class, 'show'])->where('id', 'tk-[A-Za-z0-9_-]+|[A-Za-z][A-Za-z0-9]{0,7}-\d+')->name('ticket-refs.show');
+    // Global search (Cmd/Ctrl+K in the app shell): tickets, projects and workstreams of the workspace; ?archived=1 = "Show archived".
+    Route::get('/search', SearchController::class)->name('search');
     Route::patch('/projects/{slug}/status', [TicketController::class, 'status'])->name('projects.status.update');
     Route::post('/projects/{slug}/archive', [ProjectController::class, 'archive'])->name('projects.archive');
     Route::post('/projects/{slug}/unarchive', [ProjectController::class, 'unarchive'])->name('projects.unarchive');

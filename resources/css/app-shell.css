@@ -245,3 +245,16 @@
     .app .pf-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
     .app .pf h1 { font-size: 28px; }
 }
+
+/* ───────────── Global search (Cmd/Ctrl+K, Shell/GlobalSearch.tsx): the Kanban Sheet in a portaled "kanban app" host ───────────── */
+.app.gsr-host { min-height: 0; }
+.kanban .sheet.gsr { max-width: 640px; padding-bottom: 12px; }
+.app .gsr .gsr-in { width: auto; margin: 4px 20px 8px; }
+.app .gsr-note { margin: 8px 20px; color: var(--a-ink-600); font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.app .gsr-list { max-height: min(60vh, 520px); overflow-y: auto; padding: 0 8px; }
+.app .gsr-list .fd-ov { padding: 12px 12px 6px; }
+.app .gsr-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: var(--radius-md); color: var(--a-ink); text-decoration: none; }
+.app .gsr-row[aria-selected=true] { background: var(--a-paper); box-shadow: inset 0 0 0 1px var(--a-line); }
+.app .gsr-key { flex: none; color: var(--a-ink-600); }
+.app .gsr-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app .gsr-m { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--a-ink-400); font-size: 13px; }

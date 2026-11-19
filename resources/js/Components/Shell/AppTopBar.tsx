@@ -5,6 +5,8 @@
  *   <AppTopBar />                    // signed-in pages: role (user / owner / admin) comes from the shared Inertia props
  *   <AppTopBar variant="guest" />    // Auth pages: the Wordmark only, linking to /
  *
+ * Signed-in app pages also get the global search (Cmd+K / Ctrl+K, GlobalSearch).
+ *
  * Nav v3: Portfolio, Usage and Agents for everyone; Admin only for admins. Power Saver and Polymarket are hidden unless their
  * app switch is on (BRIDGE_FEATURE_POWER_SAVER / BRIDGE_FEATURE_POLYMARKET; Polymarket also needs the owner's workspace feature). The "Owner" chip is the existing is_admin flag. Phone width (≤720px): the nav lives behind the menu
  * button and the account name is hidden (the avatar stays).
@@ -15,6 +17,7 @@ import type { Shared } from '../../lib/account';
 import { go, requestJson } from '../../lib/http';
 import { t, type StrKey } from '../../lib/strings';
 import { LogoMark } from '../AppIcons';
+import { GlobalSearch } from './GlobalSearch';
 
 type NavItem = { href: string; label: StrKey; feature?: 'polymarket' | 'power_saver' | 'admin' };
 export const NAV: readonly NavItem[] = [
@@ -158,6 +161,7 @@ export function AppTopBar({ variant = 'app' }: { variant?: 'guest' | 'app' }) {
         )}
         <div className="atb-right">{right}</div>
       </div>
+      {variant === 'app' && user && <GlobalSearch url={page.url} />}
     </header>
   );
 }
