@@ -4,6 +4,7 @@ import type { Shared } from '../lib/account';
 import { go, requestJson } from '../lib/http';
 import { t } from '../lib/strings';
 import { IconChev } from './AppIcons';
+import { ThemeToggle } from './Shell/ThemeToggle';
 
 export const NAV = [
   { href: '/', label: 'Portfolio' },
@@ -96,6 +97,7 @@ export function TopBar({ nav = true }: { nav?: boolean } = {}) {
             </details>
           </>
         )}
+        <ThemeToggle className="top-theme" />
         {user && <AccountMenu url={page.url} />}
       </div>
     </header>

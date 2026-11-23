@@ -8,6 +8,7 @@ import '../css/account-redesign.css';
 import '../css/legal.css';
 import '../css/auth.css';
 import '../css/onboarding.css';
+import '../css/dark.css';
 import { createInertiaApp } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';

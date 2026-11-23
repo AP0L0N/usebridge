@@ -1,5 +1,7 @@
 // Landing page progressive enhancement (the page works without it): mobile menu toggle and the sticky CTA.
 
+import { applyTheme, followSystemTheme, nextThemeChoice, resolveTheme, setThemeChoice, THEME_EVENT, THEME_KEY, themeChoice, themeToggleLabel } from './lib/theme';
+
 const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
 const sheet = document.getElementById('site-menu');
 const closer = document.querySelector<HTMLButtonElement>('[data-menu-close]');
@@ -35,4 +37,28 @@ if (hero && sticky && 'IntersectionObserver' in window) {
         sticky.classList.toggle('is-visible', visible);
         sticky.toggleAttribute('inert', !visible);
     }).observe(hero);
+}
+
+// Theme toggles (header + menu sheet): system → light → dark → system. The head script already applied the theme.
+const themeToggles = document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]');
+
+if (themeToggles.length > 0) {
+    const render = (): void => {
+        const choice = themeChoice();
+        const label = themeToggleLabel(choice);
+        themeToggles.forEach((button) => {
+            button.dataset.themeChoice = choice;
+            button.setAttribute('aria-label', label);
+            button.title = label;
+        });
+    };
+    themeToggles.forEach((button) => button.addEventListener('click', () => setThemeChoice(nextThemeChoice(themeChoice()))));
+    window.addEventListener(THEME_EVENT, render);
+    window.addEventListener('storage', (event) => {
+        if (event.key !== THEME_KEY && event.key !== null) return;
+        applyTheme(resolveTheme(themeChoice()));
+        render();
+    });
+    followSystemTheme(render);
+    render();
 }

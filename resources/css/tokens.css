@@ -12,9 +12,13 @@
  *   signal  #C8F135  FILL ONLY, and only for the primary hero CTA and "Waiting on you" highlights
  *   violet  #7C5CFF  bot / agent cues (dots)
  *   ok #1F9D55 · warn #D98A00 · risk #E5484D  status colours
+ *   on-fill #0B0C0F  text on the signal and status fills, in both themes
  *   radius-sm/md/lg 8/12/20, radius-pill; tap-min 44; spacing --space-N in px
  *
  * --bh-* are the tokens of the hero animation component (public/landing/hero/), mapped onto the above.
+ *
+ * Dark theme: html[data-theme="dark"] (set by resources/views/partials/theme-script.blade.php before the first paint)
+ * remaps the colours below; spacing, type and shape never change. The light values above are the design and stay as is.
  */
 :root {
     /* Colour */
@@ -31,6 +35,7 @@
     --ok: #1F9D55;
     --warn: #D98A00;
     --risk: #E5484D;
+    --on-fill: #0B0C0F;
 
     /* Type */
     --font-ui: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -85,4 +90,22 @@
     --bh-shadow-board: 0 40px 90px -30px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
     --bh-font: var(--font-ui);
     --bh-mono: var(--font-mono);
+}
+
+/* Dark theme: the ink scale flips (text light, ink fills light with dark text) and paper/surface/line go dark.
+   Text contrast on --surface: ink-950 15.9:1, ink-600 7.9:1, ink-400 5.6:1 (AA). --signal and --violet stay; --risk is
+   lifted so red text keeps 4.5:1 on the dark surfaces. --stage-950 stays: the dark stage is dark in both themes. */
+html[data-theme="dark"] {
+    --ink-950: #ECEDEF;
+    --ink-800: #D2D4D9;
+    --ink-600: #A7ACB7;
+    --ink-400: #8D929E;
+    --line: #2C2F37;
+    --paper: #0E0F12;
+    --surface: #17191E;
+    --risk: #EF5A5F;
+    --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4);
+    --shadow-hairline: 0 1px 2px rgb(0 0 0 / 0.5);
+    --bh-shadow-card: 0 1px 2px rgba(0, 0, 0, .5), 0 1px 1px rgba(0, 0, 0, .3);
+    --bh-shadow-lift: 0 14px 28px -10px rgba(0, 0, 0, .7), 0 4px 10px -4px rgba(0, 0, 0, .5);
 }

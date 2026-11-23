@@ -97,7 +97,7 @@
 .auth-badge--agent .auth-badge-dot { background: var(--violet); }
 .auth-badge--sample { padding: 4px 10px; border: 1px dashed var(--ink-400); font-size: 13px; font-weight: 400; line-height: 1.4; }
 .auth-badge--sample.on-dark { background: transparent; border-color: var(--ink-600); color: var(--ink-400); }
-.auth-badge--signal { padding: 4px 10px; background: var(--signal); border-color: var(--signal); color: var(--ink-950); }
+.auth-badge--signal { padding: 4px 10px; background: var(--signal); border-color: var(--signal); color: var(--on-fill); }
 
 /* Form column */
 .auth-form { display: flex; flex-direction: column; gap: var(--space-24); }

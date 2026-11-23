@@ -60,7 +60,7 @@ html { scroll-behavior: smooth; scroll-padding-top: var(--space-24); }
 .btn--tertiary[aria-disabled='true'] { cursor: not-allowed; opacity: 0.55; }
 .btn--inverted { background: var(--surface); color: var(--ink-950); border-color: var(--line); }
 .btn--inverted:hover { background: var(--paper); }
-.btn--signal { background: var(--signal); color: var(--ink-950); }
+.btn--signal { background: var(--signal); color: var(--on-fill); }
 .btn--signal:hover { background: color-mix(in srgb, var(--signal) 88%, var(--surface)); }
 .btn--block { width: 100%; }
 
@@ -130,7 +130,7 @@ body.menu-locked { overflow: hidden; }
 .visual { align-self: stretch; padding: var(--space-20); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-8); }
 .chip { display: inline-flex; align-items: center; gap: var(--space-6); height: 28px; padding: 0 var(--space-10); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-pill); font-size: 13px; line-height: 1.4; color: var(--ink-800); white-space: nowrap; }
-.chip.is-waiting { background: var(--signal); border-color: var(--signal); color: var(--ink-950); }
+.chip.is-waiting { background: var(--signal); border-color: var(--signal); color: var(--on-fill); }
 .chip--mono { font-family: var(--font-mono); font-weight: 500; font-size: 12px; background: var(--surface); color: var(--ink-800); }
 .seg { display: inline-flex; gap: var(--space-4); padding: var(--space-4); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); }
 .seg span { display: inline-flex; align-items: center; height: 36px; padding: 0 var(--space-14); border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; color: var(--ink-600); }
@@ -362,3 +362,34 @@ body.menu-locked { overflow: hidden; }
     html { scroll-behavior: auto; }
     .landing *, .landing *::before, .landing *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* ───────────── Theme toggle (header + menu sheet; resources/js/landing.ts) ───────────── */
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--tap-min); height: var(--tap-min); padding: 0; background: transparent; border: 1px solid var(--ink-800); border-radius: var(--radius-sm); color: var(--surface); cursor: pointer; }
+.theme-toggle:hover { background: var(--ink-800); }
+.theme-toggle svg { display: block; }
+.theme-toggle .theme-toggle-light, .theme-toggle .theme-toggle-dark { display: none; }
+.theme-toggle[data-theme-choice='light'] .theme-toggle-system, .theme-toggle[data-theme-choice='dark'] .theme-toggle-system { display: none; }
+.theme-toggle[data-theme-choice='light'] .theme-toggle-light, .theme-toggle[data-theme-choice='dark'] .theme-toggle-dark { display: block; }
+html:not(.js) .theme-toggle { display: none; }
+.theme-dark-only { display: none; }
+
+/* ───────────── Dark theme (tokens.css remaps the colours; this keeps the dark islands as they are) ───────────── */
+/* The stage (header, hero copy, menu sheet), the final CTA and the ink panels are dark in both themes: they keep the
+   light-theme token values, so they look exactly as in light. The hero board itself follows the theme via --bh-*. */
+html[data-theme='dark'] :is(.on-stage, .final, .code, .appbar) {
+    --ink-950: #0B0C0F;
+    --ink-800: #1C1E24;
+    --ink-600: #4A4F5C;
+    --ink-400: #8A8F9C;
+    --line: #E6E6E1;
+    --paper: #F6F6F3;
+    --surface: #FFFFFF;
+}
+html[data-theme='dark'] .theme-light-only { display: none; }
+html[data-theme='dark'] .theme-dark-only { display: inline; }
+/* Icons baked in ink for light backgrounds: lighten them on the dark sections. */
+html[data-theme='dark'] .landing img:is([src*='-ink950'], [src*='-ink600']):not(:is(.on-stage, .final, .code, .appbar) img),
+html[data-theme='dark'] .faq summary::after { filter: invert(1); }
+html[data-theme='dark'] .sticky-cta { box-shadow: 0 -8px 24px rgb(0 0 0 / 0.4); }
+/* Hero board: white text on the ink fills that now flip light */
+html[data-theme='dark'] :is(.bh-approve, .bh-cursor__name, .bh-av--sam) { color: var(--bh-surface); }

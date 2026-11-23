@@ -1,0 +1,129 @@
+/*
+ * Dark theme for the app bundle (app.tsx imports it last). tokens.css remaps the shared tokens; this file remaps the
+ * palettes that shadow them (bridge.css' legacy :root, the scoped .app/.atb, .acx, .bu and .pmx blocks, the --auth-*
+ * and other per-area extras) and the few rules that still hard-code a light colour. Light mode is untouched: every
+ * rule here sits under html[data-theme="dark"], which the head script sets before the first paint.
+ */
+
+/* ───────────── Palettes ───────────── */
+html[data-theme="dark"] {
+    /* bridge.css legacy :root */
+    --paper: #0E0F12; --card: #17191E; --ink: #ECEDEF; --ink2: #A7ACB7; --ink3: #9096A2; --line: #2C2F37; --accent: #93B2DB;
+    --ok: #4CC38A; --ok-bg: #12291C; --w3: #F0686C; --w3-ink: #0B0C0F; --arch: #A7ACB7; --arch-bg: #24272E;
+    /* account.css, usage.css, polymarket.css extras */
+    --bad-bg: #3A1B1C; --note-bg: #332A10;
+    --sel: #1C2A3D; --h0: #1A1C22; --h1: #1E2C40; --h2: #2B4466; --h3: #43699A; --h4: #6E95C7; --h5: #A9C4E6;
+    --neg: #F0A070; --neg-bg: #3A2316; --hw: #9096A2; --fund: #8D929E;
+    /* auth.css + onboarding.css */
+    --auth-line: #2C2F37; --auth-paper: #0E0F12; --auth-ok-bg: #12291C; --auth-ok-line: #1F5A38;
+    --auth-warn-bg: #2E2510; --auth-warn-line: #6B5220; --auth-risk-bg: #341819; --auth-risk-line: #7A3133;
+    --auth-disabled-bg: #2C2F37; --auth-ink-hover: #D2D4D9; --auth-focus: #A895FF;
+    --onb-signal-ink: #B9D86A;
+}
+html[data-theme="dark"] :is(.app, .atb) {
+    --a-ink: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E;
+    --a-paper: #0E0F12; --a-line: #2C2F37; --a-surface: #17191E; --a-risk: #EF5A5F;
+    --a-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.5); --a-shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.5);
+    --a-focus: #A895FF;
+}
+html[data-theme="dark"] .acx {
+    --violet-tint: #221B3D;
+    --paper: #0E0F12; --line: #2C2F37; --text-muted: #A7ACB7; --focus: #A895FF;
+    --acx-ok: #4CC38A; --acx-warn-tint: #2E2510; --acx-warn-line: #6B5220;
+    --acx-risk-text: #F2787C; --acx-risk-tint: #341819; --acx-risk-line: #7A3133;
+    --acx-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.5); --acx-shadow-soft: 0 8px 24px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.5);
+}
+html[data-theme="dark"] .bu {
+    --paper: #0E0F12; --line: #2C2F37; --ink-100: #24272E; --ok-bg: #12291C;
+    --h0: color-mix(in srgb, var(--chart-2) 10%, var(--surface)); --h1: color-mix(in srgb, var(--chart-2) 28%, var(--surface));
+    --h2: color-mix(in srgb, var(--chart-2) 46%, var(--surface)); --h3: color-mix(in srgb, var(--chart-2) 64%, var(--surface));
+    --h4: color-mix(in srgb, var(--chart-2) 82%, var(--surface));
+}
+html[data-theme="dark"] .pmx {
+    --line: #2C2F37; --paper: #0E0F12;
+    --shadow-soft: 0 8px 12px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.5);
+    --ok-ink: #4CC38A; --warn-bg: #2E2510; --risk-ink: #F2787C;
+}
+
+/* Dark in both themes: the ink top bars, the auth stage, secrets, toasts and chart tooltips keep their light-theme
+   values, so they look as in light. The account menu inside the top bar is a light popover in light: it follows the theme. */
+html[data-theme="dark"] :is(.atb, .top, .auth-stage, .auth-topbar, .acx-secret, .acx-toast, .toast, .tip) {
+    --ink-950: #0B0C0F; --ink-800: #1C1E24; --ink-600: #4A4F5C; --ink-400: #8A8F9C; --line: #E6E6E1; --paper: #F6F6F3; --surface: #FFFFFF;
+    --ink: #17191F; --ink2: #4A4F5A; --ink3: #6B6F78; --card: #FFFFFF;
+    --a-ink: #0B0C0F; --a-ink-800: #1C1E24; --a-ink-600: #4A4F5C; --a-ink-400: #8A8F9C; --a-paper: #F6F6F3; --a-line: #E6E6E1; --a-surface: #FFFFFF;
+}
+html[data-theme="dark"] .atb .atb-menu {
+    --ink-950: #ECEDEF; --ink-800: #D2D4D9; --ink-600: #A7ACB7; --ink-400: #8D929E; --line: #2C2F37; --paper: #0E0F12; --surface: #17191E;
+    --a-ink: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E; --a-paper: #0E0F12; --a-line: #2C2F37; --a-surface: #17191E;
+}
+html[data-theme="dark"] :is(.atb, .top) { box-shadow: inset 0 -1px 0 #2C2F37; }
+html[data-theme="dark"] .auth-topbar { background: #0B0C0F; box-shadow: inset 0 -1px 0 #2C2F37; }
+html[data-theme="dark"] :is(.toast, .acx-toast, .tip) { box-shadow: 0 0 0 1px #2C2F37, 0 8px 24px rgb(0 0 0 / 0.5); }
+
+/* ───────────── App shell, Portfolio, workstreams, kanban ───────────── */
+html[data-theme="dark"] .app .pf-rest:hover .pf-foot { background: #1E2026; }
+html[data-theme="dark"] .app .pf-track span { background: var(--a-ink-800); }
+html[data-theme="dark"] .app .pf-switch.on .pf-track span { background: var(--a-surface); }
+html[data-theme="dark"] .app .kb-skel .sk-h { background: rgb(255 255 255 / 0.06); }
+html[data-theme="dark"] .app .wsd-act .btn.dng { color: var(--on-fill); }
+html[data-theme="dark"] .app .pf-qi { color: var(--on-fill); background: var(--signal); }
+html[data-theme="dark"] .kanban .btn:hover { background: #FFFFFF; }
+html[data-theme="dark"] .kanban :is(.gbtn, .ibtn, .colmore, .qadd):hover { background: rgb(255 255 255 / 0.06); }
+html[data-theme="dark"] .kanban .col { background: rgb(255 255 255 / 0.03); }
+html[data-theme="dark"] .kanban .ph { background: rgb(255 255 255 / 0.04); }
+html[data-theme="dark"] .kanban :is(.kb-ovl, .sheetov, .askov) { background: rgb(0 0 0 / 0.6); }
+html[data-theme="dark"] .kanban .sheet { box-shadow: 0 -8px 30px rgb(0 0 0 / 0.5); }
+html[data-theme="dark"] .kanban .btn .spin { border-color: rgb(11 12 15 / 0.3); border-top-color: #0B0C0F; }
+html[data-theme="dark"] .kanban .tin.sent .tag { color: var(--on-fill); }
+html[data-theme="dark"] .kanban .tk.lift { box-shadow: 0 14px 28px -10px rgb(0 0 0 / 0.7), 0 4px 10px -4px rgb(0 0 0 / 0.5); }
+html[data-theme="dark"] .kanban .tk.picked { box-shadow: 0 10px 24px rgb(0 0 0 / 0.5); }
+
+/* ───────────── Legacy screens (bridge.css, account.css, usage.css, polymarket.css) ───────────── */
+html[data-theme="dark"] mark { background: #5A4A00; }
+html[data-theme="dark"] :is(.reopen, .agent) { background: var(--sel); }
+html[data-theme="dark"] .opt:has(input:checked) { background: var(--sel); }
+html[data-theme="dark"] .s-arch { background: #15171B; }
+html[data-theme="dark"] .s-arch .spine { background: #4A4E58; }
+html[data-theme="dark"] .sw { background: #3A3D45; }
+html[data-theme="dark"] .spin { border-color: rgb(11 12 15 / 0.3); border-top-color: #0B0C0F; }
+html[data-theme="dark"] .prow:hover { box-shadow: 0 4px 16px rgb(0 0 0 / 0.5); }
+html[data-theme="dark"] .toast :is(.s, .tx) { color: #D8DBE0; }
+html[data-theme="dark"] .colprev .col { background: #1E2026; }
+html[data-theme="dark"] .colprev .colh input:hover { border-color: #4A4E58; }
+html[data-theme="dark"] .colprev .ghosttk { background: rgb(255 255 255 / 0.04); border-color: #4A4E58; }
+html[data-theme="dark"] :is(.qin[readonly], .code) { background: #1E2026; }
+html[data-theme="dark"] :is(.errsum h2, .errsum h3, .errsum a, .callout.bad, .card.dz h2, .role.off) { color: #F2878A; }
+html[data-theme="dark"] :is(.callout.warn, .pend) { color: #E8C66A; }
+html[data-theme="dark"] .mdlbox { box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgb(0 0 0 / 0.6); }
+html[data-theme="dark"] .chart .base, html[data-theme="dark"] .pmchart .base { stroke: #4A4E58; }
+html[data-theme="dark"] .chart .vl { stroke: var(--card); }
+html[data-theme="dark"] :is(.tbl tr.hov td, .tbl tbody tr:not(.tot):hover td, .tbl tr.more td) { background: #1E2026; }
+html[data-theme="dark"] :is(.rtag.um, .notice, .kb.warn, .banner.w1) { background: var(--note-bg); color: #E8C66A; }
+html[data-theme="dark"] .banner.w2 { background: #3A2316; color: #F0A070; }
+html[data-theme="dark"] .skel { background: linear-gradient(90deg, #1E2026 0, #262930 50%, #1E2026 100%); background-size: 200% 100%; }
+html[data-theme="dark"] :is(.miss, .hm .c.miss) { background: repeating-linear-gradient(135deg, #24272E 0 4px, #17191E 4px 8px); border-color: #4A4E58; }
+html[data-theme="dark"] .hm .c.miss { box-shadow: inset 0 0 0 1px #4A4E58; }
+html[data-theme="dark"] .hm .c.nr { background: repeating-linear-gradient(135deg, #24272E 0 3px, #17191E 3px 6px); box-shadow: inset 0 0 0 1px #3A3D45; }
+html[data-theme="dark"] :is(.annot, .annot-chip) { background: #1A1914; border-color: #4A4E58; }
+html[data-theme="dark"] .pmchart .vgrid { stroke: #24272E; }
+html[data-theme="dark"] .pmchart .wk { stroke: #2C2F37; }
+html[data-theme="dark"] .pmchart .ann { fill: #E0A060; }
+html[data-theme="dark"] .sidep.yes { background: var(--ok-bg); }
+html[data-theme="dark"] .sidep.no { background: var(--neg-bg); }
+html[data-theme="dark"] :is(.ptbl tr.grp td, .ptbl tr.setl td, .quiet, .ptbl tr.grp, .ptbl tr.setl) { background: #15171B; }
+
+/* ───────────── Account redesign, Usage / Agents redesign, Polymarket desk ───────────── */
+html[data-theme="dark"] .acx-nav__item:hover { background: rgb(255 255 255 / 0.06); }
+html[data-theme="dark"] .acx-btn--danger { color: var(--on-fill); }
+html[data-theme="dark"] .acx-notice--violet { border-color: #4B3C8F; }
+html[data-theme="dark"] .acx-dialog { background: rgb(0 0 0 / 0.6); }
+html[data-theme="dark"] .acx-empty__tile { background: var(--ink-800); }
+html[data-theme="dark"] .bu .rtag.um { background: var(--note-bg); color: #E8C66A; }
+html[data-theme="dark"] .bu .skel { background: linear-gradient(90deg, #1E2026 0, var(--paper) 50%, #1E2026 100%); background-size: 200% 100%; }
+html[data-theme="dark"] .bu .ai-err { color: #F2787C; }
+html[data-theme="dark"] .bu .ag-tile:hover { box-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4); }
+html[data-theme="dark"] .bu .ag-tile:focus-visible { outline-color: #A895FF; }
+html[data-theme="dark"] .bu .ag-avi { box-shadow: inset 0 0 0 1px #4A4F5C, 0 0 0 1px var(--line); }
+html[data-theme="dark"] .pmx-banner.stale { background: #341819; }
+html[data-theme="dark"] .pmx-tbl tr.setl td { background: #15171B; }
+html[data-theme="dark"] .acx-chip--write { background: #5B3FE0; border-color: #5B3FE0; color: #FFFFFF; }

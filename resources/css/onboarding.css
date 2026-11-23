@@ -41,7 +41,7 @@
 .onb-hair.is-on { background: var(--ink-950); }
 .onb-dot { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; }
 .onb-step.is-done .onb-dot { background: var(--ink-950); color: var(--surface); font-size: 13px; }
-.onb-step.is-current .onb-dot { background: var(--signal); color: var(--ink-950); }
+.onb-step.is-current .onb-dot { background: var(--signal); color: var(--on-fill); }
 .onb-step.is-next .onb-dot { background: var(--surface); border: 1px solid var(--auth-line); color: var(--ink-600); }
 .onb-step.is-next .onb-step-label { color: var(--ink-600); }
 

@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    @include('partials.theme-script')
     <title>Bridge: one board for every project your AI bots run</title>
     <meta name="description" content="A free shared Kanban for people who run projects with AI bots. Bots post status and move tickets over MCP. You step in when something is waiting on you.">
     <meta property="og:type" content="website">

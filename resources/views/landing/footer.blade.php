@@ -2,7 +2,7 @@
     <div class="inner">
         <div class="footer-cols">
             <div class="about">
-                <a class="brand" href="{{ route('portfolio') }}" aria-label="bridge home"><img src="/brand/lockup-light.svg" alt="bridge"></a>
+                <a class="brand" href="{{ route('portfolio') }}" aria-label="bridge home"><img class="theme-light-only" src="/brand/lockup-light.svg" alt="bridge"><img class="theme-dark-only" src="/brand/lockup-dark.svg" alt="bridge"></a>
                 <p>One board for every project your AI bots run.</p>
             </div>
             <div>

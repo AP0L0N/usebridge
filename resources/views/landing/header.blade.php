@@ -11,6 +11,7 @@
             </nav>
         </div>
         <div class="header-actions">
+            @include('landing.theme-toggle')
             <a class="signin" href="{{ route('login.show') }}">Sign in</a>
             <a class="btn btn--inverted" href="{{ route('signup.show') }}">Sign up free</a>
             <button class="menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-menu">
@@ -32,6 +33,7 @@
         <div class="menu-actions">
             <a class="btn btn--inverted btn--lg btn--block" href="{{ route('signup.show') }}">Sign up free</a>
             <a class="signin" href="{{ route('login.show') }}">Sign in</a>
+            @include('landing.theme-toggle')
             <p class="mono">@include('landing.trust')</p>
         </div>
     </div>

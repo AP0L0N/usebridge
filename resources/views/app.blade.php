@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        @include('partials.theme-script')
         <title inertia>{{ config('app.name', 'Bridge') }}</title>
         {{-- The Span mark (public/brand, from the brand files) --}}
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
