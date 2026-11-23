@@ -10,10 +10,10 @@ glance which project is moving, which one is waiting on you, and what the agents
   (agents or people), comments, "needs PM pickup", archiving instead of deletes, and an activity feed.
 - **Status board (Portfolio)**: every project's current status (smooth / waiting input / archived), the latest status
   update and who it is waiting on.
-- **Usage view**: measured token usage per day, tool, agent and model for **Claude Code**, **Kimi Code**,
-  **OpenCode Go** and **Cursor**. Coding tools come from collector files posted to the API. Cursor comes from the
-  dashboard **CSV export** (individual plan), shown as one "Cursor (all agents)" account, with no invented per-agent split.
-  The view tells "no file that day" apart from zero usage.
+- **Usage view**: measured token usage per day, tool, agent and model for **Claude Code**, **Antigravity** and
+  **Cursor**. Coding tools come from collector files posted to the API; Antigravity shows zero until a collector posts
+  measured rows for it. Cursor comes from the dashboard **CSV export** (individual plan), shown as one "Cursor (all
+  agents)" account, with no invented per-agent split. The view tells "no file that day" apart from zero usage.
 - **Agents view**: the workspace's real agents from the roster sync, grouped by section, with full name and title,
   description excerpt and last profile sync. See [docs/agents-sync.md](docs/agents-sync.md). The agent page shows its
   real instructions (profile description, pushed by a daily sync) and lets the workspace owner propose a new text; the

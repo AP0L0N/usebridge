@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
  * tool) for the tools the file covers; other tools' rows of that date stay untouched, so a separate Cursor file does
  * not wipe the collector's rows and vice versa. Covered tools = `covered_tools` when given, else the tools in the
  * rows, plus CliUsageDay::LEGACY_COLLECTOR_TOOLS when no row is Cursor (cli_usage.py files, also empty ones, replace
- * Claude Code / Kimi Code / OpenCode Go as before). Each covered tool gets a CliUsageImport marker (also with zero
- * rows). One row per (date, tool, agent, model); a null or absent `model` is stored as CliUsageDay::NO_MODEL. A day
+ * Claude Code / Antigravity; Kimi Code / OpenCode Go only when the file has rows for them). Each covered tool gets a
+ * CliUsageImport marker (also with zero rows). One row per (date, tool, agent, model); a null or absent `model` is stored as CliUsageDay::NO_MODEL. A day
  * before the collector's coverage_from is skipped untouched: the CLIs delete old transcripts, so such a file is cut
  * short and must never overwrite a complete day imported earlier. Shared by UsageDayImporter (nested `cli_usage`
  * key, same transaction) and `php artisan bridge:cli-usage-import` (standalone files, backfill).

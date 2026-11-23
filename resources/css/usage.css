@@ -162,7 +162,7 @@
 .tbl th,.tbl td{padding-left:6px;padding-right:6px}
 }
 
-/* ---- Claude Code, Kimi Code & OpenCode Go: measured tokens (cli_usage_days) ---- */
+/* ---- Claude Code & Antigravity: measured tokens (cli_usage_days) ---- */
 .meas{font-weight:700}.meas0{font-weight:700}
 .kb.meas-b{background:var(--ok-bg);color:var(--ok)}
 .cli-tools{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:14px 0 18px}

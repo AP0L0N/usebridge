@@ -6,8 +6,8 @@ use App\Models\Concerns\BelongsToWorkspace;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Measured Claude Code / Kimi Code / OpenCode Go / Cursor tokens for one (date, tool, agent, model): a row of a
- * collector file (bridge-usage/data/cli/YYYY-MM-DD.json, or the `cli_usage` key of an estimator day file).
+ * Measured Claude Code / Antigravity / Cursor tokens (and older Kimi Code / OpenCode Go rows) for one (date, tool,
+ * agent, model): a row of a collector file (bridge-usage/data/cli/YYYY-MM-DD.json, or the `cli_usage` key of an estimator day file).
  * `model` is the model name as the CLI logged it; '' (NO_MODEL) when the log recorded none, and for rows
  * imported before the collector reported models. `date` stays a plain Y-m-d string so lookups match on
  * SQLite and MySQL alike. `cost_cents` / `max_mode_calls` are optional (Cursor), null when the file had none.
@@ -16,12 +16,16 @@ class CliUsageDay extends Model
 {
     use BelongsToWorkspace;
 
-    public const TOOLS = ['claude_code', 'kimi_code', 'opencode_go', 'cursor'];
+    public const TOOLS = ['claude_code', 'antigravity', 'kimi_code', 'opencode_go', 'cursor'];
 
-    /** The tools cli_usage.py reports: a file without covered_tools and without cursor rows covers all of them. */
-    public const LEGACY_COLLECTOR_TOOLS = ['claude_code', 'kimi_code', 'opencode_go'];
+    /**
+     * The tools a cli_usage.py file without covered_tools and without cursor rows is authoritative for (zero markers
+     * included). kimi_code / opencode_go are no longer listed: their rows still validate and import, the Usage view
+     * hides them.
+     */
+    public const LEGACY_COLLECTOR_TOOLS = ['claude_code', 'antigravity'];
 
-    public const TOOL_LABELS = ['claude_code' => 'Claude Code', 'kimi_code' => 'Kimi Code', 'opencode_go' => 'OpenCode Go', 'cursor' => 'Cursor'];
+    public const TOOL_LABELS = ['claude_code' => 'Claude Code', 'antigravity' => 'Antigravity', 'kimi_code' => 'Kimi Code', 'opencode_go' => 'OpenCode Go', 'cursor' => 'Cursor'];
 
     /** Stored `model` when the log recorded no model (collector `null` or no `model` key). */
     public const NO_MODEL = '';

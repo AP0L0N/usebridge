@@ -361,9 +361,9 @@ class CursorCsvImportTest extends TestCase
         $this->get('/usage?range=7')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('cli.cursorUpload.allowed', true)
             ->where('cli.cursorUpload.lastImportAt', Carbon::now()->toIso8601String())
-            ->where('cli.tools.3.tool', 'cursor')
-            ->where('cli.tools.3.calls', 3)
-            ->where('cli.tools.3.models.0.model', 'composer-1'));
+            ->where('cli.tools.2.tool', 'cursor')
+            ->where('cli.tools.2.calls', 3)
+            ->where('cli.tools.2.models.0.model', 'composer-1'));
 
         $this->flushSession();
         $this->actingAs($this->workspaceUser(), 'web');

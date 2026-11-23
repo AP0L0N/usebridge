@@ -26,15 +26,18 @@ use Carbon\CarbonImmutable;
  *   is yesterday unless ?day says otherwise. Its sparkline column is always the last 7 days.
  * - Factor: daily files carry no calibration flag (spec data gap 5), so K != params.median_K
  *   means "calibrated", otherwise "median K".
- * - `cli`: measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days, collector cli_usage.py)
+ * - `cli`: measured Claude Code / Antigravity tokens (cli_usage_days, collector cli_usage.py)
  *   over the same range, independent of usage_days. A day counts as present when it has rows, or lies
  *   between the collector's coverage start and the last imported day (then zero is a true zero); earlier
  *   or later days are "no data". Total = input + output + cache read + cache creation. Rows are stored
  *   per model; tools, table cells and their agents also carry a `models` breakdown (total desc) that sums
  *   to the row it sits in. Model '' (rows from before models were collected, or a log without one) is
- *   `model: null` with the label "model not recorded". `tools` always lists the collector's three tools; Cursor
- *   only when it has rows in the range. `importedTools`: date => tools a file covered that day (CliUsageImport
- *   markers): a covered tool without rows is a true zero, a tool missing there had no file. `costCents` (cents,
+ *   `model: null` with the label "model not recorded". `tools` always lists Claude Code and Antigravity (Antigravity
+ *   stays a true zero until a collector posts rows for it); Cursor only when it has rows in the range. Kimi Code /
+ *   OpenCode Go (HIDDEN_TOOLS) are never shown: their stored rows are left out of every figure. `importedTools`:
+ *   date => tools a file covered that day (CliUsageImport markers): a covered tool without rows is a true zero, a
+ *   tool missing there had no file. A date with a collector marker (claude_code / kimi_code / opencode_go) also counts
+ *   Antigravity as covered, so days imported before it was a collector tool read 0, not "no file". `costCents` (cents,
  *   float) is added to a tool, model and table row / model only when one of its rows carries `cost_cents` (Cursor
  *   CSV with a Cost column); everywhere else the key is absent.
  */
@@ -52,7 +55,13 @@ final class UsageReport
     public const UNMATCHED_LABEL = 'No routine (ad-hoc)';
 
     /** Fixed chart colours per CLI tool (from the AgentColors palette, so they sit well next to the agents). */
-    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'kimi_code' => '#10558F', 'opencode_go' => '#44954A', 'cursor' => '#484890'];
+    public const TOOL_COLORS = ['claude_code' => '#BC671F', 'antigravity' => '#10558F', 'kimi_code' => '#10558F', 'opencode_go' => '#44954A', 'cursor' => '#484890'];
+
+    /** Tools the collector no longer reports: rows stay stored and importable, the Usage view leaves them out. */
+    private const HIDDEN_TOOLS = ['kimi_code', 'opencode_go'];
+
+    /** Marker tools that mean the collector (cli_usage.py) ran that day, so Antigravity counts as covered too. */
+    private const COLLECTOR_MARKER_TOOLS = ['claude_code', 'kimi_code', 'opencode_go'];
 
     private CarbonImmutable $now;
 
@@ -160,7 +169,7 @@ final class UsageReport
     }
 
     /**
-     * Measured Claude Code / Kimi Code / OpenCode Go tokens over the range (see the class comment).
+     * Measured Claude Code / Antigravity / Cursor tokens over the range (see the class comment).
      *
      * @param  list<string>  $dates
      * @return array<string, mixed>
@@ -169,6 +178,7 @@ final class UsageReport
     {
         $rows = CliUsageDay::query()
             ->whereBetween('date', [$dates[0], end($dates)])
+            ->whereNotIn('tool', self::HIDDEN_TOOLS)
             ->orderBy('date')->orderBy('tool')->orderBy('agent_id')->orderBy('model')
             ->get();
         $coverageFrom = CliUsageDay::query()->min('date');
@@ -279,7 +289,11 @@ final class UsageReport
 
         $table = [];
         foreach ($byDay as $d => $cells) {
-            foreach ($cells as $tool => $cell) {
+            foreach (CliUsageDay::TOOLS as $tool) { // TOOLS order within a day, not the rows' alphabetical one
+                if (! isset($cells[$tool])) {
+                    continue;
+                }
+                $cell = $cells[$tool];
                 $agents = array_values(array_map(fn ($a) => array_replace($a, ['models' => $modelList($a['models'])]), $cell['agents']));
                 $table[] = $withCost([
                     'date' => $d,
@@ -318,6 +332,9 @@ final class UsageReport
             $d = substr((string) $m->getRawOriginal('date'), 0, 10);
             if (isset($out[$d])) {
                 $out[$d][] = $m->tool;
+                if (in_array($m->tool, self::COLLECTOR_MARKER_TOOLS, true)) {
+                    $out[$d][] = 'antigravity';
+                }
             }
         }
 

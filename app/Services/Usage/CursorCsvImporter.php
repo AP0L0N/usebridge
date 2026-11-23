@@ -21,8 +21,8 @@ use Throwable;
  * cost). Rows of any Kind count, also "Errored, No Charge" / "Aborted, Not Charged": Cursor processed those tokens.
  *
  * Date (UTC ISO) → Europe/Ljubljana day (OrgDate). Rows are aggregated per day × model into collector rows and every day
- * from the first to the last day of the file goes through CliUsageImporter with covered_tools ["cursor"] (Claude Code /
- * Kimi / OpenCode rows are never touched), coverage_from = first day; days without rows get a zero marker. The first and
+ * from the first to the last day of the file goes through CliUsageImporter with covered_tools ["cursor"] (the other
+ * tools' rows are never touched), coverage_from = first day; days without rows get a zero marker. The first and
  * last day are likely partial (the export window cuts them): such an edge day replaces a stored Cursor day only when
  * that day has no Cursor marker yet or the new calls >= the stored calls; otherwise it is kept. All days are written in
  * one transaction; any malformed row → InvalidUsageDay (line numbers, at most MAX_ERRORS) and nothing is written.

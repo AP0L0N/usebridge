@@ -32,8 +32,9 @@ export type OverviewProps = {
   cli: CliBlock;
 };
 
-// Measured Claude Code / Kimi Code / OpenCode Go tokens (cli_usage_days): real counts from the CLI logs, not estimates.
-export type CliTool = 'claude_code' | 'kimi_code' | 'opencode_go' | 'cursor';
+// Measured Claude Code / Antigravity / Cursor tokens (cli_usage_days): real counts from the CLI logs, not estimates.
+// kimi_code / opencode_go are no longer shown but may still appear in importedTools.
+export type CliTool = 'claude_code' | 'antigravity' | 'kimi_code' | 'opencode_go' | 'cursor';
 export type CliSums = { input: number; output: number; cacheRead: number; cacheCreation: number; total: number; calls: number;
   /** Cents (float), only when a row had a cost (Cursor CSV with a Cost column). */
   costCents?: number };
@@ -236,7 +237,7 @@ export function useNarrow(): boolean {
 
 // Chart tokens (Figma Foundations 45:16): charts use only --chart-1..5, in series order; the values live in usage-redesign.css.
 export const chartVar = (i: number) => `var(--chart-${Math.min(Math.max(i, 0), 4) + 1})`;
-const CLI_ORDER: string[] = ['claude_code', 'kimi_code', 'opencode_go', CURSOR];
+const CLI_ORDER: string[] = ['claude_code', 'antigravity', CURSOR];
 const toolVar = (tool: string) => chartVar(Math.max(0, CLI_ORDER.indexOf(tool)));
 
 /** Agents in rank order (the overview series) get chart-1..5; unknown ids share the last. */

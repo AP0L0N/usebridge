@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
-/** Measured Claude Code / Kimi Code tokens: validator, importer, day-file nesting, artisan backfill, report block. */
+/** Measured coding-tool tokens: validator, importer, day-file nesting, artisan backfill, report block. */
 class CliUsageTest extends TestCase
 {
     use RefreshDatabase;
@@ -502,20 +502,19 @@ class CliUsageTest extends TestCase
             ->where('cli.coverageFromLabel', 'Fri 23 Oct')
             ->where('cli.daysWithRows', 2)
             ->where('cli.total', self::D23_TOTAL + self::D24_TOTAL)
-            ->has('cli.tools', 3)
+            ->has('cli.tools', 2)
             ->where('cli.tools.0.tool', 'claude_code')
             ->where('cli.tools.0.name', 'Claude Code')
             ->where('cli.tools.0.color', UsageReport::TOOL_COLORS['claude_code'])
             ->where('cli.tools.0.total', self::D23_TOTAL + self::D24_TOTAL)
             ->where('cli.tools.0.days', 2)
-            ->where('cli.tools.1.tool', 'kimi_code')
+            ->where('cli.tools.1.tool', 'antigravity')
+            ->where('cli.tools.1.name', 'Antigravity')
+            ->where('cli.tools.1.color', UsageReport::TOOL_COLORS['antigravity'])
             ->where('cli.tools.1.calls', 0)
             ->where('cli.tools.1.total', 0)
             ->where('cli.tools.1.models', [])
-            ->where('cli.tools.2.tool', 'opencode_go')
-            ->where('cli.tools.2.name', 'OpenCode Go')
-            ->where('cli.tools.2.color', UsageReport::TOOL_COLORS['opencode_go'])
-            ->where('cli.tools.2.calls', 0)
+            ->where('cli.importedTools.2037-10-24', ['claude_code', 'antigravity'])
             ->has('cli.series', 1)
             ->where('cli.series.0.agentId', 'claude_code')
             ->has('cli.days', 7)
@@ -579,10 +578,10 @@ class CliUsageTest extends TestCase
         $importer = app(CliUsageImporter::class);
         $importer->import(self::synthetic('2037-10-20', [
             self::row('claude_code', self::ORRIN, 'Orrin', 10, 20, 30, 40, 2),
-            self::row('kimi_code', self::HALCYON, 'Halcyon', 1, 2, 3, 4, 1),
-            self::row('kimi_code', 'unattributed', 'Unattributed', 1, 1, 1, 1, 1),
+            self::row('antigravity', self::HALCYON, 'Halcyon', 1, 2, 3, 4, 1),
+            self::row('antigravity', 'unattributed', 'Unattributed', 1, 1, 1, 1, 1),
         ]));
-        $importer->import(self::synthetic('2037-10-22', [self::row('kimi_code', self::HALCYON, 'Halcyon', 5, 5, 5, 5, 3)]));
+        $importer->import(self::synthetic('2037-10-22', [self::row('antigravity', self::HALCYON, 'Halcyon', 5, 5, 5, 5, 3)]));
         $this->unlock();
 
         Carbon::setTestNow(Carbon::parse('2037-10-23 12:00:00', 'Europe/Ljubljana'));
@@ -592,7 +591,7 @@ class CliUsageTest extends TestCase
             ->where('cli.calls', 7)
             ->has('cli.series', 2)
             ->where('cli.series.0.name', 'Claude Code')
-            ->where('cli.series.1.name', 'Kimi Code')
+            ->where('cli.series.1.name', 'Antigravity')
             ->where('cli.days.3.date', '2037-10-20')
             ->where('cli.days.3.segments', [100, 14])
             ->where('cli.days.4.date', '2037-10-21')
@@ -604,7 +603,7 @@ class CliUsageTest extends TestCase
             ->has('cli.table', 3)
             ->where('cli.table.0.tool', 'claude_code')
             ->where('cli.table.0.agents', []) // a single agent: no breakdown
-            ->where('cli.table.1.tool', 'kimi_code')
+            ->where('cli.table.1.tool', 'antigravity')
             ->has('cli.table.1.agents', 2)
             ->where('cli.table.1.agents.1.name', 'Unattributed'));
 
@@ -669,9 +668,11 @@ class CliUsageTest extends TestCase
         $glm = CliUsageDay::query()->where('model', 'glm-5.3')->sole();
         $this->assertSame([100, 50, 1000, 10, 4], [$glm->input_tokens, $glm->output_tokens, $glm->cache_read_tokens, $glm->cache_creation_tokens, $glm->calls]);
 
-        // Replacing the day with an old-format file goes back to one unrecorded row per (tool, agent).
+        // Replacing the day with an old-format file goes back to one unrecorded row per (tool, agent); Kimi / OpenCode
+        // rows are not in that file, so they stay.
         app(CliUsageImporter::class)->import(self::synthetic('2037-10-20', [self::row('claude_code', self::ORRIN, 'Orrin', 1, 1, 1, 1, 1)]));
-        $this->assertSame([''], CliUsageDay::query()->pluck('model')->all());
+        $this->assertSame([''], CliUsageDay::query()->where('tool', 'claude_code')->pluck('model')->all());
+        $this->assertSame(3, CliUsageDay::query()->whereIn('tool', ['kimi_code', 'opencode_go'])->count());
     }
 
     public static function badModelRows(): array
@@ -769,14 +770,20 @@ class CliUsageTest extends TestCase
     {
         $importer = app(CliUsageImporter::class);
         $importer->import(self::modelDay('2037-10-20'));
+        $importer->import(self::synthetic('2037-10-20', [
+            self::mrow('antigravity', self::ORRIN, 'Orrin', 'gemini-3-pro', 100, 50, 1000, 10, 4),
+            self::mrow('antigravity', self::ORRIN, 'Orrin', 'gemini-3-flash', 1, 1, 1, 1, 1),
+        ]) + ['covered_tools' => ['antigravity']]);
         $importer->importRaw(json_encode(self::synthetic('2037-10-21', [self::row('claude_code', self::ORRIN, 'Orrin', 1000, 0, 0, 0, 1)])));
         $this->unlock();
         Carbon::setTestNow(Carbon::parse('2037-10-22 12:00:00', 'Europe/Ljubljana'));
 
         $cli = $this->get('/usage')->assertOk()->viewData('page')['props']['cli'];
-        $this->assertSame(370 + 10 + 0 + 20 + 1000 + 28 + 1160 + 4, $cli['total']);
-        $this->assertSame(['claude_code', 'kimi_code', 'opencode_go'], array_column($cli['tools'], 'tool'));
-        $this->assertSame(['claude_code', 'kimi_code', 'opencode_go'], array_column($cli['series'], 'agentId'));
+        // Kimi Code / OpenCode Go rows of modelDay() stay stored but are left out of every figure.
+        $this->assertSame(370 + 10 + 0 + 20 + 1000 + 1160 + 4, $cli['total']);
+        $this->assertSame(['claude_code', 'antigravity'], array_column($cli['tools'], 'tool'));
+        $this->assertSame(['claude_code', 'antigravity'], array_column($cli['series'], 'agentId'));
+        $this->assertSame(['claude_code', 'antigravity', 'claude_code'], array_column($cli['table'], 'tool'));
 
         $sums = ['input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls'];
         $sumOf = fn (array $list) => array_combine($sums, array_map(fn ($k) => array_sum(array_column($list, $k)), $sums));
@@ -799,8 +806,8 @@ class CliUsageTest extends TestCase
         $this->assertSame(['model', 'label', 'input', 'output', 'cacheRead', 'cacheCreation', 'total', 'calls', 'days'], array_keys($claude['models'][1]));
         $this->assertSame(1400, $claude['total']);
         $this->assertSame(2, $claude['days']);
-        $this->assertSame(['glm-5.3', 'glm-5.3-flash'], array_column($cli['tools'][2]['models'], 'model'));
-        $this->assertSame('OpenCode Go', $cli['tools'][2]['name']);
+        $this->assertSame(['gemini-3-pro', 'gemini-3-flash'], array_column($cli['tools'][1]['models'], 'model'));
+        $this->assertSame('Antigravity', $cli['tools'][1]['name']);
 
         // 20 Oct, Claude Code: agents stay one entry per agent (summed over models), each with its models
         $cell = $cli['table'][0];
@@ -809,10 +816,10 @@ class CliUsageTest extends TestCase
         $this->assertSame(['claude-opus-5-5', 'claude-haiku-5-5', null], array_column($cell['agents'][1]['models'], 'model'));
         $this->assertSame([390, 10, 0], array_column($cell['models'], 'total'));
         // a single agent with two models: still no agent breakdown, but a model breakdown
-        $oc = $cli['table'][2];
-        $this->assertSame(['opencode_go', [], 2], [$oc['tool'], $oc['agents'], count($oc['models'])]);
+        $ag = $cli['table'][1];
+        $this->assertSame(['antigravity', [], 2], [$ag['tool'], $ag['agents'], count($ag['models'])]);
         // chart segments per tool are unchanged by the model split
-        $this->assertSame(['2037-10-20', [400, 28, 1164]], [$cli['days'][4]['date'], $cli['days'][4]['segments']]);
+        $this->assertSame(['2037-10-20', [400, 1164]], [$cli['days'][4]['date'], $cli['days'][4]['segments']]);
     }
 
     #[Test]

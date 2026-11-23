@@ -69,7 +69,7 @@ Artisan::command('bridge:usage-import {paths* : Day files (YYYY-MM-DD.json)} {--
     return $failed === 0 ? 0 : 1;
 })->purpose('Import Bridge usage day files (strictly validated, upsert by date)');
 
-// Standalone collector files (bridge-usage/data/cli/YYYY-MM-DD.json, cli_usage.py): measured Claude Code / Kimi Code
+// Standalone collector files (bridge-usage/data/cli/YYYY-MM-DD.json, cli_usage.py): measured coding-tool
 // tokens. Same validator + replace per date and covered tool as the `cli_usage` key of a day file; for backfill on the server.
 Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.json)} {--dry-run : Validate only, write nothing}', function (CliUsageImporter $importer) {
     $dry = (bool) $this->option('dry-run');
@@ -108,7 +108,7 @@ Artisan::command('bridge:cli-usage-import {paths* : Collector files (YYYY-MM-DD.
     }
 
     return $failed === 0 ? 0 : 1;
-})->purpose('Import measured Claude Code / Kimi Code usage files (strictly validated, replace by date and covered tool)');
+})->purpose('Import measured coding-tool usage files (strictly validated, replace by date and covered tool)');
 
 // Cursor dashboard CSV export (individual plan, one account → "Cursor (all agents)"), same importer as POST /usage/cursor-csv.
 Artisan::command('bridge:cursor-csv-import {path : CSV from cursor.com/dashboard → Usage → Export CSV} {--workspace= : Workspace slug (default: bridge.default_workspace)} {--dry-run : Validate and report, write nothing}', function (CursorCsvImporter $importer, CurrentWorkspace $current) {

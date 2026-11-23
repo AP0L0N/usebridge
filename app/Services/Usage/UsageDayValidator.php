@@ -12,7 +12,7 @@ use stdClass;
  * int fields, values capped at 1e15, sum(agents[].est_tokens_total) == est_tokens_total.
  * by_hour is allowed to be off by rounding (spec "Sanity checks"), so it is not summed.
  * Optional top-level `cli_usage`: absent, null, or a collector object valid per CliUsageValidator whose
- * date equals the day's date (measured Claude Code / Kimi Code tokens; see UsageDayImporter).
+ * date equals the day's date (measured coding-tool tokens; see UsageDayImporter).
  *
  * Decodes with objects (not assoc arrays) so `{}` and `[]` stay distinguishable.
  */

@@ -9,6 +9,7 @@ use App\Models\Workspace;
 use App\Services\Usage\CliUsageImporter;
 use App\Services\Usage\CliUsageValidator;
 use App\Services\Usage\InvalidUsageDay;
+use App\Services\Usage\UsageReport;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -25,6 +26,9 @@ class CliUsagePerToolTest extends TestCase
     use RefreshDatabase;
 
     private const DATE = '2026-10-24';
+
+    /** The tools in collector(): cli_usage.py files may still carry Kimi Code / OpenCode Go rows. */
+    private const COLLECTOR_ROW_TOOLS = ['claude_code', 'kimi_code', 'opencode_go'];
 
     protected function setUp(): void
     {
@@ -59,7 +63,7 @@ class CliUsagePerToolTest extends TestCase
             'input' => $input, 'output' => 10, 'cache_read' => 100, 'cache_creation' => 1, 'calls' => $calls] + $extra;
     }
 
-    /** The collector's file for DATE: one row per legacy tool. */
+    /** The collector's file for DATE: one row per tool it reported so far (no Antigravity rows yet). */
     private static function collector(): array
     {
         return self::file([
@@ -107,7 +111,7 @@ class CliUsagePerToolTest extends TestCase
     public function a_cursor_upload_adds_cursor_rows_and_leaves_the_collector_rows_byte_for_byte(): void
     {
         $this->import(self::collector());
-        $before = self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS);
+        $before = self::snapshot(self::COLLECTOR_ROW_TOOLS);
         $this->assertCount(3, $before);
 
         $this->later();
@@ -115,9 +119,10 @@ class CliUsagePerToolTest extends TestCase
 
         $this->assertTrue($r['created']); // first file covering cursor that day
         $this->assertSame(2, $r['rows']);
-        $this->assertSame($before, self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS));
+        $this->assertSame($before, self::snapshot(self::COLLECTOR_ROW_TOOLS));
         $this->assertSame(2, CliUsageDay::query()->where('tool', 'cursor')->count());
         $this->assertSame([
+            [self::DATE, 'antigravity', 0, 0],
             [self::DATE, 'claude_code', 1, 1111],
             [self::DATE, 'cursor', 2, 500 + 111 + 1000 + 111],
             [self::DATE, 'kimi_code', 1, 2111],
@@ -130,13 +135,13 @@ class CliUsagePerToolTest extends TestCase
     {
         $this->import(self::collector());
         $this->import(self::cursor());
-        $before = self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS);
+        $before = self::snapshot(self::COLLECTOR_ROW_TOOLS);
 
         $this->later();
         $r = $this->import(self::file([self::row('cursor', 'agent-z', 'gpt-5', 7)]));
 
         $this->assertFalse($r['created']);
-        $this->assertSame($before, self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS));
+        $this->assertSame($before, self::snapshot(self::COLLECTOR_ROW_TOOLS));
         $cursor = CliUsageDay::query()->where('tool', 'cursor')->get();
         $this->assertSame(['agent-z'], $cursor->pluck('agent_id')->all());
         $this->assertSame(7, $cursor->first()->input_tokens);
@@ -148,7 +153,7 @@ class CliUsagePerToolTest extends TestCase
     {
         $this->import(self::collector());
         $this->import(self::cursor());
-        $before = self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS);
+        $before = self::snapshot(self::COLLECTOR_ROW_TOOLS);
 
         $this->later();
         $r = $this->import(self::file([], ['cursor']));
@@ -156,7 +161,7 @@ class CliUsagePerToolTest extends TestCase
         $this->assertFalse($r['created']);
         $this->assertSame(0, $r['rows']);
         $this->assertSame(0, CliUsageDay::query()->where('tool', 'cursor')->count());
-        $this->assertSame($before, self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS));
+        $this->assertSame($before, self::snapshot(self::COLLECTOR_ROW_TOOLS));
         $this->assertContains([self::DATE, 'cursor', 0, 0], self::markers());
 
         // A first-ever empty Cursor file for another day: zero marker only, nothing else touched.
@@ -165,23 +170,24 @@ class CliUsagePerToolTest extends TestCase
     }
 
     #[Test]
-    public function the_collector_file_still_replaces_all_three_legacy_tools_and_leaves_cursor(): void
+    public function the_collector_file_replaces_claude_code_and_antigravity_and_leaves_cursor(): void
     {
         $this->import(self::collector());
         $this->import(self::cursor());
         $cursor = self::snapshot(['cursor']);
+        $kimiOpenCode = self::snapshot(['kimi_code', 'opencode_go']);
 
-        // Only Claude Code ran: its row is replaced, Kimi and OpenCode are cleared (zero markers), Cursor stays.
+        // Only Claude Code ran: its row is replaced, Antigravity gets a zero marker, Kimi / OpenCode (not in the file) and Cursor stay.
         $this->later();
         $r = $this->import(self::file([self::row('claude_code', 'agent-a', 'claude-opus', 9)]));
         $this->assertFalse($r['created']);
         $this->assertSame(['claude_code' => 1], CliUsageDay::query()->whereIn('tool', CliUsageDay::LEGACY_COLLECTOR_TOOLS)->pluck('tool')->countBy()->all());
         $this->assertSame(9, CliUsageDay::query()->where('tool', 'claude_code')->sole()->input_tokens);
         $this->assertSame($cursor, self::snapshot(['cursor']));
-        $this->assertContains([self::DATE, 'kimi_code', 0, 0], self::markers());
-        $this->assertContains([self::DATE, 'opencode_go', 0, 0], self::markers());
+        $this->assertSame($kimiOpenCode, self::snapshot(['kimi_code', 'opencode_go']));
+        $this->assertContains([self::DATE, 'antigravity', 0, 0], self::markers());
 
-        // An empty collector file clears the three legacy tools, still not Cursor.
+        // An empty collector file clears Claude Code and Antigravity, still not Cursor.
         $this->import(self::file([]));
         $this->assertSame(0, CliUsageDay::query()->whereIn('tool', CliUsageDay::LEGACY_COLLECTOR_TOOLS)->count());
         $this->assertSame($cursor, self::snapshot(['cursor']));
@@ -250,10 +256,9 @@ class CliUsagePerToolTest extends TestCase
         $this->assertSame($aMarkers, self::markers());
         $this->assertSame(1, CliUsageDay::acrossWorkspaces()->where('workspace_id', $b->id)->count());
         $this->assertSame([
+            [self::DATE, 'antigravity', 0, 0],
             [self::DATE, 'claude_code', 1, 112],
             [self::DATE, 'cursor', 0, 0],
-            [self::DATE, 'kimi_code', 0, 0],
-            [self::DATE, 'opencode_go', 0, 0],
         ], self::markers($b->id));
     }
 
@@ -327,17 +332,17 @@ class CliUsagePerToolTest extends TestCase
     {
         $date = json_decode(UsageImportTest::fixture(), true)['date'];
         $this->postDay(self::collector())->assertCreated()->assertJsonPath('data.cli.created', true);
-        $legacy = self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS);
+        $legacy = self::snapshot(self::COLLECTOR_ROW_TOOLS);
         $this->assertCount(3, $legacy);
 
         $this->later();
         $this->postDay(self::cursor(covered: ['cursor']))->assertOk()
             ->assertJsonPath('data.cli.created', true)
             ->assertJsonPath('data.cli.rows', 2);
-        $this->assertSame($legacy, self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS));
+        $this->assertSame($legacy, self::snapshot(self::COLLECTOR_ROW_TOOLS));
         $this->assertSame(2, CliUsageDay::query()->where('tool', 'cursor')->count());
         $this->assertSame(312.5, CliUsageDay::query()->where('model', 'claude-4.5-sonnet')->sole()->cost_cents);
-        $this->assertSame(['claude_code', 'cursor', 'kimi_code', 'opencode_go'], array_column(self::markers(), 1));
+        $this->assertSame(['antigravity', 'claude_code', 'cursor', 'kimi_code', 'opencode_go'], array_column(self::markers(), 1));
         $this->assertSame([$date], array_unique(array_column(self::markers(), 0)));
 
         $this->postDay(self::file([self::row('kimi_code', 'agent-a', 'm', 1)], ['cursor']))
@@ -345,7 +350,7 @@ class CliUsagePerToolTest extends TestCase
         $this->postDay(self::file([], ['cursor', 'cursor']))
             ->assertStatus(422)->assertJsonStructure(['errors' => ['cli_usage.covered_tools']]);
         $this->assertSame(2, CliUsageDay::query()->where('tool', 'cursor')->count());
-        $this->assertSame($legacy, self::snapshot(CliUsageDay::LEGACY_COLLECTOR_TOOLS));
+        $this->assertSame($legacy, self::snapshot(self::COLLECTOR_ROW_TOOLS));
     }
 
     // ---- report + backfill --------------------------------------------------------------------
@@ -357,20 +362,65 @@ class CliUsagePerToolTest extends TestCase
         $this->asOwner();
 
         $this->get('/usage')->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->has('cli.tools', 3)
-            ->where('cli.importedTools.'.self::DATE, CliUsageDay::LEGACY_COLLECTOR_TOOLS)
+            ->has('cli.tools', 2)
+            ->where('cli.importedTools.'.self::DATE, ['claude_code', 'antigravity', 'kimi_code', 'opencode_go'])
             ->where('cli.importedTools.2026-10-23', [])
             ->has('cli.importedTools', 7));
 
         $this->import(self::file([], ['cursor'], '2026-10-23'));
         $this->import(self::cursor());
         $this->get('/usage')->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->has('cli.tools', 4)
-            ->where('cli.tools.3.tool', 'cursor')
-            ->where('cli.tools.3.name', 'Cursor')
-            ->where('cli.tools.3.calls', 47)
+            ->has('cli.tools', 3)
+            ->where('cli.tools.2.tool', 'cursor')
+            ->where('cli.tools.2.name', 'Cursor')
+            ->where('cli.tools.2.calls', 47)
             ->where('cli.importedTools.'.self::DATE, CliUsageDay::TOOLS)
             ->where('cli.importedTools.2026-10-23', ['cursor']));
+    }
+
+    #[Test]
+    public function antigravity_shows_at_zero_and_stored_kimi_and_opencode_rows_stay_hidden(): void
+    {
+        $this->import(self::collector());
+        // A day imported before Antigravity was a collector tool: a Claude Code marker only.
+        CliUsageImport::query()->create(['date' => '2026-10-23', 'tool' => 'claude_code', 'rows' => 0, 'total' => 0, 'imported_at' => now()]);
+        // A day with nothing but old Kimi / OpenCode rows.
+        $this->import(self::file([self::row('kimi_code', 'agent-b', 'kimi-k2', 50)], ['kimi_code', 'opencode_go'], '2026-10-20'));
+        $this->asOwner();
+
+        $this->get('/usage')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('cli.empty', false)
+            ->where('cli.total', 1111)
+            ->where('cli.calls', 2)
+            ->has('cli.tools', 2)
+            ->where('cli.tools.0.tool', 'claude_code')
+            ->where('cli.tools.1.tool', 'antigravity')
+            ->where('cli.tools.1.name', 'Antigravity')
+            ->where('cli.tools.1.color', UsageReport::TOOL_COLORS['antigravity'])
+            ->where('cli.tools.1.total', 0)
+            ->where('cli.tools.1.calls', 0)
+            ->where('cli.tools.1.models', [])
+            ->where('cli.series', [['agentId' => 'claude_code', 'name' => 'Claude Code', 'color' => UsageReport::TOOL_COLORS['claude_code'], 'total' => 1111]])
+            ->where('cli.days.0.date', '2026-10-19')
+            ->where('cli.days.1.total', 0)
+            ->where('cli.days.5.segments', [1111])
+            ->has('cli.table', 1)
+            ->where('cli.table.0.tool', 'claude_code')
+            ->where('cli.importedTools.'.self::DATE, ['claude_code', 'antigravity', 'kimi_code', 'opencode_go'])
+            ->where('cli.importedTools.2026-10-23', ['claude_code', 'antigravity'])
+            ->where('cli.importedTools.2026-10-20', ['antigravity', 'kimi_code', 'opencode_go'])
+            ->where('cli.importedTools.2026-10-22', []));
+
+        // A range with only Kimi / OpenCode rows is empty.
+        Carbon::setTestNow(Carbon::parse('2026-10-21 06:00:00', 'Europe/Ljubljana'));
+        $this->get('/usage?range=yesterday')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('cli.empty', true)
+            ->where('cli.total', 0)
+            ->where('cli.series', [])
+            ->where('cli.table', [])
+            ->where('cli.daysWithRows', 0)
+            ->has('cli.tools', 2)
+            ->where('cli.tools.1.tool', 'antigravity'));
     }
 
     #[Test]

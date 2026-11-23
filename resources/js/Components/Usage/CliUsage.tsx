@@ -234,7 +234,7 @@ function CliTable({ cli, scope }: { cli: CliBlock; scope: string }) {
 }
 
 /**
- * "Coding tools (Claude Code, Kimi Code & OpenCode Go) — measured tokens": real counts from the CLI logs on the shared box, over the
+ * "Coding tools (Claude Code & Antigravity) — measured tokens": real counts from the CLI logs on the shared box, over the
  * same range as the estimates above (yesterday / 7 / 30 days), independent of the estimator files.
  */
 export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading }: Props) {
@@ -250,7 +250,7 @@ export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading 
       <section className="card" id="cli" aria-labelledby="h-cli" aria-busy={loading}>
         <div className="chead cur-head">
           <div className="cur-title">
-            <h2 id="h-cli">Claude Code, Kimi Code &amp; OpenCode Go</h2>
+            <h2 id="h-cli">Claude Code &amp; Antigravity</h2>
             <span className="sub">
               Measured tokens · {span} · counted from your coding tools’ logs, not scaled like the estimates above.
               {cli.coverageFromLabel && <> Coverage from <b>{cli.coverageFromLabel}</b>.</>}
@@ -261,7 +261,7 @@ export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading 
 
         {cli.empty ? (
           <p className="foot" style={{ marginTop: 10 }}>
-            No measured Claude Code, Kimi Code or OpenCode Go usage {range === 'yesterday' ? 'for yesterday' : `in the ${rangeWords(range)}`}
+            No measured Claude Code or Antigravity usage {range === 'yesterday' ? 'for yesterday' : `in the ${rangeWords(range)}`}
             {cli.coverageFromLabel ? <> (the collector's logs start {cli.coverageFromLabel}).</> : ' (nothing imported yet).'}
           </p>
         ) : (
@@ -322,7 +322,8 @@ export function CliUsage({ cli: all, range, fromLabel, toLabel, narrow, loading 
         <p className="foot" style={{ marginTop: 12 }}>
           Total = input + output + cache read + cache creation; cache reads are billed at a discount. Calls = counted LLM calls.
           Agent split is best effort, by the working directory of each session; the rest is “Unattributed”.
-          Models are the ids each tool logs (Claude Code message.model, Kimi Code usage.record model, OpenCode Go modelID); “model not recorded” = the log line had no model or the row predates per-model import.
+          Models are the ids each tool logs (Claude Code message.model); “model not recorded” = the log line had no model or the row predates per-model import.
+          Antigravity shows 0 until measured rows for it are imported.
         </p>
       </section>
     </>

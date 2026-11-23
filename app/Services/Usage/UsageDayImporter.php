@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * Validate + upsert one day file by `date`. Shared by POST /api/usage/days and
  * `php artisan bridge:usage-import`. Re-posting a date replaces the row.
  *
- * A file may carry the collector's measured Claude Code / Kimi Code tokens under `cli_usage` (null or an
+ * A file may carry the collector's measured coding-tool tokens under `cli_usage` (null or an
  * object, see CliUsageValidator). That object is stripped from the stored payload (its rows live in
  * cli_usage_days and must not leak into the estimate-side agent scans) and handed to CliUsageImporter in
  * the same transaction. Files without the key import exactly as before.
