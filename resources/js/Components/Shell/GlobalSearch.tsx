@@ -2,7 +2,8 @@
  * Global search: Cmd+K on Mac, Ctrl+K elsewhere, from every signed-in app page (AppTopBar mounts it). Tickets by key or
  * title, projects and workstreams by name (GET /search), grouped; ArrowUp / ArrowDown move, Enter opens, Esc closes.
  * The panel is the Kanban Sheet (scrim, focus trap, Esc), portaled into a "kanban app" host so it looks the same on
- * pages without those roots. Archived items follow the current page's "Show archived" (?archived=1).
+ * pages without those roots. Archived items follow the current page's "Show archived" (?archived=1). On the Portfolio a
+ * ticket opens in that page's drawer (?ticket=KEY added to the current URL), so closing it leaves the user where they were.
  */
 import { Link, router } from '@inertiajs/react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
@@ -11,10 +12,12 @@ import { IconSearch20 } from '../AppIcons';
 import { Sheet } from '../Kanban/Bits';
 import { requestJson } from '../../lib/http';
 import { ticketUrl } from '../../lib/kanban';
-import { EMPTY_RESULTS, isMacPlatform, isSearchShortcut, moveIndex, SEARCH_GROUPS, searchItems, showArchivedIn, type SearchGroup, type SearchResults } from '../../lib/search';
+import { EMPTY_RESULTS, isMacPlatform, isSearchShortcut, moveIndex, SEARCH_GROUPS, searchItems, searchTicketHref, showArchivedIn, type SearchGroup, type SearchItem, type SearchResults } from '../../lib/search';
 import { t } from '../../lib/strings';
 
 const DEBOUNCE_MS = 150;
+/** A ticket opened on the Portfolio: only its drawer loads, the page keeps its state. */
+const IN_PLACE = { only: ['ticket'], preserveState: true, preserveScroll: true };
 
 export function GlobalSearch({ url }: { url: string }) {
   const [open, setOpen] = useState(false);
@@ -37,6 +40,7 @@ function SearchSheet({ onClose }: { onClose: () => void }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [showArchived] = useState(() => showArchivedIn(window.location.search));
+  const [tickets] = useState(() => searchTicketHref(window.location.pathname, window.location.search, ticketUrl));
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; results: SearchResults } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -47,11 +51,12 @@ function SearchSheet({ onClose }: { onClose: () => void }) {
 
   const term = q.trim();
   const results = found?.results ?? EMPTY_RESULTS;
-  const items = searchItems(results, showArchived, ticketUrl);
-  const open = (href: string | undefined) => {
-    if (href === undefined) return;
+  const items = searchItems(results, showArchived, tickets.href);
+  const visitOf = (item: SearchItem) => (tickets.inPlace && item.group === 'tickets' ? IN_PLACE : {});
+  const open = (item: SearchItem | undefined) => {
+    if (item === undefined) return;
     onClose();
-    router.visit(href);
+    router.visit(item.href, visitOf(item));
   };
 
   useEffect(() => {
@@ -65,8 +70,8 @@ function SearchSheet({ onClose }: { onClose: () => void }) {
       const r = await requestJson<{ data: SearchResults }>('GET', `/search?${params}`);
       if (n !== seq.current) return;
       if (!r.ok) { setFailed(true); return; }
-      const next = searchItems(r.data.data, showArchived, ticketUrl);
-      if (enterPending.current) { open(next[0]?.href); return; }
+      const next = searchItems(r.data.data, showArchived, tickets.href);
+      if (enterPending.current) { open(next[0]); return; }
       setFound({ q: term, results: r.data.data });
       setActive(next.length ? 0 : -1);
     }, DEBOUNCE_MS);
@@ -83,7 +88,7 @@ function SearchSheet({ onClose }: { onClose: () => void }) {
       setActive((a) => moveIndex(a, e.key === 'ArrowDown' ? 1 : -1, items.length));
     } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      if (found?.q === term) open(items[active]?.href);
+      if (found?.q === term) open(items[active]);
       else if (term) enterPending.current = true;
     }
   };
@@ -120,7 +125,7 @@ function SearchSheet({ onClose }: { onClose: () => void }) {
               <h2 id={`${id}-${g}`} className="fd-ov" role="presentation">{t(`search.group.${g}`)}</h2>
               {items.slice(start, start + count).map((item, j) => (
                 <Link key={item.id} id={`${id}-${start + j}`} href={item.href} role="option" aria-selected={active === start + j} tabIndex={-1}
-                  className="gsr-row" onMouseMove={() => setActive(start + j)} onClick={onClose}>
+                  className="gsr-row" {...visitOf(item)} onMouseMove={() => setActive(start + j)} onClick={onClose}>
                   {rows[g](j)}
                 </Link>
               ))}

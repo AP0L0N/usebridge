@@ -447,7 +447,8 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     setOpening(null);
     returnTo = key ?? null;
     if (openedHere.current) { openedHere.current = false; window.history.back(); }
-    else router.visit(here, { preserveState: true, preserveScroll: true });
+    // Embedded (Portfolio): a ticket opened by the global search pushed its entry, so replace it (Back must not reopen it).
+    else router.visit(here, { preserveState: true, preserveScroll: true, replace: embedded });
   };
   // Opening marks the ticket seen (clears its unread strip on the next board payload).
   const seenKey = useRef<string | null>(null);

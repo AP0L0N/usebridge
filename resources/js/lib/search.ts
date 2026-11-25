@@ -30,10 +30,30 @@ export function isSearchShortcut(e: ShortcutEvent, mac: boolean): boolean {
 /** "Show archived" is the Portfolio's `archived=1` URL flag (not stored anywhere else): the search uses the current page's. */
 export const showArchivedIn = (search: string) => new URLSearchParams(search).get('archived') === '1';
 
+/** The Portfolio's paths ("/" and /portfolio render the same page). */
+const isPortfolioPath = (pathname: string) => pathname === '/' || pathname === '/portfolio';
+
+/**
+ * Where a ticket result goes from the page at `pathname` + `search`. On the Portfolio it stays there and opens the
+ * ticket in the page's drawer: the current URL with `ticket` set (project, ws, q, archived… kept). Anywhere else it is
+ * `elsewhere` (kanban.ts' ticketUrl, the ticket on its own board).
+ */
+export function searchTicketHref(pathname: string, search: string, elsewhere: (slug: string, key: string) => string): { href: (slug: string, key: string) => string; inPlace: boolean } {
+  if (!isPortfolioPath(pathname)) return { href: elsewhere, inPlace: false };
+  return {
+    inPlace: true,
+    href: (_slug, key) => {
+      const u = new URLSearchParams(search);
+      u.set('ticket', key);
+      return `${pathname}?${u}`;
+    },
+  };
+}
+
 /**
  * Rows in display order (Tickets, Projects, Workstreams), with the existing URLs: a ticket opens on its board
- * (`ticketHref`: kanban.ts' ticketUrl, /projects/{slug}/tickets/{key}), a project in the Portfolio Finder (keeping
- * "Show archived"), a workstream's board.
+ * (`ticketHref`: kanban.ts' ticketUrl, /projects/{slug}/tickets/{key}; searchTicketHref on the Portfolio), a project in
+ * the Portfolio Finder (keeping "Show archived"), a workstream's board.
  */
 export function searchItems(r: SearchResults, showArchived: boolean, ticketHref: (slug: string, key: string) => string): SearchItem[] {
   return [

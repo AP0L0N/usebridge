@@ -132,13 +132,14 @@ export const boardUrl = (slug: string, wsId: string) => `/projects/${slug}?ws=${
 
 /**
  * Finder URL for a selection (`/portfolio?project={slug}`), keeping search / archived flags. `ws`: the workstream whose
- * board is open as the next column (`&ws={id}`); `ticket`: a ticket open over that board (`&ticket={key}`).
+ * board is open as the next column (`&ws={id}`); `ticket`: a ticket open in the page's drawer (`&ticket={key}`: the
+ * board's own when it is the selected project's, else TicketRefHost's).
  */
 export function finderUrl(slug: string | null, q = '', archived = false, ws: string | null = null, ticket: string | null = null): string {
   const u = new URLSearchParams();
   if (slug) u.set('project', slug);
   if (slug && ws) u.set('ws', ws);
-  if (slug && ws && ticket) u.set('ticket', ticket);
+  if (ticket) u.set('ticket', ticket);
   if (q) u.set('q', q);
   if (archived) u.set('archived', '1');
   const s = u.toString();

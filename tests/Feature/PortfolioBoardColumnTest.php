@@ -105,6 +105,19 @@ class PortfolioBoardColumnTest extends TestCase
     }
 
     #[Test]
+    public function a_ticket_the_board_column_does_not_own_leaves_the_page_on_the_portfolio(): void
+    {
+        $general = Workstream::query()->where('project_id', self::BH)->where('is_default', true)->firstOrFail();
+        $bh = $this->api()->newTicket();
+        $nw = $this->newTicket([], self::NW);
+
+        // The page's own drawer (TicketRefHost) opens these from ?ticket=: no board, or another project's ticket.
+        foreach (["/portfolio?ticket={$bh['key']}", "/portfolio?project=blue-harbor&ticket={$bh['key']}", "/portfolio?project=blue-harbor&ws={$general->id}&ticket={$nw['key']}"] as $url) {
+            $this->asOwner()->get($url)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Portfolio')->where('ticket', null));
+        }
+    }
+
+    #[Test]
     public function show_older_done_works_in_the_column(): void
     {
         $general = Workstream::query()->where('project_id', self::BH)->where('is_default', true)->firstOrFail();

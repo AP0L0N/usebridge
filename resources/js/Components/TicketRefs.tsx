@@ -213,7 +213,8 @@ const ticketParam = (url: string) => new URL(url, window.location.origin).search
  * Opens a referenced ticket in the existing TicketDetail (centred modal on desktop, full-height sheet on phones; §11.3)
  * on whatever page this wraps. The URL carries `?ticket=KEY`: opening pushes it, a chip inside the modal swaps the
  * content in place and replaces it (the back arrow returns to the previous ticket), and Esc / close / browser Back pop
- * it. `claimed`: the page itself shows the URL's ticket (the board's own modal), so a deep link is not opened twice.
+ * it. A visit that puts `?ticket=KEY` in the URL opens it too, and closing that one replaces the entry. `claimed`: the
+ * page itself shows the URL's ticket (the board's own modal), so it is not opened twice.
  * `reloadOnly`: the page's Inertia props to refresh after a change made in the modal.
  */
 export function TicketRefHost({ children, reloadOnly, claimed = false }: { children: ReactNode; reloadOnly?: string[]; claimed?: boolean }) {
@@ -241,10 +242,17 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
 
   useEffect(() => { if (top) load(top, true); }, [top, load]);
 
-  // Browser Back (or any visit) that drops ?ticket= closes the modal.
+  // The URL's ticket changed under the host. Browser Back (or any visit) that drops ?ticket=, or the page claiming it,
+  // closes the modal; a visit that adds or swaps it (the global search on the Portfolio, browser Forward) opens it.
   useEffect(() => {
-    if (stack.length && !ticketParam(page.url)) { pushed.current = false; setStack([]); setData(null); }
-  }, [page.url]); // eslint-disable-line react-hooks/exhaustive-deps
+    const param = ticketParam(page.url);
+    if (!param || claimed) {
+      if (stack.length) { pushed.current = false; setStack([]); setData(null); }
+    } else if (param !== (top ? top.key ?? top.ref : null)) {
+      pushed.current = false;
+      setStack([{ ref: param, key: param }]);
+    }
+  }, [page.url, claimed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll lock; re-applied after a page's own modal let go of it (a takeover).
   useEffect(() => {
