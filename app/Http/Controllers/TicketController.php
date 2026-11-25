@@ -32,7 +32,7 @@ class TicketController extends Controller
     public function __construct(private readonly TicketService $tickets) {}
 
     /** Deep link: the board with the ticket open (modal on desktop, full-screen sheet on mobile). */
-    public function show(Request $request, ProjectController $projects, string $slug, string $key): Response
+    public function show(Request $request, ProjectController $projects, string $slug, string $key): Response|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
 

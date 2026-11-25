@@ -131,7 +131,7 @@ class TilenProjectControlsTest extends TestCase
         $this->assertSame($n, count($this->events()));
 
         // The archived board still opens, and shows up in the portfolio's archived group.
-        $this->asOwner()->get('/projects/'.self::SLUG)->assertOk();
+        $this->asOwner()->followingRedirects()->get('/projects/'.self::SLUG)->assertOk();
         $this->asOwner()->get('/')->assertInertia(fn ($page) => $this->assertTrue(
             collect($page->toArray()['props']['projects'])->firstWhere('slug', self::SLUG)['archived'],
         ));

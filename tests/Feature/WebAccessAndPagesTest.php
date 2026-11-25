@@ -61,7 +61,7 @@ class WebAccessAndPagesTest extends TestCase
 
         $this->get(route('portfolio'))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Portfolio')->has('projects', 2)->where('features.polymarket', true));
-        $this->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Board'));
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Board'));
         $this->get('/polymarket')->assertOk();
     }
 
@@ -81,7 +81,7 @@ class WebAccessAndPagesTest extends TestCase
         Carbon::setTestNow('2026-09-10 12:00:00'); // seeded update falls inside the 7-day timeline
         $this->asOwner();
 
-        $this->get(route('projects.show', 'blue-harbor'))
+        $this->followingRedirects()->get(route('projects.show', 'blue-harbor'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Board')

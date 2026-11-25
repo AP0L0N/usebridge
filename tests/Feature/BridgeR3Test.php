@@ -57,7 +57,7 @@ class BridgeR3Test extends TestCase
         // Kanban: the 2-day rule still holds in the service; the board no longer shows inputs.
         $done = ProjectStatus::recentlyDone(RequiredInput::query()->where('project_id', 'proj-northwind')->get(), 'resolved_at');
         $this->assertSame(['recent', 'edge'], $done->pluck('id')->all());
-        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('doneInputs'));
+        $this->followingRedirects()->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('doneInputs'));
     }
 
     #[Test]
@@ -70,7 +70,7 @@ class BridgeR3Test extends TestCase
         }
         // Kanban: the status-update feed is gone from the project page; ?days is ignored and the rows stay.
         foreach (['', '?days=14', '?days=-3'] as $qs) {
-            $this->get('/projects/northwind'.$qs)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->missing('statusUpdates')->missing('timeline'));
+            $this->followingRedirects()->get('/projects/northwind'.$qs)->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->missing('statusUpdates')->missing('timeline'));
         }
         $this->assertSame(5, StatusUpdate::query()->where('project_id', 'proj-northwind')->count());
     }
@@ -106,7 +106,7 @@ class BridgeR3Test extends TestCase
         $this->postJson('/api/next-steps', ['id' => 'ns-block-1', 'project_id' => 'proj-northwind', 'kind' => 'blocker', 'text' => 'dup'])->assertStatus(422);
 
         $this->asOwner();
-        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('nextSteps'));
+        $this->followingRedirects()->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('nextSteps'));
 
         $this->patchJson('/api/next-steps/ns-block-1', ['kind' => 'in_progress', 'text' => 'DNS done, verifying'])
             ->assertOk()->assertJsonPath('data.kind', 'in_progress')->assertJsonPath('data.text', 'DNS done, verifying');

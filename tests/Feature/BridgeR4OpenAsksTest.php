@@ -122,7 +122,7 @@ class BridgeR4OpenAsksTest extends TestCase
         $this->assertArrayNotHasKey('proj-marta', $this->portfolioCounts());
 
         $this->app['auth']->forgetGuards();
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')->where('board.project.open_asks_count', 2)->has('openAsks', 2));
 
         $this->bearer($this->read, 'GET', '/api/projects/'.self::BH.'/board')->assertOk()->assertJsonPath('data.project.open_asks_count', 2);
@@ -164,7 +164,7 @@ class BridgeR4OpenAsksTest extends TestCase
         $nw = $this->tool($this->read, 'list_open_asks', ['project' => self::NW])['data'];
         $this->assertSame([self::ANATOLY, 'mcp'], [$nw[0]['asked_by'], $nw[0]['asked_by_source']]);
         $this->app['auth']->forgetGuards();
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('openAsks', fn ($asks) => collect($asks)->pluck('key')->all() === [$a, $b] && collect($asks)->first()['asked_by'] === self::JANICE));
 
         // Waiting longer: age and level follow waiting_on_input_at like the board cards.

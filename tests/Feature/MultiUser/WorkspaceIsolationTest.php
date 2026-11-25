@@ -143,7 +143,7 @@ class WorkspaceIsolationTest extends TestCase
         $this->send($this->grok, 'POST', '/api/projects', ['id' => 'proj-grok', 'name' => 'Grok Lab', 'slug' => 'grok-lab', 'owner_agent_id' => 'agent-grok', 'actor' => 'agent-grok'])->assertCreated();
 
         $this->asOwner()->get('/projects/grok-lab')->assertNotFound();
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk();
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk();
         $this->asOwner()->get('/')->assertOk()->assertDontSee('Grok Lab');
     }
 

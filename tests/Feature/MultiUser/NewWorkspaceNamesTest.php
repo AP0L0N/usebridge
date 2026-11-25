@@ -65,7 +65,7 @@ class NewWorkspaceNamesTest extends TestCase
     /** Inertia page props of a full page load. */
     private function props(User $user, string $url): array
     {
-        $page = $this->web($user)->get($url)->assertOk()->viewData('page');
+        $page = $this->web($user)->followingRedirects()->get($url)->assertOk()->viewData('page');
 
         return ['component' => $page['component'], 'props' => $page['props']];
     }

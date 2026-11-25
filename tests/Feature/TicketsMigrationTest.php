@@ -232,7 +232,7 @@ class TicketsMigrationTest extends TestCase
         $this->getJson('/api/inputs')->assertOk();
         $this->getJson('/api/next-steps')->assertOk();
         $this->getJson('/api/ceo-queue-items')->assertOk();
-        $this->get('/projects/blue-harbor')->assertOk();
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertOk();
 
         // Off (default): legacy writes work as before.
         config(['bridge.legacy_read_only' => false]);

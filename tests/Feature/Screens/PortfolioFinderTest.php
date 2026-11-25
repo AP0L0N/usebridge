@@ -105,7 +105,7 @@ class PortfolioFinderTest extends TestCase
         $this->assertTrue(Project::query()->findOrFail(self::BH)->isArchived());
         $this->assertSame(1, Ticket::query()->where('project_id', self::BH)->count());
         $this->get('/portfolio')->assertInertia(fn (Assert $p) => $p->where('projects', fn ($projects) => collect($projects)->firstWhere('id', self::BH)['archived'] === true));
-        $this->get('/projects/blue-harbor')->assertOk();
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertOk();
         $this->assertDatabaseHas('tickets', ['key' => $ticket['key']]);
     }
 

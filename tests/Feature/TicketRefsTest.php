@@ -218,7 +218,7 @@ class TicketRefsTest extends TestCase
         $follow = $this->api()->newTicket(['title' => "Follow-up after $key ships"]);
         $this->api()->newTicket(['title' => 'Unrelated ZZ-9']);
 
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->where('board', function ($board) use ($follow, $key) {
                 $cards = collect($board->toArray()['columns'])->flatMap(fn ($c) => $c['tickets'])->keyBy('key');
 

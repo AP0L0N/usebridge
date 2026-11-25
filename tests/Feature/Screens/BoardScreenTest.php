@@ -50,7 +50,7 @@ class BoardScreenTest extends TestCase
             'status_set_by' => self::JANICE, 'status_set_at' => $now->copy()->subHours(2),
         ]);
 
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('board.project.status', 'waiting')
             ->where('board.project.status_note', 'Nothing needs you right now. Build is on track.')
@@ -69,7 +69,7 @@ class BoardScreenTest extends TestCase
         $this->travelMinutes(1);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'Latest from the agent', 'actor' => self::JANICE])->assertCreated();
 
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.1.tickets.0.blocked', true)
             ->where('board.columns.1.tickets.0.blocked_reason', 'Waiting for the weather API key')
             ->where('board.columns.1.tickets.0.needs_pm_pickup', false)
@@ -84,12 +84,12 @@ class BoardScreenTest extends TestCase
         // chip) and ends the highlight; the waiting-on-input flag itself stays.
         $this->travelMinutes(1);
         $this->asOwner()->postJson("/projects/blue-harbor/tickets/{$t['key']}/comments", ['body' => 'Go with 7:00', 'is_tilen_input' => true])->assertCreated();
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.1.tickets.0.needs_pm_pickup', true)
             ->where('board.columns.1.tickets.0.waiting_on_input', true)
             ->where('board.columns.1.tickets.0.waiting_on_input_outstanding', false));
         // The latest comment is now Tilen's own (the card hides the "via MCP" line for humans).
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.1.tickets.0.latest_comment.author_type', 'human'));
     }
 
@@ -145,7 +145,7 @@ class BoardScreenTest extends TestCase
             ->where('ticket.key', $t['key'])
             ->has('ticket.comments')
             ->has('ticket.events'));
-        $this->get('/projects/blue-harbor')->assertOk();
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertOk();
 
         // No draft is ever sent for merely opening/closing: comments and events are unchanged.
         $this->assertSame($comments, TicketComment::count());

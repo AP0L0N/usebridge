@@ -64,7 +64,7 @@ class BridgeR2InputTickTest extends TestCase
         $this->assertSame(3, $this->derived()['level']);
 
         // Kanban: the project page is the board; the legacy inputs are no longer props (their rows are kept).
-        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openInputs')->missing('doneInputs'));
+        $this->followingRedirects()->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openInputs')->missing('doneInputs'));
         $this->assertSame(1, RequiredInput::query()->where('project_id', 'proj-northwind')->whereNull('resolved_at')->count());
     }
 

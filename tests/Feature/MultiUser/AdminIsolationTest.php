@@ -122,11 +122,11 @@ class AdminIsolationTest extends TestCase
             }
         }
         // His own workspace is all he gets.
-        $this->asTilen()->get('/projects/blue-harbor')->assertOk();
+        $this->asTilen()->followingRedirects()->get('/projects/blue-harbor')->assertOk();
 
         // Control: Marta's web session sees her own.
         $this->app['auth']->forgetGuards();
-        $this->actingAs($this->marta, 'web')->get('/projects/marta-lab')->assertOk();
+        $this->actingAs($this->marta, 'web')->followingRedirects()->get('/projects/marta-lab')->assertOk();
         $this->actingAs($this->marta, 'web')->get("/usage/agents/{$this->usageAgent}?range=7")->assertOk();
         $this->actingAs($this->marta, 'web')->get('/projects/blue-harbor')->assertNotFound();
     }

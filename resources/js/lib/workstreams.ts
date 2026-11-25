@@ -55,6 +55,16 @@ export function badgeText(n: number): string | null {
 
 export const isArchived = (p: Pick<PortfolioProject, 'archived' | 'pmStatus'>) => p.archived || p.pmStatus === 'archived';
 
+/**
+ * The workstream whose board a project opens on (a click in the Portfolio, an old /portfolio?project={slug} link): its
+ * default, else the first in board order. None for a project without workstreams, or an archived one (its preview
+ * column has "Unarchive").
+ */
+export function landingWorkstream(p: Pick<FinderProject, 'archived' | 'pmStatus' | 'workstreams'>): WorkstreamRow | null {
+  if (isArchived(p)) return null;
+  return p.workstreams.find((w) => w.isDefault) ?? p.workstreams[0] ?? null;
+}
+
 /** Stream meta: "3 tickets · 1 for you" (done tickets not counted) · "all done". */
 export function streamMeta(w: Pick<WorkstreamRow, 'open' | 'forYou' | 'allDone'>): string {
   if (w.allDone) return t('fd.ws.allDone');

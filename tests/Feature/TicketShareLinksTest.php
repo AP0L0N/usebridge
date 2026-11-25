@@ -451,7 +451,7 @@ class TicketShareLinksTest extends TestCase
     #[Test]
     public function the_card_shows_the_shared_icon_for_an_active_link_to_the_owner_only(): void
     {
-        $sharedOn = fn () => collect($this->get('/projects/blue-harbor')->assertOk()->viewData('page')['props']['board']['columns'])
+        $sharedOn = fn () => collect($this->followingRedirects()->get('/projects/blue-harbor')->assertOk()->viewData('page')['props']['board']['columns'])
             ->flatMap(fn ($col) => $col['tickets'])->mapWithKeys(fn ($t) => [$t['key'] => $t['shared'] ?? null])->all();
 
         $this->api()->newTicket(['title' => 'Not shared']);
@@ -486,7 +486,7 @@ class TicketShareLinksTest extends TestCase
         $this->share();
         $this->asOwner();
         DB::enableQueryLog();
-        $this->get('/projects/blue-harbor')->assertOk();
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertOk();
         $queries = collect(DB::getQueryLog())->pluck('query')->filter(fn ($q) => str_contains($q, 'ticket_share_links'));
         $this->assertCount(1, $queries);
     }

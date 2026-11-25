@@ -17,7 +17,7 @@ import { firstName, send, type ColumnKey, type StatusSubject } from '../lib/kanb
 import { t as tk, type StrKey } from '../lib/strings';
 import { t, t as tw, tn } from '../lib/strings-workstreams';
 import {
-  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, nameError, readProjectsRail, saveProjectsRail, streamMeta,
+  boardUrl, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, isArchived, landingWorkstream, nameError, readProjectsRail, saveProjectsRail, streamMeta,
   type Change, type FinderFocus, type FinderProject, type Preview, type WorkstreamRow,
 } from '../lib/workstreams';
 
@@ -165,21 +165,33 @@ function Portfolio(props: Props) {
     window.history.replaceState(window.history.state, '', u);
   }, [q, showArchived]);
 
+  /** Open a workstream's board as the next column (phone: the next drill-in screen); `null` closes it. */
+  const selectWs = useCallback((slug: string, wsId: string | null, push = false, ticket: string | null = null) => {
+    setSelWs(wsId);
+    setInline(null);
+    router.visit(finderUrl(slug, readUrl().q, readUrl().archived, wsId, ticket), {
+      only: ['projects', 'selected', 'preview', ...BOARD_ONLY], preserveState: true, preserveScroll: true, replace: !push,
+    });
+  }, []);
+  /** Select a project: straight to its default workstream's board; the preview column only when it has none to open. */
   const select = useCallback((slug: string | null, push = false) => {
+    const p = slug ? rows.find((x) => x.slug === slug) : null;
+    const landing = p ? landingWorkstream(p) : null;
     setSel(slug);
+    if (slug && landing) { selectWs(slug, landing.id, push); return; }
     setSelWs(null);
     setInline(null);
     // Desktop replaces the entry (Back from another page returns to this selection); phone drill-in pushes one.
     router.visit(finderUrl(slug, readUrl().q, readUrl().archived), { only: ['preview', 'selected', 'workstream'], preserveState: true, preserveScroll: true, replace: !push });
-  }, []);
-  /** Open a workstream's board as the next column (phone: the next drill-in screen); `null` closes it. */
-  const selectWs = useCallback((slug: string, wsId: string | null, push = false) => {
-    setSelWs(wsId);
-    setInline(null);
-    router.visit(finderUrl(slug, readUrl().q, readUrl().archived, wsId), {
-      only: ['projects', 'selected', 'preview', ...BOARD_ONLY], preserveState: true, preserveScroll: true, replace: !push,
-    });
-  }, []);
+  }, [rows, selectWs]);
+  // A project arriving selected without a board (an old /portfolio?project={slug} link, the global search's project
+  // rows, a project just created) opens its default board too, keeping a ticket the URL has open.
+  useEffect(() => {
+    if (!selected || props.workstream) return;
+    const p = projects.find((x) => x.slug === selected);
+    const landing = p ? landingWorkstream(p) : null;
+    if (landing) selectWs(selected, landing.id, false, new URLSearchParams(window.location.search).get('ticket'));
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------ lists
   const query = q.trim();

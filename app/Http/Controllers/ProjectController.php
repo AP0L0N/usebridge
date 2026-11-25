@@ -38,12 +38,18 @@ class ProjectController extends Controller
      * The Kanban board (SPEC §2). The old sections (status feed, Required inputs, Next steps, Questions) are no longer
      * shown; their tables stay as read-only history. Props are closures so partial reloads (60 s poll: only=board,
      * ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket ("Show N older").
+     * Without a workstream in the URL (/projects/{slug}, or a ?ws= that no longer resolves) it redirects to the default
+     * workstream's board (?ws={id}, the rest of the query kept); a ticket deep link opens on the ticket's own workstream.
      */
-    public function show(Request $request, string $slug, ?Ticket $ticket = null): Response
+    public function show(Request $request, string $slug, ?Ticket $ticket = null): Response|RedirectResponse
     {
         $project = Project::query()->where('slug', $slug)->firstOrFail();
         $view = new TicketView;
-        $workstream = self::workstream($project, $request->query('ws'), $ticket);
+        $ref = $request->query('ws');
+        if ($ticket === null && (! is_string($ref) || Workstreams::resolve($project, $ref) === null)) {
+            return redirect()->route('projects.show', ['slug' => $project->slug, ...$request->query(), 'ws' => self::workstream($project, null)->id]);
+        }
+        $workstream = self::workstream($project, $ref, $ticket);
         // Opening a workstream's board clears its badge for this user right away (README §2).
         if ($request->user() instanceof User) {
             Workstreams::markViewed($workstream, $request->user());
@@ -159,7 +165,10 @@ class ProjectController extends Controller
         return $board;
     }
 
-    /** ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the first tab. */
+    /**
+     * ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the project's default
+     * workstream; without a default the first tab, and "General" is created only for a project that has none at all.
+     */
     public static function workstream(Project $project, mixed $ref, ?Ticket $ticket = null): Workstream
     {
         if (is_string($ref) && ($found = Workstreams::resolve($project, $ref))) {
@@ -168,9 +177,9 @@ class ProjectController extends Controller
         if ($ticket !== null && ($own = Workstream::query()->find($ticket->workstream_id))) {
             return $own;
         }
-        Workstreams::ensureDefault($project);
+        $all = Workstreams::ordered($project);
 
-        return Workstreams::ordered($project)->first();
+        return $all->firstWhere('is_default', true) ?? $all->first() ?? Workstreams::ensureDefault($project);
     }
 
     /** @return array{id:string,body:string,agent_id:string,agent_name:?string,source:?string,created_at:?string,count:int}|null */

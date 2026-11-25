@@ -215,6 +215,6 @@ class TilenWebTicketsTest extends TestCase
 
         $this->get('/')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Portfolio')->has('projects', 2)
             ->where('projects.0.waitingTilenCount', fn ($n) => is_int($n)));
-        $this->get('/projects/northwind')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->where('board.project.ticket_prefix', 'NW'));
+        $this->followingRedirects()->get('/projects/northwind')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board')->where('board.project.ticket_prefix', 'NW'));
     }
 }

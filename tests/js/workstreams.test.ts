@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, nameError, othersWithChanges, PROJECTS_RAIL_KEY, readProjectsRail, saveProjectsRail, streamMeta, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
+import { badgeText, deleteMode, filterProjects, filterWorkstreams, finderKey, finderUrl, initials, landingWorkstream, nameError, othersWithChanges, PROJECTS_RAIL_KEY, readProjectsRail, saveProjectsRail, streamMeta, type WorkstreamRow } from '../../resources/js/lib/workstreams.ts';
 
 const ws = (name: string, badge = 0, extra: Partial<WorkstreamRow> = {}): WorkstreamRow => ({ id: `ws-${name}`, name, isDefault: false, tickets: 0, forYou: 0, open: 0, blocked: 0, allDone: false, badge, ...extra });
 const projects = [
@@ -61,6 +61,20 @@ test('finder selection lives in the URL', () => {
   assert.equal(finderUrl('garden-planner', 'front', false, 'ws-1', 'GP-4'), '/portfolio?project=garden-planner&ws=ws-1&ticket=GP-4&q=front');
   assert.equal(finderUrl(null, '', false, 'ws-1', 'GP-4'), '/portfolio?ticket=GP-4');
   assert.equal(finderUrl('garden-planner', '', true, null, 'CC-12'), '/portfolio?project=garden-planner&ticket=CC-12&archived=1');
+});
+
+test('a project opens on its default workstream, else the first in board order', () => {
+  const w = (id: string, isDefault = false) => ({ ...ws(id), id, isDefault });
+  const live = { archived: false, pmStatus: null } as const;
+  // Board order has the default last.
+  assert.equal(landingWorkstream({ ...live, workstreams: [w('ws-a'), w('ws-b'), w('ws-general', true)] })?.id, 'ws-general');
+  assert.equal(landingWorkstream({ ...live, workstreams: [w('ws-a'), w('ws-b')] })?.id, 'ws-a', 'no default: the first tab');
+  // Nothing to open: the Finder keeps the project selected with its empty workstreams column / archived preview.
+  assert.equal(landingWorkstream({ ...live, workstreams: [] }), null);
+  assert.equal(landingWorkstream({ archived: true, pmStatus: null, workstreams: [w('ws-general', true)] }), null);
+  assert.equal(landingWorkstream({ archived: false, pmStatus: 'archived', workstreams: [w('ws-general', true)] }), null);
+  const p = { slug: 'garden-planner', ...live, workstreams: [w('ws-a'), w('ws-general', true)] };
+  assert.equal(finderUrl(p.slug, 'front', false, landingWorkstream(p)?.id), '/portfolio?project=garden-planner&ws=ws-general&q=front');
 });
 
 test('keyboard: up/down within a column, right/enter into workstreams, enter opens, left goes back', () => {

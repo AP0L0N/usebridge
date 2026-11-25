@@ -189,7 +189,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $expected = $this->panel();
         unset($expected['dismissed']);
         $this->app['auth']->forgetGuards();
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')->where('questions', $expected)->where('board.project.open_questions_count', 3));
         $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'dismissed' => [], 'has_any' => true], $this->panel(self::BH, 'answered'));
         $this->assertSame(['open' => [], 'answered' => [], 'closed' => [], 'dismissed' => [], 'has_any' => false], $this->panel(self::NW));
@@ -482,7 +482,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $panel = $this->panel();
         $this->assertSame([[$b], [], [$a]], [array_column($panel['open'], 'ticket_key'), $panel['closed'], array_column($panel['dismissed'], 'ticket_key')]);
         $this->app['auth']->forgetGuards();
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->where('questions.closed.0.ticket_key', $a)->where('questions.closed.0.state', 'dismissed')->missing('questions.dismissed'));
         $this->assertSame(['portfolio' => 1, 'api' => 1, 'board' => 1, 'asks' => 2], $this->counts());
         $this->assertSame([[], [$a]], [$this->panel(self::BH, 'dismissed')['closed'], array_column($this->panel(self::BH, 'dismissed')['dismissed'], 'ticket_key')]);

@@ -273,7 +273,7 @@ class BridgeR4QuestionsTest extends TestCase
             $this->question(['id' => $id, 'state' => 'answered', 'answer_choice' => 'yes', 'answered_at' => now()->subHours($h)]);
         }
         // Kanban: questions are superseded by Waiting on Tilen tickets; the board no longer lists them, the rows stay.
-        $this->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openQuestions')->missing('answeredQuestions'));
+        $this->followingRedirects()->get('/projects/northwind')->assertInertia(fn (Assert $p) => $p->component('Board')->missing('openQuestions')->missing('answeredQuestions'));
         $this->assertSame(2, Question::query()->where('project_id', 'proj-northwind')->where('state', 'open')->count());
         $answered = ProjectStatus::recentlyDone(Question::query()->where('state', 'answered')->get(), 'answered_at');
         $this->assertSame(['recent', 'edge'], $answered->pluck('id')->all());

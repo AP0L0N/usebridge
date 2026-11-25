@@ -115,12 +115,12 @@ class WaitingColumnLabelTest extends TestCase
         $this->assertNotContains(BoardColumns::WAITING_TILEN, BoardColumns::keys());
         $five = ['backlog', 'todo', 'in_progress', 'review', 'done'];
 
-        $this->web()->get('/projects/demo-site')->assertInertia(fn (Assert $p) => $p
+        $this->web()->followingRedirects()->get('/projects/demo-site')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === $five)
             ->where('defaultColumns', fn ($cols) => collect($cols)->pluck('key')->all() === $five));
         $this->web()->get('/')->assertInertia(fn (Assert $p) => $p
             ->where('columns', fn ($cols) => collect($cols)->pluck('key')->all() === $five));
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('label')->all() === ['Backlog', 'To do', 'In progress', 'Review / QA', 'Done']));
 
         $this->assertSame($five, array_column($this->bearer($this->danaToken, 'GET', '/api/board-columns')->assertOk()->json('data'), 'key'));
@@ -175,7 +175,7 @@ class WaitingColumnLabelTest extends TestCase
 
         // A label saved while the column existed stays in the row and changes nothing on the board; the others still win.
         Project::acrossWorkspaces()->whereKey(self::BH)->update(['column_labels' => json_encode(['waiting_tilen' => 'Waiting on client', 'review' => 'QA'])]);
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('label')->all() === ['Backlog', 'To do', 'In progress', 'QA', 'Done']));
     }
 

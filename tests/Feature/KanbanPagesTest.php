@@ -114,7 +114,7 @@ class KanbanPagesTest extends TestCase
             Ticket::query()->whereKey($t['id'])->update(['done_at' => Carbon::now()->subDays($d)]);
         }
 
-        $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
             ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'review', 'done'])
             // No waiting column: a flagged ticket stays where it is, in position order (not oldest waiting first).
@@ -130,7 +130,7 @@ class KanbanPagesTest extends TestCase
             ->has('labels')
             ->has('statusHistory', 0));
 
-        $this->get('/projects/blue-harbor?done=all')->assertInertia(fn (Assert $p) => $p
+        $this->followingRedirects()->get('/projects/blue-harbor?done=all')->assertInertia(fn (Assert $p) => $p
             ->where('doneAll', true)->where('board.columns.4.count', 4)->where('board.done_older_count', 0));
     }
 
@@ -142,12 +142,12 @@ class KanbanPagesTest extends TestCase
         $this->travelMinutes(5);
         $this->patchJson('/api/projects/'.self::BH.'/status', ['status' => 'waiting', 'note' => 'second', 'actor' => self::JANICE])->assertOk();
 
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->has('statusHistory', 2)->where('statusHistory.0.note', 'second')->where('statusHistory.0.from_status', 'smooth')
             ->where('board.project.status_unseen_by_tilen', true));
 
         $this->postJson('/projects/blue-harbor/seen')->assertOk();
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.project.status_unseen_by_tilen', false));
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.project.status_unseen_by_tilen', false));
     }
 
     #[Test]
@@ -176,7 +176,7 @@ class KanbanPagesTest extends TestCase
         $this->api();
         $t = $this->waitingTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'New info', 'actor' => self::JANICE])->assertCreated();
-        $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
+        $this->asOwner()->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.1.tickets.0.unread_for_tilen', true)
             ->where('board.columns.1.tickets.0.latest_unread_author.name', 'Dr. Janice Polito'));
 
@@ -184,7 +184,7 @@ class KanbanPagesTest extends TestCase
         $this->postJson("/projects/blue-harbor/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
         $this->assertNotNull(TicketReadState::query()->where('user', 'tilen')->where('ticket_id', $t['id'])->value('last_seen_at'));
 
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.1.tickets.0.unread_for_tilen', false));
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.1.tickets.0.unread_for_tilen', false));
         $this->get("/projects/blue-harbor/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.last_seen_at', null));
     }
 

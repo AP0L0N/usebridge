@@ -72,7 +72,7 @@ class NewAccountProjectStatusTest extends TestCase
     {
         $this->app['auth']->forgetGuards();
         $this->actingAs($user, 'web');
-        $res = $this->get("/projects/$slug")->assertOk();
+        $res = $this->followingRedirects()->get("/projects/$slug")->assertOk();
 
         return ['latestUpdate' => $res->inertiaProps('latestUpdate'), 'statusHistory' => $res->inertiaProps('statusHistory'), 'board' => $res->inertiaProps('board')];
     }
@@ -129,7 +129,7 @@ class NewAccountProjectStatusTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->actingAs($a['user'], 'web');
-        $cards = collect($this->get('/projects/garden-planner')->assertOk()->inertiaProps('board')['columns'])->flatMap(fn ($c) => $c['tickets'])->keyBy('key');
+        $cards = collect($this->followingRedirects()->get('/projects/garden-planner')->assertOk()->inertiaProps('board')['columns'])->flatMap(fn ($c) => $c['tickets'])->keyBy('key');
         $this->assertSame('api', $cards[$rest['key']]['latest_comment']['source']);
         $this->assertSame('mcp', $cards[$mcp['key']]['latest_comment']['source']);
 

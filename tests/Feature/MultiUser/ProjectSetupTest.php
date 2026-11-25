@@ -64,7 +64,7 @@ class ProjectSetupTest extends TestCase
         // On Ada's Portfolio and board; not on Bea's.
         $this->actingAs($this->ada)->get('/')->assertInertia(fn (Assert $p) => $p
             ->component('Portfolio')->has('projects', 1)->where('projects.0.name', 'Acme Studio')->where('projects.0.pmName', null));
-        $this->actingAs($this->ada)->get('/projects/acme-studio')->assertOk()
+        $this->actingAs($this->ada)->followingRedirects()->get('/projects/acme-studio')->assertOk()
             ->assertInertia(fn (Assert $p) => $p->where('board.project.description', 'Client site rebuild')->where('board.project.pm_agent_id', null));
         $this->app['auth']->forgetGuards();
         $this->actingAs($this->bea)->get('/')->assertInertia(fn (Assert $p) => $p->has('projects', 0));
@@ -129,7 +129,7 @@ class ProjectSetupTest extends TestCase
         $this->labels($this->ada, 'acme-studio', ['review' => 'Client review'])->assertOk();
         $this->assertSame(['backlog' => 'Ideas', 'in_progress' => 'Building', 'review' => 'Client review'], $project->fresh()->column_labels);
 
-        $this->actingAs($this->ada)->get('/projects/acme-studio')->assertInertia(fn (Assert $p) => $p
+        $this->actingAs($this->ada)->followingRedirects()->get('/projects/acme-studio')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.0.key', 'backlog')
             ->where('board.columns.0.label', 'Ideas')
             ->where('board.columns.1.label', BoardColumns::label('todo'))

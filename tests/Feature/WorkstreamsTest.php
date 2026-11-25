@@ -382,14 +382,58 @@ class WorkstreamsTest extends TestCase
             ->where('workstream', $front->id)
             ->where('board', fn ($b) => $titles($b->toArray()) === ['In front'])
             ->where('workstreams', fn ($ws) => collect($ws)->pluck('name')->all() === ['Frontend', 'General']));
-        // A name (current or older) works too; no ?ws = the first tab.
+        // A name (current or older) works too; no ?ws = the default workstream's board.
         $this->get('/projects/blue-harbor?ws=frontend')->assertInertia(fn (Assert $p) => $p->where('workstream', $front->id));
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('workstream', $front->id));
         $general = $this->general();
+        $this->followingRedirects()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('workstream', $general->id));
         $this->get("/projects/blue-harbor?ws={$general->id}")->assertInertia(fn (Assert $p) => $p
             ->where('board', fn ($b) => $titles($b->toArray()) === ['In general']));
         // A ticket deep link opens its own workstream.
         $this->get('/projects/blue-harbor/tickets/BH-2')->assertInertia(fn (Assert $p) => $p->where('workstream', $general->id));
+    }
+
+    #[Test]
+    public function the_project_url_redirects_to_the_default_workstreams_board(): void
+    {
+        $front = $this->addStream('Frontend');
+        $general = $this->general();
+
+        $this->get('/projects/blue-harbor')->assertStatus(302)->assertRedirect("/projects/blue-harbor?ws={$general->id}");
+        // The rest of the query is kept; a ?ws= that no longer resolves lands on the default too.
+        $this->get('/projects/blue-harbor?done=all')->assertStatus(302)->assertRedirect("/projects/blue-harbor?done=all&ws={$general->id}");
+        $this->get('/projects/blue-harbor?ws=nope')->assertStatus(302)->assertRedirect("/projects/blue-harbor?ws={$general->id}");
+        $this->followingRedirects()->get('/projects/blue-harbor?done=all')->assertOk()->assertInertia(fn (Assert $p) => $p
+            ->component('Board')->where('workstream', $general->id)->where('doneAll', true));
+        // A chosen workstream and a ticket deep link render as before.
+        $this->get("/projects/blue-harbor?ws={$front->id}")->assertOk();
+        $key = $this->postJson('/projects/blue-harbor/tickets', ['title' => 'In front', 'workstream' => $front->id])->assertCreated()->json('data.key');
+        $this->get("/projects/blue-harbor/tickets/$key")->assertOk()->assertInertia(fn (Assert $p) => $p->where('workstream', $front->id));
+        $this->get('/projects/nope')->assertNotFound();
+    }
+
+    #[Test]
+    public function without_a_default_the_project_url_redirects_to_the_first_workstream_in_board_order(): void
+    {
+        $alpha = $this->addStream('Alpha');
+        $beta = $this->addStream('Beta');
+        $this->postJson("/projects/blue-harbor/workstreams/{$beta->id}/reorder", ['direction' => 'up'])->assertOk();
+        Workstream::query()->where('project_id', self::BH)->update(['is_default' => false]);
+
+        $this->get('/projects/blue-harbor')->assertStatus(302)->assertRedirect("/projects/blue-harbor?ws={$beta->id}");
+        $this->assertFalse(Workstream::query()->where('project_id', self::BH)->where('is_default', true)->exists(), 'opening the project does not pick a default');
+        $this->assertSame(3, Workstream::query()->where('project_id', self::BH)->count());
+        $this->assertNotSame($alpha->id, $beta->id);
+    }
+
+    #[Test]
+    public function a_project_without_workstreams_gets_its_default_when_its_url_is_opened(): void
+    {
+        Workstream::query()->where('project_id', self::NW)->forceDelete();
+
+        $response = $this->asOwner()->get('/projects/northwind')->assertStatus(302);
+        $general = Workstream::query()->where('project_id', self::NW)->sole();
+        $this->assertTrue($general->is_default);
+        $response->assertRedirect("/projects/northwind?ws={$general->id}");
     }
 
     #[Test]

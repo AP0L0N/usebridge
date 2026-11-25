@@ -109,7 +109,7 @@ class SignupToFirstProjectFlowTest extends TestCase
             ->assertCreated()->assertJsonPath('data.slug', 'garden-planner');
         $project = Project::withoutGlobalScopes()->where('slug', 'garden-planner')->firstOrFail();
         $this->assertSame($workspace->id, $project->workspace_id);
-        $this->get('/projects/garden-planner')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board'));
+        $this->followingRedirects()->get('/projects/garden-planner')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board'));
 
         // 5. Log out; the (latest) mail link verifies without a session and sends the browser to login.
         $this->postJson('/logout')->assertOk();
@@ -123,7 +123,7 @@ class SignupToFirstProjectFlowTest extends TestCase
             ->assertOk()->assertJsonPath('redirect', route('portfolio'))->assertJsonPath('user.email_verified', true);
         $this->get('/')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Portfolio')->has('projects', 1)->where('projects.0.slug', 'garden-planner')->where('features.polymarket', false));
-        $this->get('/projects/garden-planner')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board'));
+        $this->followingRedirects()->get('/projects/garden-planner')->assertOk()->assertInertia(fn (Assert $p) => $p->component('Board'));
         $this->get('/email/verify')->assertRedirect(route('portfolio'));
     }
 
