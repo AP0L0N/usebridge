@@ -12,9 +12,15 @@
         @vite(['resources/css/bridge.css'])
     </head>
     <body>
-        <main class="pubshare-gone">
-            <h1>This link has expired or is unavailable</h1>
-            <p>Ask the person who shared it for a new link.</p>
-        </main>
+        <div class="pubshare-gone">
+            <main>
+                <h1>This link has expired or is unavailable</h1>
+                <p>Ask the person who shared it for a new link.</p>
+            </main>
+            {{-- AGPL source link only: no links into the app (LegalPages::sourceFooter; :link becomes the link). --}}
+            <footer class="pubshare-foot">
+                <p>{{ Str::before($legal['copyright'], ':link') }}<a href="{{ $legal['href'] }}" rel="noopener">{{ $legal['label'] }}</a>{{ Str::after($legal['copyright'], ':link') }}</p>
+            </footer>
+        </div>
     </body>
 </html>

@@ -400,12 +400,18 @@ Returns the ticket with its comments (oldest first) and its newest 50 events. A 
 `{"retracted": true, "body": null}`. A superseded owner input (a changed answer, see
 [Superseded owner input](#superseded-owner-input)) keeps its body and comes back with `"superseded": true`.
 
+Every comment carries `is_public` (boolean). A comment a visitor left on a public share link of the ticket has
+`"is_public": true`, `"author_type": "public"`, `author_id` `"public:<link id>"` and, in `author_name`, the name the
+visitor typed (trimmed, otherwise as typed; treat it as untrusted text). Such a comment is never owner input
+(`is_owner_input` false, never picked up) and is not part of the [comments feed](#get-apiticket-commentsfeed). The MCP
+tool `get_ticket` returns the same fields.
+
 ```bash
 curl -sS "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
 {"data":{"key":"NW-12", …,
-  "comments":[{"id":4211,"cursor":"4211","author_type":"human","author_id":"tilen","author_name":"Tilen","body":"Approve, ship it.",
+  "comments":[{"id":4211,"cursor":"4211","author_type":"human","author_id":"tilen","author_name":"Tilen","is_public":false,"body":"Approve, ship it.",
                "is_tilen_input":true,"input_choice":"Approve","picked_up_at":null,"retracted":false,
                "superseded":false,"superseded_at":null,"superseded_by_comment_id":null,"created_at":"…"}],
   "events":[{"id":88,"type":"commented","actor_id":"tilen","actor_type":"human","source":"ui","from":null,"to":{…},"created_at":"…"}]}}

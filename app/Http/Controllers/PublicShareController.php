@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Tickets\ShareLinks;
 use App\Services\Tickets\TicketService;
+use App\Support\Legal\LegalPages;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
  * The public, read-only ticket page behind a share link (GET /s/{token}, no login) and its visitor comments
  * (POST /s/{token}/comments, CSRF). An unknown, expired or revoked token, or a ticket that may no longer be shown, all
  * answer the same 404 page, so a visitor can never tell whether a ticket exists. The page gets only
- * ShareLinks::publicView (an allowlist), rendered without the app shell (root view "share").
+ * ShareLinks::publicView (an allowlist) and the AGPL source line, rendered without the app shell (root view "share").
  */
 class PublicShareController extends Controller
 {
@@ -32,6 +33,8 @@ class PublicShareController extends Controller
             // The comment form's "opened at" stamp (minimum time to submit); null while visitor comments are off.
             'stamp' => $link->allow_comments ? ShareLinks::formStamp($link) : null,
             'limits' => ['name' => ShareLinks::NAME_MAX, 'body' => ShareLinks::BODY_MAX],
+            // The page's only footer content: the © line and the AGPL source link (no app navigation).
+            'legal' => LegalPages::sourceFooter(),
         ]);
     }
 
@@ -76,6 +79,6 @@ class PublicShareController extends Controller
     /** The one answer for every token that does not open a ticket (unknown, expired, revoked, ticket gone). */
     public static function unavailable(): Response
     {
-        return response()->view('share.unavailable', [], 404);
+        return response()->view('share.unavailable', ['legal' => LegalPages::sourceFooter()], 404);
     }
 }

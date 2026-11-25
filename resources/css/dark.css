@@ -21,7 +21,7 @@ html[data-theme="dark"] {
     --onb-signal-ink: #B9D86A;
 }
 html[data-theme="dark"] :is(.app, .atb) {
-    --a-ink: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E;
+    --a-ink: #ECEDEF; --a-ink-950: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E;
     --a-paper: #0E0F12; --a-line: #2C2F37; --a-surface: #17191E; --a-risk: #EF5A5F;
     --a-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.5); --a-shadow-pop: 0 8px 24px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.5);
     --a-focus: #A895FF;
@@ -50,11 +50,11 @@ html[data-theme="dark"] .pmx {
 html[data-theme="dark"] :is(.atb, .top, .auth-stage, .auth-topbar, .acx-secret, .acx-toast, .toast, .tip) {
     --ink-950: #0B0C0F; --ink-800: #1C1E24; --ink-600: #4A4F5C; --ink-400: #8A8F9C; --line: #E6E6E1; --paper: #F6F6F3; --surface: #FFFFFF;
     --ink: #17191F; --ink2: #4A4F5A; --ink3: #6B6F78; --card: #FFFFFF;
-    --a-ink: #0B0C0F; --a-ink-800: #1C1E24; --a-ink-600: #4A4F5C; --a-ink-400: #8A8F9C; --a-paper: #F6F6F3; --a-line: #E6E6E1; --a-surface: #FFFFFF;
+    --a-ink: #0B0C0F; --a-ink-950: #0B0C0F; --a-ink-800: #1C1E24; --a-ink-600: #4A4F5C; --a-ink-400: #8A8F9C; --a-paper: #F6F6F3; --a-line: #E6E6E1; --a-surface: #FFFFFF;
 }
 html[data-theme="dark"] .atb .atb-menu {
     --ink-950: #ECEDEF; --ink-800: #D2D4D9; --ink-600: #A7ACB7; --ink-400: #8D929E; --line: #2C2F37; --paper: #0E0F12; --surface: #17191E;
-    --a-ink: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E; --a-paper: #0E0F12; --a-line: #2C2F37; --a-surface: #17191E;
+    --a-ink: #ECEDEF; --a-ink-950: #ECEDEF; --a-ink-800: #D2D4D9; --a-ink-600: #A7ACB7; --a-ink-400: #8D929E; --a-paper: #0E0F12; --a-line: #2C2F37; --a-surface: #17191E;
 }
 html[data-theme="dark"] :is(.atb, .top) { box-shadow: inset 0 -1px 0 #2C2F37; }
 html[data-theme="dark"] .auth-topbar { background: #0B0C0F; box-shadow: inset 0 -1px 0 #2C2F37; }

@@ -15,7 +15,7 @@ type Props = {
   now: string;
   lift?: boolean;
   picked?: boolean;
-  /** Simple card: only the status dot and the title (the board header's "Simple" | "Detailed" control). */
+  /** Simple card: only the status dot, the title and the shared mark (the board header's "Simple" | "Detailed" control). */
   simple?: boolean;
   flash?: boolean;
   onOpen?: (t: Ticket, e: MouseEvent) => void;
@@ -39,6 +39,8 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
       onKeyDown={onKeyDown ? (e) => onKeyDown(e, t) : undefined}
     ><RefText text={t.title_refs ?? t.title} inert /></a>
   );
+  // Active public link (the owner's board only sends the flag): the same mark on Simple and Detailed cards.
+  const shared = t.shared ? <span className="shr" title={ts('card.shared')}><IconShared14 /><span className="sr-only">{ts('card.shared')}</span></span> : null;
   if (simple) {
     const dot = cardDot(t);
     // Blocked / waiting on your input / new activity are announced; the column colour is decorative (the column already says it).
@@ -47,6 +49,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
       <div className={cls} data-key={t.key} onPointerDown={onPointerDown ? (e) => onPointerDown(e, t) : undefined}>
         <span className={`sdot ${state ? dot : `c-${dot}`}`} role={state ? 'img' : undefined} aria-label={state ?? undefined} aria-hidden={state ? undefined : true} />
         <h3>{link(state ? `${t.key}: ${t.title} (${state})` : `${t.key}: ${t.title}`)}</h3>
+        {shared}
         {onMove && (
           <button className="tkmv" type="button" aria-label={str('board.move.aria', { key: t.key })} onClick={() => onMove(t)}><IcMove />{str('board.move')}</button>
         )}
@@ -80,7 +83,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
           <span className={`due${t.status !== 'done' && dueSoon(t.due_on, now) ? ' soon' : ''}`}><IconCal12 /><span className="sr-only">Due </span>{dueLabel(t.due_on)}</span>
         )}
         {t.comment_count > 0 && <span className="mic"><IcComment />{t.comment_count}<span className="sr-only"> comments</span></span>}
-        {t.shared && <span className="shr" title={ts('card.shared')}><IconShared14 /><span className="sr-only">{ts('card.shared')}</span></span>}
+        {shared}
         <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
         {onMove && (
           <button className="tkmv" type="button" aria-label={str('board.move.aria', { key: t.key })} onClick={() => onMove(t)}><IcMove />{str('board.move')}</button>

@@ -99,6 +99,21 @@ final class LegalPages
         ];
     }
 
+    /**
+     * The small footer of the public share link pages (/s/{token}): the © line with the AGPL source link, and no links
+     * into the app. Same copy and URL as the site footer; :link in `copyright` is filled by the page.
+     *
+     * @return array{copyright: string, label: string, href: string}
+     */
+    public static function sourceFooter(): array
+    {
+        return [
+            'copyright' => __('legal.footer.copyright', ['entity' => (string) config('bridge.legal_entity')], 'en'),
+            'label' => __('legal.footer.get_source', [], 'en'),
+            'href' => self::sourceUrl(),
+        ];
+    }
+
     /** AGPL §13: the source of the running version; /tree/<sha> when the deployed commit is known. */
     public static function sourceUrl(): string
     {

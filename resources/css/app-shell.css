@@ -11,6 +11,7 @@
    (tokens.css' own --ink/--paper/--line are overridden by the legacy bridge.css :root, so the app reads these). */
 .app, .atb {
     --a-ink: #0B0C0F;
+    --a-ink-950: #0B0C0F;
     --a-ink-800: #1C1E24;
     --a-ink-600: #4A4F5C;
     --a-ink-400: #8A8F9C;

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import { Avatar } from '../../Components/Kanban/Bits';
+import { fillPlaceholders } from '../../Components/SiteFooter';
 import { IconOk } from '../../Components/Icons';
 import { ApiError, send } from '../../lib/kanban';
 import { MARKDOWN_OPTIONS, isSafeHref, prepareMarkdown } from '../../lib/markdown';
@@ -24,6 +25,8 @@ type Props = {
   /** The comment form's "opened at" stamp; null while visitor comments are off. */
   stamp: string | null;
   limits: { name: number; body: number };
+  /** The footer: the © line (":link" = the AGPL source link) and nothing else. */
+  legal: { copyright: string; label: string; href: string };
 };
 
 /**
@@ -47,10 +50,10 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefin
 
 /**
  * The public, read-only ticket behind a share link (/s/{token}): project, workstream, column, title, description and
- * comments, nothing else. No app shell, nav or footer, and no links into the app. Visitors may comment when the owner
+ * comments, nothing else. No app shell or nav, and no links into the app: the footer carries only the AGPL source link. Visitors may comment when the owner
  * turned it on for this link (name + comment; never owner input).
  */
-export default function SharedTicket({ share, stamp, limits }: Props) {
+export default function SharedTicket({ share, stamp, limits, legal }: Props) {
   return (
     <div className="kanban app pubshare">
       <Head title={share.title} />
@@ -87,6 +90,9 @@ export default function SharedTicket({ share, stamp, limits }: Props) {
           {share.comments_enabled && stamp && <CommentForm stamp={stamp} limits={limits} />}
         </section>
       </main>
+      <footer className="pubshare-foot">
+        <p>{fillPlaceholders(legal.copyright, { link: <a href={legal.href} rel="noopener">{legal.label}</a> })}</p>
+      </footer>
     </div>
   );
 }
@@ -139,5 +145,5 @@ function CommentForm({ stamp, limits }: { stamp: string; limits: Props['limits']
   );
 }
 
-/** No site layout: the public page carries no app navigation or footer links. */
+/** No site layout: the public page carries no app navigation or legal links, only its own source-link footer. */
 SharedTicket.layout = (page: ReactNode) => page;

@@ -171,9 +171,12 @@ final class ShareLinks
         return $age > self::MAX_FORM_AGE_SECONDS ? 'stale' : null;
     }
 
-    /** A visitor's name as stored: control characters dropped, whitespace collapsed (rendered as text, never HTML). */
+    /**
+     * A visitor's name as stored: exactly as typed, trimmed (rendered as text, never HTML). Only characters nobody sees
+     * are dropped: control characters and the bidi controls that could reorder the line around the name.
+     */
     public static function cleanName(string $name): string
     {
-        return trim(preg_replace('/\s+/u', ' ', preg_replace('/[\p{Cc}\p{Cf}]/u', '', $name) ?? '') ?? '');
+        return trim(preg_replace('/[\p{Cc}\x{061C}\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $name) ?? '');
     }
 }

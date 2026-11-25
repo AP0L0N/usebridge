@@ -7,6 +7,8 @@ use App\Models\TicketComment;
 use App\Models\TicketShareLink;
 use App\Models\User;
 use App\Services\Tickets\ShareLinks;
+use App\Support\Legal\LegalPages;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,12 +17,14 @@ use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\McpHelpers;
 use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
 /** Public ticket share links: owner-only management, the /s/{token} page and its visitor comments. */
 class TicketShareLinksTest extends TestCase
 {
+    use McpHelpers;
     use RefreshDatabase;
     use TicketHelpers;
 
@@ -212,6 +216,9 @@ class TicketShareLinksTest extends TestCase
         $body = $responses['unknown']->assertNotFound()->getContent();
         $this->assertStringContainsString('This link has expired or is unavailable', $body);
         $this->assertStringNotContainsString('Print the brochure', $body);
+        // Its footer: the AGPL source link, and no link into the app.
+        $this->assertStringContainsString('<a href="'.LegalPages::sourceUrl().'" rel="noopener">Get the source code</a>.</p>', $body);
+        $this->assertSame(1, substr_count($body, '<a '));
         foreach ($responses as $why => $response) {
             $response->assertNotFound()->assertHeader('X-Robots-Tag', 'noindex, nofollow')->assertHeader('Referrer-Policy', 'no-referrer');
             $this->assertSame($body, $response->getContent(), $why);
@@ -249,6 +256,7 @@ class TicketShareLinksTest extends TestCase
         $retracted = $this->postJson('/api/tickets/BH-1/comments', ['actor' => self::JANICE, 'body' => 'Oops, wrong ticket.'])->json('data.id');
         $this->postJson("/api/comments/$retracted/retract", ['actor' => self::JANICE])->assertOk();
 
+        config(['bridge.legal_entity' => 'Example Operator d.o.o.', 'bridge.source_url' => 'https://github.com/AP0L0N/usebridge', 'bridge.source_sha' => 'ABCDEF1234567']);
         [$token] = $this->share();
         $response = $this->guest()->get("/s/$token")->assertOk()
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow')->assertHeader('Referrer-Policy', 'no-referrer');
@@ -265,7 +273,14 @@ class TicketShareLinksTest extends TestCase
             ->where('share.comments.1.body', 'Matte, please.'));
 
         $props = $response->viewData('page')['props'];
-        $this->assertSame(['errors', 'share', 'stamp', 'limits'], array_keys($props));
+        $this->assertSame(['errors', 'share', 'stamp', 'limits', 'legal'], array_keys($props));
+        // The footer: the © line and the AGPL source link of the running version, nothing else.
+        $this->assertSame([
+            'copyright' => '© Example Operator d.o.o. · Bridge is free software under AGPL-3.0-or-later. :link.',
+            'label' => 'Get the source code',
+            'href' => 'https://github.com/AP0L0N/usebridge/tree/abcdef1234567',
+        ], $props['legal']);
+        $this->assertSame(LegalPages::sourceUrl(), $props['legal']['href']);
         $this->assertSame(['project', 'workstream', 'column', 'title', 'description', 'comments', 'comments_enabled'], array_keys($props['share']));
         $this->assertSame(['id', 'author', 'visitor', 'body', 'created_at'], array_keys($props['share']['comments'][0]));
         // Ticket references read as plain keys; no token, id or link to the other ticket.
@@ -275,7 +290,7 @@ class TicketShareLinksTest extends TestCase
         $this->assertStringContainsString('<meta name="robots" content="noindex, nofollow">', $html);
         foreach (['agent-janice', 'assignee', 'Glossy or matte', 'Printer closed', 'print"', 'p1', 'is_owner_input', 'is_tilen_input',
             'picked_up', 'Your input', 'Picked up', 'waiting_on_input', 'ask_options', 'Secret launch plan', $other['id'], 'Oops, wrong ticket',
-            'tk-', '"auth"', '"features"', '"footer"', 'source', 'pm_agent'] as $leak) {
+            'tk-', '"auth"', '"features"', '"footer"', '"source"', '_source', 'pm_agent', 'Imprint', 'Terms', 'Privacy', '/imprint', '/terms', '/privacy'] as $leak) {
             $this->assertStringNotContainsString($leak, $html, "leaked: $leak");
         }
         // The page renders in its own root view: no app shell or links into the app.
@@ -294,7 +309,7 @@ class TicketShareLinksTest extends TestCase
             ->assertCreated()->assertHeader('X-Robots-Tag', 'noindex, nofollow');
 
         $c = TicketComment::query()->where('author_type', 'public')->sole();
-        $this->assertSame('<b>Mira</b> Novak', $c->public_name); // stored as text, rendered escaped
+        $this->assertSame('<b>Mira</b>  Novak', $c->public_name); // as typed (trimmed, the control character dropped); stored as text, rendered escaped
         $this->assertSame("public:{$link['id']}", $c->author_id);
         $this->assertFalse($c->is_tilen_input);
         // Sanitized like every comment (CommentMarkdown): raw HTML escaped to text, unsafe link targets dropped.
@@ -307,13 +322,39 @@ class TicketShareLinksTest extends TestCase
 
         // The thread shows it as a visitor's comment with their name.
         $this->guest()->get("/s/$token")->assertInertia(fn (Assert $page) => $page
-            ->where('share.comments.0.author', '<b>Mira</b> Novak')->where('share.comments.0.visitor', true)->where('stamp', null));
+            ->where('share.comments.0.author', '<b>Mira</b>  Novak')->where('share.comments.0.visitor', true)->where('stamp', null));
         $this->asOwner()->get('/projects/blue-harbor/tickets/BH-1')->assertInertia(fn (Assert $page) => $page
             ->where('ticket.comments.0.author_type', 'public')
             ->where('ticket.comments.0.is_public', true)
-            ->where('ticket.comments.0.author_name', '<b>Mira</b> Novak')
+            ->where('ticket.comments.0.author_name', '<b>Mira</b>  Novak')
             ->where('ticket.comments.0.is_owner_input', false)
             ->where('ticket.comments.0.picked_up_at', null));
+    }
+
+    #[Test]
+    public function a_visitor_name_is_kept_as_typed_and_the_api_marks_the_comment_public(): void
+    {
+        $this->api()->postJson('/api/tickets/BH-1/comments', ['actor' => self::JANICE, 'body' => 'Samples ordered.'])->assertCreated();
+        [$token] = $this->share(['allow_comments' => true]);
+        $name = "mira o'NEIL  <b>&amp; co</b>";
+        $this->postPublic($token, ['stamp' => $this->stamp($token), 'name' => "  $name  "])->assertCreated();
+        $this->assertSame($name, TicketComment::query()->where('author_type', 'public')->sole()->public_name);
+
+        // The public page: the exact string in the payload, and escaped in the HTML (never a tag).
+        $page = $this->guest()->get("/s/$token")->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('share.comments.0.author', 'Dr. Janice Polito')->where('share.comments.0.visitor', false)
+            ->where('share.comments.1.author', $name)->where('share.comments.1.visitor', true));
+        $this->assertStringNotContainsString('<b>&amp; co</b>', $page->getContent());
+
+        // REST and MCP: agents see the comment, marked public, with the visitor's name.
+        $expected = [
+            ['author_type' => 'agent', 'author_name' => 'Dr. Janice Polito', 'is_public' => false],
+            ['author_type' => 'public', 'author_name' => $name, 'is_public' => true],
+        ];
+        $marks = fn (array $comments) => array_map(fn (array $c) => array_intersect_key($c, $expected[0]), $comments);
+        $this->assertSame($expected, $marks($this->api()->getJson('/api/tickets/BH-1')->assertOk()->json('data.comments')));
+        $read = $this->scopedToken($this->workspaceOwner(), app(CurrentWorkspace::class)->default(), 'read', 'reader');
+        $this->assertSame($expected, $marks($this->tool($read, 'get_ticket', ['key' => 'BH-1'])['data']['comments']));
     }
 
     #[Test]
