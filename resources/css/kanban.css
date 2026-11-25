@@ -20,6 +20,7 @@
   .abtn.dng{color:var(--a-risk)}
   .ibtn{display:inline-grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:var(--radius-md);background:none;color:var(--a-ink-600);cursor:pointer;flex:none}
   .ibtn:hover{background:rgb(11 12 15 / 0.04);color:var(--a-ink)}
+  .ibtn:disabled{opacity:.4;cursor:default;background:none}
   .lnk{font:inherit;font-size:15px;font-weight:500;color:var(--a-ink);background:none;border:0;padding:0 4px;min-height:44px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-decoration:none}
   .lnk svg{flex:none}
   /* ---------- foundations: chips, avatars, dots ---------- */
@@ -367,7 +368,7 @@
 
   /* ================= ticket drawer ================= */
   /* Ticket modal (README §11.3, 90:318): centred, max ~720 x ~820, 20px radius, Shadow/Soft, the body scrolls; phones: full-height sheet. */
-  .kb-drawer{position:absolute;inset:0;margin:auto;width:min(720px,calc(100vw - 48px));height:min(820px,calc(100vh - 48px));background:var(--a-surface);border-radius:20px;overflow:hidden;box-shadow:var(--shadow-soft,var(--a-shadow-pop));display:flex;flex-direction:column}
+  .kb-drawer{position:absolute;inset:0;margin:auto;width:min(840px,calc(100vw - 48px));height:min(820px,calc(100vh - 48px));background:var(--a-surface);border-radius:20px;overflow:hidden;box-shadow:var(--shadow-soft,var(--a-shadow-pop));display:flex;flex-direction:column}
   .kb-dback{display:inline-flex;align-items:center;gap:6px;margin-right:12px;font:400 14px/1.45 var(--font-mono);color:var(--a-ink-600)}
   .kb-dback:hover{color:var(--a-ink)}
   .kb-dh{display:flex;align-items:center;gap:4px;height:64px;flex:none;padding:0 12px 0 24px;border-bottom:1px solid var(--a-line);background:var(--a-surface)}
@@ -376,7 +377,7 @@
   .kb-dh .spacer{flex:1}
   .kb-db{flex:1;overflow-y:auto;overscroll-behavior:contain;display:flex;gap:24px;padding:24px;align-items:flex-start}
   .kb-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:28px}
-  .kb-side{width:220px;flex:none;display:flex;flex-direction:column;gap:0;position:sticky;top:0}
+  .kb-side{width:340px;flex:none;display:flex;flex-direction:column;gap:0;position:sticky;top:0}
   .kb-tl{display:flex;flex-direction:column;gap:10px}
   .kb-tl h1{margin:0;font:600 28px/1.15 var(--font-ui);letter-spacing:-0.025em;color:var(--a-ink);overflow-wrap:anywhere}
   .kb-sect{font:500 16px/1.35 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink);display:flex;align-items:center;gap:8px;margin:0}

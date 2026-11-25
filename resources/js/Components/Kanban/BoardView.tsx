@@ -19,6 +19,7 @@ import type { Shared } from '../../lib/account';
 import { updateTime } from '../../lib/dates';
 import { t as tr } from '../../lib/strings';
 import { readCardView, saveCardView, type CardView } from '../../lib/kanbanCards';
+import { ticketNeighbours } from '../../lib/ticketNav';
 import {
   ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, useMe,
   type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type LatestUpdate as LatestUpdateData, type StatusEvent, type Ticket, type TicketDetail as Detail,
@@ -426,8 +427,14 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     setOpening(t.key);
     router.visit(ticketHref(t.key), { only: ['ticket'], preserveState: true, preserveScroll: true, onFinish: () => setOpening(null) });
   };
+  // Prev/next in the drawer replaces the history entry, so closing (history.back) or browser Back returns to the board.
+  const openNeighbour = (key: string) => {
+    returnTo = key;
+    setOpening(key);
+    router.visit(ticketHref(key), { only: ['ticket'], preserveState: true, preserveScroll: true, replace: true, onFinish: () => setOpening((k) => (k === key ? null : k)) });
+  };
   const closeTicket = () => {
-    const key = ticket?.key ?? opening;
+    const key = opening ?? ticket?.key;
     setOpening(null);
     returnTo = key ?? null;
     if (openedHere.current) { openedHere.current = false; window.history.back(); }
@@ -455,7 +462,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     return () => document.documentElement.classList.remove('kmodal');
   }, [ticket, opening]);
 
-  const shownKey = ticket?.key ?? opening;
+  const shownKey = opening ?? ticket?.key ?? null;
   const fallback = shownKey ? (ticket && ticket.key === shownKey ? ticket : find(shownKey)) : undefined;
 
   // ------------------------------------------------------------ mobile tabs
@@ -704,6 +711,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
         <RefSourceCtx.Provider value={{ id: fallback.id, key: fallback.key, host: false, pushed: openedHere.current, release: () => { openedHere.current = false; returnTo = null; }, base: here }}>
         <TicketDetail key={shownKey} detail={ticket && ticket.key === shownKey ? ticket : null} fallback={fallback} project={p} people={people} labels={labels}
           columns={cols} now={now} mobile={mobile} onClose={closeTicket}
+          nav={{ ...ticketNeighbours(visible, shownKey), onGo: openNeighbour }}
           onStatus={(t, to) => requestMove({ t, to, index: 0, via: 'detail' })}
           onChanged={() => reload(['board', 'ticket'])}
           onArchived={(t) => {

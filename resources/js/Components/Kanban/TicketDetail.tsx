@@ -15,6 +15,7 @@ import {
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
   type TicketDetail as Detail, type TicketEvent,
 } from '../../lib/kanban';
+import { ticketNavStep, type TicketNeighbours } from '../../lib/ticketNav';
 
 type Props = {
   detail: Detail | null;
@@ -31,6 +32,8 @@ type Props = {
   onArchived: (t: Ticket) => void;
   /** Opened from a chip inside another ticket (README §11.3): a back arrow to that ticket instead of stacking modals. */
   back?: { key: string; onBack: () => void };
+  /** Prev/next ticket in the same (filtered) column: the header arrows and Ctrl+ArrowLeft / Ctrl+ArrowRight. */
+  nav?: TicketNeighbours & { onGo: (key: string) => void };
 };
 
 const COLNAME = (cols: Column[], k: unknown) => cols.find((c) => c.key === k)?.label ?? String(k ?? '');
@@ -99,7 +102,7 @@ function useDirty(field: string, dirty: boolean) {
 /** Which draft the discard dialog talks about. */
 const DISCARD_COPY: Record<string, 'note' | 'comment' | 'desc'> = { reply: 'note', composer: 'comment', description: 'desc', labels: 'desc' };
 
-export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived, back }: Props) {
+export function TicketDetail({ detail, fallback, project, people, labels, columns, now, mobile, onClose, onStatus, onChanged, onArchived, back, nav }: Props) {
   const t: Ticket = detail ?? fallback;
   const ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -123,6 +126,27 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
   const discard = () => { const run = ask?.discard; setAsk(null); run?.(); };
   const scrim = useScrimDismiss(ref, requestClose);
   useFocusTrap(ref, requestClose, titleRef);
+  // Prev/next asks before dropping a draft, like closing does (the drawer remounts for the next ticket).
+  const go = (key: string | null) => {
+    if (!nav || !key) return;
+    if (dirtyFields.current.size) askDiscard(() => nav.onGo(key)); else nav.onGo(key);
+  };
+  const goRef = useRef(go);
+  goRef.current = go;
+  const navRef = useRef(nav);
+  navRef.current = nav;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const n = navRef.current;
+      const step = n && !e.defaultPrevented ? ticketNavStep(e) : null;
+      // Only from inside the drawer (not the discard dialog or another sheet on top) and never while typing.
+      if (!n || !step || ask || !(ref.current?.contains(e.target as Node) || e.target === document.body)) return;
+      e.preventDefault();
+      goRef.current(step < 0 ? n.prev : n.next);
+    };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [ask]);
 
   // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under your eyes.
   // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
@@ -235,6 +259,12 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
                 </div>
               )}
             </div>
+            {nav && (
+              <>
+                <button className="ibtn" type="button" aria-label={tr('ticket.prev')} title={tr('ticket.prev.tip')} disabled={!nav.prev} onClick={() => go(nav.prev)}><IcChevL /></button>
+                <button className="ibtn" type="button" aria-label={tr('ticket.next')} title={tr('ticket.next.tip')} disabled={!nav.next} onClick={() => go(nav.next)}><IcChevR /></button>
+              </>
+            )}
             <button className="ibtn only-d" type="button" aria-label={tr('ticket.close')} onClick={requestClose}><IcX /></button>
           </div>
           <div className="kb-db">
@@ -609,3 +639,4 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
 }
 
 const IcChevL = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+const IcChevR = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
