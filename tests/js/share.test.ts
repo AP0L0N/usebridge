@@ -70,6 +70,13 @@ test('visitor names render as typed: text only, no transform or truncation', () 
   assert.match(css, /\.pubshare \.cm\.pub header b\{white-space:pre-wrap\}/);
 });
 
+test('the comments heading keeps 16px above the first comment, on the drawer and the public page', () => {
+  // One rule under .kanban (both roots carry it); a .pubshare-only rule ties with ".kanban .thread{margin:0}" and loses.
+  assert.match(src('css/kanban.css'), /\n  \.kb-sect\+\.thread,:not\(\.dsec\)>\.kb-sect\+\.hint\{margin-top:16px\}\n/);
+  assert.doesNotMatch(src('css/share.css'), /\.pubshare \.thread\{/);
+  assert.match(src('js/Pages/Share/Show.tsx'), /<h2 className="kb-sect" id="pub-cm">.*<\/h2>\n\s*\{share\.comments\.length === 0 \? <p className="hint">.*\n\s*<ol className="thread">/);
+});
+
 test('the public page footer is the source link only', () => {
   const page = src('js/Pages/Share/Show.tsx');
   const footer = page.slice(page.indexOf('<footer'), page.indexOf('</footer>'));

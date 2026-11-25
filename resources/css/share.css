@@ -39,7 +39,6 @@
 .pubshare .pubshare-crumb{margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
 .pubshare .dsec{display:flex;flex-direction:column;gap:12px}
 .pubshare .dsec .md{font:400 15px/1.6 var(--font-ui);color:var(--a-ink-800);overflow-wrap:anywhere}
-.pubshare .thread{margin-top:16px}
 .pubshare .pubshare-form{gap:8px}
 .pubshare .pubshare-form .kb-sect{margin-bottom:4px}
 .pubshare .pubshare-lbl{font:500 14px/1.3 var(--font-ui);color:var(--a-ink)}
