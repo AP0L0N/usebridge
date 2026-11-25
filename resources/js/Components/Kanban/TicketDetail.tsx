@@ -15,6 +15,7 @@ import {
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
   type TicketDetail as Detail, type TicketEvent,
 } from '../../lib/kanban';
+import { COMPOSER_INPUT_DEFAULT } from '../../lib/composer';
 import { ticketNavStep, type TicketNeighbours } from '../../lib/ticketNav';
 
 type Props = {
@@ -602,7 +603,7 @@ const CommentEditor = lazy(() => import('./CommentEditor').then((m) => ({ defaul
 
 function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFirst: string; onSent: () => void }) {
   const [body, setBody] = useState('');
-  const [asInput, setAsInput] = useState(false);
+  const [asInput, setAsInput] = useState(COMPOSER_INPUT_DEFAULT);
   const [state, setState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
   const [reset, setReset] = useState(0);
   useDirty('composer', body.trim() !== '');
@@ -612,7 +613,7 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
     setState('busy');
     try {
       await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body, is_owner_input: asInput });
-      setBody(''); setReset((n) => n + 1); setAsInput(false); setState('ok');
+      setBody(''); setReset((n) => n + 1); setAsInput(COMPOSER_INPUT_DEFAULT); setState('ok');
       onSent();
     } catch {
       setState('err'); // the text is never cleared on error
