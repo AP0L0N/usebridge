@@ -198,7 +198,7 @@ class ProjectController extends Controller
             'owner_agent_id' => $p->owner_agent_id,
             'pm_agent_id' => $p->owner_agent_id,
             'ticket_prefix' => $p->ticket_prefix,
-            // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks).
+            // r4 Questions for you: live tickets flagged waiting on input with an ask (OpenAsks).
             'open_asks_count' => $openAsks,
             // r4 Questions panel: questions in state open (Questions; a dismissed one is not counted).
             'open_questions_count' => $s['openQuestions'],

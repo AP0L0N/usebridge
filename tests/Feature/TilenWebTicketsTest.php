@@ -50,9 +50,9 @@ class TilenWebTicketsTest extends TestCase
 
         $this->patchJson('/projects/blue-harbor/tickets/BH-1', ['priority' => 'p1', 'labels' => ['print'], 'assignee' => self::JANICE, 'blocked_reason' => 'Printer closed'])
             ->assertOk()->assertJsonPath('data.priority', 'p1')->assertJsonPath('data.assignee_type', 'agent')->assertJsonPath('data.blocked', true);
-        $this->postJson('/projects/blue-harbor/tickets/BH-1/move', ['status' => 'waiting_tilen'])->assertUnprocessable()->assertJsonValidationErrors('ask');
-        $this->postJson('/projects/blue-harbor/tickets/BH-1/move', ['status' => 'waiting_tilen', 'ask' => 'Which printer?'])
-            ->assertOk()->assertJsonPath('data.status', 'waiting_tilen');
+        // The waiting column is gone from the web moves too; any other column needs no ask.
+        $this->postJson('/projects/blue-harbor/tickets/BH-1/move', ['status' => 'waiting_tilen', 'ask' => 'Which printer?'])->assertUnprocessable()->assertJsonValidationErrors('status');
+        $this->postJson('/projects/blue-harbor/tickets/BH-1/move', ['status' => 'review'])->assertOk()->assertJsonPath('data.status', 'review');
         $this->postJson('/projects/blue-harbor/tickets/BH-1/move', ['status' => 'todo', 'position' => 0])->assertOk()->assertJsonPath('data.position', 0);
 
         $e = TicketEvent::query()->where('type', 'moved')->latest('id')->first();
@@ -84,7 +84,8 @@ class TilenWebTicketsTest extends TestCase
         $ticket = Ticket::first();
         $this->assertSame(Carbon::now()->toIso8601String(), $ticket->tilen_input_at->toIso8601String());
         $this->assertTrue($ticket->needsPmPickup());
-        $this->assertSame('waiting_tilen', $ticket->status); // the PM moves it, not Tilen's input
+        // His input neither moves the ticket nor clears the waiting-on-input flag (the PM does); the highlight ends.
+        $this->assertSame(['todo', true, false], [$ticket->status, $ticket->isWaitingOnOwner(), $ticket->waitingOnInputOutstanding()]);
 
         $item = $this->getJson('/api/ticket-comments/feed')->assertOk()->json('data.0');
         $this->assertSame('Go ahead, keep the blue.', $item['body']);
@@ -112,7 +113,7 @@ class TilenWebTicketsTest extends TestCase
     #[Test]
     public function acked_input_keeps_the_answered_state_until_the_pm_asks_something_new(): void
     {
-        // QA M1: the PM acks while the ticket stays in Waiting on Tilen -> the Your input box shows his answer, not a blank form.
+        // QA M1: the PM acks while the ticket stays flagged waiting on input -> the Your input box shows his answer, not a blank form.
         $this->api();
         $t = $this->waitingTicket(['assignee' => self::JANICE]);
         $this->assertFalse($this->getJson("/api/tickets/{$t['key']}")->assertOk()->json('data.tilen_answered_ask'));
@@ -123,7 +124,7 @@ class TilenWebTicketsTest extends TestCase
 
         $this->travelMinutes(1);
         $acked = $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()->json('data');
-        $this->assertSame(['waiting_tilen', false, true], [$acked['status'], $acked['needs_pm_pickup'], $acked['tilen_answered_ask']]);
+        $this->assertSame([true, false, true], [$acked['waiting_on_input'], $acked['needs_pm_pickup'], $acked['tilen_answered_ask']]);
 
         // Still answered after a reorder inside the column or an unrelated edit.
         $this->travelMinutes(1);
@@ -133,14 +134,15 @@ class TilenWebTicketsTest extends TestCase
         $this->travelMinutes(1);
         $this->patchJson("/api/tickets/{$t['key']}", ['ask' => 'And the footer copy?', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
 
-        // Answer again, ack, then the PM moves it out and back in -> a new round, blank form again.
+        // Answer again, ack, then the PM clears the flag and sets it again -> a new round, blank form again.
         $this->travelMinutes(1);
         $this->tilenSays($t['key'], ['input_choice' => 'No'])->assertCreated();
         $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', true);
         $this->travelMinutes(1);
-        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
+        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', true);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => false, 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
         $this->travelMinutes(1);
-        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'And the footer copy?', 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.tilen_answered_ask', false);
     }
 
     #[Test]

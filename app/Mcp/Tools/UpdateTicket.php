@@ -10,7 +10,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('update_ticket')]
-#[Description('Change a ticket\'s fields; only the fields you send change (same rules as PATCH /api/tickets/{key}). Use move_ticket to change column with placement.')]
+#[Description('Change a ticket\'s fields; only the fields you send change (same rules as PATCH /api/tickets/{key}). Set waiting_on_input to flag (true) or unflag (false) that the workspace owner\'s input is needed. Use move_ticket to change column with placement.')]
 class UpdateTicket extends BridgeTool
 {
     protected const ABILITY = 'boards:write';

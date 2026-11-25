@@ -86,7 +86,7 @@ class WebAccessAndPagesTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Board')
                 ->where('board.project.slug', 'blue-harbor')
-                ->has('board.columns', 6)
+                ->has('board.columns', 5)
                 ->where('ticket', null)
                 ->missing('openInputs')
                 ->missing('statusUpdates'));

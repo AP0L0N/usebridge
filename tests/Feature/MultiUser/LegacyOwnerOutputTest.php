@@ -7,6 +7,7 @@ use App\Models\Ticket;
 use App\Models\TicketReadState;
 use App\Services\Tickets\Actor;
 use App\Services\Tickets\TicketService;
+use App\Support\BoardColumns;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -42,7 +43,7 @@ class LegacyOwnerOutputTest extends TestCase
     private function legacyTicket(): Ticket
     {
         $tickets = app(TicketService::class);
-        $ticket = $tickets->create(Project::query()->findOrFail(self::BH), ['title' => 'Approve the copy', 'status' => 'waiting_tilen', 'ask' => 'Ship it?', 'ask_options' => ['Yes', 'No']], Actor::tilen());
+        $ticket = $tickets->create(Project::query()->findOrFail(self::BH), ['title' => 'Approve the copy', 'waiting_on_input' => true, 'ask' => 'Ship it?', 'ask_options' => ['Yes', 'No']], Actor::tilen());
         $tickets->comment($ticket, Actor::tilen(), 'Yes', true, 'Yes');
         TicketReadState::query()->create(['user' => 'tilen', 'ticket_id' => $ticket->id, 'last_seen_at' => Carbon::now()]);
 
@@ -59,13 +60,13 @@ class LegacyOwnerOutputTest extends TestCase
         $t = $this->getJson("/api/tickets/{$ticket->key}")->assertOk()->json('data');
         $this->assertSame(['tilen', 'Tilen'], [$t['created_by'], $t['created_by_name']]);
         $this->assertSame([['tilen', 'Tilen', true], [self::JANICE, 'Dr. Janice Polito', false]], array_map(fn ($c) => [$c['author_id'], $c['author_name'], $c['is_tilen_input']], $t['comments']));
-        $this->assertSame('Waiting on Tilen', $t['status_label']);
-        $this->assertTrue($t['waiting_on_tilen']);
+        // Flagged waiting on input: the older field names still say so.
+        $this->assertSame([true, true, true], [$t['waiting_on_input'], $t['waiting_on_tilen'], $t['waiting_on_owner']]);
         $this->assertTrue($t['unread_for_tilen']); // his read state ('tilen') predates Janice's reply
         $this->assertSame($t['unread_for_tilen'], $t['unread_for_me']);
         $this->assertSame([$ticket->key], array_column($this->getJson('/api/tickets?unread_for_tilen=1')->json('data'), 'key'));
         $this->assertSame([$ticket->key], array_column($this->getJson('/api/tickets?unread_for_owner=1')->json('data'), 'key'));
-        $this->assertSame('Waiting on Tilen', $this->getJson('/api/board-columns')->json('data.3.label'));
+        $this->assertSame('Waiting on Tilen', BoardColumns::label(BoardColumns::WAITING_TILEN, app(CurrentWorkspace::class)->default())); // the removed column's name, for older history
         $this->assertSame(['tilen'], array_column($this->getJson('/api/ticket-comments/feed')->json('data'), 'author_id')); // default: people's comments
         $this->assertSame(['tilen'], array_column($this->getJson('/api/ticket-comments/feed?author=tilen')->json('data'), 'author_id'));
         $this->getJson('/api/tickets?assignee=tilen')->assertOk();
@@ -81,7 +82,7 @@ class LegacyOwnerOutputTest extends TestCase
             ->where('ticket.created_by_name', 'Tilen')
             ->where('ticket.comments.0.author_name', 'Tilen')
             ->where('ticket.unread_for_tilen', true)
-            ->where('board.columns.3.label', 'Waiting on Tilen'));
+            ->where('ticket.waiting_on_tilen', true));
         $this->postJson("/projects/blue-harbor/tickets/{$ticket->key}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
         $this->assertSame(['tilen'], TicketReadState::query()->where('ticket_id', $ticket->id)->pluck('user')->all());
     }

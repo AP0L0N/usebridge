@@ -24,7 +24,7 @@ type Props = {
 
 /** Ticket card (screen 2). The title link stretches over the whole card; the mobile "Move" button sits above it. */
 export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, onOpen, onMove, onKeyDown, onPointerDown }: Props) {
-  const cls = ['tk', simple && 'simple', t.status === 'done' && 'done', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
+  const cls = ['tk', simple && 'simple', t.status === 'done' && 'done', t.waiting_on_input_outstanding && 'wio', lift && 'lift', picked && 'picked', flash && 'flash'].filter(Boolean).join(' ');
   const link = (label: string) => (
     <a
       className="tkl"
@@ -39,8 +39,8 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
   );
   if (simple) {
     const dot = cardDot(t);
-    // Blocked / new activity are announced; the column colour is decorative (the column already says it).
-    const state = dot === 'blocked' || dot === 'new' ? str(`board.card.dot.${dot}`) : null;
+    // Blocked / waiting on your input / new activity are announced; the column colour is decorative (the column already says it).
+    const state = dot === 'blocked' || dot === 'waiting' || dot === 'new' ? str(`board.card.dot.${dot}`) : null;
     return (
       <div className={cls} data-key={t.key} onPointerDown={onPointerDown ? (e) => onPointerDown(e, t) : undefined}>
         <span className={`sdot ${state ? dot : `c-${dot}`}`} role={state ? 'img' : undefined} aria-label={state ?? undefined} aria-hidden={state ? undefined : true} />
@@ -52,7 +52,8 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
     );
   }
   const strips: ReactNode[] = [];
-  if (t.status === 'waiting_tilen' && t.ask) {
+  if (t.waiting_on_input_outstanding) strips.push(<p key="wio" className="unr wait"><span className="dotk" aria-hidden="true" />{str('board.card.waitingInput')}</p>);
+  if (t.waiting_on_input && t.ask) {
     strips.push(<div key="ask" className="askb"><span className="ov">{str('board.card.ask')}</span><p><RefText text={t.ask} inert /></p></div>);
   }
   if (t.blocked_reason) strips.push(<p key="blk" className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={str('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} inert /></span></p>);

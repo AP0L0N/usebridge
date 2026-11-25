@@ -22,7 +22,7 @@
 .colprev .colh{display:flex;align-items:center;gap:8px;padding:4px 4px 6px;font-size:15px;font-weight:700}
 .colprev .colh .cnt{font-size:13px;font-weight:700;background:var(--card);color:var(--ink2);border-radius:99px;padding:1px 8px}
 .colprev .colh .dot{width:10px;height:10px;border-radius:3px;flex:none}
-.colprev .c-backlog{background:#C9C5BA}.colprev .c-todo{background:#A9BCD4}.colprev .c-in_progress{background:#3E5F8A}.colprev .c-waiting_tilen{background:#F7D94C}.colprev .c-review{background:#8C79B5}.colprev .c-done{background:#3FB37F}
+.colprev .c-backlog{background:#C9C5BA}.colprev .c-todo{background:#A9BCD4}.colprev .c-in_progress{background:#3E5F8A}.colprev .c-review{background:#8C79B5}.colprev .c-done{background:#3FB37F}
 
 /* =====================================================================
    4 · MULTI-USER ADDITIONS (sign-up/login, account, tokens & MCP,

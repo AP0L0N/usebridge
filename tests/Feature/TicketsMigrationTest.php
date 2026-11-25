@@ -22,7 +22,7 @@ class TicketsMigrationTest extends TestCase
     use RefreshDatabase;
     use TicketHelpers;
 
-    private const TOTAL = 'total: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9 (waiting_tilen 5, todo 1, in_progress 3) · skipped 0';
+    private const TOTAL = 'total: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9 (waiting_on_input 5, todo 1, in_progress 3) · skipped 0';
 
     private string $long;
 
@@ -77,7 +77,7 @@ class TicketsMigrationTest extends TestCase
     {
         $before = $this->legacy();
         $this->artisan('bridge:tickets-migrate --dry-run')
-            ->expectsOutputToContain('Blue Harbor ('.self::BH.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_tilen 4, todo 0, in_progress 1) · skipped 0')
+            ->expectsOutputToContain('Blue Harbor ('.self::BH.'): dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 0 → tickets 5 (waiting_on_input 4, todo 0, in_progress 1) · skipped 0')
             ->expectsOutputToContain('total: dry run, nothing written · would be: questions open 1, answered 2, inputs 2, next steps 4 → tickets 9')
             ->assertSuccessful();
         $this->assertSame(0, Ticket::count());
@@ -93,14 +93,14 @@ class TicketsMigrationTest extends TestCase
     {
         $before = $this->legacy();
         $this->artisan('bridge:tickets-migrate')
-            ->expectsOutputToContain('Northwind ('.self::NW.'): questions open 0, answered 0, inputs 0, next steps 4 → tickets 4 (waiting_tilen 1, todo 1, in_progress 2) · skipped 0')
+            ->expectsOutputToContain('Northwind ('.self::NW.'): questions open 0, answered 0, inputs 0, next steps 4 → tickets 4 (waiting_on_input 1, todo 1, in_progress 2) · skipped 0')
             ->expectsOutputToContain(self::TOTAL)
             ->assertSuccessful();
         $this->assertSame(9, Ticket::count());
 
         // Open yes/no question.
         $q = $this->byRow('question', 'q-open');
-        $this->assertSame('waiting_tilen', $q->status);
+        $this->assertSame('in_progress', $q->status); // waited on Tilen: In progress, flagged waiting on input
         $this->assertSame(140, mb_strlen($q->title));
         $this->assertStringEndsWith('…', $q->title);
         $this->assertSame($this->long, $q->ask); // under 280 chars: the full text
@@ -109,7 +109,7 @@ class TicketsMigrationTest extends TestCase
         $this->assertSame(['agent', self::JANICE], [$q->assignee_type, $q->assignee_id]);
         $this->assertSame([self::JANICE, 'agent'], [$q->created_by, $q->created_by_type]); // "Janice" -> Dr. Janice Polito
         $this->assertSame('2026-10-20 09:00:00', $q->created_at->format('Y-m-d H:i:s'));
-        $this->assertSame('2026-10-20 09:00:00', $q->waiting_since->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-10-20 09:00:00', $q->waiting_on_input_at->format('Y-m-d H:i:s'));
         $this->assertSame(['question'], $q->labels->pluck('name')->all());
         $this->assertFalse($q->needsPmPickup());
         $this->assertStringStartsWith('BH-', $q->key);
@@ -131,13 +131,13 @@ class TicketsMigrationTest extends TestCase
 
         // Required inputs.
         $i1 = $this->byRow('required_input', 'in-ca-1');
-        $this->assertSame(['waiting_tilen', 'Approve or reject phase-2 scope freeze'], [$i1->status, $i1->ask]);
+        $this->assertSame(['in_progress', 'Approve or reject phase-2 scope freeze'], [$i1->status, $i1->ask]);
         $this->assertSame(['input'], $i1->labels->pluck('name')->all());
         $this->assertStringContainsString('_Carried over from Required inputs (waiting on Tilen, since 8 Sep 2026)._', $i1->description);
-        $this->assertSame('2026-09-08 15:00:00', $i1->waiting_since->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-09-08 15:00:00', $i1->waiting_on_input_at->format('Y-m-d H:i:s'));
         $this->assertSame(['input', 'waiting-on-other'], $this->byRow('required_input', 'in-ca-2')->labels->pluck('name')->all());
         $i2 = $this->byRow('required_input', 'in-ca-2'); // not Tilen's: In progress, assigned to that person, no ask
-        $this->assertSame(['in_progress', 'human', 'Copywriter', null, null], [$i2->status, $i2->assignee_type, $i2->assignee_id, $i2->ask, $i2->waiting_since]);
+        $this->assertSame(['in_progress', 'human', 'Copywriter', null, null], [$i2->status, $i2->assignee_type, $i2->assignee_id, $i2->ask, $i2->waiting_on_input_at]);
 
         // Next steps.
         $n1 = $this->byRow('next_step', 'ns-1');
@@ -146,10 +146,10 @@ class TicketsMigrationTest extends TestCase
         $this->assertSame(['todo', 'Client has not sent the logo files', 'human', 'Client'], [$n2->status, $n2->blocked_reason, $n2->assignee_type, $n2->assignee_id]);
         $this->assertSame(['blocker', 'next-step'], $n2->labels->pluck('name')->all());
         $n3 = $this->byRow('next_step', 'ns-3');
-        $this->assertSame(['waiting_tilen', 'Sign the supplier contract', null], [$n3->status, $n3->ask, $n3->blocked_reason]);
+        $this->assertSame(['in_progress', true, 'Sign the supplier contract', null], [$n3->status, $n3->isWaitingOnOwner(), $n3->ask, $n3->blocked_reason]);
         $n5 = $this->byRow('next_step', 'ns-5');
         $this->assertSame(['agent', self::ANATOLY], [$n5->assignee_type, $n5->assignee_id]); // falls back to the PM
-        $this->assertSame([0, 1], [$n1->position, $n5->position]);
+        $this->assertSame([0, 1, 2], [$n1->position, $n3->position, $n5->position]); // one In progress column, in step order
         $this->assertSame(['NW-1', 'NW-2', 'NW-3', 'NW-4'], Ticket::query()->where('project_id', self::NW)->orderBy('key')->pluck('key')->all());
 
         // Events: created by migration via api.
@@ -171,7 +171,7 @@ class TicketsMigrationTest extends TestCase
     {
         $this->artisan('bridge:tickets-migrate')->assertSuccessful();
         $this->artisan('bridge:tickets-migrate')
-            ->expectsOutputToContain('total: questions open 0, answered 0, inputs 0, next steps 0 → tickets 0 (waiting_tilen 0, todo 0, in_progress 0) · skipped 9')
+            ->expectsOutputToContain('total: questions open 0, answered 0, inputs 0, next steps 0 → tickets 0 (waiting_on_input 0, todo 0, in_progress 0) · skipped 9')
             ->assertSuccessful();
         $this->assertSame(9, Ticket::count());
 
@@ -179,7 +179,7 @@ class TicketsMigrationTest extends TestCase
         Question::query()->whereKey('q-open')->toBase()->update(['ticket_id' => null, 'superseded_at' => null]);
         Question::create(['id' => 'q-new', 'project_id' => self::NW, 'text' => 'New question?', 'type' => 'yesno', 'asked_by' => 'Anatoly']);
         $this->artisan('bridge:tickets-migrate --project='.self::NW)
-            ->expectsOutputToContain('total: questions open 1, answered 0, inputs 0, next steps 0 → tickets 1 (waiting_tilen 1, todo 0, in_progress 0) · skipped 4')
+            ->expectsOutputToContain('total: questions open 1, answered 0, inputs 0, next steps 0 → tickets 1 (waiting_on_input 1, todo 0, in_progress 0) · skipped 4')
             ->assertSuccessful();
         $this->artisan('bridge:tickets-migrate')->expectsOutputToContain('· skipped 10')->assertSuccessful();
         $this->assertSame(10, Ticket::count());

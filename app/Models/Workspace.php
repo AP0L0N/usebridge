@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /**
  * One person's Bridge: projects, agents, boards, usage (docs/MULTI-USER-PLAN.md). Owned rows carry workspace_id
  * (Concerns\BelongsToWorkspace). `features` holds per-workspace switches, e.g. {"polymarket": true}. `settings` holds
- * per-workspace values, e.g. {"waiting_label": "…"} (the waiting_tilen column name; BoardColumns::defaults).
+ * per-workspace values, e.g. {"waiting_label": "…"} (the name of the removed waiting_tilen column, for history; BoardColumns::label).
  */
 class Workspace extends Model
 {
@@ -45,7 +45,7 @@ class Workspace extends Model
         return ($this->features[$feature] ?? false) === true;
     }
 
-    /** This workspace's own stored name for the waiting_tilen column; null = the default (waitingColumnLabel). */
+    /** This workspace's own stored name for the removed waiting_tilen column; null = the default (waitingColumnLabel). */
     public function waitingLabel(): ?string
     {
         $label = $this->settings[self::SETTING_WAITING_LABEL] ?? null;
@@ -53,7 +53,7 @@ class Workspace extends Model
         return is_string($label) && trim($label) !== '' ? $label : null;
     }
 
-    /** The waiting_tilen column's name: settings.waiting_label, else "Waiting on <owner's first name>" ("Waiting on you"). */
+    /** The removed waiting_tilen column's name (history lines): settings.waiting_label, else "Waiting on <owner's first name>" ("Waiting on you"). */
     public function waitingColumnLabel(): string
     {
         return $this->waitingLabel() ?? HumanActors::defaultWaitingLabel($this);

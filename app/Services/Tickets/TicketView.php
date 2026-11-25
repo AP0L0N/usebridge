@@ -21,6 +21,11 @@ use Illuminate\Support\Carbon;
  * tilen_input_ack_at, tilen_answered_ask, unread_for_tilen, is_tilen_input) next to the neutral ones (waiting_on_owner,
  * owner_input_at, owner_input_ack_at, owner_answered_ask, unread_for_me, is_owner_input) with the same values.
  * unread_for_me is for the human viewing: the signed-in web user, or the workspace owner over the API / MCP.
+ *
+ * Waiting on input: waiting_on_input (+ waiting_on_input_at) is the flag "input is needed from the workspace owner", on a
+ * ticket in any column; waiting_on_owner / waiting_on_tilen / waiting_since are older names for the same values (they
+ * used to mean the removed waiting_tilen column). waiting_on_input_outstanding is the highlight: flagged and no live
+ * owner input comment since the flag was set.
  */
 final class TicketView
 {
@@ -32,7 +37,7 @@ final class TicketView
             'workstream',
             'labels',
             'viewerReadState',
-            'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'is_tilen_input', 'retracted_at', 'created_at']),
+            'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'is_tilen_input', 'retracted_at', 'superseded_at', 'created_at']),
         ];
     }
 
@@ -65,7 +70,7 @@ final class TicketView
     {
         $t->loadMissing(self::with());
         $waiting = $t->isWaitingOnOwner();
-        $days = $waiting && $t->waiting_since ? ProjectStatus::ageDays($t->waiting_since, $this->now) : null;
+        $days = $waiting ? ProjectStatus::ageDays($t->waiting_on_input_at, $this->now) : null;
         $live = $t->comments->whereNull('retracted_at');
         $unread = $this->unread($t, $live);
         $latestUnread = $unread->last();
@@ -93,9 +98,12 @@ final class TicketView
             'ask' => $t->ask,
             'ask_context' => $t->ask_context,
             'ask_options' => $t->ask_options,
+            'waiting_on_input' => $waiting,
+            'waiting_on_input_at' => $waitingAt = $t->waiting_on_input_at?->toIso8601String(),
+            'waiting_on_input_outstanding' => $t->waitingOnInputOutstanding(),
             'waiting_on_tilen' => $waiting,
             'waiting_on_owner' => $waiting,
-            'waiting_since' => $t->waiting_since?->toIso8601String(),
+            'waiting_since' => $waitingAt,
             'waiting_age_days' => $days,
             'waiting_level' => $days === null ? null : ProjectStatus::level($days),
             'tilen_input_at' => $inputAt = $t->tilen_input_at?->toIso8601String(),
@@ -136,7 +144,7 @@ final class TicketView
 
     /**
      * Agent comments the viewer hasn't seen (newer than their ticket_read_states.last_seen_at), counted only on tickets
-     * that involve them (waiting on the owner, or they have commented) — SPEC §4 "New reply from {agent}".
+     * that involve them (flagged waiting on the owner's input, or they have commented) — SPEC §4 "New reply from {agent}".
      */
     private function unread(Ticket $t, $live)
     {
@@ -240,6 +248,11 @@ final class TicketView
 
     public function event(TicketEvent $e): array
     {
+        // Older history names the removed waiting_tilen column: that side carries status_label, so the line still reads.
+        $gone = fn (?array $at) => ($at['status'] ?? null) === BoardColumns::WAITING_TILEN
+            ? [...$at, 'status_label' => BoardColumns::label(BoardColumns::WAITING_TILEN)]
+            : $at;
+
         return [
             'id' => $e->id,
             'ticket_id' => $e->ticket_id,
@@ -248,8 +261,8 @@ final class TicketView
             // A workstream move names the old workstream as it was; `deleted` marks one deleted since ("Mobile (deleted)").
             'from' => $e->type === 'workstream' && is_array($e->from)
                 ? [...$e->from, 'deleted' => Workstream::withTrashed()->find($e->from['workstream_id'] ?? null)?->trashed() ?? true]
-                : $e->from,
-            'to' => $e->to,
+                : $gone($e->from),
+            'to' => $gone($e->to),
             'actor_id' => $e->actor_id,
             'actor_type' => $e->actor_type,
             'actor_name' => $this->name($e->actor_id),
@@ -282,6 +295,7 @@ final class TicketView
             'label' => ['nullable', 'string', 'max:24'],
             'q' => ['nullable', 'string', 'max:120'],
             'needs_pm_pickup' => ['nullable', 'in:0,1,true,false'],
+            'waiting_on_input' => ['nullable', 'in:0,1,true,false'],
             'unread_for_me' => ['nullable', 'in:0,1,true,false'],
             'unread_for_owner' => ['nullable', 'in:0,1,true,false'],
             'unread_for_tilen' => ['nullable', 'in:0,1,true,false'], // compat alias
@@ -322,6 +336,9 @@ final class TicketView
         if (! empty($f['needs_pm_pickup'])) {
             $q->needsPmPickup();
         }
+        if (! empty($f['waiting_on_input'])) {
+            $q->waitingOnInput();
+        }
         if (! empty($f['unread_for_me']) || ! empty($f['unread_for_owner']) || ! empty($f['unread_for_tilen'])) {
             $q->unreadFor();
         }
@@ -339,22 +356,21 @@ final class TicketView
     }
 
     /**
-     * QA M1: the current ask is already answered (the PM may have acked it while the ticket stays in the waiting
-     * column). False once the PM sets a new ask or moves the ticket back into the waiting column after the answer, so a
-     * blank Your input form shows only for a new ask. Queries only acked tickets in the waiting column (few).
+     * QA M1: the current ask is already answered (the PM may have acked it while the ticket stays flagged waiting on
+     * input). False once the PM sets a new ask or flags the ticket again after the answer, so a blank Your input form
+     * shows only for a new ask. Queries only acked, flagged tickets (few).
      */
     public function answeredAsk(Ticket $t): bool
     {
-        if ($t->status !== BoardColumns::WAITING_TILEN || $t->tilen_input_at === null) {
+        if (! $t->isWaitingOnOwner() || $t->tilen_input_at === null) {
             return false;
         }
         if ($t->needsPmPickup()) {
             return true;
         }
 
-        return ! TicketEvent::query()->where('ticket_id', $t->id)->whereIn('type', ['ask_set', 'moved'])
+        return ! TicketEvent::query()->where('ticket_id', $t->id)->whereIn('type', ['ask_set', 'waiting_set', 'moved'])
             ->where('created_at', '>', $t->tilen_input_at)->get(['type', 'from', 'to'])
-            ->contains(fn (TicketEvent $e) => $e->type === 'ask_set'
-                || (($e->to['status'] ?? null) === BoardColumns::WAITING_TILEN && ($e->from['status'] ?? null) !== BoardColumns::WAITING_TILEN));
+            ->contains(fn (TicketEvent $e) => $e->startsWaiting());
     }
 }

@@ -25,18 +25,22 @@ export function saveCardView(storage: Pick<Storage, 'setItem' | 'removeItem'> | 
   }
 }
 
-export type CardDot = 'blocked' | 'new' | ColumnKey;
+export type CardDot = 'blocked' | 'waiting' | 'new' | ColumnKey;
 
 /**
  * The single status dot of a simple card (README §10.1). Most urgent wins:
  * 1. blocked (risk): the red "Blocked · …" strip (blocked_reason);
- * 2. new (agent): new activity, the "New reply from …" pill (unread agent replies for the viewer);
- * 3. otherwise the ticket's column colour, the same dot as the column header (Backlog ink/400, To do ink/600,
- *    In progress ink/950, Waiting on you signal, Review/QA warn, Done ok).
+ * 2. waiting (signal): waiting on your input, nothing sent yet (waiting_on_input_outstanding);
+ * 3. new (agent): new activity, the "New reply from …" pill (unread agent replies for the viewer);
+ * 4. otherwise the ticket's column colour, the same dot as the column header (Backlog ink/400, To do ink/600,
+ *    In progress ink/950, Review/QA warn, Done ok).
  */
-export function cardDot(t: Pick<Ticket, 'status' | 'blocked_reason' | 'unread_for_me'>): CardDot {
+export function cardDot(t: Pick<Ticket, 'status' | 'blocked_reason' | 'unread_for_me' | 'waiting_on_input_outstanding'>): CardDot {
   if (t.blocked_reason) {
     return 'blocked';
+  }
+  if (t.waiting_on_input_outstanding) {
+    return 'waiting';
   }
   if (t.unread_for_me) {
     return 'new';

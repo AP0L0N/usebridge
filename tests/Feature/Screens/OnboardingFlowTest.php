@@ -97,15 +97,14 @@ class OnboardingFlowTest extends TestCase
     }
 
     #[Test]
-    public function step_2_lists_the_six_board_columns_in_order_with_waiting_on_the_owner(): void
+    public function step_2_lists_the_five_board_columns_in_order_without_a_waiting_column(): void
     {
         $expected = [
             ['key' => 'backlog', 'label' => 'Backlog', 'order' => 0],
             ['key' => 'todo', 'label' => 'To do', 'order' => 1],
             ['key' => 'in_progress', 'label' => 'In progress', 'order' => 2],
-            ['key' => 'waiting_tilen', 'label' => 'Waiting on Sam', 'order' => 3],
-            ['key' => 'review', 'label' => 'Review / QA', 'order' => 4],
-            ['key' => 'done', 'label' => 'Done', 'order' => 5],
+            ['key' => 'review', 'label' => 'Review / QA', 'order' => 3],
+            ['key' => 'done', 'label' => 'Done', 'order' => 4],
         ];
         $this->assertSame($expected, BoardColumns::all(null, $this->sam->homeWorkspace()));
         $this->assertSame(array_column($expected, 'key'), BoardColumns::keys());
@@ -117,7 +116,8 @@ class OnboardingFlowTest extends TestCase
             ->where('defaultColumns', $expected)
             ->where('copy.board.title', 'Set up its board')
             ->where('copy.board.sub', 'Start with these columns or rename them. Tickets move left to right.')
-            ->where('copy.board.core', 'Core column')
+            ->missing('copy.board.core')
+            ->where('copy.board.help', fn (string $help) => str_contains($help, 'flags the ticket') && ! str_contains($help, ':waiting'))
             ->where('copy.board.back', 'Back')
             ->where('copy.board.save', 'Save board'));
 
@@ -125,7 +125,8 @@ class OnboardingFlowTest extends TestCase
         $page = (string) file_get_contents(resource_path('js/Pages/Onboarding.tsx'));
         $this->assertStringNotContainsString('Add column', json_encode(__('onboarding'), JSON_UNESCAPED_UNICODE));
         $this->assertDoesNotMatchRegularExpression('/draggable|onDrag/', $page);
-        $this->assertStringContainsString("const CORE = 'waiting_tilen';", $page);
+        // No "Core column" (the waiting column is gone).
+        $this->assertStringNotContainsString('waiting_tilen', $page);
     }
 
     #[Test]
@@ -133,12 +134,14 @@ class OnboardingFlowTest extends TestCase
     {
         $this->createProject($this->sam)->assertCreated();
         Project::acrossWorkspaces()->where('slug', 'example-project')->firstOrFail()
-            ->forceFill(['column_labels' => ['waiting_tilen' => 'Needs Sam']])->save();
+            ->forceFill(['column_labels' => ['review' => 'Sam checks', 'waiting_tilen' => 'Needs Sam']])->save();
 
         $this->app['auth']->forgetGuards();
         $this->actingAs($this->sam)->get('/welcome')->assertInertia(fn (Assert $p) => $p
-            ->where('columns.3', ['key' => 'waiting_tilen', 'label' => 'Needs Sam', 'order' => 3])
-            ->where('defaultColumns.3.label', 'Waiting on Sam'));
+            // A label stored for the removed waiting column is ignored.
+            ->has('columns', 5)
+            ->where('columns.3', ['key' => 'review', 'label' => 'Sam checks', 'order' => 3])
+            ->where('defaultColumns.3.label', 'Review / QA'));
     }
 
     #[Test]
@@ -146,18 +149,19 @@ class OnboardingFlowTest extends TestCase
     {
         $this->createProject($this->sam)->assertCreated();
 
-        $this->labels($this->sam, 'example-project', ['backlog' => '  Ideas  ', 'waiting_tilen' => 'Needs Sam'])->assertOk()
+        $this->labels($this->sam, 'example-project', ['backlog' => '  Ideas  ', 'review' => 'Sam checks'])->assertOk()
             ->assertJsonPath('data.columns.0', ['key' => 'backlog', 'label' => 'Ideas', 'order' => 0])
-            ->assertJsonPath('data.columns.3', ['key' => 'waiting_tilen', 'label' => 'Needs Sam', 'order' => 3]);
+            ->assertJsonPath('data.columns.3', ['key' => 'review', 'label' => 'Sam checks', 'order' => 3]);
 
         $this->labels($this->sam, 'example-project', ['todo' => '   '])->assertStatus(422)
             ->assertJsonPath('errors', ['column_labels.todo' => ['Give every column a name.']]);
         $this->labels($this->sam, 'example-project', ['todo' => str_repeat('x', BoardColumns::LABEL_MAX + 1)])->assertStatus(422)
             ->assertJsonPath('errors', ['column_labels.todo' => ['Column names are at most 40 characters.']]);
         $this->labels($this->sam, 'example-project', ['someday' => 'Someday'])->assertStatus(422)->assertJsonValidationErrors('column_labels');
+        $this->labels($this->sam, 'example-project', ['waiting_tilen' => 'Needs Sam'])->assertStatus(422)->assertJsonValidationErrors('column_labels');
 
         // The default name clears the own label again.
-        $this->labels($this->sam, 'example-project', ['backlog' => 'Backlog', 'waiting_tilen' => 'Waiting on Sam'])->assertOk();
+        $this->labels($this->sam, 'example-project', ['backlog' => 'Backlog', 'review' => 'Review / QA'])->assertOk();
         $this->assertNull(Project::acrossWorkspaces()->where('slug', 'example-project')->value('column_labels'));
     }
 

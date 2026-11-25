@@ -17,14 +17,15 @@ use Illuminate\Support\Collection;
  * current ask round, derived from the ticket, its events and its owner input comments. One question per ticket
  * (its latest round), id 'q-' + ticket id.
  *
- * Round: starts at the ticket's latest asking event (created in waiting_tilen, moved into it, or ask_set while in it;
- * old rows without one: waiting_since) and ends when the ticket leaves waiting_tilen or is archived.
+ * Waiting = the ticket carries the waiting-on-input flag (in older history: sat in the removed waiting_tilen column).
+ * Round: starts at the ticket's latest asking event (it started waiting, or ask_set while waiting; old rows without
+ * one: waiting_on_input_at) and ends when the flag is cleared or the ticket is archived.
  * Answer: the latest live (not retracted, not superseded) owner input comment posted in the round.
  * State:
- * - closed    = the PM picked the answer up (input_acked at/after it: ack-input or the move out), or the round ended;
+ * - closed    = the PM picked the answer up (input_acked at/after it), or the round ended;
  * - answered  = an answer the PM has not picked up yet (needs_pm_pickup), the ticket still waiting;
  * - dismissed = no answer, the owner hid it (latest ask_dismissed event of the round not followed by ask_restored);
- * - open      = otherwise (live ticket in waiting_tilen with an ask and no answer since the ask).
+ * - open      = otherwise (live flagged ticket with an ask and no answer since the ask).
  * A new asking event starts a new round (open again, a dismissal is forgotten). Dismiss / restore only write
  * ticket events (ask_dismissed / ask_restored): the ticket, needs_pm_pickup and the comments are untouched, and the
  * agent view (agentView) still reports a dismissed question as open.
@@ -45,9 +46,9 @@ final class Questions
 
     private const ID_PREFIX = 'q-';
 
-    private const EVENT_TYPES = ['created', 'moved', 'ask_set', 'input_acked', 'archived', 'unarchived', self::DISMISSED, self::RESTORED];
+    private const EVENT_TYPES = ['created', 'moved', 'waiting_set', 'waiting_cleared', 'ask_set', 'input_acked', 'archived', 'unarchived', self::DISMISSED, self::RESTORED];
 
-    private const TICKET_COLUMNS = ['id', 'project_id', 'key', 'status', 'ask', 'ask_context', 'ask_options', 'waiting_since',
+    private const TICKET_COLUMNS = ['id', 'project_id', 'key', 'status', 'ask', 'ask_context', 'ask_options', 'waiting_on_input_at',
         'tilen_input_at', 'tilen_input_ack_at', 'created_by', 'created_by_type', 'archived_at', 'created_at', 'updated_at'];
 
     public static function id(Ticket $ticket): string
@@ -63,7 +64,7 @@ final class Questions
 
     // ---------------------------------------------------------------- counts
 
-    /** Sets COUNT on each project without it: three queries for any number of projects (live waiting tickets only). */
+    /** Sets COUNT on each project without it: three queries for any number of projects (live flagged tickets only). */
     public static function loadOpenCounts(iterable $projects): void
     {
         $projects = collect($projects)->filter(fn (Project $p) => $p->getAttribute(self::COUNT) === null)->keyBy('id');
@@ -182,7 +183,8 @@ final class Questions
     private static function round(Ticket $t, Collection $events, Collection $inputs): ?array
     {
         $w = BoardColumns::WAITING_TILEN;
-        $inW = false;
+        // Waiting = flagged, or (older history) in the removed waiting column; the migration's events overlap the two.
+        $inColumn = $flagged = false;
         $asked = $end = $dismissed = null;
         $acks = [];
         $lastAsk = null;
@@ -190,19 +192,17 @@ final class Questions
             $to = $e->to ?? [];
             $from = $e->from ?? [];
             $start = false;
+            $inW = $inColumn || $flagged;
             switch ($e->type) {
                 case 'created':
-                    $start = $inW = ($to['status'] ?? null) === $w;
-                    break;
                 case 'moved':
-                    $toW = ($to['status'] ?? null) === $w;
-                    $fromW = ($from['status'] ?? null) === $w;
-                    if ($toW && ! $fromW) {
-                        $start = $inW = true;
-                    } elseif ($fromW && ! $toW) {
-                        $inW = false;
-                        $end = $e;
-                    }
+                    $inColumn = ($to['status'] ?? null) === $w;
+                    break;
+                case 'waiting_set':
+                    $flagged = true;
+                    break;
+                case 'waiting_cleared':
+                    $flagged = false;
                     break;
                 case 'ask_set':
                     $lastAsk = $from['ask'] ?? $lastAsk;
@@ -225,16 +225,19 @@ final class Questions
                     $dismissed = null;
                     break;
             }
-            if ($start) {
+            if ($inW && ! ($inColumn || $flagged)) {
+                $end = $e;
+            }
+            if ($start || (! $inW && ($inColumn || $flagged))) {
                 [$asked, $end, $dismissed] = [$e, null, null];
             }
         }
 
-        $live = $t->status === $w && $t->archived_at === null && filled($t->ask);
+        $live = $t->isWaitingOnOwner() && $t->archived_at === null && filled($t->ask);
         if ($asked === null && ! $live) {
             return null; // never waited on the owner with an ask
         }
-        $askedAt = $asked?->created_at ?? $t->waiting_since ?? $t->created_at;
+        $askedAt = $asked?->created_at ?? $t->waiting_on_input_at ?? $t->created_at;
         $endAt = $live ? null : ($end?->created_at ?? $t->archived_at ?? $t->updated_at);
 
         $answer = $inputs->filter(fn (TicketComment $c) => $c->created_at->gte($askedAt) && ($endAt === null || $c->created_at->lte($endAt)))->last();

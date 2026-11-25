@@ -14,8 +14,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * The project board payload (GET /api/projects/{id}/board; the UI run reuses it as Inertia props).
- * The waiting column (waiting_tilen) is ordered oldest waiting_since first; every other column by position.
- * Done shows tickets done since `done_since` (default 7 days) plus done_older_count. Column labels are the project's
+ * Every column is ordered by position. Done shows tickets done since `done_since` (default 7 days) plus done_older_count. Column labels are the project's
  * own (projects.column_labels) over the defaults; keys and order never change.
  */
 final class BoardView
@@ -51,7 +50,7 @@ final class BoardView
             'archived' => $p->isArchived(),
             'status_unseen_by_tilen' => $unseen,
             'status_unseen_by_me' => $unseen,
-            // r4 Questions for you: live waiting-column tickets with an ask (OpenAsks; withCount on project lists).
+            // r4 Questions for you: live tickets flagged waiting on input with an ask (OpenAsks; withCount on project lists).
             'open_asks_count' => OpenAsks::count($p),
             // r4 Questions panel: questions in state open (Questions; dismissed not counted).
             'open_questions_count' => Questions::count($p),
@@ -62,18 +61,19 @@ final class BoardView
      * A cheap fingerprint of what the web board shows, for its 60 s change poll (GET /projects/{slug}/board-stamp, an
      * ETag): the newest write across the workstream's tickets, their comments and events, the project row (column
      * labels, status) and its status updates, plus counts so a ticket leaving the board (another workstream, aged out of
-     * Done, a retracted comment) changes it too. Aggregates only, never the board itself.
+     * Done, a retracted comment) changes it too, and the waiting-on-input flags (how many, the newest). Aggregates only,
+     * never the board itself.
      */
     public function stamp(Project $p, ?string $workstreamId = null): string
     {
         $tickets = Ticket::query()->where('project_id', $p->id)
             ->when($workstreamId !== null, fn ($w) => $w->where('workstream_id', $workstreamId));
         $ids = (clone $tickets)->select('id');
-        $t = (clone $tickets)->toBase()->selectRaw('count(*) as n, max(updated_at) as at')->first();
+        $t = (clone $tickets)->toBase()->selectRaw('count(*) as n, max(updated_at) as at, count(waiting_on_input_at) as waiting, max(waiting_on_input_at) as waiting_at')->first();
         $c = TicketComment::query()->whereIn('ticket_id', $ids)->toBase()->selectRaw('count(*) as n, max(id) as id, max(updated_at) as at')->first();
 
         return sha1(implode('|', [
-            $t?->n, $t?->at,
+            $t?->n, $t?->at, $t?->waiting, $t?->waiting_at,
             (clone $tickets)->where('status', BoardColumns::DONE)->where('done_at', '<', Carbon::now()->subDays(self::DONE_DAYS))->count(),
             $c?->n, $c?->id, $c?->at,
             TicketEvent::query()->where('project_id', $p->id)->whereIn('ticket_id', $ids)->max('id'),
@@ -102,10 +102,8 @@ final class BoardView
 
         $columns = [];
         foreach ($p->boardColumns() as $col) {
-            $in = $tickets->where('status', $col['key']);
-            $in = $col['key'] === BoardColumns::WAITING_TILEN
-                ? $in->sortBy(fn (Ticket $t) => [$t->waiting_since?->getTimestamp() ?? 0, $t->key])
-                : $in->sortBy(fn (Ticket $t) => [$t->archived_at === null ? 0 : 1, $t->position, $t->key]);
+            $in = $tickets->where('status', $col['key'])
+                ->sortBy(fn (Ticket $t) => [$t->archived_at === null ? 0 : 1, $t->position, $t->key]);
             $columns[] = [
                 ...$col,
                 'count' => $in->count(),

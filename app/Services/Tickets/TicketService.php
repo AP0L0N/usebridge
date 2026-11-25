@@ -23,19 +23,38 @@ use Illuminate\Validation\ValidationException;
 /**
  * Every ticket write (API agents, people in the UI, the carry-over command) goes through here, so the rules live once:
  * - key = {prefix}-{seq} from projects.ticket_seq, bumped under a row lock, never reused.
- * - waiting_tilen ("Waiting on <owner>") needs an ask; entering it sets waiting_since, leaving clears it and auto-acks
- *   the owner input (tilen_input_at).
+ * - waiting_on_input (tickets.waiting_on_input_at) flags "input is needed from the workspace owner" on a ticket in any
+ *   column, with or without an ask. It is set and cleared only explicitly (create / update), each logged as an event
+ *   (waiting_set / waiting_cleared); moving the ticket or an owner input comment never changes it, and clearing it does
+ *   not acknowledge owner input (needs_pm_pickup is separate: ackInput).
  * - done_at is set on entering done and cleared on leaving. Positions are dense (0..n-1) per column.
  * - every change appends ticket_events and bumps projects.last_activity_at. No hard deletes.
  */
 final class TicketService
 {
-    /** 422 on `ask`: names the waiting_tilen column as this project's board shows it (project label, else workspace default). */
-    public static function askRequired(?Project $project): string
-    {
-        $column = BoardColumns::labelFor(BoardColumns::WAITING_TILEN, $project?->column_labels, $project?->workspace);
+    /** 422 on `status` for the removed waiting_tilen column: says what replaced it. */
+    public const WAITING_COLUMN_REMOVED = 'The waiting_tilen column was removed. Keep the ticket in its column and send waiting_on_input: true (with an ask, if you have a question) instead.';
 
-        return "Moving into {$column} needs an ask: what do you need answered?";
+    /** A column key; the removed waiting_tilen key gets its own message. */
+    public static function statusRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === BoardColumns::WAITING_TILEN) {
+                $fail(self::WAITING_COLUMN_REMOVED);
+            } elseif (! in_array($value, BoardColumns::keys(), true)) {
+                $fail("The selected $attribute is invalid.");
+            }
+        };
+    }
+
+    /** $status when it is a column of the board; 422 otherwise (every write path, whatever the caller validated). */
+    private static function column(string $status): string
+    {
+        if (! in_array($status, BoardColumns::keys(), true)) {
+            throw ValidationException::withMessages(['status' => $status === BoardColumns::WAITING_TILEN ? self::WAITING_COLUMN_REMOVED : 'The selected status is invalid.']);
+        }
+
+        return $status;
     }
 
     /** Validation rules for the editable ticket fields (create: title required). */
@@ -46,7 +65,7 @@ final class TicketService
         return [
             'title' => $create ? ['required', 'string', 'max:140'] : ['sometimes', 'required', 'string', 'max:140'],
             'description' => [...$s, 'nullable', 'string', 'max:20000'],
-            'status' => [...$s, 'nullable', Rule::in(BoardColumns::keys())],
+            'status' => [...$s, 'nullable', self::statusRule()],
             'assignee' => ['sometimes', 'nullable', 'string', 'max:120'],
             'assignee_type' => ['sometimes', 'nullable', Rule::in(Ticket::ASSIGNEE_TYPES)],
             'assignee_id' => ['sometimes', 'nullable', 'string', 'max:120'],
@@ -54,6 +73,7 @@ final class TicketService
             'due_on' => [...$s, 'nullable', 'date_format:Y-m-d'],
             'blocked_reason' => [...$s, 'nullable', 'string', 'max:140'],
             ...self::askRules(),
+            'waiting_on_input' => ['sometimes', 'boolean'],
             'labels' => ['sometimes', 'nullable', 'array', 'max:20'],
             'labels.*' => ['required', 'string', 'max:24'],
             ...self::placementRules(),
@@ -71,7 +91,7 @@ final class TicketService
     public static function moveRules(): array
     {
         return [
-            'status' => ['required', Rule::in(BoardColumns::keys())],
+            'status' => ['required', self::statusRule()],
             ...self::placementRules(),
             ...self::askRules(),
             ...self::workstreamRules(),
@@ -107,18 +127,15 @@ final class TicketService
 
     /**
      * @param  array  $data  validated fields (see rules())
-     * @param  array  $extra  raw attributes for the carry-over (created_at, waiting_since, source_type/id, created_by…)
+     * @param  array  $extra  raw attributes for the carry-over (created_at, waiting_on_input_at, source_type/id, created_by…)
      */
     public function create(Project $project, array $data, Actor $actor, array $extra = [], bool $allowArchivedProject = false): Ticket
     {
         abort_if(! $allowArchivedProject && $project->isArchived(), 409, "Project {$project->name} is archived; reopen it before adding tickets.");
 
         return DB::transaction(function () use ($project, $data, $actor, $extra) {
-            $status = $data['status'] ?? BoardColumns::TODO;
+            $status = self::column($data['status'] ?? BoardColumns::TODO);
             $ask = $this->askFields($data);
-            if ($status === BoardColumns::WAITING_TILEN && blank($ask['ask'] ?? null)) {
-                throw ValidationException::withMessages(['ask' => self::askRequired($project)]);
-            }
             [$assigneeType, $assigneeId] = $this->assignee($data) ?? [null, null];
             $workstream = Workstreams::forTicket($project, $data['workstream'] ?? null, $actor);
             $now = Carbon::now();
@@ -139,7 +156,7 @@ final class TicketService
                 'due_on' => $data['due_on'] ?? null,
                 'blocked_reason' => self::clean($data['blocked_reason'] ?? null),
                 ...$ask,
-                'waiting_since' => $status === BoardColumns::WAITING_TILEN ? $now : null,
+                'waiting_on_input_at' => empty($data['waiting_on_input']) ? null : $now,
                 'done_at' => $status === BoardColumns::DONE ? $now : null,
                 'created_by' => $actor->id,
                 'created_by_type' => $actor->type,
@@ -151,6 +168,9 @@ final class TicketService
                 $ticket->labels()->sync($this->labelIds($data['labels']));
             }
             $this->event($ticket, 'created', null, ['status' => $ticket->status, 'title' => $ticket->title, 'key' => $ticket->key], $actor);
+            if ($ticket->waiting_on_input_at !== null) {
+                $this->event($ticket, 'waiting_set', null, ['waiting_on_input_at' => $ticket->waiting_on_input_at->toIso8601String()], $actor);
+            }
             Project::touchActivity($project->id);
 
             return $ticket->refresh();
@@ -215,6 +235,7 @@ final class TicketService
                 }
             }
             $this->applyAsk($ticket, $data, $actor);
+            $this->applyWaitingOnInput($ticket, $data, $actor);
             $this->applyWorkstream($ticket, $data, $actor);
             if (array_key_exists('labels', $data)) {
                 $this->syncLabels($ticket, $data['labels'] ?? [], $actor);
@@ -225,7 +246,6 @@ final class TicketService
             if ($status !== $ticket->status || $placementGiven) {
                 $this->moveWithin($ticket, $status, $data, $actor);
             } else {
-                $this->checkAsk($ticket);
                 $ticket->save();
             }
             Project::touchActivity($ticket->project_id);
@@ -234,7 +254,7 @@ final class TicketService
         });
     }
 
-    /** POST move: {status, before_id|after_id|position (default end of column), ask… when entering waiting_tilen}. */
+    /** POST move: {status, before_id|after_id|position (default end of column), ask…}. */
     public function move(Ticket $ticket, array $data, Actor $actor): Ticket
     {
         $this->ensureWritable($ticket);
@@ -255,20 +275,8 @@ final class TicketService
         $fromStatus = $ticket->status;
         $now = Carbon::now();
 
-        $ticket->status = $status;
-        $this->checkAsk($ticket);
+        $ticket->status = self::column($status);
         if ($status !== $fromStatus) {
-            if ($status === BoardColumns::WAITING_TILEN) {
-                $ticket->waiting_since = $now;
-            }
-            if ($fromStatus === BoardColumns::WAITING_TILEN) {
-                $ticket->waiting_since = null;
-                // Leaving the waiting column means the PM picked up the owner input.
-                if ($ticket->needsPmPickup()) {
-                    $ticket->tilen_input_ack_at = $now;
-                    $this->event($ticket, 'input_acked', null, ['tilen_input_at' => $ticket->tilen_input_at->toIso8601String(), 'via' => 'move'], $actor);
-                }
-            }
             $ticket->done_at = $status === BoardColumns::DONE ? $now : null;
         }
         $ticket->save();
@@ -291,10 +299,6 @@ final class TicketService
             $index = $index === null ? count($ids) : max(0, min($index, count($ids)));
             array_splice($ids, $index, 0, [$ticket->id]);
         }
-        if ($ticket->status === BoardColumns::WAITING_TILEN) {
-            // The waiting column is always oldest waiting_since first; manual positions are ignored.
-            $ids = $this->columnIds($ticket->project_id, $ticket->status);
-        }
         $this->writePositions($ids);
         $ticket->position = (int) Ticket::query()->whereKey($ticket->id)->value('position');
     }
@@ -311,11 +315,8 @@ final class TicketService
         if ($except !== null) {
             $q->whereKeyNot($except);
         }
-        $status === BoardColumns::WAITING_TILEN
-            ? $q->orderBy('waiting_since')->orderBy('key')
-            : $q->orderBy('position')->orderBy('created_at')->orderBy('id');
 
-        return $q->pluck('id')->all();
+        return $q->orderBy('position')->orderBy('created_at')->orderBy('id')->pluck('id')->all();
     }
 
     /** Renumbering does not touch updated_at (only the moved ticket changed). */
@@ -364,6 +365,24 @@ final class TicketService
         }
     }
 
+    /**
+     * `waiting_on_input` given and different: sets the flag (waiting_on_input_at = now, event waiting_set) or clears it
+     * (event waiting_cleared). Sending true on a flagged ticket keeps the time it was first set.
+     */
+    private function applyWaitingOnInput(Ticket $ticket, array $data, Actor $actor): void
+    {
+        if (! array_key_exists('waiting_on_input', $data) || (bool) $data['waiting_on_input'] === $ticket->isWaitingOnOwner()) {
+            return;
+        }
+        if ($data['waiting_on_input']) {
+            $ticket->waiting_on_input_at = Carbon::now();
+            $this->event($ticket, 'waiting_set', null, ['waiting_on_input_at' => $ticket->waiting_on_input_at->toIso8601String()], $actor);
+        } else {
+            $this->event($ticket, 'waiting_cleared', ['waiting_on_input_at' => $ticket->waiting_on_input_at->toIso8601String()], null, $actor);
+            $ticket->waiting_on_input_at = null;
+        }
+    }
+
     /** `workstream` given and different: the ticket moves there (logged as a `workstream` event). */
     private function applyWorkstream(Ticket $ticket, array $data, Actor $actor): void
     {
@@ -390,13 +409,6 @@ final class TicketService
         }
 
         return $out;
-    }
-
-    private function checkAsk(Ticket $ticket): void
-    {
-        if ($ticket->status === BoardColumns::WAITING_TILEN && blank($ticket->ask)) {
-            throw ValidationException::withMessages(['ask' => self::askRequired($ticket->project)]);
-        }
     }
 
     // ---------------------------------------------------------------- ack / archive
@@ -457,7 +469,8 @@ final class TicketService
 
     /**
      * Post a comment. An owner input comment (is_tilen_input, human actors in the UI only) sets tickets.tilen_input_at,
-     * so the ticket needs PM pickup until acked or moved; the status never changes. "Change answer" = another input comment.
+     * so the ticket needs PM pickup until acked; the status and the waiting-on-input flag never change. "Change answer" =
+     * another input comment.
      * The body is stored as safe Markdown (CommentMarkdown::sanitize; plain text stays as typed apart from raw HTML).
      * With $supersede (the UI path, uiComment), a new input supersedes the ticket's pending ones: see supersedePending().
      */
@@ -702,7 +715,7 @@ final class TicketService
         if ($status !== 'smooth') {
             return [];
         }
-        $n = Ticket::query()->where('project_id', $project->id)->where('status', BoardColumns::WAITING_TILEN)->whereNull('archived_at')->count();
+        $n = Ticket::query()->where('project_id', $project->id)->waitingOnInput()->whereNull('archived_at')->count();
 
         return $n > 0 ? [[
             'code' => 'status_smooth_but_waiting_tickets',

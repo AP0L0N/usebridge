@@ -51,6 +51,7 @@ return [
     | Label of the waiting_tilen column on workspaces that already existed when migration 2026_10_31_160000 ran (it
     | stores it in workspaces.settings.waiting_label; read only then). Empty = "Waiting on " + the first name of the
     | default workspace's owner (what those workspaces showed before). New workspaces show BoardColumns' default.
+    | The column itself was removed (migration 2026_11_25_100100): the name only labels older history lines now.
     */
     'owner_waiting_label' => trim((string) env('BRIDGE_OWNER_WAITING_LABEL')),
 

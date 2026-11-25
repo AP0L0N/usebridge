@@ -3,12 +3,11 @@
 import { usePage } from '@inertiajs/react';
 import type { Shared } from './account';
 
-export type ColumnKey = 'backlog' | 'todo' | 'in_progress' | 'waiting_tilen' | 'review' | 'done';
+export type ColumnKey = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
 export type PmStatus = 'smooth' | 'waiting' | 'archived';
 export type Priority = 'p1' | 'p2' | 'p3';
 export type LabelColor = 'navy' | 'green' | 'amber' | 'rose' | 'violet' | 'grey';
 
-export const WAITING: ColumnKey = 'waiting_tilen';
 export const QUICK_ADD: ColumnKey[] = ['backlog', 'todo'];
 
 export interface Label { id: string; name: string; color: LabelColor }
@@ -35,8 +34,11 @@ export interface Ticket {
   ask: string | null;
   ask_context: string | null;
   ask_options: string[] | null;
-  waiting_on_owner: boolean;
-  waiting_since: string | null;
+  /** Flagged "input is needed from the workspace owner" (any column), and when it was set. */
+  waiting_on_input: boolean;
+  waiting_on_input_at: string | null;
+  /** The highlight: flagged, and no owner input comment has been posted since the flag was set. */
+  waiting_on_input_outstanding: boolean;
   waiting_age_days: number | null;
   waiting_level: 1 | 2 | 3 | null;
   owner_input_at: string | null;

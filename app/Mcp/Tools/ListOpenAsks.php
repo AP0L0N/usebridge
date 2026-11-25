@@ -10,7 +10,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('list_open_asks')]
-#[Description('A project\'s open asks for the workspace owner: live tickets in the waiting column with an ask, oldest first, with who asked and whether the answer awaits PM pickup (same as GET /api/projects/{id}/asks).')]
+#[Description('A project\'s open asks for the workspace owner: live tickets flagged waiting on input with an ask, oldest first, with who asked and whether the answer awaits PM pickup (same as GET /api/projects/{id}/asks).')]
 #[IsReadOnly]
 class ListOpenAsks extends BridgeTool
 {

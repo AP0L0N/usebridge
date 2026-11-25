@@ -28,19 +28,23 @@ class ListTickets extends BridgeTool
             'label' => $schema->string()->description('Label name.'),
             'assignee' => $schema->string()->description('Agent id, "owner" (the workspace owner), a person id (user:…), or "none" for unassigned.'),
             'q' => $schema->string()->description('Text in the title or key.'),
+            'waiting_on_input' => $schema->boolean()->description('true: only tickets flagged waiting on input from the workspace owner.'),
             'limit' => $schema->integer()->min(1)->max(200)->description('Default '.self::DEFAULT_LIMIT.'.'),
         ];
     }
 
     protected function run(Request $request): array
     {
-        $args = $request->all(['status', 'label', 'assignee', 'q', 'limit']);
+        $args = $request->all(['status', 'label', 'assignee', 'q', 'waiting_on_input', 'limit']);
         $project = $request->get('project') !== null ? $this->project($request) : null;
         if ($project !== null) {
             $args['project_id'] = $project->id;
         }
         if (filled($request->get('workstream'))) {
             $args['workstream_id'] = Workstreams::filterId($project, (string) $request->get('workstream'));
+        }
+        if (($args['waiting_on_input'] ?? null) !== null) {
+            $args['waiting_on_input'] = self::flag($args['waiting_on_input']) ? '1' : '0';
         }
         $f = validator($args, TicketView::filterRules())->validate();
         $q = TicketView::filter(Ticket::query()->with(TicketView::with()), $f)->limit((int) ($f['limit'] ?? self::DEFAULT_LIMIT));

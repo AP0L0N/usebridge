@@ -22,13 +22,13 @@ class TicketController extends Controller
     public function __construct(private readonly TicketService $tickets) {}
 
     /**
-     * GET /api/tickets ?project_id=&status=&assignee=&label=&q=&needs_pm_pickup=1&unread_for_owner=1 (aliases unread_for_me,
+     * GET /api/tickets ?project_id=&status=&assignee=&label=&q=&needs_pm_pickup=1&waiting_on_input=1&unread_for_owner=1 (aliases unread_for_me,
      * unread_for_tilen)&blocked=1&updated_since=&include_archived=1&limit=
      */
     public function index(Request $request): JsonResponse
     {
         $f = $request->validate(TicketView::filterRules());
-        foreach (['needs_pm_pickup', 'unread_for_me', 'unread_for_owner', 'unread_for_tilen', 'blocked', 'include_archived'] as $k) {
+        foreach (['needs_pm_pickup', 'waiting_on_input', 'unread_for_me', 'unread_for_owner', 'unread_for_tilen', 'blocked', 'include_archived'] as $k) {
             $f[$k] = self::flag($f[$k] ?? false);
         }
         if (filled($f['workstream'] ?? null)) {

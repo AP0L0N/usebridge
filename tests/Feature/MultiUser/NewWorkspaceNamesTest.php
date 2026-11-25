@@ -11,6 +11,7 @@ use App\Models\TicketReadState;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Auth\AccountService;
+use App\Support\BoardColumns;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -103,8 +104,8 @@ class NewWorkspaceNamesTest extends TestCase
             ->assertJsonPath('data.author_id', 'user:'.$this->sam->id)->assertJsonPath('data.author_name', 'Sam Rivera');
         $this->web($this->sam)->patchJson("/projects/garden-planner/tickets/$key", ['assignee' => 'owner'])->assertOk()
             ->assertJsonPath('data.assignee_id', 'user:'.$this->sam->id)->assertJsonPath('data.assignee_name', 'Sam Rivera');
-        $this->web($this->sam)->postJson("/projects/garden-planner/tickets/$key/move", ['status' => 'waiting_tilen', 'ask' => 'Green or blue?', 'ask_options' => ['Green', 'Blue']])->assertOk()
-            ->assertJsonPath('data.status_label', 'Waiting on Sam')->assertJsonPath('data.waiting_on_owner', true)->assertJsonPath('data.waiting_on_tilen', true);
+        $this->web($this->sam)->patchJson("/projects/garden-planner/tickets/$key", ['waiting_on_input' => true, 'ask' => 'Green or blue?', 'ask_options' => ['Green', 'Blue']])->assertOk()
+            ->assertJsonPath('data.waiting_on_input', true)->assertJsonPath('data.waiting_on_owner', true)->assertJsonPath('data.waiting_on_tilen', true);
         $this->web($this->sam)->postJson("/projects/garden-planner/tickets/$key/comments", ['input_choice' => 'Green', 'is_owner_input' => true])->assertCreated()
             ->assertJsonPath('data.is_owner_input', true);
         $this->web($this->sam)->patchJson('/projects/garden-planner/status', ['status' => 'waiting', 'note' => 'Needs a palette'])->assertOk();
@@ -168,7 +169,8 @@ class NewWorkspaceNamesTest extends TestCase
         $board = $this->props($this->sam, "/projects/garden-planner/tickets/$key")['props'];
         $this->assertSame([['id' => 'user:'.$this->sam->id, 'name' => 'Sam Rivera', 'role' => 'You', 'type' => 'human']], array_values(array_filter($board['people'], fn ($p) => $p['type'] === 'human')));
         $this->assertSame('Sam Rivera', $board['ticket']['created_by_name']);
-        $this->assertSame('Waiting on Sam', $board['board']['columns'][3]['label']);
+        $this->assertSame(['Backlog', 'To do', 'In progress', 'Review / QA', 'Done'], array_column($board['board']['columns'], 'label'));
+        $this->assertTrue($board['ticket']['waiting_on_input']);
         $this->assertSame('user:'.$this->sam->id, $board['auth']['user']['actor_id']);
 
         $export = $this->web($this->sam)->get('/account/export')->assertOk()->json();
@@ -208,8 +210,8 @@ class NewWorkspaceNamesTest extends TestCase
             ['id' => $me, 'name' => 'Jo Member', 'role' => 'You', 'type' => 'human'],
             ['id' => 'user:'.$this->sam->id, 'name' => 'Sam Rivera', 'role' => 'Owner', 'type' => 'human'],
         ], $humans);
-        // The waiting column is still named after the owner, not the member.
-        $this->assertSame('Waiting on Sam', $this->props($jo, '/projects/garden-planner')['props']['board']['columns'][3]['label']);
+        // The removed waiting column (older history) is still named after the owner, not the member.
+        $this->assertSame('Waiting on Sam', BoardColumns::label(BoardColumns::WAITING_TILEN, $this->sam->homeWorkspace()));
     }
 
     #[Test]

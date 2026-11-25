@@ -8,6 +8,7 @@ use App\Models\Workspace;
 use App\Services\Tickets\Workstreams;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
@@ -88,6 +89,29 @@ class BoardStampTest extends TestCase
         $this->asOwner()->putJson('/projects/blue-harbor/column-labels', ['column_labels' => ['todo' => 'Next up']])->assertOk();
         $etag = $this->etag($etag);
         $this->assertUnchanged($etag);
+    }
+
+    #[Test]
+    public function setting_or_clearing_the_waiting_on_input_flag_answers_200(): void
+    {
+        $key = $this->api()->newTicket()['key'];
+        $etag = $this->etag();
+
+        $this->travelMinutes(1);
+        $this->api()->patchJson("/api/tickets/$key", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk();
+        $etag = $this->etag($etag);
+        $this->assertUnchanged($etag);
+
+        $this->travelMinutes(1);
+        $this->api()->patchJson("/api/tickets/$key", ['waiting_on_input' => false, 'actor' => self::JANICE])->assertOk();
+        $etag = $this->etag($etag);
+        $this->assertUnchanged($etag);
+
+        // The flag itself is in the stamp, not only the write around it (updated_at, the event).
+        DB::table('tickets')->where('key', $key)->update(['waiting_on_input_at' => Carbon::now()->subDay()]);
+        $etag = $this->etag($etag);
+        DB::table('tickets')->where('key', $key)->update(['waiting_on_input_at' => Carbon::now()->subDays(2)]);
+        $this->etag($etag);
     }
 
     #[Test]

@@ -43,7 +43,7 @@ const NARROW = '(max-width: 1280px)';
 
 const COLS: [ColumnKey, StrKey][] = [
   ['backlog', 'portfolio.col.backlog'], ['todo', 'portfolio.col.todo'], ['in_progress', 'portfolio.col.in_progress'],
-  ['waiting_tilen', 'portfolio.col.waiting'], ['review', 'portfolio.col.review'], ['done', 'portfolio.col.done'],
+  ['review', 'portfolio.col.review'], ['done', 'portfolio.col.done'],
 ];
 
 type Dialog =
@@ -720,8 +720,7 @@ function PreviewColumn({ p, preview, now, columns, onUnarchive }: { p: FinderPro
       : (pm ? t('fd.preview.meta', { pm, ws, tickets, when: ago(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—' }) : t('fd.preview.metaNoPm', { ws, tickets, when: ago(p.lastActivityAt ?? p.lastUpdatedAt, now) || '—' }));
   const cols = COLS.map(([k, key]) => {
     const own = p.columnLabels?.[k];
-    const wsLabel = k === 'waiting_tilen' ? columns?.find((c) => c.key === k)?.label : undefined;
-    return { k, label: own ? `${own}${k === 'done' ? ' (7 days)' : ''}` : wsLabel ?? tk(key), n: p.ticketCounts?.[k] ?? 0 };
+    return { k, label: own ? `${own}${k === 'done' ? ' (7 days)' : ''}` : tk(key), n: p.ticketCounts?.[k] ?? 0 };
   });
   const sum = cols.reduce((s, c) => s + c.n, 0);
   return (

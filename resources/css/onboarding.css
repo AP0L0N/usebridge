@@ -83,7 +83,6 @@
     background: var(--auth-paper); border: 1px solid var(--auth-line); border-radius: var(--radius-md);
     transition: border-color var(--auth-dur) var(--auth-ease), box-shadow var(--auth-dur) var(--auth-ease);
 }
-.onb-colrow.is-core { background: var(--surface); border-color: var(--ink-950); }
 .onb-colrow:focus-within { background: var(--surface); border-color: var(--ink-950); box-shadow: 0 0 0 3px var(--signal); }
 .onb-colrow.is-error { border-color: var(--risk); }
 .onb-colrow input, .onb-colname {

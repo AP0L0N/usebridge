@@ -137,16 +137,21 @@ class PortfolioScreenTest extends TestCase
     }
 
     #[Test]
-    public function the_waiting_column_is_labelled_waiting_on_you_by_default_and_custom_labels_win(): void
+    public function the_portfolio_has_no_waiting_column_and_counts_tickets_waiting_on_input_instead(): void
     {
+        // The removed column keeps a name for older history only; the preview's column list has no entry for it.
         $this->assertSame('Waiting on you', BoardColumns::label('waiting_tilen'));
-        $this->assertSame('Waiting on you', $this->str('portfolio.col.waiting'));
         $this->assertSame('Waiting on Sam', BoardColumns::labelFor('waiting_tilen', ['waiting_tilen' => 'Waiting on Sam']));
+        $portfolio = (string) file_get_contents(resource_path('js/Pages/Portfolio.tsx'));
+        $this->assertStringNotContainsString('waiting_tilen', $portfolio);
+        $this->assertStringNotContainsString("'portfolio.col.waiting'", (string) file_get_contents(resource_path('js/lib/strings.ts')));
 
-        $p = $this->project($this->sam, 'Garden planner', ['column_labels' => ['waiting_tilen' => 'Needs Sam']]);
+        $p = $this->project($this->sam, 'Garden planner', ['column_labels' => ['review' => 'Sam checks']]);
         $this->actingAs($this->sam)->get('/')->assertInertia(fn (Assert $page) => $page
-            ->where('projects.0.columnLabels.waiting_tilen', 'Needs Sam')->where('projects.0.id', $p->id)
-            ->has('projects.0.ticketCounts.waiting_tilen')->has('projects.0.waitingTilenCount'));
+            ->where('projects.0.columnLabels.review', 'Sam checks')->where('projects.0.id', $p->id)
+            ->where('projects.0.ticketCounts', ['backlog' => 0, 'todo' => 0, 'in_progress' => 0, 'review' => 0, 'done' => 0])
+            ->where('projects.0.waitingOwnerCount', 0)->where('projects.0.waitingTilenCount', 0)
+            ->where('columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'review', 'done']));
     }
 
     private function str(string $key): string

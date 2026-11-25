@@ -67,7 +67,13 @@ class BridgeR4QuestionsPanelTest extends TestCase
 
     private function ask(array $data = [], string $project = self::BH): string
     {
-        return $this->create(['status' => 'waiting_tilen', 'ask' => 'Approve staging?', 'ask_context' => 'QA passed.', 'ask_options' => ['Approve', 'Hold'], ...$data], $project);
+        return $this->create(['waiting_on_input' => true, 'ask' => 'Approve staging?', 'ask_context' => 'QA passed.', 'ask_options' => ['Approve', 'Hold'], ...$data], $project);
+    }
+
+    /** The PM clears the waiting-on-input flag: the question's round ends. */
+    private function unflag(string $key): void
+    {
+        $this->bearer($this->janice, 'PATCH', "/api/tickets/$key", ['waiting_on_input' => false])->assertOk()->assertJsonPath('data.waiting_on_input', false);
     }
 
     private function qid(string $key): string
@@ -125,7 +131,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $seed = $marta->createToken('seed', ['*'])->plainTextToken;
         $this->bearer($seed, 'POST', '/api/projects', ['id' => 'proj-marta', 'name' => 'Marta Lab', 'slug' => 'marta-lab', 'owner_agent_id' => 'agent-marta'])->assertCreated();
         $token = $this->scopedToken($marta, $ws, 'write', 'agent-marta');
-        $key = $this->create(['title' => 'Marta secret', 'status' => 'waiting_tilen', 'ask' => 'Marta secret ask?'], 'proj-marta', $token);
+        $key = $this->create(['title' => 'Marta secret', 'waiting_on_input' => true, 'ask' => 'Marta secret ask?'], 'proj-marta', $token);
 
         return [$marta, $token, $key];
     }
@@ -138,9 +144,9 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $a = $this->ask();
         $askedAt = Carbon::now()->toIso8601String();
         $this->travelMinutes(10);
-        // Moved in by Captain (CEO) as a free-text question.
+        // Flagged by Captain (CEO) with a free-text question.
         $b = $this->create(['title' => 'Pick the venue', 'status' => 'todo']);
-        $this->bearer($this->shared, 'POST', "/api/tickets/$b/move", ['status' => 'waiting_tilen', 'ask' => 'Harbor hall or the loft?', 'actor' => self::CAPTAIN])->assertOk();
+        $this->bearer($this->shared, 'PATCH', "/api/tickets/$b", ['waiting_on_input' => true, 'ask' => 'Harbor hall or the loft?', 'actor' => self::CAPTAIN])->assertOk();
         // An ask on a ticket that never waited on the owner is not a question.
         $this->create(['title' => 'Parked', 'status' => 'in_progress', 'ask' => 'Later?']);
 
@@ -172,9 +178,9 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->assertSame([[], null, ['id' => self::CAPTAIN, 'name' => 'Captain William Diego', 'role' => 'CEO', 'type' => 'agent', 'source' => 'api']],
             [$panel['open'][1]['options'], $panel['open'][1]['context'], $panel['open'][1]['asked_by']]);
 
-        // The owner moving a ticket into the waiting column from the board asks too (person, via Bridge).
+        // The owner flagging a ticket from the web asks too (person, via Bridge).
         $c = $this->create(['title' => 'Self note']);
-        $this->asOwner()->postJson("/projects/blue-harbor/tickets/$c/move", ['status' => 'waiting_tilen', 'ask' => 'Remind me?'])->assertOk();
+        $this->asOwner()->patchJson("/projects/blue-harbor/tickets/$c", ['waiting_on_input' => true, 'ask' => 'Remind me?'])->assertOk();
         $this->assertSame(['id' => 'tilen', 'name' => 'Tilen', 'role' => 'Owner', 'type' => 'human', 'source' => 'ui'], $this->q($c)['asked_by']);
 
         // The Board prop is the same payload (without the API's separate dismissed group, QA LOW-2); the API filter keeps
@@ -207,13 +213,13 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->assertSame(['answered', 'Approve', 'Ship it.', $answeredAt, null, null], [$q['state'], $q['answer_choice'], $q['answer_text'], $q['answered_at'], $q['picked_up_at'], $q['closed_at']]);
         $this->assertSame([$a], array_column($this->panel()['answered'], 'ticket_key'));
 
-        // answered -> closed: the PM acks; the ticket stays in the waiting column.
+        // answered -> closed: the PM acks; the ticket stays flagged.
         $this->travelMinutes(5);
         $this->bearer($this->janice, 'POST', "/api/tickets/$a/ack-input")->assertOk();
         $ackAt = Carbon::now()->toIso8601String();
         $q = $this->q($a);
         $this->assertSame(['closed', $ackAt, $ackAt, 'Approve'], [$q['state'], $q['picked_up_at'], $q['closed_at'], $q['answer_choice']]);
-        $this->assertSame('waiting_tilen', Ticket::query()->where('key', $a)->value('status'));
+        $this->assertNotNull(Ticket::query()->where('key', $a)->value('waiting_on_input_at'));
 
         // A new ask (ask_set) is a new question: open again, no answer.
         $this->travelMinutes(5);
@@ -221,28 +227,30 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $q = $this->q($a);
         $this->assertSame(['open', 'Approve staging for Friday?', [], Carbon::now()->toIso8601String(), null, null], [$q['state'], $q['text'], $q['options'], $q['asked_at'], $q['answer_text'], $q['picked_up_at']]);
 
-        // Free-text answer, then the PM moves the ticket on: the move acks it (picked up), closed.
+        // Free-text answer, then the PM moves the ticket (nothing changes) and clears the flag: closed, not picked up.
         $this->travelMinutes(5);
         $this->panelPost('answer', $a, ['text' => 'Yes, Friday.'])->assertCreated();
         $this->assertSame([null, 'Yes, Friday.'], [$this->q($a)['answer_choice'], $this->q($a)['answer_text']]);
         $this->travelMinutes(5);
         $this->bearer($this->janice, 'POST', "/api/tickets/$a/move", ['status' => 'in_progress'])->assertOk();
+        $this->assertSame('answered', $this->q($a)['state']);
+        $this->unflag($a);
         $q = $this->q($a);
-        $this->assertSame(['closed', Carbon::now()->toIso8601String(), Carbon::now()->toIso8601String(), 'Yes, Friday.'], [$q['state'], $q['picked_up_at'], $q['closed_at'], $q['answer_text']]);
+        $this->assertSame(['closed', null, Carbon::now()->toIso8601String(), 'Yes, Friday.'], [$q['state'], $q['picked_up_at'], $q['closed_at'], $q['answer_text']]);
 
-        // The ask cleared after the ticket moved on: the closed question keeps its last text.
+        // The ask cleared after the flag was cleared: the closed question keeps its last text.
         $this->bearer($this->janice, 'PATCH', "/api/tickets/$a", ['ask' => null])->assertOk();
         $this->assertSame(['closed', 'Approve staging for Friday?'], [$this->q($a)['state'], $this->q($a)['text']]);
 
-        // Back into the waiting column: a new question, open.
+        // Flagged again: a new question, open.
         $this->travelMinutes(5);
-        $this->bearer($this->janice, 'POST', "/api/tickets/$a/move", ['status' => 'waiting_tilen', 'ask' => 'One more check?'])->assertOk();
+        $this->bearer($this->janice, 'PATCH', "/api/tickets/$a", ['waiting_on_input' => true, 'ask' => 'One more check?'])->assertOk();
         $this->assertSame(['open', 'One more check?', null], [$this->q($a)['state'], $this->q($a)['text'], $this->q($a)['answered_at']]);
 
-        // Moved on without an answer: closed, nothing picked up.
+        // Flag cleared without an answer: closed, nothing picked up.
         $b = $this->ask(['title' => 'Venue']);
         $this->travelMinutes(5);
-        $this->bearer($this->janice, 'POST', "/api/tickets/$b/move", ['status' => 'todo'])->assertOk();
+        $this->unflag($b);
         $q = $this->q($b);
         $this->assertSame(['closed', null, null, Carbon::now()->toIso8601String()], [$q['state'], $q['answered_at'], $q['picked_up_at'], $q['closed_at']]);
 
@@ -273,7 +281,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         for ($i = 0; $i < 22; $i++) {
             $keys[] = $k = $this->ask(['title' => "Ask $i"]);
             $this->travelMinutes(1);
-            $this->bearer($this->janice, 'POST', "/api/tickets/$k/move", ['status' => 'todo'])->assertOk();
+            $this->unflag($k);
         }
         $closed = $this->panel()['closed'];
         $this->assertCount(20, $closed);
@@ -346,9 +354,9 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->assertSame(2, TicketComment::query()->where('ticket_id', $ticketId)->count());
         $this->assertFalse(Ticket::query()->where('key', $a)->firstOrFail()->needsPmPickup());
 
-        // Moved on: closed too.
-        $b = $this->ask(['title' => 'Moved']);
-        $this->bearer($this->janice, 'POST', "/api/tickets/$b/move", ['status' => 'done'])->assertOk();
+        // Flag cleared: closed too.
+        $b = $this->ask(['title' => 'Unflagged']);
+        $this->unflag($b);
         $this->panelPost('answer', $b, ['text' => 'Late'])->assertStatus(409);
     }
 
@@ -470,7 +478,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->assertSame(['tilen', 'human', 'ui', ['ask' => 'Approve staging?']], [$e->actor_id, $e->actor_type, $e->source, $e->to]);
 
         // Owner side: in the dismissed group (REST; the Board prop keeps it in closed), not counted. The open-ask count
-        // (agents' waiting column) is unchanged.
+        // (agents' flagged tickets) is unchanged.
         $panel = $this->panel();
         $this->assertSame([[$b], [], [$a]], [array_column($panel['open'], 'ticket_key'), $panel['closed'], array_column($panel['dismissed'], 'ticket_key')]);
         $this->app['auth']->forgetGuards();
@@ -483,7 +491,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
         $this->assertSame($before, $snapshot());
         $this->assertSame(0, TicketComment::query()->count());
         $ticket = $this->bearer($this->read, 'GET', "/api/tickets/$a")->json('data');
-        $this->assertSame(['waiting_tilen', false, false], [$ticket['status'], $ticket['needs_pm_pickup'], $ticket['owner_answered_ask']]);
+        $this->assertSame([true, false, false], [$ticket['waiting_on_input'], $ticket['needs_pm_pickup'], $ticket['owner_answered_ask']]);
 
         // Agents (MCP) still see it unanswered: open, no dismissal.
         $mcp = $this->tool($this->read, 'list_questions', ['project' => 'blue-harbor']);
@@ -578,7 +586,7 @@ class BridgeR4QuestionsPanelTest extends TestCase
                 $this->panelPost('answer', $k, ['choice' => 'Hold'])->assertCreated();
             }
             if ($i === 5) {
-                $this->bearer($this->janice, 'POST', "/api/tickets/$k/move", ['status' => 'todo'])->assertOk();
+                $this->unflag($k);
             }
         }
         $this->assertSame($few, $queries());

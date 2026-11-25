@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Auth;
  * The human (web UI) side of a workspace. A signed-in user writes as 'user:<users.id>'. Exception (pre-multi-user
  * data): the OWNER of the legacy default workspace (bridge.default_workspace) keeps the old id 'tilen', so existing
  * rows, read states and unread logic stay his. 'tilen' is labelled with the owner's first name (fallback "Owner").
- * "Owner input" (waiting_tilen, tilen_input_at) is input from any human of the workspace; the column is named after
- * the workspace owner.
+ * "Owner input" (waiting_on_input, tilen_input_at) is input from any human of the workspace; it is named after the
+ * workspace owner.
  */
 final class HumanActors
 {
@@ -40,7 +40,7 @@ final class HumanActors
         return self::isLegacyWorkspace($workspace) && $workspace->isOwnedBy($user) ? Actor::TILEN : self::USER_PREFIX.$user->id;
     }
 
-    /** Actor id of the workspace owner (whom the waiting_tilen column waits on); 'tilen' without a workspace. */
+    /** Actor id of the workspace owner (whom waiting-on-input tickets wait on); 'tilen' without a workspace. */
     public static function ownerId(?Workspace $workspace = null): string
     {
         $workspace = self::workspace($workspace);
@@ -105,7 +105,7 @@ final class HumanActors
         return self::firstName(self::workspace($workspace)?->owner?->name) ?? 'Owner';
     }
 
-    /** Default name of the waiting_tilen column: "Waiting on <owner's first name>", else "Waiting on you". */
+    /** Default name of the removed waiting_tilen column (history lines): "Waiting on <owner's first name>", else "Waiting on you". */
     public static function defaultWaitingLabel(?Workspace $workspace): string
     {
         $first = self::firstName($workspace?->owner?->name);

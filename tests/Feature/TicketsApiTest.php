@@ -7,15 +7,21 @@ use App\Models\Project;
 use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
+use App\Models\Workspace;
+use App\Services\Auth\AccountService;
+use App\Services\Tickets\TicketService;
 use App\Support\TicketPrefix;
+use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\McpHelpers;
 use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
 class TicketsApiTest extends TestCase
 {
+    use McpHelpers;
     use RefreshDatabase;
     use TicketHelpers;
 
@@ -46,15 +52,14 @@ class TicketsApiTest extends TestCase
     }
 
     #[Test]
-    public function board_columns_are_the_fixed_six(): void
+    public function board_columns_are_the_fixed_five_without_the_waiting_column(): void
     {
         $this->api()->getJson('/api/board-columns')->assertOk()->assertExactJson(['data' => [
             ['key' => 'backlog', 'label' => 'Backlog', 'order' => 0],
             ['key' => 'todo', 'label' => 'To do', 'order' => 1],
             ['key' => 'in_progress', 'label' => 'In progress', 'order' => 2],
-            ['key' => 'waiting_tilen', 'label' => 'Waiting on Tilen', 'order' => 3],
-            ['key' => 'review', 'label' => 'Review / QA', 'order' => 4],
-            ['key' => 'done', 'label' => 'Done', 'order' => 5],
+            ['key' => 'review', 'label' => 'Review / QA', 'order' => 3],
+            ['key' => 'done', 'label' => 'Done', 'order' => 4],
         ]]);
     }
 
@@ -120,7 +125,7 @@ class TicketsApiTest extends TestCase
     public function create_with_every_field(): void
     {
         $t = $this->api()->postJson('/api/projects/'.self::BH.'/tickets', [
-            'title' => 'Approve staging', 'description' => "# Staging\nLink", 'status' => 'waiting_tilen',
+            'title' => 'Approve staging', 'description' => "# Staging\nLink", 'status' => 'review', 'waiting_on_input' => true,
             'assignee' => self::JANICE, 'priority' => 'p1', 'due_on' => '2026-11-02', 'blocked_reason' => 'Client copy',
             'ask' => 'Approve staging?', 'ask_context' => 'Visual QA passed.', 'ask_options' => ['Approve', 'Hold'],
             'labels' => ['M2 launch', 'design'], 'actor' => self::JANICE,
@@ -129,12 +134,13 @@ class TicketsApiTest extends TestCase
         $this->assertSame(['agent', self::JANICE, 'Dr. Janice Polito'], [$t['assignee_type'], $t['assignee_id'], $t['assignee_name']]);
         $this->assertSame(['p1', '2026-11-02', true, 'Client copy'], [$t['priority'], $t['due_on'], $t['blocked'], $t['blocked_reason']]);
         $this->assertSame(['Approve staging?', 'Visual QA passed.', ['Approve', 'Hold']], [$t['ask'], $t['ask_context'], $t['ask_options']]);
-        $this->assertTrue($t['waiting_on_tilen']);
-        $this->assertSame(Carbon::now()->toIso8601String(), $t['waiting_since']);
+        // Flagged waiting on input in its own column; the older field names carry the same values.
+        $this->assertSame(['review', true, true, true, true], [$t['status'], $t['waiting_on_input'], $t['waiting_on_input_outstanding'], $t['waiting_on_owner'], $t['waiting_on_tilen']]);
+        $this->assertSame([Carbon::now()->toIso8601String(), Carbon::now()->toIso8601String()], [$t['waiting_on_input_at'], $t['waiting_since']]);
         $this->assertSame([0, 1], [$t['waiting_age_days'], $t['waiting_level']]);
         $this->assertSame(['M2 launch', 'design'], array_column($t['labels'], 'name'));
         $this->assertSame(['grey', 'grey'], array_column($t['labels'], 'color'));
-        $this->assertSame('created', TicketEvent::query()->where('ticket_id', $t['id'])->value('type'));
+        $this->assertSame(['created', 'waiting_set'], TicketEvent::query()->where('ticket_id', $t['id'])->orderBy('id')->pluck('type')->all());
         $this->assertNotNull(Project::find(self::BH)->last_activity_at);
     }
 
@@ -146,7 +152,10 @@ class TicketsApiTest extends TestCase
         $this->postJson($p, ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('title');
         $this->postJson($p, ['title' => str_repeat('x', 141), 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('title');
         $this->postJson($p, ['title' => 'x', 'status' => 'blocked', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('status');
-        $this->postJson($p, ['title' => 'x', 'status' => 'waiting_tilen', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('ask');
+        // The removed waiting column: 422 on status (with or without an ask), naming waiting_on_input.
+        $this->postJson($p, ['title' => 'x', 'status' => 'waiting_tilen', 'ask' => 'Why?', 'actor' => self::JANICE])->assertUnprocessable()
+            ->assertJsonValidationErrors('status')->assertJsonPath('message', TicketService::WAITING_COLUMN_REMOVED);
+        $this->postJson($p, ['title' => 'x', 'waiting_on_input' => 'maybe', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('waiting_on_input');
         $this->postJson($p, ['title' => 'x', 'ask_options' => ['a', 'b', 'c', 'd', 'e'], 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('ask_options');
         $this->postJson($p, ['title' => 'x', 'ask_options' => [str_repeat('o', 61)], 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('ask_options.0');
         $this->postJson($p, ['title' => 'x', 'priority' => 'p0', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('priority');
@@ -169,7 +178,7 @@ class TicketsApiTest extends TestCase
         $this->postJson($p, ['title' => 'x'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'agent-ghost'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->postJson($p, ['title' => 'x', 'actor' => 'tilen'])->assertUnprocessable()
-            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Human input only comes from the Bridge UI"));
+            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, 'Human input only comes from the Bridge UI'));
         $this->postJson($p, ['title' => 'x', 'actor' => 'Tilen'])->assertUnprocessable()->assertJsonValidationErrors('actor');
         $this->assertSame(0, Ticket::count());
     }
@@ -213,10 +222,13 @@ class TicketsApiTest extends TestCase
 
         $keys = fn (string $q) => array_column($this->getJson('/api/tickets'.$q)->assertOk()->json('data'), 'key');
         $this->assertEqualsCanonicalizing(['BH-1', 'BH-2', 'BH-3', 'NW-1'], $keys(''));
-        $this->assertSame(['BH-1', 'BH-2', 'BH-3'], $keys('?project_id='.self::BH));
-        $this->assertSame(['BH-1', 'BH-2', 'BH-3'], array_column($this->getJson('/api/projects/'.self::BH.'/tickets')->json('data'), 'key'));
+        $this->assertSame(['BH-1', 'BH-3', 'BH-2'], $keys('?project_id='.self::BH));
+        $this->assertSame(['BH-1', 'BH-3', 'BH-2'], array_column($this->getJson('/api/projects/'.self::BH.'/tickets')->json('data'), 'key'));
         $this->assertSame(['BH-2'], $keys('?status=in_progress'));
-        $this->assertSame(['BH-2', 'BH-3'], $keys('?status=in_progress,waiting_tilen&project_id='.self::BH));
+        $this->assertSame(['BH-1', 'BH-3', 'BH-2'], $keys('?status=in_progress,todo&project_id='.self::BH));
+        $this->assertSame(['BH-3'], $keys('?waiting_on_input=1'));
+        $this->assertSame(['BH-3'], $keys('?waiting_on_input=true&status=todo'));
+        $this->getJson('/api/tickets?status=in_progress,waiting_tilen')->assertUnprocessable();
         $this->assertSame(['BH-1'], $keys('?assignee='.self::JANICE));
         $this->assertSame(['BH-3'], $keys('?assignee=tilen'));
         $this->assertSame(['BH-1'], $keys('?label=Design'));
@@ -276,15 +288,19 @@ class TicketsApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.assignee_id', null)->assertJsonPath('data.labels', []);
         $this->assertSame(['assigned', 'unblocked', 'assigned', 'assigned', 'labelled'], array_slice($types(), 8));
 
-        // Unchanged values log nothing; status in PATCH behaves like move; ask can't be cleared while waiting.
+        // Unchanged values log nothing; status in PATCH behaves like move; the removed waiting column is refused.
         $count = TicketEvent::count();
         $this->patchJson("/api/tickets/{$t['key']}", ['priority' => 'p2', 'actor' => self::JANICE])->assertOk();
         $this->assertSame($count, TicketEvent::count());
-        $this->patchJson("/api/tickets/{$t['key']}", ['status' => 'waiting_tilen', 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('ask');
         $this->patchJson("/api/tickets/{$t['key']}", ['status' => 'waiting_tilen', 'ask' => 'Which brief?', 'actor' => self::JANICE])
-            ->assertOk()->assertJsonPath('data.status', 'waiting_tilen')->assertJsonPath('data.ask', 'Which brief?');
-        $this->patchJson("/api/tickets/{$t['key']}", ['ask' => null, 'actor' => self::JANICE])->assertUnprocessable();
-        $this->assertSame('Which brief?', Ticket::first()->ask);
+            ->assertUnprocessable()->assertJsonValidationErrors('status')->assertJsonPath('message', TicketService::WAITING_COLUMN_REMOVED);
+        $this->assertSame([$count, null], [TicketEvent::count(), Ticket::first()->ask]);
+        // An ask is set, changed and cleared in any column, flagged or not.
+        $this->patchJson("/api/tickets/{$t['key']}", ['status' => 'review', 'ask' => 'Which brief?', 'actor' => self::JANICE])
+            ->assertOk()->assertJsonPath('data.status', 'review')->assertJsonPath('data.ask', 'Which brief?')->assertJsonPath('data.waiting_on_input', false);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk();
+        $this->patchJson("/api/tickets/{$t['key']}", ['ask' => null, 'actor' => self::JANICE])->assertOk()
+            ->assertJsonPath('data.ask', null)->assertJsonPath('data.waiting_on_input', true);
     }
 
     #[Test]
@@ -326,48 +342,146 @@ class TicketsApiTest extends TestCase
     }
 
     #[Test]
-    public function waiting_tilen_ask_waiting_since_done_at_and_auto_ack(): void
+    public function an_agent_sets_and_clears_the_waiting_on_input_flag_in_any_column(): void
     {
         $this->api();
-        $t = $this->newTicket();
-        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'actor' => self::JANICE])
-            ->assertUnprocessable()->assertJsonValidationErrors('ask');
-        $w = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'Pick a name?', 'ask_options' => ['Aurora', 'Atlas'], 'actor' => self::JANICE])
-            ->assertOk()->json('data');
-        $this->assertSame(Carbon::now()->toIso8601String(), $w['waiting_since']);
-        $this->assertSame(['Aurora', 'Atlas'], $w['ask_options']);
+        $t = $this->newTicket(['status' => 'review']);
+        $this->assertSame([false, null, false, null, null], [$t['waiting_on_input'], $t['waiting_on_input_at'], $t['waiting_on_input_outstanding'], $t['waiting_age_days'], $t['waiting_level']]);
+        // The removed column: no move into it, the ticket and its ask are untouched.
+        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'waiting_tilen', 'ask' => 'Pick a name?', 'actor' => self::JANICE])
+            ->assertUnprocessable()->assertJsonValidationErrors('status')->assertJsonPath('message', TicketService::WAITING_COLUMN_REMOVED);
+        $this->assertNull(Ticket::find($t['id'])->ask);
 
-        // Waiting age levels (ProjectStatus::level): 0-2 d L1, 3-6 d L2, >6 d L3.
+        // Set: no ask needed, the column stays, the time is stored, one event.
+        $setAt = Carbon::now()->toIso8601String();
+        $w = $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk()->json('data');
+        $this->assertSame(['review', true, $setAt, true, null], [$w['status'], $w['waiting_on_input'], $w['waiting_on_input_at'], $w['waiting_on_input_outstanding'], $w['ask']]);
+        $this->assertSame([true, true, $setAt], [$w['waiting_on_owner'], $w['waiting_on_tilen'], $w['waiting_since']]);
+        $set = TicketEvent::query()->where('type', 'waiting_set')->sole();
+        $this->assertSame([null, ['waiting_on_input_at' => $setAt], self::JANICE, 'agent', 'api'], [$set->from, $set->to, $set->actor_id, $set->actor_type, $set->source]);
+
+        // Sending true again changes nothing: the first time stays, no second event.
+        $this->travelMinutes(30);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk()->assertJsonPath('data.waiting_on_input_at', $setAt);
+        $this->assertSame(1, TicketEvent::query()->where('type', 'waiting_set')->count());
+
+        // Waiting age levels (ProjectStatus::level): 0-2 d L1, 3-6 d L2, >6 d L3. Moving keeps the flag and its time.
         Carbon::setTestNow(Carbon::now()->addDays(3));
         $this->getJson("/api/tickets/{$t['key']}")->assertJsonPath('data.waiting_age_days', 3)->assertJsonPath('data.waiting_level', 2);
         Carbon::setTestNow(Carbon::now()->addDays(4));
-        $this->getJson("/api/tickets/{$t['key']}")->assertJsonPath('data.waiting_level', 3);
+        $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()
+            ->assertJsonPath('data.waiting_level', 3)->assertJsonPath('data.waiting_on_input_at', $setAt)->assertJsonPath('data.status', 'in_progress');
+        $this->getJson('/api/tickets?waiting_on_input=1')->assertJsonPath('data.0.key', $t['key'])->assertJsonCount(1, 'data');
 
-        // Tilen answers in the UI -> needs PM pickup; ack-input via API clears it.
+        // With an ask in the same call it is an open question; the ask alone changes without touching the flag.
+        $this->patchJson("/api/tickets/{$t['key']}", ['ask' => 'Pick a name?', 'ask_options' => ['Aurora', 'Atlas'], 'actor' => self::JANICE])
+            ->assertOk()->assertJsonPath('data.ask_options', ['Aurora', 'Atlas'])->assertJsonPath('data.waiting_on_input_at', $setAt);
+
+        // Tilen answers in the UI -> needs PM pickup, the highlight ends, the flag stays; ack-input does not clear it either.
         $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertUnprocessable();
         $this->tilenSays($t['key'], ['input_choice' => 'Atlas', 'is_tilen_input' => true])->assertCreated();
-        $this->getJson("/api/tickets/{$t['key']}")->assertJsonPath('data.needs_pm_pickup', true)->assertJsonPath('data.status', 'waiting_tilen');
+        $this->getJson("/api/tickets/{$t['key']}")->assertJsonPath('data.needs_pm_pickup', true)
+            ->assertJsonPath('data.waiting_on_input', true)->assertJsonPath('data.waiting_on_input_outstanding', false);
         $this->getJson('/api/tickets?needs_pm_pickup=1')->assertJsonPath('data.0.key', $t['key']);
         $this->travelMinutes(5);
-        $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()->assertJsonPath('data.needs_pm_pickup', false);
+        $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertOk()
+            ->assertJsonPath('data.needs_pm_pickup', false)->assertJsonPath('data.waiting_on_input', true);
         $this->postJson("/api/tickets/{$t['key']}/ack-input", ['actor' => self::JANICE])->assertUnprocessable();
 
-        // "Change answer" -> pickup again; moving out of waiting_tilen auto-acks and clears waiting_since.
+        // "Change answer" -> pickup again. Clearing the flag is explicit, logged, and is not a pickup (no auto-ack).
         $this->travelMinutes(5);
         $this->tilenSays($t['key'], ['input_choice' => 'Aurora', 'is_tilen_input' => true])->assertCreated();
         $this->travelMinutes(5);
-        $m = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()->json('data');
-        $this->assertFalse($m['needs_pm_pickup']);
-        $this->assertNull($m['waiting_since']);
-        $this->assertNull($m['waiting_level']);
-        $this->assertSame(Carbon::now()->toIso8601String(), $m['tilen_input_ack_at']);
-        $this->assertSame(2, TicketEvent::query()->where('type', 'input_acked')->count());
-        $this->assertSame(['tilen_input_at', 'via'], array_keys(TicketEvent::query()->where('type', 'input_acked')->latest('id')->first()->to));
+        $m = $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => false, 'actor' => self::JANICE])->assertOk()->json('data');
+        $this->assertSame([false, null, false, null, null, null], [$m['waiting_on_input'], $m['waiting_on_input_at'], $m['waiting_on_input_outstanding'], $m['waiting_since'], $m['waiting_level'], $m['waiting_age_days']]);
+        $this->assertSame([true, 'in_progress', 'Pick a name?'], [$m['needs_pm_pickup'], $m['status'], $m['ask']]);
+        $this->assertSame(1, TicketEvent::query()->where('type', 'input_acked')->count());
+        $cleared = TicketEvent::query()->where('type', 'waiting_cleared')->sole();
+        $this->assertSame([['waiting_on_input_at' => $setAt], null, self::JANICE], [$cleared->from, $cleared->to, $cleared->actor_id]);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => false, 'actor' => self::JANICE])->assertOk();
+        $this->assertSame(1, TicketEvent::query()->where('type', 'waiting_cleared')->count());
+        $this->assertSame([], $this->getJson('/api/tickets?waiting_on_input=1')->json('data'));
+
+        // Set again: a new time, outstanding again (the earlier input is older than the flag).
+        $this->travelMinutes(5);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk()
+            ->assertJsonPath('data.waiting_on_input_at', Carbon::now()->toIso8601String())->assertJsonPath('data.waiting_on_input_outstanding', true);
 
         // done_at set on entering done, cleared on leaving.
         $done = $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'done', 'actor' => self::JANICE])->json('data');
         $this->assertSame(Carbon::now()->toIso8601String(), $done['done_at']);
         $this->assertNull($this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'review', 'actor' => self::JANICE])->json('data.done_at'));
+    }
+
+    #[Test]
+    public function the_highlight_is_outstanding_until_the_owner_posts_input_after_the_flag(): void
+    {
+        $this->api();
+        // Owner input from before the flag does not count.
+        $t = $this->newTicket(['status' => 'in_progress']);
+        $this->tilenSays($t['key'], ['body' => 'Early thought', 'is_owner_input' => true])->assertCreated();
+        $this->travelMinutes(5);
+        $outstanding = fn () => $this->api()->getJson("/api/tickets/{$t['key']}")->assertJsonPath('data.waiting_on_input', true)->json('data.waiting_on_input_outstanding');
+        $this->api()->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertOk();
+        $this->assertTrue($outstanding());
+
+        // An agent comment, and a plain (not marked) owner comment, change nothing.
+        $this->travelMinutes(5);
+        $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'Any news?', 'actor' => self::JANICE])->assertCreated();
+        $this->tilenSays($t['key'], ['body' => 'Looking into it'])->assertCreated()->assertJsonPath('data.is_owner_input', false);
+        $this->assertTrue($outstanding());
+
+        // A comment marked "my input for the PM" ends the highlight; the flag and its time stay.
+        $at = Ticket::find($t['id'])->waiting_on_input_at->toIso8601String();
+        $this->travelMinutes(5);
+        $first = $this->tilenSays($t['key'], ['body' => 'Go with A', 'is_owner_input' => true])->assertCreated()->json('data.id');
+        $this->assertFalse($outstanding());
+        $this->assertSame($at, $this->getJson("/api/tickets/{$t['key']}")->json('data.waiting_on_input_at'));
+        $this->assertFalse(TicketEvent::query()->where('type', 'waiting_cleared')->exists());
+        // The board card carries the same derived value.
+        $card = collect($this->getJson('/api/projects/'.self::BH.'/board')->json('data.columns'))->firstWhere('key', 'in_progress')['tickets'][0];
+        $this->assertSame([true, false], [$card['waiting_on_input'], $card['waiting_on_input_outstanding']]);
+
+        // Superseded by a newer input: still answered (the newer one counts). Both retracted: outstanding again.
+        $this->travelMinutes(5);
+        $second = $this->tilenSays($t['key'], ['body' => 'Actually B', 'is_owner_input' => true])->assertCreated()->json('data.id');
+        $this->assertNotNull(TicketComment::find($first)->superseded_at);
+        $this->assertFalse($outstanding());
+        TicketComment::query()->whereKey($second)->update(['retracted_at' => now()]);
+        $this->assertTrue($outstanding(), 'a superseded input and a retracted one are no input');
+
+        // Model helper, without loaded comments: the same answer.
+        $this->assertTrue(Ticket::find($t['id'])->waitingOnInputOutstanding());
+        $this->assertFalse(Ticket::find($this->api()->newTicket()['id'])->waitingOnInputOutstanding(), 'not flagged: never outstanding');
+    }
+
+    #[Test]
+    public function the_flag_needs_the_same_auth_as_other_ticket_writes_and_stays_in_the_workspace(): void
+    {
+        $t = $this->api()->newTicket();
+        // People are UI-only actors; a read token cannot write; no token: 401.
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => 'tilen'])->assertUnprocessable()->assertJsonValidationErrors('actor');
+        $this->app['auth']->forgetGuards();
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => true, 'actor' => self::JANICE])->assertUnauthorized();
+        $ws = app(CurrentWorkspace::class)->default();
+        $read = $this->scopedToken($ws->owner, $ws, 'read', 'reader');
+        $this->bearer($read, 'PATCH', "/api/tickets/{$t['key']}", ['waiting_on_input' => true])->assertForbidden();
+        $this->assertNull(Ticket::find($t['id'])->waiting_on_input_at);
+
+        // Another workspace: the ticket does not exist for its token (404), by key or by id.
+        $marta = app(AccountService::class)->register('Marta', 'marta@example.test', 'correct horse battery', 'Marta Labs');
+        $marta->markEmailAsVerified();
+        $martaWs = Workspace::query()->where('owner_user_id', $marta->id)->firstOrFail();
+        $token = $this->scopedToken($marta, $martaWs, 'write', 'agent-marta');
+        $this->bearer($token, 'PATCH', "/api/tickets/{$t['key']}", ['waiting_on_input' => true])->assertNotFound();
+        $this->bearer($token, 'PATCH', "/api/tickets/{$t['id']}", ['waiting_on_input' => true])->assertNotFound();
+        $this->bearer($token, 'GET', '/api/tickets?waiting_on_input=1')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertNull(Ticket::acrossWorkspaces()->find($t['id'])->waiting_on_input_at);
+
+        // A write token of this workspace sets it, recorded as the token's agent.
+        $write = $this->scopedToken($ws->owner, $ws, 'write', self::JANICE);
+        $this->bearer($write, 'PATCH', "/api/tickets/{$t['key']}", ['waiting_on_input' => true])->assertOk()->assertJsonPath('data.waiting_on_input', true);
+        $this->assertSame(self::JANICE, TicketEvent::query()->where('type', 'waiting_set')->sole()->actor_id);
     }
 
     #[Test]
@@ -401,7 +515,7 @@ class TicketsApiTest extends TestCase
         $this->api();
         $t = $this->newTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'actor' => 'tilen'])->assertUnprocessable()
-            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, "Human input only comes from the Bridge UI"));
+            ->assertJsonPath('errors.actor.0', fn ($m) => str_contains($m, 'Human input only comes from the Bridge UI'));
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'author' => 'tilen'])->assertUnprocessable();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'x', 'is_tilen_input' => true, 'actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('is_tilen_input');
         $this->postJson("/api/tickets/{$t['key']}/comments", ['actor' => self::JANICE])->assertUnprocessable()->assertJsonValidationErrors('body');
@@ -442,10 +556,10 @@ class TicketsApiTest extends TestCase
     {
         $this->api();
         $this->newTicket(['title' => 'Todo 1']);
-        $w1 = $this->waitingTicket(['title' => 'Waiting older']);
+        $w1 = $this->waitingTicket(['title' => 'Waiting older', 'status' => 'review']);
         $this->travelMinutes(10);
-        $w2 = $this->waitingTicket(['title' => 'Waiting newer']);
-        // waiting_tilen is ordered by waiting_since even when positions say otherwise.
+        $w2 = $this->waitingTicket(['title' => 'Waiting newer', 'status' => 'review']);
+        // Flagged tickets sit in their column in position order like any other (not oldest waiting first).
         Ticket::find($w1['id'])->forceFill(['position' => 5])->saveQuietly();
         $old = $this->newTicket(['title' => 'Done long ago', 'status' => 'done']);
         Ticket::find($old['id'])->forceFill(['done_at' => Carbon::now()->subDays(10)])->saveQuietly();
@@ -458,9 +572,10 @@ class TicketsApiTest extends TestCase
             array_intersect_key($b['project'], array_flip(['id', 'name', 'slug', 'pm_agent_id', 'pm_name', 'ticket_prefix'])));
         $this->assertArrayHasKey('status_note', $b['project']);
         $cols = collect($b['columns'])->keyBy('key');
-        $this->assertSame(['backlog', 'todo', 'in_progress', 'waiting_tilen', 'review', 'done'], $cols->keys()->all());
-        $this->assertSame(['Waiting older', 'Waiting newer'], array_column($cols['waiting_tilen']['tickets'], 'title'));
-        $this->assertSame(2, $cols['waiting_tilen']['count']);
+        $this->assertSame(['backlog', 'todo', 'in_progress', 'review', 'done'], $cols->keys()->all());
+        $this->assertSame(['Waiting newer', 'Waiting older'], array_column($cols['review']['tickets'], 'title'));
+        $this->assertSame([true, true], array_column($cols['review']['tickets'], 'waiting_on_input'));
+        $this->assertSame(2, $cols['review']['count']);
         $this->assertSame(['Done today'], array_column($cols['done']['tickets'], 'title'));
         $this->assertSame(1, $b['done_older_count']);
         $this->assertSame(['Todo 1'], array_column($cols['todo']['tickets'], 'title'));

@@ -8,7 +8,7 @@ import { TicketCard } from './TicketCard';
 import { StatusBlock, setByLabel } from './StatusBlock';
 import { RefSourceCtx } from '../TicketRefs';
 import { LatestUpdate } from './LatestUpdate';
-import { AskPrompt, MoveSheet } from './MoveSheet';
+import { MoveSheet } from './MoveSheet';
 import { TicketDetail } from './TicketDetail';
 import { ColumnLabelsSheet, type ColumnDef } from './ColumnLabels';
 import { refsToPlain } from '../TicketRefs';
@@ -22,7 +22,7 @@ import { readCardView, saveCardView, type CardView } from '../../lib/kanbanCards
 import { ticketNeighbours } from '../../lib/ticketNav';
 import { boardChanged, browserPollEnv, startBoardPoll } from '../../lib/boardPoll';
 import {
-  ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, useMe,
+  ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, firstName, prefersReducedMotion, send, useMe,
   type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type LatestUpdate as LatestUpdateData, type StatusEvent, type Ticket, type TicketDetail as Detail,
 } from '../../lib/kanban';
 
@@ -187,7 +187,6 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
 
   // ------------------------------------------------------------ moving
   const [live, setLive] = useState('');
-  const [askFor, setAskFor] = useState<Pending | null>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   useLayoutEffect(() => {
     if (!focusKey) return;
@@ -197,20 +196,17 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
 
   /** Placement from an index in the *visible* list of the target column (so filters never misplace a card). */
   const placementFor = (to: ColumnKey, index: number, key: string): Placement => {
-    if (to === WAITING) return {};
     const list = (visible.find((c) => c.key === to)?.tickets ?? []).filter((t) => t.key !== key);
     if (index <= 0) return list.length ? { before_id: list[0].key } : { position: 0 };
     if (index >= list.length) return { after_id: list[list.length - 1].key };
     return { before_id: list[index].key };
   };
 
-  const applyLocal = (key: string, to: ColumnKey, pl: Placement, patch: Partial<Ticket> = {}) => {
+  const applyLocal = (key: string, to: ColumnKey, pl: Placement) => {
     setCols((cs) => {
       const t = cs.flatMap((c) => c.tickets).find((x) => x.key === key);
       if (!t) return cs;
-      const moved: Ticket = { ...t, ...patch, status: to, status_label: cs.find((c) => c.key === to)?.label ?? to };
-      if (to === WAITING && t.status !== WAITING) Object.assign(moved, { waiting_since: new Date().toISOString(), waiting_level: 1, waiting_age_days: 0 });
-      if (to !== WAITING) Object.assign(moved, { waiting_level: null, waiting_age_days: null });
+      const moved: Ticket = { ...t, status: to, status_label: cs.find((c) => c.key === to)?.label ?? to };
       return cs.map((c) => {
         let list = c.tickets.filter((x) => x.key !== key);
         if (c.key === to) {
@@ -225,21 +221,21 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     });
   };
 
-  const doMove = async (t: Ticket, to: ColumnKey, pl: Placement, ask?: string, opts: { undo?: boolean; silent?: boolean } = {}) => {
+  const doMove = async (t: Ticket, to: ColumnKey, pl: Placement, opts: { undo?: boolean; silent?: boolean } = {}) => {
     const snapshot = cols;
     const fromIdx = cols.find((c) => c.key === t.status)?.tickets.findIndex((x) => x.key === t.key) ?? 0;
     const fromList = cols.find((c) => c.key === t.status)?.tickets ?? [];
-    const back: Placement = t.status === WAITING ? {} : fromIdx > 0 ? { after_id: fromList[fromIdx - 1].key } : { position: 0 };
+    const back: Placement = fromIdx > 0 ? { after_id: fromList[fromIdx - 1].key } : { position: 0 };
     own.current.add(t.key);
-    applyLocal(t.key, to, pl, ask ? { ask } : {});
+    applyLocal(t.key, to, pl);
     busy.current++;
     try {
-      await send('POST', `/projects/${p.slug}/tickets/${t.key}/move`, { status: to, ...pl, ...(ask ? { ask } : {}) });
+      await send('POST', `/projects/${p.slug}/tickets/${t.key}/move`, { status: to, ...pl });
       busy.current--;
       if (opts.undo && t.status !== to) {
         toasts.push({
           body: <p>{tr('toast.moved', { key: t.key, column: cols.find((c) => c.key === to)?.label ?? to })}</p>,
-          action: { label: tr('toast.undo'), run: () => doMove({ ...t, status: to }, t.status, back, undefined, { silent: true }) },
+          action: { label: tr('toast.undo'), run: () => doMove({ ...t, status: to }, t.status, back, { silent: true }) },
           ms: 5000,
         });
       }
@@ -257,13 +253,12 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     }
   };
 
-  /** Every UI move goes through here: entering the waiting column without an ask asks first. */
+  /** Every UI move goes through here. */
   const requestMove = (pending: Pending) => {
     const { t, to, index, via } = pending;
     if (to === t.status && via !== 'drag' && via !== 'key') return;
-    if (to === WAITING && t.status !== WAITING && !t.ask) { setAskFor(pending); return; }
-    const pl = via === 'sheet' || via === 'detail' ? (to === WAITING ? {} : { position: 0 }) : placementFor(to, index, t.key);
-    doMove(t, to, pl, undefined, { undo: via === 'sheet' });
+    const pl = via === 'sheet' || via === 'detail' ? { position: 0 } : placementFor(to, index, t.key);
+    doMove(t, to, pl, { undo: via === 'sheet' });
   };
 
   // ------------------------------------------------------------ desktop drag (pointer events, mouse only)
@@ -354,7 +349,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
       setDrag(null);
       if (d?.over) {
         const t = s.t;
-        const sameSpot = d.over === t.status && (t.status === WAITING || placementSame(d.over, d.index, t.key));
+        const sameSpot = d.over === t.status && placementSame(d.over, d.index, t.key);
         if (!sameSpot) requestMove({ t, to: d.over, index: d.index, via: 'drag' });
       }
       flushRefresh(); // a move started above keeps it pending until the move settles
@@ -388,7 +383,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
   const len = (k: ColumnKey, key: string) => (visible.find((c) => c.key === k)?.tickets ?? []).filter((t) => t.key !== key).length;
   const say = (pk: Pick) => {
     const n = len(pk.col, pk.key) + 1;
-    setLive(pk.col === WAITING ? `${pk.key}, ${colLabel(pk.col)}, ordered oldest first` : `${pk.key}, ${colLabel(pk.col)}, position ${pk.index + 1} of ${n}`);
+    setLive(`${pk.key}, ${colLabel(pk.col)}, position ${pk.index + 1} of ${n}`);
   };
   const keys = cols.map((c) => c.key);
   const onCardKey = (e: KeyboardEvent<HTMLAnchorElement>, t: Ticket) => {
@@ -412,7 +407,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
       e.preventDefault();
       const pk = pick;
       setPick(null);
-      if (pk.col === pk.from && (pk.col === WAITING || placementSame(pk.col, pk.index, pk.key))) { setLive(`${t.key} dropped where it was.`); setFocusKey(t.key); return; }
+      if (pk.col === pk.from && placementSame(pk.col, pk.index, pk.key)) { setLive(`${t.key} dropped where it was.`); setFocusKey(t.key); return; }
       setLive(`${t.key} dropped in ${colLabel(pk.col)}.`);
       setFocusKey(t.key);
       requestMove({ t, to: pk.col, index: pk.index, via: 'key' });
@@ -422,7 +417,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
     if (k === 'ArrowLeft' || k === 'ArrowRight') {
       const ci = keys.indexOf(pick.col) + (k === 'ArrowLeft' ? -1 : 1);
       if (ci >= 0 && ci < keys.length) { const col = keys[ci]; nx = { ...pick, col, index: Math.min(pick.index, len(col, t.key)) }; }
-    } else if ((k === 'ArrowUp' || k === 'ArrowDown') && pick.col !== WAITING) {
+    } else if (k === 'ArrowUp' || k === 'ArrowDown') {
       const i = pick.index + (k === 'ArrowUp' ? -1 : 1);
       if (i >= 0 && i <= len(pick.col, t.key)) nx = { ...pick, index: i };
     }
@@ -480,10 +475,10 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
   const fallback = shownKey ? (ticket && ticket.key === shownKey ? ticket : find(shownKey)) : undefined;
 
   // ------------------------------------------------------------ mobile tabs
-  const waitingCount = cols.find((c) => c.key === WAITING)?.count ?? 0;
-  // Default tab: the waiting column when it has tickets, else In progress; after the dialog closes, the card's own column.
-  const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key
-    ?? (waitingCount > 0 ? WAITING : 'in_progress'));
+  // Tickets flagged waiting on input, in any column.
+  const waitingCount = cols.reduce((n, c) => n + c.tickets.filter((t) => t.waiting_on_input).length, 0);
+  // Default tab: In progress; after the dialog closes, the card's own column.
+  const [tab, setTab] = useState<ColumnKey>(() => board.columns.find((c) => returnTo && c.tickets.some((t) => t.key === returnTo))?.key ?? 'in_progress');
   // A filter change on mobile lands on a tab with matches: stay if the current one has some, else the first that does (b4).
   const lastFilters = useRef(filters);
   useEffect(() => {
@@ -613,7 +608,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
         )}
         {!compact && <p className="bsum">
           <span className="mi"><b>{open}</b> {tw('bd.open', { name: wsName })}</span>
-          <span className="mi"><b>{waitingCount}</b> {tr('board.waiting', { column: lcFirst(colLabel(WAITING)) })}</span>
+          <span className="mi"><b>{waitingCount}</b> {tr('board.waiting')}</span>
           <span className="mi"><b>{blocked}</b> {tr('board.blocked', { n: blocked })}</span>
           {p.pm_name && <span className="mi hide-m">{tr('portfolio.pm')} <b className="name">{p.pm_name}</b></span>}
           <span className="mi hide-m">{tr('portfolio.lastActivity')} <b className="name">{updateTime(p.last_activity_at, now) || '—'}</b></span>
@@ -647,19 +642,18 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
               <TicketCard key={t.key} t={t} slug={p.slug} people={people} now={now} simple={simple} flash={flash.has(t.key)}
                 onOpen={openTicket} onKeyDown={onCardKey} onPointerDown={onCardPointerDown} onMove={mobile ? setMoveFor : undefined} />
             ));
-            const at = (i: number) => (c.key === WAITING ? items.length : Math.min(i, items.length));
+            const at = (i: number) => Math.min(i, items.length);
             if (drag && drag.over === c.key) items.splice(at(drag.index), 0, <div key="ph" className="ph" aria-hidden="true" />);
             const picked = pick && pick.col === c.key ? find(pick.key) : undefined;
             if (pick && picked) {
               items.splice(at(pick.index), 0, <TicketCard key={picked.key} t={picked} slug={p.slug} people={people} now={now} simple={simple} picked onOpen={openTicket} onKeyDown={onCardKey} />);
             }
             const over = (drag && drag.over === c.key) || (pick && pick.col === c.key);
-            const cls = ['col', c.key === WAITING && 'wt', c.key === tab && 'on', over && 'over'].filter(Boolean).join(' ');
+            const cls = ['col', c.key === tab && 'on', over && 'over'].filter(Boolean).join(' ');
             return (
               <section key={c.key} id={`col-${c.key}`} data-col={c.key} className={cls} aria-label={`${c.label}, ${c.tickets.length} tickets`}
                 role={mobile ? 'tabpanel' : undefined} aria-labelledby={mobile ? `tab-${c.key}` : undefined}>
                 <h2 className="colh"><span className={`dotk c-${c.key}`} aria-hidden="true" />{c.label}<span className="cnt">{c.tickets.length}</span></h2>
-                {c.key === WAITING && <p className="colsub">{tr('board.col.waitingSub')}</p>}
                 {c.key === 'done' && <p className="colsub">{doneAll ? tr('board.col.showRecent') : tr('board.col.doneSub')}</p>}
                 {items.length === 0 && !filtering && <EmptyColumn k={c.key} />}
                 {items.length === 0 && filtering && <div className="cempty"><b>{tr('board.noMatch')}</b></div>}
@@ -704,20 +698,10 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
       )}
       {moveFor && (
         <MoveSheet ticket={moveFor} columns={cols} onClose={() => setMoveFor(null)}
-          onPick={(to, ask) => {
+          onPick={(to) => {
             const t = moveFor;
             setMoveFor(null);
-            if (ask) doMove(t, to, {}, ask, { undo: true });
-            else requestMove({ t, to, index: 0, via: 'sheet' });
-          }} />
-      )}
-      {askFor && (
-        <AskPrompt ticket={askFor.t} column={colLabel(WAITING)} mobile={mobile} onCancel={() => { setAskFor(null); setLive('Move cancelled.'); }}
-          restoreFocus={askFor.via === 'drag' || askFor.via === 'key' ? () => document.querySelector<HTMLElement>(`.board [data-key="${askFor.t.key}"] .tkl`) : undefined}
-          onSubmit={(ask) => {
-            const a = askFor;
-            setAskFor(null);
-            doMove(a.t, a.to, {}, ask, { undo: a.via === 'sheet' });
+            requestMove({ t, to, index: 0, via: 'sheet' });
           }} />
       )}
       {shownKey && fallback && (
@@ -748,13 +732,7 @@ const IcColumns = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3h3v10h-3zM6.5 3h3v10h-3zM10.5 3h3v10h-3z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>
 );
 
-/** "Waiting on Sam" → "waiting on Sam" for the meta row (names keep their capital). */
-const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
-
 function EmptyColumn({ k }: { k: ColumnKey }) {
-  if (k === WAITING) {
-    return <div className="cempty"><IconInbox20 /><b>{tr('board.empty.waiting_tilen')}</b><span>{tr('board.empty.waiting.body')}</span></div>;
-  }
   return <div className="cempty"><IconInbox20 /><b>{tr(`board.empty.${k}`)}</b>{k !== 'done' && <span>{tr('board.empty.drag')}</span>}</div>;
 }
 

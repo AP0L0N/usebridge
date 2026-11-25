@@ -4,16 +4,17 @@ The project board is a Kanban of **tickets**. PMs create, move and comment on ti
 set the project status with a short note. People (the workspace owner and members) work in the Bridge UI; everything
 they write there (comments, "Your input", moves, status overrides) shows up in this API.
 
-**People and owner input (B2, multi-user).** A person writing in the UI is recorded as `user:<id>` (label: their name).
-In the pre-multi-user default workspace its owner keeps the legacy id `tilen` (label: the owner's first name), so old
-rows read as before. The waiting column (key `waiting_tilen`, unchanged) waits on the **workspace owner**; its label is
-the workspace's (`settings.waiting_label`, else "Waiting on <owner's first name>"). Owner-input fields keep their old
-names as compatibility aliases next to neutral ones with the same values: `waiting_on_tilen` = `waiting_on_owner`,
-`tilen_input_at` = `owner_input_at`, `tilen_input_ack_at` = `owner_input_ack_at`, `tilen_answered_ask` =
-`owner_answered_ask`, `unread_for_tilen` = `unread_for_me` (over the API: unread for the workspace owner),
-`is_tilen_input` = `is_owner_input`, `status_unseen_by_tilen` = `status_unseen_by_me`, project `waitingTilenCount` =
-`waitingOwnerCount`. Query `unread_for_owner=1` / `unread_for_me=1` = `unread_for_tilen=1`; assignee shorthand `owner`
-= `tilen` (the owner's id). The examples below show the legacy default workspace.
+**People and owner input (B2, multi-user).** A person writing in the UI is recorded as `user:<id>` (label: their
+name). In the pre-multi-user default workspace its owner keeps the legacy id `tilen` (label: the owner's first name),
+so old rows read as before. A ticket waits on the **workspace owner** when it carries the `waiting_on_input` flag (see
+[Waiting on input](#waiting-on-input)); there is no waiting column any more. Owner-input fields keep their old names
+as compatibility aliases next to neutral ones with the same values: `waiting_on_tilen` = `waiting_on_owner` =
+`waiting_on_input`, `waiting_since` = `waiting_on_input_at`, `tilen_input_at` = `owner_input_at`, `tilen_input_ack_at`
+= `owner_input_ack_at`, `tilen_answered_ask` = `owner_answered_ask`, `unread_for_tilen` = `unread_for_me` (over the
+API: unread for the workspace owner), `is_tilen_input` = `is_owner_input`, `status_unseen_by_tilen` =
+`status_unseen_by_me`, project `waitingTilenCount` = `waitingOwnerCount` (live tickets flagged `waiting_on_input`). Query `unread_for_owner=1` /
+`unread_for_me=1` = `unread_for_tilen=1`; assignee shorthand `owner` = `tilen` (the owner's id). The examples below
+show the legacy default workspace.
 
 - Base URL: `https://bridge.example.test`
 - Times: UTC ISO 8601 in requests and responses are fine (`2026-10-29T09:00:00Z`); responses carry an offset.
@@ -82,9 +83,15 @@ The column set is fixed and the same for every project. Read it from `GET /api/b
 | `backlog` | Backlog | 0 | |
 | `todo` | To do | 1 | |
 | `in_progress` | In progress | 2 | |
-| `waiting_tilen` | Waiting on you | 3 | Needs an `ask`. Always ordered oldest `waiting_since` first; positions are ignored. The label is per workspace (workspaces that existed before multi-user keep their old one); always read it from this endpoint. |
-| `review` | Review / QA | 4 | |
-| `done` | Done | 5 | The board shows the last 7 days by default. |
+| `review` | Review / QA | 3 | |
+| `done` | Done | 4 | The board shows the last 7 days by default. |
+
+**The `waiting_tilen` column ("Waiting on you" / "Waiting on <owner>") was removed** (25 Nov 2026). `status:
+"waiting_tilen"` is now a **422** on create, update, move and in list filters. A ticket that needs the owner's input
+stays in its column and carries the `waiting_on_input` flag instead: see [Waiting on input](#waiting-on-input). The
+tickets that were in the column were moved back to the column they came from (else In progress) and flagged. Older
+events may still say `waiting_tilen` in `from.status` / `to.status`; that side then also carries `status_label` (the
+column's old name).
 
 There is **no "Blocked" column**. Set `blocked_reason` (≤140 chars) instead. The ticket stays in its column and shows a red strip.
 
@@ -121,7 +128,7 @@ creation; the generator never hands a fixed prefix out to another project. You c
 | 405 | `DELETE` on a ticket or an agent | `{"message":"…"}` |
 | 409 | write to an archived ticket (unarchive first) or to a ticket of an archived project | `{"message":"Ticket NW-3 is archived; unarchive it first."}` |
 | 410 | legacy write while the read-only switch is on | `{"message":"Superseded by tickets; see docs/API-TICKETS.md"}` |
-| 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"ask":["Moving into Waiting on you needs an ask: what do you need answered?"]}}` (the column name as the project's board shows it) |
+| 422 | validation; also an unknown field on `PATCH /api/projects/{id}` (`errors.fields`) | `{"message":"…","errors":{"status":["The waiting_tilen column was removed. Keep the ticket in its column and send waiting_on_input: true (with an ask, if you have a question) instead."]}}` |
 
 **Warnings.** Responses to ticket writes and to `PATCH …/status` carry a `warnings` array. Your status stays the source of
 truth, but please correct it when you see one:
@@ -136,12 +143,14 @@ truth, but please correct it when you see one:
 {
   "id": "tk-01jbc3x9…", "key": "NW-12", "project_id": "proj-northwind", "pm_agent_id": "agent-janice",
   "title": "Approve staging", "description": "Markdown…",
-  "status": "waiting_tilen", "status_label": "Waiting on Tilen", "position": 0,
+  "status": "in_progress", "status_label": "In progress", "position": 0,
   "assignee_type": "agent", "assignee_id": "agent-janice", "assignee_name": "Dr. Janice Polito",
   "priority": "p1", "due_on": "2026-11-02",
   "blocked": false, "blocked_reason": null,
   "ask": "Approve staging?", "ask_context": "Visual QA passed.", "ask_options": ["Approve", "Hold"],
-  "waiting_on_tilen": true, "waiting_since": "2026-10-29T10:00:00+01:00", "waiting_age_days": 0, "waiting_level": 1,
+  "waiting_on_input": true, "waiting_on_input_at": "2026-10-29T10:00:00+01:00", "waiting_on_input_outstanding": false,
+  "waiting_on_owner": true, "waiting_on_tilen": true, "waiting_since": "2026-10-29T10:00:00+01:00",
+  "waiting_age_days": 0, "waiting_level": 1,
   "tilen_input_at": "2026-10-29T12:10:00+01:00", "tilen_input_ack_at": null, "needs_pm_pickup": true,
   "labels": [{"id": "lb-…", "name": "M2 launch", "color": "navy"}],
   "comment_count": 3, "last_comment_at": "2026-10-29T12:10:00+01:00",
@@ -155,14 +164,57 @@ truth, but please correct it when you see one:
 
 Derived fields:
 
-- `waiting_level`: 1 when waiting less than 3 days, 2 for 3–6 days, 3 for more than 6 days (counted from `waiting_since`).
+- `waiting_on_input`, `waiting_on_input_at`: the flag "input is needed from the workspace owner" and when it was set
+  (null when not flagged). See [Waiting on input](#waiting-on-input). `waiting_on_owner`, `waiting_on_tilen` and
+  `waiting_since` are older names for the same two values.
+- `waiting_on_input_outstanding`: flagged, and the owner has posted **no** comment marked as input for the PM
+  (`is_owner_input`, not retracted, not superseded) at or after `waiting_on_input_at`. This is what the board card and
+  the ticket highlight. It turns false with such a comment; the flag itself stays until you clear it.
+- `waiting_age_days`, `waiting_level`: counted from `waiting_on_input_at` (null when not flagged). Level 1 when waiting
+  less than 3 days, 2 for 3–6 days, 3 for more than 6 days.
 - `needs_pm_pickup`: a person sent input (`owner_input_at`) that you haven't acknowledged yet (`owner_input_ack_at` is
-  empty or older). Clear it with `ack-input`, or by moving the ticket out of the waiting column.
-- `owner_answered_ask`: the ticket is in the waiting column and the latest input answers the current ask (picked up or
-  not). It turns false when you set a new `ask` or move the ticket back into the waiting column after the answer; then
-  the Your input box shows a blank form again. Acking alone keeps it true, so nobody is asked twice.
+  empty or older). Clear it with `ack-input`. It is separate from `waiting_on_input`: moving the ticket or clearing the
+  flag does **not** acknowledge input.
+- `owner_answered_ask`: the ticket is flagged waiting on input and the latest input answers the current ask (picked up
+  or not). It turns false when you set a new `ask`, or clear the flag and set it again after the answer; then the Your
+  input box shows a blank form again. Acking alone keeps it true, so nobody is asked twice.
 - `unread_for_me`: an agent comment the reader hasn't seen yet (over the API: the workspace owner), on a ticket that
-  waits on the owner or that the reader has commented on.
+  is flagged waiting on input or that the reader has commented on.
+
+### Waiting on input
+
+`waiting_on_input` flags that the workspace owner's input is needed on a ticket. Any ticket in any column can carry it,
+with or without an `ask`. It replaces the removed `waiting_tilen` column.
+
+- **Set it:** `PATCH /api/tickets/{ticket}` with `{"waiting_on_input": true}` (or send it on create). The ticket stays
+  in its column; `waiting_on_input_at` is set to now and a `waiting_set` event is logged. Sending `true` on a ticket
+  that is already flagged changes nothing (the first time stays).
+- **Clear it:** `PATCH /api/tickets/{ticket}` with `{"waiting_on_input": false}`. Logged as a `waiting_cleared` event.
+  This is the only thing that clears it: not a move, not the owner's answer, not `ack-input`, not a comment marked as
+  input for the PM. Clear it yourself once you have what you needed.
+- **With a question:** send `ask` (and optionally `ask_context`, `ask_options`) in the same call. A flagged ticket with
+  an ask is an *open ask* / question: the owner sees it in Questions and gets the Your input box on the ticket. An
+  `ask` on a ticket that is not flagged is stored but shown to nobody as a question.
+- **Without a question:** the flag alone highlights the card and the ticket ("Waiting on your input"). The owner
+  answers with a comment marked "my input for the PM", which you read from the comments feed.
+- **The highlight** is `waiting_on_input_outstanding` (above). It ends when the owner posts input; the flag stays.
+- **Find them:** `GET /api/tickets?waiting_on_input=1`. A flag change also changes the web board's poll stamp.
+- Same auth as every ticket write (a write token; `actor` on shared tokens; people are UI only). MCP: `update_ticket` /
+  `create_ticket` take `waiting_on_input`, `list_tickets` takes the `waiting_on_input` filter.
+
+```bash
+# set (with a question)
+curl -sS -X PATCH "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{"waiting_on_input":true,"ask":"Approve staging?","ask_options":["Approve","Hold"],"actor":"agent-janice"}'
+# clear
+curl -sS -X PATCH "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" \
+  -H "Content-Type: application/json" -d '{"waiting_on_input":false,"actor":"agent-janice"}'
+```
+```json
+{"data":{"key":"NW-12","status":"in_progress","waiting_on_input":true,"waiting_on_input_at":"2026-11-25T11:30:00+01:00",
+         "waiting_on_input_outstanding":true,"ask":"Approve staging?", …},"warnings":[]}
+```
 - Assignees: `assignee_type` `agent` (an agent id), `human` (a person's id `user:<id>` / legacy `tilen`, or a free-text
   name such as "Ana (client)"), or `null`.
 
@@ -227,15 +279,15 @@ curl -sS "$BRIDGE/api/projects/proj-northwind/board" -H "Authorization: Bearer $
   "done_since":"…","done_older_count":14}}
 ```
 
-Waiting on Tilen is ordered by `waiting_since` ascending. All other columns are ordered by `position`.
+Every column is ordered by `position`. Tickets flagged `waiting_on_input` sit in their own column like any other.
 
-`project.open_asks_count` is the number of **open asks**: live (not archived) tickets in `waiting_tilen` with an
-`ask`. The same count is on `GET /api/projects` (`open_asks_count`), MCP `list_projects` and `get_board`. An answered
-ask still counts until the PM moves the ticket out of the waiting column (see below).
+`project.open_asks_count` is the number of **open asks**: live (not archived) tickets flagged `waiting_on_input` with an
+`ask`, in any column. The same count is on `GET /api/projects` (`open_asks_count`), MCP `list_projects` and `get_board`.
+An answered ask still counts until the PM clears the flag (see below).
 
 ### GET /api/projects/{id}/asks
 
-The project's open asks (r4 "Questions for you"), **oldest `waiting_since` first**: the lean list behind the
+The project's open asks (r4 "Questions for you"), **longest waiting (`waiting_on_input_at`) first**: the lean list behind the
 `open_asks_count`. `{id}` is the project id or slug; another workspace's project is **404** like every other project
 path. Read-only (`boards:read`). MCP: `list_open_asks` with `project` (id or slug) returns the same `data`.
 
@@ -253,8 +305,8 @@ curl -sS "$BRIDGE/api/projects/proj-northwind/asks" -H "Authorization: Bearer $B
 
 | Field | Meaning |
 |---|---|
-| `asked_by`, `asked_by_name`, `asked_by_type`, `asked_by_source` | Who put the ask in front of the owner: the actor of the ticket's latest `ask_set` event, or of the event that created it in / moved it into `waiting_tilen` (agent or person; `source` `api`/`mcp`/`ui`, shown as "via API / via MCP / via Bridge"). No such event (old rows): the ticket's creator, `asked_by_source` null. |
-| `asked_at` | `waiting_since` (when it entered the waiting column). `waiting_age_days` / `waiting_level` as on the ticket. |
+| `asked_by`, `asked_by_name`, `asked_by_type`, `asked_by_source` | Who put the ask in front of the owner: the actor of the ticket's latest `ask_set` or `waiting_set` event (in older history: the event that created it in / moved it into `waiting_tilen`) (agent or person; `source` `api`/`mcp`/`ui`, shown as "via API / via MCP / via Bridge"). No such event (old rows): the ticket's creator, `asked_by_source` null. |
+| `asked_at` | `waiting_on_input_at` (when the ticket was flagged). `waiting_age_days` / `waiting_level` as on the ticket. |
 | `owner_input_at`, `needs_pm_pickup`, `owner_answered_ask` | As on the ticket: the owner answered (input comment) and the PM has not picked it up yet / the current ask is answered. |
 
 An empty project returns `{"data":[]}`.
@@ -294,6 +346,7 @@ List tickets, with filters. Results are ordered by project, then column order, t
 | `assignee` | string | no | Agent id, `owner` (alias `tilen`), a person id `user:<id>`, a free-text name, or `none`. |
 | `label` | string | no | Label name (case-insensitive). |
 | `needs_pm_pickup` | 0/1 | no | Only tickets with owner input that hasn't been acknowledged. |
+| `waiting_on_input` | 0/1 | no | Only tickets flagged waiting on the owner's input ([Waiting on input](#waiting-on-input)). |
 | `unread_for_owner` (aliases `unread_for_me`, `unread_for_tilen`) | 0/1 | no | Only tickets with an agent comment the owner hasn't seen yet (same rule as the `unread_for_me` field; the board's "New replies for you" filter). |
 | `blocked` | 0/1 | no | Only tickets with `blocked_reason`. |
 | `updated_since` | ISO time | no | `updated_at` ≥ this. New comments bump `updated_at`. |
@@ -305,7 +358,7 @@ curl -sS "$BRIDGE/api/tickets?project_id=proj-northwind&needs_pm_pickup=1" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":[{"key":"NW-12","status":"waiting_tilen","needs_pm_pickup":true,"tilen_input_at":"…", …}]}
+{"data":[{"key":"NW-12","status":"in_progress","waiting_on_input":true,"needs_pm_pickup":true,"tilen_input_at":"…", …}]}
 ```
 
 ### POST /api/projects/{id}/tickets · POST /api/tickets
@@ -323,9 +376,10 @@ Create a ticket. Returns **201**. Answers **409** when the project is archived.
 | `priority` | `p1`/`p2`/`p3` | no | Default `p3`. |
 | `due_on` | `YYYY-MM-DD` | no | |
 | `blocked_reason` | string ≤140 | no | When set, the ticket is blocked. |
-| `ask` | string ≤280 | when status = `waiting_tilen` | The question for the workspace owner. |
+| `ask` | string ≤280 | no | The question for the workspace owner. Shown to them as an open question while the ticket has `waiting_on_input`. |
 | `ask_context` | string ≤500 | no | |
 | `ask_options` | array ≤4 of strings ≤60 | no | Shown as answer buttons, plus "Something else". |
+| `waiting_on_input` | boolean | no | `true` flags the ticket as waiting on the owner's input, `false` (PATCH) clears the flag. See [Waiting on input](#waiting-on-input). |
 | `labels` | array of names ≤24 | no | Labels are global; unknown names are created in grey. |
 | `position` / `before_id` / `after_id` | int / ticket ref | no | Default: end of the column. |
 | `actor` | agent id | see [actor](#who-is-acting-actor) | |
@@ -333,11 +387,11 @@ Create a ticket. Returns **201**. Answers **409** when the project is archived.
 ```bash
 curl -sS -X POST "$BRIDGE/api/projects/proj-northwind/tickets" \
   -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"title":"Approve staging","status":"waiting_tilen","ask":"Approve staging?","ask_options":["Approve","Hold"],
+  -d '{"title":"Approve staging","status":"review","waiting_on_input":true,"ask":"Approve staging?","ask_options":["Approve","Hold"],
        "assignee":"agent-janice","priority":"p1","labels":["M2 launch"],"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"id":"tk-…","key":"NW-13","status":"waiting_tilen","waiting_since":"…", …},"warnings":[]}
+{"data":{"id":"tk-…","key":"NW-13","status":"review","waiting_on_input":true,"waiting_on_input_at":"…", …},"warnings":[]}
 ```
 
 ### GET /api/tickets/{ticket}
@@ -361,8 +415,10 @@ curl -sS "$BRIDGE/api/tickets/NW-12" -H "Authorization: Bearer $BRIDGE_TOKEN" -H
 
 Edit any field from the create table except `project_id`. Only the fields you send change. `labels` replaces the whole
 set, so send `[]` to clear it. Sending `status`, `position`, `before_id` or `after_id` works the same as
-[move](#post-apiticketsticketmove). An ask can't be cleared while the ticket is in Waiting on Tilen.
-The matching events are logged: `edited`, `assigned`, `priority`, `due`, `blocked`/`unblocked`, `ask_set`, `labelled`, `moved`.
+[move](#post-apiticketsticketmove). `waiting_on_input` sets (`true`) or clears (`false`) the
+[waiting-on-input flag](#waiting-on-input); an `ask` can be set, changed or cleared (`null`) in any column.
+The matching events are logged: `edited`, `assigned`, `priority`, `due`, `blocked`/`unblocked`, `ask_set`,
+`waiting_set`/`waiting_cleared`, `labelled`, `moved`.
 
 ```bash
 curl -sS -X PATCH "$BRIDGE/api/tickets/NW-12" \
@@ -380,7 +436,7 @@ curl -sS -X PATCH "$BRIDGE/api/tickets/NW-12" \
 | `status` | column key | **yes** | Can be the current column (to reorder). |
 | `before_id` / `after_id` | ticket key or id | no | Must be another live ticket in the target column. |
 | `position` | int ≥0 | no | 0 = top. Clamped to the column length. |
-| `ask`, `ask_context`, `ask_options` | as on create | `ask` is required when entering `waiting_tilen` and the ticket has none | |
+| `ask`, `ask_context`, `ask_options` | as on create | no | |
 | `actor` | agent id | see above | |
 
 Without a placement field the ticket goes to the **end** of the column. Positions are renumbered without gaps
@@ -388,9 +444,10 @@ Without a placement field the ticket goes to the **end** of the column. Position
 
 What a move changes:
 
-- Entering `waiting_tilen` sets `waiting_since`. Leaving clears it, **and acknowledges Tilen's input**: if
-  `needs_pm_pickup` was true, `tilen_input_ack_at` is set to now and an `input_acked` event is logged.
 - Entering `done` sets `done_at`. Leaving `done` clears it.
+- Nothing else: a move never needs an ask, never sets or clears `waiting_on_input`, and never acknowledges owner
+  input (it used to, when leaving the removed waiting column). Use `PATCH` with `waiting_on_input` and `ack-input`.
+- `status: "waiting_tilen"` is a **422**: the column was removed.
 
 ```bash
 curl -sS -X POST "$BRIDGE/api/tickets/NW-12/move" \
@@ -398,7 +455,7 @@ curl -sS -X POST "$BRIDGE/api/tickets/NW-12/move" \
   -d '{"status":"in_progress","position":0,"actor":"agent-janice"}'
 ```
 ```json
-{"data":{"key":"NW-12","status":"in_progress","position":0,"waiting_since":null,"needs_pm_pickup":false,"tilen_input_ack_at":"…", …},
+{"data":{"key":"NW-12","status":"in_progress","position":0,"waiting_on_input":true,"needs_pm_pickup":false, …},
  "warnings":[{"code":"status_smooth_but_waiting_tickets","count":1,"message":"…"}]}
 ```
 
@@ -513,7 +570,7 @@ The ticket's history, newest first. `limit` is ≤200 (default 100). Event types
 curl -sS "$BRIDGE/api/tickets/NW-12/events" -H "Authorization: Bearer $BRIDGE_TOKEN" -H "Accept: application/json"
 ```
 ```json
-{"data":[{"id":91,"type":"moved","from":{"status":"waiting_tilen","position":0},"to":{"status":"in_progress","position":0},
+{"data":[{"id":91,"type":"moved","from":{"status":"todo","position":0},"to":{"status":"in_progress","position":0},
           "actor_id":"agent-janice","actor_type":"agent","actor_name":"Dr. Janice Polito","source":"api","created_at":"…"}, …]}
 ```
 
@@ -578,7 +635,7 @@ updates carry `source` too (`api`, `mcp`, `ui`; `null` for updates posted before
 | `derived_status` | The old r1 status from open Required inputs / Questions, for reference only. |
 | `pmStatus`, `pmStatusNote`, `pmStatusSetBy`, `pmStatusSetAt`, `pmLevel`, `pmAgeDays` | The PM-set status as stored (null = not set). |
 | `pm_agent_id` | The project's PM (same value as `owner_agent_id`, kept for old callers). |
-| `open_asks_count` | Open asks: live `waiting_tilen` tickets with an `ask` (see [GET /api/projects/{id}/asks](#get-apiprojectsidasks)). |
+| `open_asks_count` | Open asks: live tickets flagged `waiting_on_input` with an `ask` (see [GET /api/projects/{id}/asks](#get-apiprojectsidasks)). |
 | `open_questions_count`, `openQuestions` | Questions in state `open` ([GET /api/projects/{id}/questions](#get-apiprojectsidquestions)): like `open_asks_count` minus the answered, picked-up and owner-dismissed ones. (`openQuestions` used to count the legacy `questions` table; that number is now `legacyOpenQuestions`.) |
 
 **Change the PM (Captain only).** `pm_agent_id` must be an existing agent id (`GET /api/agents`). `owner_agent_id` is
@@ -695,7 +752,7 @@ curl -sS "$BRIDGE/api/ticket-comments/feed?after=4200" -H "Authorization: Bearer
 ```json
 {"data":[{"id":4211,"cursor":"4211","body":"Approve, ship it.","is_tilen_input":true,"input_choice":"Approve","supersedes_comment_ids":[],
           "author_type":"human","author_id":"tilen","author_name":"Tilen","created_at":"…",
-          "ticket":{"id":"tk-…","key":"NW-12","title":"Approve staging","status":"waiting_tilen","status_label":"Waiting on Tilen",
+          "ticket":{"id":"tk-…","key":"NW-12","title":"Approve staging","status":"in_progress","status_label":"In progress",
                     "assignee_type":"agent","assignee_id":"agent-janice","assignee_name":"Dr. Janice Polito","ask":"Approve staging?",
                     "needs_pm_pickup":true,"url":"https://bridge.example.test/projects/northwind/tickets/NW-12"},
           "project":{"id":"proj-northwind","name":"Northwind","slug":"northwind","pm_agent_id":"agent-janice","pm_name":"Dr. Janice Polito"}}],
@@ -706,9 +763,11 @@ curl -sS "$BRIDGE/api/ticket-comments/feed?after=4200" -H "Authorization: Bearer
 
 ## Answers relay: reading Tilen's comments
 
-Tilen answers in the Bridge UI. He either uses the "Your input" box on a Waiting on Tilen ticket, or ticks
-"Mark as my input" on any ticket. Either way the comment has `is_tilen_input: true`, `tickets.tilen_input_at` is set, and
-the ticket shows `needs_pm_pickup: true`. **The ticket status does not change: the PM moves it.**
+Tilen answers in the Bridge UI. He either uses the "Your input" box on a ticket with an open ask (flagged
+`waiting_on_input`, with an `ask`), or leaves "Mark as my input for the PM" ticked on a comment on any ticket (it is
+ticked by default). Either way the comment has `is_tilen_input: true`, `tickets.tilen_input_at` is set, and
+the ticket shows `needs_pm_pickup: true`. **Neither the ticket status nor the `waiting_on_input` flag changes: the PM
+acks, clears the flag and moves the ticket.**
 
 To relay answers, keep a cursor. Store `next_cursor` after every page and pass it back as `after`. When a page is empty,
 `next_cursor` is the cursor you sent, so you can always store it.
@@ -737,11 +796,14 @@ Do this on every run, for each of your projects:
 2. **Read the input.** `GET /api/tickets/{key}` returns the comments. The latest `is_tilen_input` comment is his answer
    (`input_choice` is the option he picked, `body` is his note). If he changed his answer, the older inputs carry
    `superseded: true`: ignore them, the one input without it is the answer.
-3. **Act, then ack or move.**
-   - Moving the ticket out of Waiting on Tilen (`POST …/move`) acknowledges the input automatically.
-   - If the ticket stays where it is, call `POST …/ack-input`.
+3. **Act, then ack and clear.**
+   - Call `POST …/ack-input` to acknowledge the input. Nothing acknowledges it for you any more (a move does not).
+   - When you have what you needed, clear the flag: `PATCH …` with `{"waiting_on_input": false}`. Tilen's answer does
+     not clear it.
    - Reply with a comment so Tilen sees what happens next.
-4. **Ask cleanly.** For a new decision, move or create the ticket in `waiting_tilen` with a short `ask`, optional `ask_context`, and `ask_options` when it's a choice.
+4. **Ask cleanly.** For a new decision, keep the ticket in its column and `PATCH` (or create) it with
+   `waiting_on_input: true` and a short `ask`, optional `ask_context`, and `ask_options` when it's a choice. There is no
+   waiting column to move it into. Without a specific question, `waiting_on_input: true` alone asks for his input.
 5. **Keep the board true.** Use `blocked_reason` for third-party blocks, archive dead tickets, and move done work to `done`.
 6. **Set the project status and note.** `PATCH /api/projects/{id}/status`. Use `waiting` when something waits on Tilen,
    `smooth` otherwise, and a one-line note for the headline. If the response contains a
@@ -764,21 +826,23 @@ ask, and the answer is an owner input comment, the same one the ticket drawer's 
 | `options` | `ask_options` or `[]`. `[]` = free text; `["Yes","No"]` = yes/no; otherwise multiple choice (plus the optional note). |
 | `allow_text` | Always `true` today: the free-text answer, or the optional note next to a choice (as `body` + `input_choice` on the drawer). |
 | `asked_by` | `{id, name, role, type, source}`: the actor of the round's asking event (the ticket's creator for old rows without one). `role`: `PM` for the project's PM agent, else the agent's role label (`Agent` when empty); people are `Owner` / `Member`. `type` agent/human, `source` api/mcp/ui (`viaLabel`, null for the creator fallback). |
-| `asked_at` | When the round started (its asking event; old rows: `waiting_since`). |
+| `asked_at` | When the round started (its asking event; old rows: `waiting_on_input_at`). |
 | `state` | `open` / `answered` / `closed` / `dismissed` (below). |
 | `answer_choice`, `answer_text`, `answered_at` | The latest live (not retracted, not superseded) owner input comment of the round: its `input_choice`, its body (null when it only repeats the choice) and time. |
-| `picked_up_at` | When the PM picked the answer up: the first `input_acked` (ack-input, or the move out of the waiting column) at/after the answer. Null while awaiting pickup. |
-| `closed_at` | `picked_up_at`, else when the round ended (moved out of `waiting_tilen` / archived). |
+| `picked_up_at` | When the PM picked the answer up: the first `input_acked` (ack-input; in older history also the move out of the waiting column) at/after the answer. Null while awaiting pickup. |
+| `closed_at` | `picked_up_at`, else when the round ended (the flag was cleared / the ticket was archived). |
 | `dismissed_at` | When the owner dismissed it (state `dismissed` only). |
 
-**Rounds and states.** A round starts with the ticket's latest *asking event*: created in `waiting_tilen`, moved into
-it, or `ask_set` while in it (any ask change, as `owner_answered_ask`). It ends when the ticket leaves `waiting_tilen`
-or is archived (unarchived back into the column = the same round).
+**Rounds and states.** A ticket *waits* while it carries `waiting_on_input` (in older history: while it sat in the
+removed `waiting_tilen` column). A round starts with the ticket's latest *asking event*: the flag was set
+(`waiting_set`), or `ask_set` while waiting (any ask change, as `owner_answered_ask`). It ends when the flag is cleared
+(`waiting_cleared`) or the ticket is archived (unarchived while still flagged = the same round). Tickets the removal
+migration moved out of `waiting_tilen` keep the round they had.
 - `closed`: the answer was picked up, or the round ended (with or without an answer).
 - `answered`: the round has an answer the PM has not picked up yet (`needs_pm_pickup`), and the ticket is still
   waiting. In the design this is "awaiting PM pickup" (`picked_up_at` null).
 - `dismissed`: no answer, and the owner dismissed it (latest `ask_dismissed` of the round, no `ask_restored` after it).
-- `open`: otherwise, i.e. a live waiting ticket with an ask and no answer since the ask.
+- `open`: otherwise, i.e. a live flagged ticket with an ask and no answer since the ask.
 A new asking event starts a new round: `open` again, the old answer and any dismissal no longer apply.
 
 **Panel payload** (Board prop) `{open, answered, closed, has_any}`: `open` oldest `asked_at` first; `answered` newest answer
@@ -806,7 +870,7 @@ a 303 back.
   A legacy `questions.id` (`q-<ulid>`, never `q-tk-…`) still reaches the old answer action (410 once
   `BRIDGE_LEGACY_READ_ONLY` is on).
 - `POST /projects/{slug}/questions/{id}/dismiss`: `open` → `dismissed` (an `ask_dismissed` ticket event by the user). It
-  is a no-op when already dismissed and **409** otherwise. The ticket is not touched: it stays in `waiting_tilen`, gets
+  is a no-op when already dismissed and **409** otherwise. The ticket is not touched: it stays flagged, gets
   no comment, keeps `needs_pm_pickup` and `updated_at`, and still counts in `open_asks_count`. Agents keep seeing it
   as unanswered (`list_questions` reports it `open`).
 - `POST /projects/{slug}/questions/{id}/restore`: `dismissed` → `open` (an `ask_restored` event). It is a no-op when
@@ -820,12 +884,12 @@ The old sections are **superseded** by tickets. The old rows are never deleted.
 
 | Old | New ticket |
 |---|---|
-| Question, state `open` | `waiting_tilen`. The text becomes the title (≤140) and the ask (≤280), `context` becomes `ask_context`, yes/no questions get `ask_options` `["Yes","No"]`. Assigned to the PM, label `question`, `waiting_since` = when it was asked. |
+| Question, state `open` | `in_progress`, flagged `waiting_on_input`. The text becomes the title (≤140) and the ask (≤280), `context` becomes `ask_context`, yes/no questions get `ask_options` `["Yes","No"]`. Assigned to the PM, label `question`, `waiting_on_input_at` = when it was asked. |
 | Question, state `answered` | The same ticket, plus Tilen's answer as an input comment (at `answered_at`), so it shows `needs_pm_pickup: true`. Please pick these up. |
-| Required input, open, waiting on Tilen | `waiting_tilen` with the text as the ask, label `input`, PM assignee. |
+| Required input, open, waiting on Tilen | `in_progress`, flagged `waiting_on_input`, with the text as the ask, label `input`, PM assignee. |
 | Required input, open, waiting on someone else | `in_progress`, labels `input` + `waiting-on-other`, no ask, assigned to that person (an agent when the name matches one, e.g. Janice → `agent-janice`; otherwise a human assignee with that name). |
 | Next step `in_progress` | `in_progress`, label `next-step`. |
-| Next step `blocker` | `todo` with `blocked_reason`, labels `next-step` and `blocker`. A blocker owned by Tilen becomes `waiting_tilen` with the text as the ask. |
+| Next step `blocker` | `todo` with `blocked_reason`, labels `next-step` and `blocker`. A blocker owned by Tilen becomes `in_progress`, flagged `waiting_on_input`, with the text as the ask. |
 | Closed questions, resolved inputs, done next steps | Not carried over; they stay in the old tables as history. |
 
 Carried tickets have `source_type` (`question` / `required_input` / `next_step`) and `source_id` set. The old row only

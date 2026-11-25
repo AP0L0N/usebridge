@@ -103,8 +103,10 @@ class ProjectStatusApiTest extends TestCase
         $this->waitingTicket();
         $this->setStatus(['status' => 'smooth', 'actor' => self::JANICE])->assertOk()
             ->assertJsonPath('warnings.0.code', 'status_smooth_but_waiting_tickets')->assertJsonPath('warnings.0.count', 2);
-        // Ticket writes carry the same warning.
+        // Ticket writes carry the same warning: a move changes nothing, clearing the flag does.
         $this->postJson("/api/tickets/{$t['key']}/move", ['status' => 'in_progress', 'actor' => self::JANICE])->assertOk()
+            ->assertJsonPath('warnings.0.count', 2);
+        $this->patchJson("/api/tickets/{$t['key']}", ['waiting_on_input' => false, 'actor' => self::JANICE])->assertOk()
             ->assertJsonPath('warnings.0.count', 1);
         $this->patchJson("/api/tickets/{$t['key']}", ['priority' => 'p1', 'actor' => self::JANICE])->assertOk()->assertJsonPath('warnings.0.count', 1);
         $this->setStatus(['status' => 'waiting', 'actor' => self::JANICE])->assertOk()->assertJsonPath('warnings', []);
@@ -119,7 +121,8 @@ class ProjectStatusApiTest extends TestCase
         $this->setStatus(['status' => 'waiting', 'note' => 'Need the copy call.', 'actor' => self::JANICE]);
         $d = $this->getJson('/api/projects/'.self::BH)->assertOk()->json('data');
         $this->assertSame(['waiting', 'Need the copy call.', self::JANICE, 'BH', 1], [$d['pmStatus'], $d['pmStatusNote'], $d['pmStatusSetBy'], $d['ticketPrefix'], $d['waitingTilenCount']]);
-        $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 1, 'review' => 0, 'done' => 0], $d['ticketCounts']);
+        $this->assertSame(['backlog' => 0, 'todo' => 1, 'in_progress' => 1, 'review' => 0, 'done' => 0], $d['ticketCounts']);
+        $this->assertSame(1, $d['waitingOwnerCount']); // flagged tickets, whatever their column
         $this->assertNotNull($d['pmStatusSetAt']);
         $this->assertNotNull($d['lastActivityAt']);
         // Existing keys stay (derived r1 status from Required inputs).

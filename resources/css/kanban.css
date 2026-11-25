@@ -1,8 +1,8 @@
 /* Bridge · Kanban board + ticket drawer (screen 2 of the app redesign, 31 Oct 2026).
    Scoped under .kanban (the board and portfolio roots) so the generic names never leak to /usage, /account ….
    Tokens are the app ones from app-shell.css (--a-*, defined on .app/.atb); both roots carry "kanban app".
-   Tints are opacity on the variable (Figma "Color variables"): waiting column = signal 14%, "your input · not picked
-   up" = signal 35%, blocked banner = risk 10%, other columns = ink 4%, scrims = ink 32%. */
+   Tints are opacity on the variable (Figma "Color variables"): card waiting on your input = signal 14%, "your input ·
+   not picked up" = signal 35%, blocked banner = risk 10%, other columns = ink 4%, scrims = ink 32%. */
 
 .kanban {
   /* ---------- foundations: buttons ---------- */
@@ -31,7 +31,7 @@
   .av.lg{width:32px;height:32px;border-radius:16px}
   .dotk{width:8px;height:8px;border-radius:50%;flex:none}
   .c-backlog{background:var(--a-ink-400)}.c-todo{background:var(--a-ink-600)}.c-in_progress{background:var(--a-ink)}
-  .c-waiting_tilen{background:var(--a-signal)}.c-review{background:var(--a-warn)}.c-done{background:var(--a-ok)}
+  .c-review{background:var(--a-warn)}.c-done{background:var(--a-ok)}
   .pri-dot{width:6px;height:6px;border-radius:50%;flex:none}
   .pri-dot.p1{background:var(--a-risk)}.pri-dot.p2{background:var(--a-warn)}.pri-dot.p3{background:var(--a-ink-400)}
   .agentdot{width:6px;height:6px;border-radius:50%;background:var(--a-agent);flex:none}
@@ -157,15 +157,15 @@
   /* columns */
   .board{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:4px;scrollbar-width:thin}
   .col{background:rgb(11 12 15 / 0.04);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:8px;min-width:0;flex:1 1 0;min-width:200px}
-  .col.wt{background:color-mix(in srgb,var(--a-signal) 14%,var(--a-surface));border:1px solid color-mix(in srgb,var(--a-signal) 45%,transparent)}
   .col.over{outline:2px solid var(--a-ink);outline-offset:-2px}
   .colh{display:flex;align-items:center;gap:8px;height:32px;padding:0 4px;margin:0;font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink)}
   .colh .cnt{color:var(--a-ink-600);font:500 12px/1.35 var(--font-mono)}
-  .col.wt .colh .cnt{display:inline-grid;place-items:center;height:20px;padding:0 7px;border-radius:10px;background:var(--a-signal);color:var(--on-fill)}
   .colsub{margin:-2px 4px 0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
   /* ticket card */
   .tk{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);box-shadow:var(--a-shadow-xs);padding:12px;display:flex;flex-direction:column;gap:10px;position:relative;color:inherit;cursor:grab;min-width:0}
   .tk>*{min-width:0}
+  /* waiting on your input, nothing sent yet (waiting_on_input_outstanding): the signal tint the waiting column had */
+  .tk.wio{background:color-mix(in srgb,var(--a-signal) 14%,var(--a-surface));border-color:color-mix(in srgb,var(--a-signal) 45%,transparent)}
   .tk:hover{border-color:var(--a-ink-400)}
   .tk:has(.tkl:focus-visible){outline:2px solid var(--a-focus);outline-offset:2px}
   .lbs{display:flex;flex-wrap:wrap;gap:4px}
@@ -184,6 +184,7 @@
   .tk.simple h3{flex:1 1 0;display:block;-webkit-line-clamp:none;line-clamp:none;overflow:visible;overflow-wrap:anywhere}
   .sdot{width:8px;height:8px;margin-top:5px;border-radius:50%;flex:none}
   .sdot.blocked{background:var(--a-risk)}
+  .sdot.waiting{background:var(--a-signal)}
   .sdot.new{background:var(--a-agent)}
   .tk.simple .tkmv{flex:1 1 100%}
   .via{display:inline-flex;align-items:center;gap:6px;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
@@ -197,6 +198,8 @@
   .unr.new{background:var(--a-ink);color:var(--a-surface);width:fit-content;border-radius:12px;padding:4px 10px 4px 8px;gap:6px;height:24px;align-items:center}
   .unr.new .dotk{background:var(--a-signal)}
   .unr.pend{background:color-mix(in srgb,var(--a-signal) 35%,var(--a-surface));color:var(--a-ink)}
+  .unr.wait{background:var(--a-signal);color:var(--on-fill);font-weight:500}
+  .unr.wait .dotk{background:var(--on-fill)}
   .tmeta{display:flex;align-items:center;gap:4px 8px;flex-wrap:wrap;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-600)}
   .tmeta .id{color:var(--a-ink-400)}
   /* REF / Ticket chip (84:1097, README §11.2): Geist Mono key, paper tint, 6px status dot, 6px radius, no underline;
@@ -211,7 +214,7 @@
   .trefpop .tref{cursor:default}
   .trefpop .tref:hover{border-color:var(--a-line);background:var(--a-paper);box-shadow:none}
   .trp-st{padding:2px 8px;border-radius:6px;font:500 12px/1.5 var(--font-mono);background:var(--a-paper);color:var(--a-ink-600);white-space:nowrap}
-  .trp-st.s-in_progress,.trp-st.s-waiting_tilen,.trp-st.s-review{background:color-mix(in srgb,var(--a-warn) 12%,var(--a-surface));color:var(--a-warn)}
+  .trp-st.s-in_progress,.trp-st.s-review{background:color-mix(in srgb,var(--a-warn) 12%,var(--a-surface));color:var(--a-warn)}
   .trp-st.s-done{background:color-mix(in srgb,var(--a-ok) 12%,var(--a-surface));color:var(--a-ok)}
   .trp-t{margin:0;font:500 15px/1.4 var(--font-ui);letter-spacing:-0.01em;color:var(--a-ink);overflow-wrap:anywhere}
   .trp-a{display:flex;align-items:center;gap:8px;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
@@ -257,7 +260,6 @@
   .ovl{position:fixed;inset:0;z-index:50}
   .kb-ovl{background:rgb(11 12 15 / 0.32)}
   .sheetov{background:rgb(11 12 15 / 0.32);display:flex;align-items:flex-end;justify-content:center}
-  .askov{background:rgb(11 12 15 / 0.32);display:grid;place-items:center;padding:16px}
   html.kmodal{overflow:hidden}
   /* bottom sheet / centred panel */
   .sheet{background:var(--a-surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;box-shadow:0 -8px 30px rgb(11 12 15 / 0.18);padding:8px 0 16px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding-bottom:max(16px,env(safe-area-inset-bottom))}
@@ -285,17 +287,6 @@
   .sheet .mvl li button{padding:0 16px}
   .sheet .mvl li[aria-current] button{box-shadow:inset 0 0 0 1px var(--a-line)}
   .mvl li button>svg:last-child{margin-left:auto;flex:none;transform:rotate(-90deg);color:var(--a-ink-600)}
-  /* ask (desktop dialog + sheet step) */
-  .askbox{width:min(480px,calc(100vw - 32px));background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-lg);box-shadow:var(--a-shadow-pop);padding:24px}
-  .askbox h3{margin:0 0 4px;font:600 20px/1.25 var(--font-ui);letter-spacing:-0.02em}
-  .asub{margin:0 0 12px;font:400 15px/1.5 var(--font-ui);color:var(--a-ink-600);overflow-wrap:anywhere}
-  .askf{display:flex;flex-direction:column;gap:6px}
-  .askf .qta{min-height:72px}
-  .askf .qta.bad{border-color:var(--a-risk)}
-  .askf .count{text-align:right;font-variant-numeric:tabular-nums}
-  .askw{padding:0 20px 8px}
-  .askh{display:flex;align-items:flex-start;gap:4px;margin:0 0 8px -12px}
-  .askh h3{margin:0;font:600 20px/1.25 var(--font-ui);letter-spacing:-0.02em}
   /* discard dialog */
   .discard{width:min(440px,calc(100vw - 32px));background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-lg);box-shadow:var(--a-shadow-pop);padding:24px;display:flex;flex-direction:column;gap:8px}
   .discard h3{margin:0;font:600 20px/1.25 var(--font-ui);letter-spacing:-0.02em;color:var(--a-ink)}

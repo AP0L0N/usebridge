@@ -11,7 +11,7 @@ import { ago, updateTime } from '../../lib/dates';
 import { t as tw } from '../../lib/strings-workstreams';
 import { t as tr } from '../../lib/strings';
 import {
-  ApiError, PRIORITY_LABEL, WAITING, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe, viaLabel,
+  ApiError, PRIORITY_LABEL, dueLabel, dueSoon, firstName, roleTag, send, ticketUrl, useMe, viaLabel,
   type BoardProject, type Column, type ColumnKey, type Comment, type Label, type Person, type Priority, type Ticket,
   type TicketDetail as Detail, type TicketEvent,
 } from '../../lib/kanban';
@@ -37,7 +37,8 @@ type Props = {
   nav?: TicketNeighbours & { onGo: (key: string) => void };
 };
 
-const COLNAME = (cols: Column[], k: unknown) => cols.find((c) => c.key === k)?.label ?? String(k ?? '');
+/** A column's label; a column that no longer exists (older history: waiting_tilen) uses the label the event carries. */
+const COLNAME = (cols: Column[], at: Record<string, unknown> | null | undefined) => cols.find((c) => c.key === at?.status)?.label ?? String(at?.status_label ?? at?.status ?? '');
 
 /** One-line description of a ticket event (side History and inline thread events). */
 function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | null {
@@ -45,7 +46,7 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
   const who = (id: unknown) => (id ? people.find((p) => p.id === id)?.name ?? String(id) : 'nobody');
   switch (e.type) {
     case 'created': return 'Created';
-    case 'moved': return from.status === to.status ? `Reordered in ${COLNAME(cols, to.status)}` : `Moved ${COLNAME(cols, from.status)} → ${COLNAME(cols, to.status)}`;
+    case 'moved': return from.status === to.status ? `Reordered in ${COLNAME(cols, to)}` : `Moved ${COLNAME(cols, from)} → ${COLNAME(cols, to)}`;
     case 'assigned': return to.id ? `Assigned to ${who(to.id)}` : 'Unassigned';
     case 'priority': return `Priority set to ${String(to.priority ?? 'p3').toUpperCase()}`;
     case 'due': return to.due_on ? `Due set to ${dueLabel(String(to.due_on))}` : 'Due date cleared';
@@ -55,6 +56,8 @@ function eventText(e: TicketEvent, cols: Column[], people: Person[]): string | n
     case 'ask_set': return 'Ask updated';
     case 'edited': return 'title' in to ? 'Title edited' : 'Description edited';
     case 'input_acked': return 'Your input picked up';
+    case 'waiting_set': return tr('ticket.hist.waitingSet');
+    case 'waiting_cleared': return tr('ticket.hist.waitingCleared');
     case 'archived': return 'Archived';
     case 'unarchived': return 'Unarchived';
     case 'workstream': {
@@ -276,7 +279,8 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
               </div>
               {mobile && <div className="mf">{dsum}</div>}
               {t.blocked_reason && <p className="blk"><span className="pri-dot" aria-hidden="true" /><span><RefTemplate template={tr('board.card.blocked', { reason: SLOT })} text={t.blocked_reason} /></span></p>}
-              {t.status === WAITING && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
+              {t.waiting_on_input_outstanding && <p className="unr wait" role="status"><span className="dotk" aria-hidden="true" />{tr('ticket.waitingInput')}</p>}
+              {t.waiting_on_input && t.ask && <InputBox t={t} detail={detail} pm={pm} slug={project.slug} now={now} onSent={onChanged} />}
               <Description t={t} onSave={(d) => patch({ description: d })} />
               <hr className="kb-div" />
               <section aria-labelledby="th-h">
@@ -544,7 +548,7 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
       if (e.type === 'moved' && (e.from?.status === e.to?.status || !e.from)) continue;
       const who = actorShort(e, me);
       const what = e.type === 'moved'
-        ? <>moved this <span className="st">{COLNAME(columns, e.from?.status)} → {COLNAME(columns, e.to?.status)}</span></>
+        ? <>moved this <span className="st">{COLNAME(columns, e.from)} → {COLNAME(columns, e.to)}</span></>
         : e.to?.id ? <>assigned this to <b>{people.find((p) => p.id === e.to?.id)?.name ?? String(e.to.id)}</b></> : <>unassigned this</>;
       out.push({ at: Date.parse(e.created_at ?? ''), key: `e${e.id}`, node: () => <li className="ev"><span className="agentdot" aria-hidden="true" /><span><b>{who}</b> {what}</span><time>{updateTime(e.created_at, now)}</time></li> });
     }

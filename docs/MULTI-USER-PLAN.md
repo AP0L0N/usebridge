@@ -73,6 +73,9 @@ privately; this plan covers product decisions, architecture, API and the securit
     **Changed by go-live B2:** the default for a workspace without a setting is now "Waiting on <owner's first name>"
     (`Workspace::waitingColumnLabel`, `HumanActors::defaultWaitingLabel`; "Waiting on you" only without an owner), so a
     member sees whom the column waits on. See §11 "People as actors (B2)".
+    **Removed 25 Nov 2026:** the column is gone from every board (migrations `2026_11_25_100000` / `100100` moved its
+    tickets back and flagged them `waiting_on_input`, docs/API-TICKETS.md "Waiting on input"). The name above only
+    labels older history lines now (`BoardColumns::label`).
 
 Still open: SMTP + SPF/DKIM/DMARC for `usebridge.si` (The Many). Until it is set, and until The Many has created the
 Turnstile keys, config decides:

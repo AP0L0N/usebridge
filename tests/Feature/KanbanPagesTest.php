@@ -96,17 +96,18 @@ class KanbanPagesTest extends TestCase
 
         $ca = collect($this->cards())->firstWhere('id', self::BH);
         $this->assertSame(2, $ca['waitingTilenCount']);
-        $this->assertSame(['backlog' => 0, 'todo' => 0, 'in_progress' => 1, 'waiting_tilen' => 2, 'review' => 0, 'done' => 1], $ca['ticketCounts']);
+        // Flagged tickets count in their own column; "for you" counts the flag, whatever the column.
+        $this->assertSame(['backlog' => 0, 'todo' => 2, 'in_progress' => 1, 'review' => 0, 'done' => 1], $ca['ticketCounts']);
     }
 
     #[Test]
-    public function board_props_have_six_columns_waiting_oldest_first_and_done_older_count(): void
+    public function board_props_have_five_columns_flagged_tickets_in_place_and_done_older_count(): void
     {
         $this->api();
         $first = $this->waitingTicket(['title' => 'Newer ask']);
         $this->travelMinutes(-60 * 24);
         $old = $this->waitingTicket(['title' => 'Older ask']);
-        Ticket::query()->whereKey($old['id'])->update(['waiting_since' => Carbon::now()->subDays(3)]);
+        Ticket::query()->whereKey($old['id'])->update(['waiting_on_input_at' => Carbon::now()->subDays(3)]);
         $this->travelMinutes(60 * 24);
         foreach ([1, 3, 9, 20] as $d) {
             $t = $this->newTicket(['status' => 'done', 'title' => "done $d"]);
@@ -115,10 +116,13 @@ class KanbanPagesTest extends TestCase
 
         $this->asOwner()->get('/projects/blue-harbor')->assertOk()->assertInertia(fn (Assert $p) => $p
             ->component('Board')
-            ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'waiting_tilen', 'review', 'done'])
-            ->where('board.columns.3.tickets.0.title', 'Older ask')
-            ->where('board.columns.3.tickets.1.key', $first['key'])
-            ->where('board.columns.5.count', 2)
+            ->where('board.columns', fn ($cols) => collect($cols)->pluck('key')->all() === ['backlog', 'todo', 'in_progress', 'review', 'done'])
+            // No waiting column: a flagged ticket stays where it is, in position order (not oldest waiting first).
+            ->where('board.columns.1.tickets.0.key', $first['key'])
+            ->where('board.columns.1.tickets.1.title', 'Older ask')
+            ->where('board.columns.1.tickets.1.waiting_on_input', true)
+            ->where('board.columns.1.tickets.1.waiting_age_days', 4)
+            ->where('board.columns.4.count', 2)
             ->where('board.done_older_count', 2)
             ->where('doneAll', false)
             ->where('ticket', null)
@@ -127,7 +131,7 @@ class KanbanPagesTest extends TestCase
             ->has('statusHistory', 0));
 
         $this->get('/projects/blue-harbor?done=all')->assertInertia(fn (Assert $p) => $p
-            ->where('doneAll', true)->where('board.columns.5.count', 4)->where('board.done_older_count', 0));
+            ->where('doneAll', true)->where('board.columns.4.count', 4)->where('board.done_older_count', 0));
     }
 
     #[Test]
@@ -160,7 +164,7 @@ class KanbanPagesTest extends TestCase
             ->where('ticket.last_seen_at', null)
             ->has('ticket.comments', 1)
             ->has('ticket.events')
-            ->has('board.columns', 6));
+            ->has('board.columns', 5));
         // lower-case key works too; another project's ticket is a 404
         $this->get('/projects/blue-harbor/tickets/'.strtolower($t['key']))->assertOk();
         $this->get("/projects/northwind/tickets/{$t['key']}")->assertNotFound();
@@ -173,14 +177,14 @@ class KanbanPagesTest extends TestCase
         $t = $this->waitingTicket();
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => 'New info', 'actor' => self::JANICE])->assertCreated();
         $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
-            ->where('board.columns.3.tickets.0.unread_for_tilen', true)
-            ->where('board.columns.3.tickets.0.latest_unread_author.name', 'Dr. Janice Polito'));
+            ->where('board.columns.1.tickets.0.unread_for_tilen', true)
+            ->where('board.columns.1.tickets.0.latest_unread_author.name', 'Dr. Janice Polito'));
 
         $this->travelMinutes(1);
         $this->postJson("/projects/blue-harbor/tickets/{$t['key']}/seen")->assertOk()->assertJsonPath('data.unread_for_tilen', false);
         $this->assertNotNull(TicketReadState::query()->where('user', 'tilen')->where('ticket_id', $t['id'])->value('last_seen_at'));
 
-        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.3.tickets.0.unread_for_tilen', false));
+        $this->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p->where('board.columns.1.tickets.0.unread_for_tilen', false));
         $this->get("/projects/blue-harbor/tickets/{$t['key']}")->assertInertia(fn (Assert $p) => $p->whereNot('ticket.last_seen_at', null));
     }
 

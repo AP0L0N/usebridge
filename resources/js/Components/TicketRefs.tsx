@@ -3,10 +3,9 @@ import { createContext, useCallback, useContext, useEffect, useId, useRef, useSt
 import type { MouseEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Avatar, MOBILE, useMedia, useToasts } from './Kanban/Bits';
-import { AskPrompt } from './Kanban/MoveSheet';
 import { TicketDetail } from './Kanban/TicketDetail';
 import { requestJson } from '../lib/http';
-import { ApiError, WAITING, send, ticketUrl, type BoardProject, type Column, type ColumnKey, type Label, type Person, type Ticket, type TicketDetail as Detail } from '../lib/kanban';
+import { ApiError, send, ticketUrl, type BoardProject, type Column, type ColumnKey, type Label, type Person, type Ticket, type TicketDetail as Detail } from '../lib/kanban';
 import { plainRefs, splitRefs } from '../lib/ticketRefs';
 import { t as tr } from '../lib/strings';
 
@@ -226,7 +225,6 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
     return deep ? [{ ref: deep, key: deep }] : [];
   });
   const [data, setData] = useState<{ ref: string; payload: Payload } | null>(null);
-  const [askFor, setAskFor] = useState<{ t: Ticket; to: ColumnKey } | null>(null);
   const pushed = useRef(false);
   const only = reloadOnly?.join(',');
   const top = stack.length ? stack[stack.length - 1] : null;
@@ -245,7 +243,7 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
 
   // Browser Back (or any visit) that drops ?ticket= closes the modal.
   useEffect(() => {
-    if (stack.length && !ticketParam(page.url)) { pushed.current = false; setStack([]); setData(null); setAskFor(null); }
+    if (stack.length && !ticketParam(page.url)) { pushed.current = false; setStack([]); setData(null); }
   }, [page.url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll lock; re-applied after a page's own modal let go of it (a takeover).
@@ -282,7 +280,7 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
   }, [stack]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const close = useCallback(() => {
-    setStack([]); setData(null); setAskFor(null);
+    setStack([]); setData(null);
     if (pushed.current) { pushed.current = false; window.history.back(); }
     else router.replace({ url: withTicket(null), ...visit });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -294,9 +292,9 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
   }, [top, data, load, only]);
 
   const payload = top && data && data.ref === top.ref ? data.payload : null;
-  const move = async (t: Ticket, to: ColumnKey, ask?: string) => {
+  const move = async (t: Ticket, to: ColumnKey) => {
     try {
-      await send('POST', `/projects/${payload?.project.slug}/tickets/${t.key}/move`, { status: to, ...(to === WAITING ? {} : { position: 0 }), ...(ask ? { ask } : {}) });
+      await send('POST', `/projects/${payload?.project.slug}/tickets/${t.key}/move`, { status: to, position: 0 });
       changed();
     } catch (e) {
       toasts.push({ tone: 'err', body: <p>{e instanceof ApiError && e.status === 422 ? e.message : tr('toast.moveErrTry', { key: t.key })}</p> });
@@ -312,11 +310,7 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
           <TicketDetail key={payload.ticket.id} detail={payload.ticket} fallback={payload.ticket} project={payload.project} people={payload.people} labels={payload.labels}
             columns={payload.columns} now={new Date().toISOString()} mobile={mobile} onClose={close}
             back={prev ? { key: prev.key ?? prev.ref, onBack: back } : undefined}
-            onStatus={(t, to) => {
-              if (to === t.status) return;
-              if (to === WAITING && !t.ask) setAskFor({ t, to });
-              else move(t, to);
-            }}
+            onStatus={(t, to) => { if (to !== t.status) move(t, to); }}
             onChanged={changed}
             onArchived={(t) => {
               toasts.push({ body: <p>{tr('toast.archived', { key: t.key })}</p>, ms: 6000 });
@@ -324,10 +318,6 @@ export function TicketRefHost({ children, reloadOnly, claimed = false }: { child
               if (only) router.reload({ only: only.split(','), async: true } as never);
             }} />
         </RefSourceCtx.Provider>
-      )}
-      {askFor && payload && (
-        <AskPrompt ticket={askFor.t} column={payload.columns.find((c) => c.key === WAITING)?.label ?? WAITING} mobile={mobile} onCancel={() => setAskFor(null)}
-          onSubmit={(ask) => { const a = askFor; setAskFor(null); move(a.t, a.to, ask); }} />
       )}
     </OpenCtx.Provider>
   );

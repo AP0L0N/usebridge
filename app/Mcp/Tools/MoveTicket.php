@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('move_ticket')]
-#[Description('Move a ticket to a column, optionally at a position (same rules as POST /api/tickets/{key}/move). Moving into waiting_tilen needs an ask.')]
+#[Description('Move a ticket to a column, optionally at a position (same rules as POST /api/tickets/{key}/move). To ask the workspace owner for input, use update_ticket with waiting_on_input (there is no waiting column).')]
 class MoveTicket extends BridgeTool
 {
     protected const ABILITY = 'boards:write';
@@ -27,7 +27,7 @@ class MoveTicket extends BridgeTool
             'before_id' => $schema->string()->description('Place before this ticket id.'),
             'after_id' => $schema->string()->description('Place after this ticket id.'),
             'workstream' => $schema->string()->max(120)->description('Optional: move the ticket into this workstream too (id or name, list_workstreams; a new name creates it).'),
-            'ask' => $schema->string()->max(280)->description('Question for the workspace owner (needed for waiting_tilen).'),
+            'ask' => $schema->string()->max(280)->description('Question for the workspace owner (see update_ticket: waiting_on_input).'),
             'ask_context' => $schema->string()->max(500),
             'ask_options' => $schema->array()->items($schema->string()->max(60))->max(4),
             'actor' => $this->actorField($schema),

@@ -102,6 +102,7 @@ class ProjectStatus
         $derived = self::derive($project, $now);
         $lastAt = $latest?->created_at ?? $project->updated_at;
         $counts = self::ticketCounts($project);
+        $waiting = self::waitingOnInputCount($project);
 
         return [
             'id' => $project->id,
@@ -129,9 +130,10 @@ class ProjectStatus
             'pmName' => Actor::label($project->owner_agent_id, $names),
             'ticketPrefix' => $project->ticket_prefix,
             'ticketCounts' => $counts,
-            'waitingTilenCount' => $counts[BoardColumns::WAITING_TILEN], // compat alias of waitingOwnerCount
-            'waitingOwnerCount' => $counts[BoardColumns::WAITING_TILEN],
-            // r4 Questions for you: waiting-column tickets with an ask (OpenAsks); the API payload names it open_asks_count.
+            // Live tickets flagged waiting on the owner's input, in any column (was: tickets in the waiting column).
+            'waitingTilenCount' => $waiting, // compat alias of waitingOwnerCount
+            'waitingOwnerCount' => $waiting,
+            // r4 Questions for you: flagged tickets with an ask (OpenAsks); the API payload names it open_asks_count.
             'openAsksCount' => OpenAsks::count($project),
             // r4 Questions panel: questions in state open (Questions; dismissed not counted); API: open_questions_count.
             'openQuestions' => Questions::count($project),
@@ -159,6 +161,14 @@ class ProjectStatus
                 ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status')->all();
 
         return array_map(fn (string $k) => (int) ($rows[$k] ?? 0), array_combine(BoardColumns::keys(), BoardColumns::keys()));
+    }
+
+    /** Live (not archived) tickets flagged waiting on the owner's input, in any column. */
+    public static function waitingOnInputCount(Project $project): int
+    {
+        return $project->relationLoaded('tickets')
+            ? $project->tickets->whereNull('archived_at')->whereNotNull('waiting_on_input_at')->count()
+            : Ticket::query()->where('project_id', $project->id)->whereNull('archived_at')->waitingOnInput()->count();
     }
 
     /**

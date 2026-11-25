@@ -116,7 +116,8 @@ class KanbanSampleSeeder extends Seeder
             'key' => $key,
             'title' => $o['t'],
             'description' => $o['desc'] ?? null,
-            'status' => $o['col'],
+            // Sample tickets written for the old waiting_tilen column: In progress, flagged waiting on input.
+            'status' => $o['col'] === 'waiting_tilen' ? 'in_progress' : $o['col'],
             'position' => $o['pos'] ?? 0,
             'assignee_type' => ($o['a'] ?? null) ? (($o['a'] === 'tilen') ? 'human' : 'agent') : null,
             'assignee_id' => $o['a'] ?? null,
@@ -126,7 +127,7 @@ class KanbanSampleSeeder extends Seeder
             'ask' => $o['ask'] ?? null,
             'ask_context' => $o['ctx'] ?? null,
             'ask_options' => $o['opts'] ?? null,
-            'waiting_since' => $o['col'] === 'waiting_tilen' ? ($o['waiting'] ?? $o['created']) : null,
+            'waiting_on_input_at' => $o['col'] === 'waiting_tilen' ? ($o['waiting'] ?? $o['created']) : null,
             'tilen_input_at' => $o['input_at'] ?? null,
             'tilen_input_ack_at' => $o['ack_at'] ?? null,
             'created_by' => $p->owner_agent_id,

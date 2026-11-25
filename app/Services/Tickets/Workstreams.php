@@ -151,7 +151,7 @@ final class Workstreams
 
     /**
      * Rows for the Finder's column 2 and the board tabs, per project id, in board order: live ticket counts, "for you"
-     * (waiting on the owner), all-done, and the user's badge. Archived projects get no badges (README §2).
+     * (flagged waiting on the owner's input), all-done, and the user's badge. Archived projects get no badges (README §2).
      *
      * @param  iterable<Project>  $projects
      * @return array<string, list<array{id:string,name:string,isDefault:bool,tickets:int,forYou:int,open:int,allDone:bool,badge:int}>>
@@ -162,7 +162,7 @@ final class Workstreams
         $ids = $projects->map(fn (Project $p) => $p->id)->all();
         $byProject = Workstream::query()->whereIn('project_id', $ids)->get()->groupBy('project_id');
         $counts = Ticket::query()->whereIn('project_id', $ids)->whereNull('archived_at')
-            ->selectRaw('workstream_id, count(*) as total, sum(case when status = ? then 1 else 0 end) as waiting, sum(case when status = ? then 1 else 0 end) as done, sum(case when blocked_reason is not null and status != ? then 1 else 0 end) as blocked', [BoardColumns::WAITING_TILEN, BoardColumns::DONE, BoardColumns::DONE])
+            ->selectRaw('workstream_id, count(*) as total, count(waiting_on_input_at) as waiting, sum(case when status = ? then 1 else 0 end) as done, sum(case when blocked_reason is not null and status != ? then 1 else 0 end) as blocked', [BoardColumns::DONE, BoardColumns::DONE])
             ->groupBy('workstream_id')->get()->keyBy('workstream_id');
         $live = $projects->reject(fn (Project $p) => $p->isArchived())->map(fn (Project $p) => $p->id)->all();
         $badges = self::badges($byProject->toBase()->only($live)->flatten(1)->pluck('id')->all(), $user);

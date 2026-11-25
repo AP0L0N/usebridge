@@ -1,6 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState, type FormEvent } from 'react';
-import { Badge } from '../Components/Auth/Badge';
 import { Button, ButtonLink } from '../Components/Auth/Button';
 import { Notice, TextField } from '../Components/Auth/TextField';
 import { LABEL_MAX, saveColumnLabels } from '../Components/Kanban/ColumnLabels';
@@ -32,9 +31,6 @@ type Props = {
 
 type Step = 1 | 2 | 3;
 type Created = { name: string; slug: string; column_labels_url?: string };
-
-/** The column bots move a ticket to when they need the user (drawn outlined, "Core column"). */
-const CORE = 'waiting_tilen';
 
 /**
  * Onboarding (Figma "Onboarding" step 1–3) inside the app shell: header + stepper, then one card per step. State is
@@ -223,8 +219,7 @@ function StepProject({ p, project, onCreated, onNext, onSkip }: {
 
 /**
  * Step 2: the board's columns in BoardColumns order (01…), each renamed inline; Save board sends them to
- * PUT /projects/{slug}/column-labels. The waiting column is drawn outlined with a "Core column" badge. No "Add column"
- * or drag handle: the column set and its order are fixed (BoardColumns).
+ * PUT /projects/{slug}/column-labels. No "Add column" or drag handle: the column set and its order are fixed (BoardColumns).
  */
 function StepBoard({ p, project, onBack, onNext }: { p: Props; project: Created | null; onBack: () => void; onNext: () => void }) {
   const c = p.copy.board;
@@ -260,12 +255,11 @@ function StepBoard({ p, project, onBack, onNext }: { p: Props; project: Created 
       {errors.form && <Notice kind="risk" role="alert">{errors.form}</Notice>}
       <ol className="onb-cols" aria-label={c.list_label}>
         {columns.map((col, i) => {
-          const core = col.key === CORE;
           const err = errors[col.key];
           const num = String(i + 1).padStart(2, '0');
           return (
             <li key={col.key}>
-              <div className={`onb-colrow${core ? ' is-core' : ''}${err ? ' is-error' : ''}`}>
+              <div className={`onb-colrow${err ? ' is-error' : ''}`}>
                 {editable ? (
                   <>
                     <label className="sr-only" htmlFor={`col-${col.key}`}>{t(c.rename_label, { n: i + 1, default: defaultOf(col.key) })}</label>
@@ -274,7 +268,6 @@ function StepBoard({ p, project, onBack, onNext }: { p: Props; project: Created 
                       onChange={(ev) => setLabels((cur) => ({ ...cur, [col.key]: ev.target.value }))} />
                   </>
                 ) : <span className="onb-colname">{col.label}</span>}
-                {core && <Badge kind="signal">{c.core}</Badge>}
                 <span className="onb-colnum" aria-hidden="true">{num}</span>
               </div>
               {err && <p className="auth-msg auth-msg--error" id={`col-${col.key}-err`}><span className="auth-dot" aria-hidden="true" />{err}</p>}
@@ -282,7 +275,7 @@ function StepBoard({ p, project, onBack, onNext }: { p: Props; project: Created 
           );
         })}
       </ol>
-      <p className="onb-help">{t(c.help, { first: shown(columns[0]?.key ?? ''), waiting: shown(CORE) })}</p>
+      <p className="onb-help">{t(c.help, { first: shown(columns[0]?.key ?? '') })}</p>
       <div className="onb-actions onb-actions--split">
         <Button type="button" variant="secondary" onClick={onBack} disabled={busy}>{c.back}</Button>
         <Button type="button" busy={busy} busyLabel={c.busy} onClick={save}>{editable ? c.save : c.continue}</Button>

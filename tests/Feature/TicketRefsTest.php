@@ -126,7 +126,7 @@ class TicketRefsTest extends TestCase
     public function api_writes_store_tokens_and_api_reads_return_plain_keys(): void
     {
         $key = $this->target->key;
-        $t = $this->api()->newTicket(['title' => 'Ship it', 'description' => "After $key", 'status' => 'waiting_tilen', 'ask' => "Ok to close $key?", 'ask_context' => "See $key"]);
+        $t = $this->api()->newTicket(['title' => 'Ship it', 'description' => "After $key", 'waiting_on_input' => true, 'ask' => "Ok to close $key?", 'ask_context' => "See $key"]);
         $this->postJson("/api/tickets/{$t['key']}/comments", ['body' => "Done with $key", 'actor' => self::JANICE])->assertCreated();
         $this->postJson('/api/status-updates', ['project_id' => self::BH, 'agent_id' => self::JANICE, 'body' => "Today: $key"])->assertSuccessful();
 

@@ -39,7 +39,7 @@ class BoardController extends Controller
         )]);
     }
 
-    /** GET /api/projects/{id}/asks: the project's open asks (r4 Questions for you), oldest waiting_since first. */
+    /** GET /api/projects/{id}/asks: the project's open asks (r4 Questions for you), longest waiting first. */
     public function asks(string $id): JsonResponse
     {
         return response()->json(['data' => OpenAsks::list($this->projectById($id))]);

@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * `php artisan bridge:tickets-migrate`: open/answered Questions, open Required inputs and not-done Next steps become
- * tickets. Idempotent: rows that already carry ticket_id/superseded_at, or whose (source_type, source_id) ticket
+ * tickets. What waited on the owner becomes an In progress ticket flagged waiting on input (waiting_on_input_at = since
+ * when), with the ask. Idempotent: rows that already carry ticket_id/superseded_at, or whose (source_type, source_id) ticket
  * exists, are skipped. Each carried legacy row only gets superseded_at + ticket_id; nothing else changes, nothing is
  * deleted. One transaction per project; --dry-run rolls it back, so it writes nothing.
  */
@@ -25,7 +26,7 @@ final class LegacyCarryOver
 {
     private const EMPTY = [
         'questions_open' => 0, 'questions_answered' => 0, 'inputs' => 0, 'next_steps' => 0,
-        'tickets' => 0, 'waiting_tilen' => 0, 'todo' => 0, 'in_progress' => 0, 'skipped' => 0,
+        'tickets' => 0, 'waiting_on_input' => 0, 'todo' => 0, 'in_progress' => 0, 'skipped' => 0,
     ];
 
     /** @var Collection<int, Agent> */
@@ -58,12 +59,12 @@ final class LegacyCarryOver
         return ['projects' => $out, 'total' => $total];
     }
 
-    /** "questions open N, answered N, inputs N, next steps N → tickets N (waiting_tilen N, todo N, in_progress N) · skipped N" */
+    /** "questions open N, answered N, inputs N, next steps N → tickets N (waiting_on_input N, todo N, in_progress N) · skipped N"; flagged tickets count as waiting_on_input only */
     public static function line(array $c): string
     {
-        return sprintf('questions open %d, answered %d, inputs %d, next steps %d → tickets %d (waiting_tilen %d, todo %d, in_progress %d) · skipped %d',
+        return sprintf('questions open %d, answered %d, inputs %d, next steps %d → tickets %d (waiting_on_input %d, todo %d, in_progress %d) · skipped %d',
             $c['questions_open'], $c['questions_answered'], $c['inputs'], $c['next_steps'],
-            $c['tickets'], $c['waiting_tilen'], $c['todo'], $c['in_progress'], $c['skipped']);
+            $c['tickets'], $c['waiting_on_input'], $c['todo'], $c['in_progress'], $c['skipped']);
     }
 
     private function project(Project $project): array
@@ -82,14 +83,14 @@ final class LegacyCarryOver
             $ticket = $this->create($project, [
                 'title' => self::cut($q->text, 140),
                 'description' => self::description($q->text, sprintf('_Carried over from Questions for Tilen (asked by %s, %s)._', $q->asked_by, self::date($q->created_at))),
-                'status' => BoardColumns::WAITING_TILEN,
+                'status' => BoardColumns::IN_PROGRESS,
                 ...$pm,
                 'ask' => self::cut($q->text, 280),
                 'ask_context' => $q->context === null ? null : self::cut($q->context, 500),
                 'ask_options' => $q->type === 'yesno' ? ['Yes', 'No'] : null,
                 'labels' => ['question'],
             ], [
-                'waiting_since' => $q->created_at,
+                'waiting_on_input_at' => $q->created_at,
                 'created_at' => $q->created_at,
                 'created_by' => $by ?? Actor::MIGRATION,
                 'created_by_type' => $by ? 'agent' : 'system',
@@ -123,7 +124,7 @@ final class LegacyCarryOver
                 continue;
             }
             $forTilen = strcasecmp(trim((string) $i->waiting_on), 'tilen') === 0;
-            // Only items that need Tilen go to Waiting on Tilen; inputs owned by someone else go to In progress, assigned to them.
+            // Only items that need Tilen are flagged waiting on input; inputs owned by someone else are assigned to them. All go to In progress.
             $owner = $forTilen ? null : $this->matchAgent($i->waiting_on);
             $assignee = match (true) {
                 $forTilen => $pm,
@@ -134,12 +135,12 @@ final class LegacyCarryOver
             $ticket = $this->create($project, [
                 'title' => self::cut($i->text, 140),
                 'description' => self::description($i->text, sprintf('_Carried over from Required inputs (waiting on %s, since %s)._', $i->waiting_on, self::date($i->since))),
-                'status' => $forTilen ? BoardColumns::WAITING_TILEN : BoardColumns::IN_PROGRESS,
+                'status' => BoardColumns::IN_PROGRESS,
                 ...$assignee,
                 'ask' => $forTilen ? self::cut($i->text, 280) : null,
                 'labels' => $forTilen ? ['input'] : ['input', 'waiting-on-other'],
             ], [
-                'waiting_since' => $forTilen ? $i->since : null,
+                'waiting_on_input_at' => $forTilen ? $i->since : null,
                 'created_at' => $i->created_at ?? $i->since,
                 'created_by' => Actor::MIGRATION,
                 'created_by_type' => 'system',
@@ -157,7 +158,9 @@ final class LegacyCarryOver
             }
             $tilenOwned = strcasecmp(trim((string) $s->owner), 'tilen') === 0;
             $blocker = $s->kind === 'blocker';
-            $status = ! $blocker ? BoardColumns::IN_PROGRESS : ($tilenOwned ? BoardColumns::WAITING_TILEN : BoardColumns::TODO);
+            // A blocker owned by Tilen waits on his input (In progress, flagged); another blocker goes to To do.
+            $forTilen = $blocker && $tilenOwned;
+            $status = ! $blocker || $forTilen ? BoardColumns::IN_PROGRESS : BoardColumns::TODO;
             $ownerAgent = $tilenOwned ? null : $this->matchAgent($s->owner);
             $assignee = match (true) {
                 $s->agent_id && $this->agents->contains('id', $s->agent_id) => ['assignee_type' => 'agent', 'assignee_id' => $s->agent_id],
@@ -171,10 +174,10 @@ final class LegacyCarryOver
                 'status' => $status,
                 ...$assignee,
                 'blocked_reason' => $blocker && ! $tilenOwned ? self::cut($s->text, 140) : null,
-                'ask' => $status === BoardColumns::WAITING_TILEN ? self::cut($s->text, 280) : null,
+                'ask' => $forTilen ? self::cut($s->text, 280) : null,
                 'labels' => $blocker ? ['next-step', 'blocker'] : ['next-step'],
             ], [
-                'waiting_since' => $status === BoardColumns::WAITING_TILEN ? $s->created_at : null,
+                'waiting_on_input_at' => $forTilen ? $s->created_at : null,
                 'created_at' => $s->created_at,
                 'created_by' => Actor::MIGRATION,
                 'created_by_type' => 'system',
@@ -208,8 +211,9 @@ final class LegacyCarryOver
     private function count(array $c, Ticket $t): array
     {
         $c['tickets']++;
-        if (isset($c[$t->status])) {
-            $c[$t->status]++;
+        $bucket = $t->isWaitingOnOwner() ? 'waiting_on_input' : $t->status;
+        if (isset($c[$bucket])) {
+            $c[$bucket]++;
         }
 
         return $c;

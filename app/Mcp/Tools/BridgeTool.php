@@ -76,9 +76,10 @@ abstract class BridgeTool extends Tool
             'due_on' => $schema->string()->format('date')->description('YYYY-MM-DD'),
             'blocked_reason' => $schema->string()->max(140),
             'labels' => $schema->array()->items($schema->string()->max(24))->max(20)->description('Label names (replaces the set).'),
-            'ask' => $schema->string()->max(280)->description('Question for the workspace owner; required to enter waiting_tilen.'),
+            'ask' => $schema->string()->max(280)->description('Question for the workspace owner. They see it as an open question while the ticket has waiting_on_input.'),
             'ask_context' => $schema->string()->max(500),
             'ask_options' => $schema->array()->items($schema->string()->max(60))->max(4)->description('Up to 4 answer choices.'),
+            'waiting_on_input' => $schema->boolean()->description('true: flag the ticket as waiting on input from the workspace owner (any column, with or without an ask). false: clear the flag. It is never cleared for you, not even when the owner answers.'),
         ];
     }
 

@@ -6,7 +6,6 @@ use App\Models\Concerns\BelongsToWorkspace;
 use App\Models\Concerns\StoresTicketRefs;
 use App\Services\Tickets\HumanActors;
 use App\Services\Tickets\Workstreams;
-use App\Support\BoardColumns;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,7 +44,7 @@ class Ticket extends Model
             'position' => 'integer',
             'due_on' => 'date:Y-m-d',
             'ask_options' => 'array',
-            'waiting_since' => 'datetime',
+            'waiting_on_input_at' => 'datetime',
             'tilen_input_at' => 'datetime',
             'tilen_input_ack_at' => 'datetime',
             'done_at' => 'datetime',
@@ -95,10 +94,37 @@ class Ticket extends Model
         return $this->hasOne(TicketReadState::class)->where('user', HumanActors::viewerId());
     }
 
-    /** In the waiting_tilen column ("Waiting on <owner>"). */
+    /**
+     * Flagged "input is needed from the workspace owner" (waiting_on_input_at = when), in any column. Set and cleared
+     * explicitly (TicketService::update); an owner input comment never clears it.
+     */
     public function isWaitingOnOwner(): bool
     {
-        return $this->status === BoardColumns::WAITING_TILEN;
+        return $this->waiting_on_input_at !== null;
+    }
+
+    public function scopeWaitingOnInput(Builder $q): Builder
+    {
+        return $q->whereNotNull('waiting_on_input_at');
+    }
+
+    /**
+     * Flagged, and no human has posted a live (not retracted, not superseded) owner input comment since the flag was
+     * set (at or after waiting_on_input_at, like a question's answer in Questions): the highlight on the card and in
+     * the ticket. Uses the comments relation when it is loaded.
+     */
+    public function waitingOnInputOutstanding(): bool
+    {
+        $since = $this->waiting_on_input_at;
+        if ($since === null) {
+            return false;
+        }
+        $comments = $this->relationLoaded('comments')
+            ? $this->comments
+            : $this->comments()->where('is_tilen_input', true)->get(['id', 'ticket_id', 'is_tilen_input', 'retracted_at', 'superseded_at', 'created_at']);
+
+        return ! $comments->contains(fn (TicketComment $c) => $c->is_tilen_input && $c->retracted_at === null
+            && $c->superseded_at === null && $c->created_at !== null && $c->created_at->gte($since));
     }
 
     /** A human sent input (tilen_input_at) the PM hasn't acknowledged yet (ack missing or older than the latest input). */
@@ -116,7 +142,7 @@ class Ticket extends Model
 
     /**
      * Query twin of TicketView::unread(): an agent comment newer than the human's last_seen_at, on a ticket that
-     * involves them (waiting on the owner, or they have commented). $human = actor id, default the viewer
+     * involves them (flagged waiting on the owner's input, or they have commented). $human = actor id, default the viewer
      * (HumanActors::viewerId). Drives GET /api/tickets?unread_for_me=1 (alias unread_for_owner, unread_for_tilen).
      */
     public function scopeUnreadFor(Builder $q, ?string $human = null): Builder
@@ -126,7 +152,7 @@ class Ticket extends Model
             ->whereColumn('ticket_read_states.ticket_id', 'ticket_comments.ticket_id')->where('ticket_read_states.user', $human);
 
         return $q
-            ->where(fn (Builder $w) => $w->where('status', BoardColumns::WAITING_TILEN)
+            ->where(fn (Builder $w) => $w->whereNotNull('waiting_on_input_at')
                 ->orWhereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_id', $human)))
             ->whereHas('comments', fn (Builder $c) => $c->whereNull('retracted_at')->where('author_type', 'agent')
                 ->where(fn ($w) => $w->whereNotExists($seen)

@@ -8,8 +8,12 @@ use App\Support\Workspaces\CurrentWorkspace;
 /**
  * The fixed Kanban column set (SPEC §1). Ticket.status is one of these keys; the order is the board order.
  * Agents read it from GET /api/board-columns, so labels are never hard-coded on their side. Labels are never stored:
- * LABELS, then the workspace's own waiting_tilen name (workspaces.settings.waiting_label, else "Waiting on <owner's
- * first name>"), then a project's own column_labels (which win). The key waiting_tilen is kept for compatibility.
+ * LABELS, then a project's own column_labels (which win).
+ *
+ * WAITING_TILEN ("Waiting on <owner>") is no longer a column (migration 2026_11_25_100100 moved its tickets out; "input
+ * needed from the owner" is now the waiting-on-input flag on a ticket in any column). The key only survives in older
+ * ticket_events, so label() still names it: the workspace's own name (workspaces.settings.waiting_label), else
+ * "Waiting on <owner's first name>" / "Waiting on you".
  */
 final class BoardColumns
 {
@@ -19,8 +23,6 @@ final class BoardColumns
 
     public const IN_PROGRESS = 'in_progress';
 
-    public const WAITING_TILEN = 'waiting_tilen';
-
     public const REVIEW = 'review';
 
     public const DONE = 'done';
@@ -29,10 +31,14 @@ final class BoardColumns
         self::BACKLOG => 'Backlog',
         self::TODO => 'To do',
         self::IN_PROGRESS => 'In progress',
-        self::WAITING_TILEN => 'Waiting on you',
         self::REVIEW => 'Review / QA',
         self::DONE => 'Done',
     ];
+
+    /** The removed waiting column: history only (see the class comment). */
+    public const WAITING_TILEN = 'waiting_tilen';
+
+    public const WAITING_TILEN_LABEL = 'Waiting on you';
 
     /** @return list<string> */
     public static function keys(): array
@@ -40,22 +46,16 @@ final class BoardColumns
         return array_keys(self::LABELS);
     }
 
-    /**
-     * Default labels of a workspace ($workspace, else the current one): LABELS with its own waiting_tilen name
-     * (Workspace::waitingColumnLabel). No workspace: LABELS ("Waiting on you").
-     *
-     * @return array<string, string>
-     */
-    public static function defaults(?Workspace $workspace = null): array
-    {
-        $workspace ??= app(CurrentWorkspace::class)->get();
-
-        return $workspace === null ? self::LABELS : [...self::LABELS, self::WAITING_TILEN => $workspace->waitingColumnLabel()];
-    }
-
+    /** The label of a column key; the removed waiting_tilen key keeps its name for history lines. */
     public static function label(string $key, ?Workspace $workspace = null): string
     {
-        return self::defaults($workspace)[$key] ?? $key;
+        if ($key === self::WAITING_TILEN) {
+            $workspace ??= app(CurrentWorkspace::class)->get();
+
+            return $workspace === null ? self::WAITING_TILEN_LABEL : $workspace->waitingColumnLabel();
+        }
+
+        return self::LABELS[$key] ?? $key;
     }
 
     public static function order(string $key): int
@@ -75,9 +75,7 @@ final class BoardColumns
      */
     public static function all(?array $labels = null, ?Workspace $workspace = null): array
     {
-        $defaults = self::defaults($workspace);
-
-        return array_map(fn (string $k) => ['key' => $k, 'label' => self::pick($labels[$k] ?? null, $defaults[$k]), 'order' => self::order($k)], self::keys());
+        return array_map(fn (string $k) => ['key' => $k, 'label' => self::labelFor($k, $labels, $workspace), 'order' => self::order($k)], self::keys());
     }
 
     /** @param  array<string, string>|null  $labels */

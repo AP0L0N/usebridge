@@ -118,23 +118,23 @@ class ProjectSetupTest extends TestCase
     {
         $this->create($this->ada)->assertCreated();
 
-        $this->labels($this->ada, 'acme-studio', ['backlog' => '  Ideas ', 'waiting_tilen' => 'Waiting on client', 'done' => 'Done'])->assertOk()
+        $this->labels($this->ada, 'acme-studio', ['backlog' => '  Ideas ', 'in_progress' => 'Building', 'done' => 'Done'])->assertOk()
             ->assertJsonPath('data.columns.0', ['key' => 'backlog', 'label' => 'Ideas', 'order' => 0])
-            ->assertJsonPath('data.columns.3.label', 'Waiting on client');
+            ->assertJsonPath('data.columns.2.label', 'Building');
         $project = Project::acrossWorkspaces()->where('slug', 'acme-studio')->firstOrFail();
         // A label equal to the default is not stored.
-        $this->assertSame(['backlog' => 'Ideas', 'waiting_tilen' => 'Waiting on client'], $project->column_labels);
+        $this->assertSame(['backlog' => 'Ideas', 'in_progress' => 'Building'], $project->column_labels);
 
         // Keys not sent keep their label.
         $this->labels($this->ada, 'acme-studio', ['review' => 'Client review'])->assertOk();
-        $this->assertSame(['backlog' => 'Ideas', 'waiting_tilen' => 'Waiting on client', 'review' => 'Client review'], $project->fresh()->column_labels);
+        $this->assertSame(['backlog' => 'Ideas', 'in_progress' => 'Building', 'review' => 'Client review'], $project->fresh()->column_labels);
 
         $this->actingAs($this->ada)->get('/projects/acme-studio')->assertInertia(fn (Assert $p) => $p
             ->where('board.columns.0.key', 'backlog')
             ->where('board.columns.0.label', 'Ideas')
             ->where('board.columns.1.label', BoardColumns::label('todo'))
-            ->where('board.columns.3.label', 'Waiting on client')
-            ->where('board.columns.4.label', 'Client review')
+            ->where('board.columns.2.label', 'Building')
+            ->where('board.columns.3.label', 'Client review')
             ->where('columnLabelsUrl', route('projects.column-labels.update', 'acme-studio'))
             ->where('defaultColumns', BoardColumns::all(null, $this->ada->homeWorkspace())));
         $this->actingAs($this->ada)->get('/')->assertInertia(fn (Assert $p) => $p

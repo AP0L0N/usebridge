@@ -61,12 +61,12 @@ class TicketController extends Controller
         return $this->respond($request, $this->tickets->update($ticket, $data, $this->actor($request)));
     }
 
-    /** {status*, position|before_id|after_id, ask… (required when entering waiting_tilen without an ask)}. */
+    /** {status*, position|before_id|after_id, ask…}. */
     public function move(Request $request, string $slug, string $key): JsonResponse|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
         $data = $request->validate([
-            'status' => ['required', Rule::in(BoardColumns::keys())],
+            'status' => ['required', TicketService::statusRule()],
             ...TicketService::placementRules(),
             ...TicketService::askRules(),
         ]);

@@ -26,7 +26,7 @@ class PortfolioController extends Controller
     {
         $names = Actor::names();
         $projects = Project::query()
-            ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at'])])
+            ->with(['statusUpdates', 'requiredInputs', 'questions', 'tickets' => fn ($q) => $q->select(['id', 'project_id', 'status', 'done_at', 'archived_at', 'waiting_on_input_at'])])
             ->withCount(OpenAsks::withCount())
             ->get();
         Questions::loadOpenCounts($projects);

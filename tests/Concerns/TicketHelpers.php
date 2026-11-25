@@ -43,9 +43,10 @@ trait TicketHelpers
             ->assertCreated()->json('data');
     }
 
+    /** A ticket flagged waiting on the owner's input, with an ask (an open question). */
     protected function waitingTicket(array $data = []): array
     {
-        return $this->newTicket(['status' => 'waiting_tilen', 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No'], ...$data]);
+        return $this->newTicket(['waiting_on_input' => true, 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No'], ...$data]);
     }
 
     protected function tilenSays(string $key, array $data, string $slug = 'blue-harbor'): TestResponse

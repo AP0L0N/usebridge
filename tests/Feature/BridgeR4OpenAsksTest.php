@@ -19,7 +19,7 @@ use Tests\Concerns\TicketHelpers;
 use Tests\TestCase;
 
 /**
- * r4 "Questions for you" (backend): open asks = live waiting_tilen tickets with an ask. The count on the portfolio,
+ * r4 "Questions for you" (backend): open asks = live tickets flagged waiting on input (any column) with an ask. The count on the portfolio,
  * board and project payloads, the list (board prop openAsks, GET /api/projects/{id}/asks, MCP list_open_asks) and the
  * answer through the existing owner input comment route. No questions table involved. Synthetic data.
  */
@@ -58,26 +58,25 @@ class BridgeR4OpenAsksTest extends TestCase
     }
 
     /**
-     * BH: two open asks (B moved in by Captain later than A was created waiting, so A is older) plus non-asks: an
-     * archived waiting ticket, an in-progress ticket that carries an ask, a legacy waiting row without an ask, a todo.
+     * BH: two open asks (B flagged by Captain later than A was created flagged, so A is older) plus non-asks: an
+     * archived flagged ticket, an in-progress ticket that carries an ask but no flag, a flagged ticket without an ask, a todo.
      * NW: one open ask (via MCP). @return array{a: string, b: string, nw: string}
      */
     private function scenario(): array
     {
         $b = $this->create($this->janice, ['title' => 'Pick the venue', 'status' => 'todo'])['key'];
         $this->travelMinutes(10);
-        $a = $this->create($this->janice, ['title' => 'Approve staging', 'status' => 'waiting_tilen', 'ask' => 'Approve staging?', 'ask_context' => 'QA passed.', 'ask_options' => ['Approve', 'Hold']])['key'];
+        $a = $this->create($this->janice, ['title' => 'Approve staging', 'status' => 'review', 'waiting_on_input' => true, 'ask' => 'Approve staging?', 'ask_context' => 'QA passed.', 'ask_options' => ['Approve', 'Hold']])['key'];
         $this->travelMinutes(10);
-        $this->bearer($this->shared, 'POST', "/api/tickets/$b/move", ['status' => 'waiting_tilen', 'ask' => 'Harbor hall or the loft?', 'actor' => self::CAPTAIN])->assertOk();
+        $this->bearer($this->shared, 'PATCH', "/api/tickets/$b", ['waiting_on_input' => true, 'ask' => 'Harbor hall or the loft?', 'actor' => self::CAPTAIN])->assertOk();
 
-        $archived = $this->create($this->janice, ['title' => 'Old ask', 'status' => 'waiting_tilen', 'ask' => 'Still needed?'])['key'];
+        $archived = $this->create($this->janice, ['title' => 'Old ask', 'waiting_on_input' => true, 'ask' => 'Still needed?'])['key'];
         $this->bearer($this->janice, 'POST', "/api/tickets/$archived/archive")->assertOk();
         $this->create($this->janice, ['title' => 'Parked ask', 'status' => 'in_progress', 'ask' => 'Later?']);
-        $legacy = $this->create($this->janice, ['title' => 'Legacy wait', 'status' => 'waiting_tilen', 'ask' => 'x'])['key'];
-        Ticket::query()->where('key', $legacy)->update(['ask' => null]); // pre-validation row: waiting without an ask
+        $this->create($this->janice, ['title' => 'Flag only', 'waiting_on_input' => true]); // input needed, no question
         $this->create($this->janice, ['title' => 'Plain todo']);
 
-        $nw = $this->tool($this->shared, 'create_ticket', ['project' => self::NW, 'title' => 'Northwind pricing', 'status' => 'waiting_tilen', 'ask' => 'Which tier?', 'actor' => self::ANATOLY])['data']['key'];
+        $nw = $this->tool($this->shared, 'create_ticket', ['project' => self::NW, 'title' => 'Northwind pricing', 'waiting_on_input' => true, 'ask' => 'Which tier?', 'actor' => self::ANATOLY])['data']['key'];
 
         return ['a' => $a, 'b' => $b, 'nw' => $nw];
     }
@@ -108,7 +107,7 @@ class BridgeR4OpenAsksTest extends TestCase
         $seed = $marta->createToken('seed', ['*'])->plainTextToken;
         $this->bearer($seed, 'POST', '/api/projects', ['id' => 'proj-marta', 'name' => 'Marta Lab', 'slug' => 'marta-lab', 'owner_agent_id' => 'agent-marta'])->assertCreated();
         $token = $this->scopedToken($marta, $ws, 'write', 'agent-marta');
-        $this->create($token, ['title' => 'Marta secret', 'status' => 'waiting_tilen', 'ask' => 'Marta secret ask?'], 'proj-marta');
+        $this->create($token, ['title' => 'Marta secret', 'waiting_on_input' => true, 'ask' => 'Marta secret ask?'], 'proj-marta');
 
         return [$marta, $token];
     }
@@ -153,10 +152,10 @@ class BridgeR4OpenAsksTest extends TestCase
         $ticketA = Ticket::query()->where('key', $a)->firstOrFail();
         $this->assertSame([$ticketA->id, 'Approve staging', 'Approve staging?', 'QA passed.', ['Approve', 'Hold']], [$list[0]['id'], $list[0]['title'], $list[0]['ask'], $list[0]['ask_context'], $list[0]['ask_options']]);
         $this->assertSame([self::JANICE, 'Dr. Janice Polito', 'agent', 'api'], [$list[0]['asked_by'], $list[0]['asked_by_name'], $list[0]['asked_by_type'], $list[0]['asked_by_source']]);
-        $this->assertSame($ticketA->waiting_since->toIso8601String(), $list[0]['asked_at']);
+        $this->assertSame($ticketA->waiting_on_input_at->toIso8601String(), $list[0]['asked_at']);
         $this->assertSame([0, 1, false, false, null], [$list[0]['waiting_age_days'], $list[0]['waiting_level'], $list[0]['needs_pm_pickup'], $list[0]['owner_answered_ask'], $list[0]['owner_input_at']]);
         $this->assertStringEndsWith("/projects/blue-harbor/tickets/$a", $list[0]['url']);
-        // B was created by Janice but moved into the waiting column (with the ask) by Captain: Captain asked.
+        // B was created by Janice but flagged (with the ask) by Captain: Captain asked.
         $this->assertSame([self::CAPTAIN, 'agent', 'api'], [$list[1]['asked_by'], $list[1]['asked_by_type'], $list[1]['asked_by_source']]);
 
         // Slug works like the other {id} paths; the MCP tool and the board prop return the same list.
@@ -168,7 +167,7 @@ class BridgeR4OpenAsksTest extends TestCase
         $this->asOwner()->get('/projects/blue-harbor')->assertInertia(fn (Assert $p) => $p
             ->where('openAsks', fn ($asks) => collect($asks)->pluck('key')->all() === [$a, $b] && collect($asks)->first()['asked_by'] === self::JANICE));
 
-        // Waiting longer: age and level follow waiting_since like the board cards.
+        // Waiting longer: age and level follow waiting_on_input_at like the board cards.
         $this->travelMinutes(60 * 24 * 4);
         $this->assertSame([4, 2], [$this->asks()[0]['waiting_age_days'], $this->asks()[0]['waiting_level']]);
 
@@ -206,7 +205,7 @@ class BridgeR4OpenAsksTest extends TestCase
     }
 
     #[Test]
-    public function answering_uses_the_owner_input_comment_route_and_the_pm_move_clears_it(): void
+    public function answering_uses_the_owner_input_comment_route_and_clearing_the_flag_closes_it(): void
     {
         ['a' => $a, 'b' => $b] = $this->scenario();
         $this->travelMinutes(5);
@@ -221,7 +220,7 @@ class BridgeR4OpenAsksTest extends TestCase
         $e = TicketEvent::query()->where('type', 'commented')->latest('id')->firstOrFail();
         $this->assertSame(['tilen', 'human', 'ui', true, 'Approve'], [$e->actor_id, $e->actor_type, $e->source, $e->to['is_tilen_input'], $e->to['input_choice']]);
 
-        // Existing semantics: the answer does not move the ticket, so the ask stays listed (answered, awaiting pickup).
+        // Existing semantics: the answer does not unflag the ticket, so the ask stays listed (answered, awaiting pickup).
         $list = collect($this->asks())->keyBy('key');
         $this->assertSame([true, true, Carbon::now()->toIso8601String()], [$list[$a]['needs_pm_pickup'], $list[$a]['owner_answered_ask'], $list[$a]['owner_input_at']]);
         $this->assertSame([false, false], [$list[$b]['needs_pm_pickup'], $list[$b]['owner_answered_ask']]);
@@ -235,13 +234,19 @@ class BridgeR4OpenAsksTest extends TestCase
             ->assertStatus(303)->assertRedirect('/projects/blue-harbor');
         $this->assertTrue(collect($this->asks())->firstWhere('key', $b)['needs_pm_pickup']);
 
-        // The PM picks up by moving the ticket out of the waiting column: acked, and the ask leaves the list and count.
-        $this->bearer($this->janice, 'POST', "/api/tickets/$a/move", ['status' => 'in_progress'])->assertOk()->assertJsonPath('data.needs_pm_pickup', false);
-        $this->assertSame('input_acked', TicketEvent::query()->where('type', 'input_acked')->latest('id')->value('type'));
+        // Moving the ticket changes nothing: the ask stays listed and the input still waits for pickup.
+        $this->bearer($this->janice, 'POST', "/api/tickets/$a/move", ['status' => 'in_progress'])->assertOk()
+            ->assertJsonPath('data.needs_pm_pickup', true)->assertJsonPath('data.waiting_on_input', true);
+        $this->assertSame([$a, $b], array_column($this->asks(), 'key'));
+
+        // The PM clears the flag: the ask leaves the list and count. Pickup stays its own step (ack-input).
+        $this->bearer($this->janice, 'PATCH', "/api/tickets/$a", ['waiting_on_input' => false])->assertOk()
+            ->assertJsonPath('data.waiting_on_input', false)->assertJsonPath('data.needs_pm_pickup', true);
+        $this->assertFalse(TicketEvent::query()->where('type', 'input_acked')->exists());
         $this->assertSame([$b], array_column($this->asks(), 'key'));
         $this->assertSame(1, $this->portfolioCounts()[self::BH]);
 
-        // Acking without a move keeps the ask listed as answered (no blank form again); a new ask makes it unanswered.
+        // Acking without clearing the flag keeps the ask listed as answered (no blank form again); a new ask makes it unanswered.
         $this->bearer($this->janice, 'POST', "/api/tickets/$b/ack-input")->assertOk();
         $this->assertSame([false, true], [$this->asks()[0]['needs_pm_pickup'], $this->asks()[0]['owner_answered_ask']]);
         $this->travelMinutes(1);

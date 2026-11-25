@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Mcp;
 
-use App\Models\Project;
 use App\Models\ProjectStatusEvent;
+use App\Models\TicketEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Tickets\TicketService;
@@ -100,9 +100,14 @@ class McpToolsTest extends TestCase
         $this->tool($this->janice, 'update_ticket', ['key' => $key, 'title' => 'Draft the short brief', 'assignee' => BridgeSeeder::AGENT_TOMMY]);
         $this->assertSame(['Draft the short brief', 'Two pages', BridgeSeeder::AGENT_TOMMY], [$rest()['title'], $rest()['description'], $rest()['assignee_id']]);
 
-        $this->assertStringContainsString(TicketService::askRequired(Project::acrossWorkspaces()->findOrFail(self::BH)), ($this->toolError($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen'])));
-        $this->tool($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen', 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No']]);
-        $this->assertSame(['waiting_tilen', 'Approve the copy?', ['Yes', 'No']], [$rest()['status'], $rest()['ask'], $rest()['ask_options']]);
+        // The waiting column is gone: move_ticket refuses it; update_ticket flags the ticket (with the ask) where it is.
+        $this->assertStringContainsString(TicketService::WAITING_COLUMN_REMOVED, ($this->toolError($this->janice, 'move_ticket', ['key' => $key, 'status' => 'waiting_tilen', 'ask' => 'Approve the copy?'])));
+        $this->tool($this->janice, 'move_ticket', ['key' => $key, 'status' => 'review']);
+        $flagged = $this->tool($this->janice, 'update_ticket', ['key' => $key, 'waiting_on_input' => true, 'ask' => 'Approve the copy?', 'ask_options' => ['Yes', 'No']])['data'];
+        $this->assertSame([true, true], [$flagged['waiting_on_input'], $flagged['waiting_on_input_outstanding']]);
+        $this->assertSame(['review', true, 'Approve the copy?', ['Yes', 'No']], [$rest()['status'], $rest()['waiting_on_input'], $rest()['ask'], $rest()['ask_options']]);
+        $this->assertSame('mcp', TicketEvent::query()->where('type', 'waiting_set')->sole()->source);
+        $this->assertSame([$key], array_column($this->tool($this->read, 'list_tickets', ['waiting_on_input' => true])['data'], 'key'));
 
         $comment = $this->tool($this->janice, 'comment_ticket', ['key' => $key, 'body' => 'First draft attached.'])['data'];
         $this->assertSame([self::JANICE, 'First draft attached.'], [$comment['author_id'], $comment['body']]);
@@ -112,7 +117,7 @@ class McpToolsTest extends TestCase
         $this->assertSame($plain, $this->tool($this->janice, 'comment_ticket', ['key' => $key, 'body' => $plain])['data']['body']);
         $this->assertSame('\\<b>x\\</b> [y]()', $this->tool($this->janice, 'comment_ticket', ['key' => $key, 'body' => '<b>x</b> [y](javascript:alert(1))'])['data']['body']);
         $types = array_column($this->bearer($this->read, 'GET', "/api/tickets/$key/events")->json('data'), 'type');
-        $this->assertSame([], array_diff(['created', 'edited', 'assigned', 'ask_set', 'moved', 'commented'], $types));
+        $this->assertSame([], array_diff(['created', 'edited', 'assigned', 'ask_set', 'waiting_set', 'moved', 'commented'], $types));
         $this->assertSame([self::JANICE], array_values(array_unique(array_column($this->bearer($this->read, 'GET', "/api/tickets/$key/events")->json('data'), 'actor_id'))));
 
         $status = $this->tool($this->janice, 'post_status', ['project' => self::BH, 'body' => 'Brief is with Tilen.', 'inputs' => [['text' => 'Venue budget', 'waiting_on' => 'Tilen']]]);
@@ -144,7 +149,7 @@ class McpToolsTest extends TestCase
         $this->assertMatchesRegularExpression('/^agent-[a-z0-9-]+-[a-z0-9]{6}$/', (string) $own['created_by']);
         $this->assertStringContainsString('Unknown actor', $this->toolError($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'x', 'actor' => 'agent-nobody']));
         $key = $this->tool($this->shared, 'create_ticket', ['project' => self::BH, 'title' => 'By Captain', 'actor' => self::CAPTAIN])['data']['key'];
-        $this->assertStringContainsString("Human input only comes from the Bridge UI", $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));
+        $this->assertStringContainsString('Human input only comes from the Bridge UI', $this->toolError($this->shared, 'comment_ticket', ['key' => $key, 'body' => 'x', 'actor' => 'tilen']));
         $this->bearer($this->read, 'GET', "/api/tickets/$key")->assertJsonPath('data.created_by', self::CAPTAIN);
 
         // Per-agent token: acts as its agent; a different actor is refused.
