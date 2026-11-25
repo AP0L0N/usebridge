@@ -108,6 +108,9 @@ class McpToolsTest extends TestCase
         $this->assertSame([self::JANICE, 'First draft attached.'], [$comment['author_id'], $comment['body']]);
         $comments = $this->bearer($this->read, 'GET', "/api/tickets/$key/comments")->json('data');
         $this->assertSame([[self::JANICE, 'First draft attached.']], array_map(fn ($c) => [$c['author_id'], $c['body']], $comments));
+        $plain = "Plain text stays.\nuse `<div>` here, a < b";
+        $this->assertSame($plain, $this->tool($this->janice, 'comment_ticket', ['key' => $key, 'body' => $plain])['data']['body']);
+        $this->assertSame('\\<b>x\\</b> [y]()', $this->tool($this->janice, 'comment_ticket', ['key' => $key, 'body' => '<b>x</b> [y](javascript:alert(1))'])['data']['body']);
         $types = array_column($this->bearer($this->read, 'GET', "/api/tickets/$key/events")->json('data'), 'type');
         $this->assertSame([], array_diff(['created', 'edited', 'assigned', 'ask_set', 'moved', 'commented'], $types));
         $this->assertSame([self::JANICE], array_values(array_unique(array_column($this->bearer($this->read, 'GET', "/api/tickets/$key/events")->json('data'), 'actor_id'))));

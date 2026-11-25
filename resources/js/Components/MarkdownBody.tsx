@@ -6,7 +6,7 @@ import { parseRefHref } from '../lib/ticketRefs';
 
 /**
  * Safe Markdown for descriptions, comments and status updates (SPEC §5): paragraphs, line breaks, bold, italic,
- * strikethrough, ordered/unordered lists, code, links (new tab, noopener; bare URLs too). No raw HTML (skipped; no
+ * strikethrough, ordered/unordered lists, code, links (new tab, noopener; bare URLs too). Raw HTML is shown as text (no
  * rehype-raw), no images, unsafe URL schemes stripped (lib/markdown.ts). The stored text is tidied at render time
  * only (labelled sections become paragraphs, stray `*` stay literal); ticket references render as ticket chips.
  */

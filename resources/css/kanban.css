@@ -428,8 +428,22 @@
   .ev time{margin-left:auto;font:500 12px/1.35 var(--font-mono);color:var(--a-ink-400)}
   .ev .st{color:var(--a-ink-800)}
   /* composer */
-  .compose{display:flex;flex-direction:column;gap:10px}
-  .compose .qta{min-height:88px}
+  .compose{display:flex;flex-direction:column;gap:10px;margin-top:28px}
+  .compose .rte{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md)}
+  .compose .qwrap:focus-within .rte{border-color:var(--a-ink);box-shadow:0 0 0 3px var(--a-signal)}
+  .compose .rte-bar{display:flex;flex-wrap:wrap;gap:2px;min-height:45px;padding:4px;border-bottom:1px solid var(--a-line)}
+  .compose .rte-bar button{display:inline-grid;place-items:center;min-width:36px;height:36px;padding:0 8px;border:0;border-radius:var(--radius-sm);background:none;color:var(--a-ink-600);font:500 14px/1 var(--font-ui);cursor:pointer}
+  .compose .rte-bar button:hover{background:color-mix(in srgb,var(--a-ink) 6%,transparent);color:var(--a-ink)}
+  .compose .rte-bar button[aria-pressed=true]{background:color-mix(in srgb,var(--a-ink) 12%,transparent);color:var(--a-ink)}
+  .compose .rte-bar button:focus-visible{outline:2px solid var(--a-focus);outline-offset:-2px}
+  .compose .rte-bar code{font:500 12px/1 var(--font-mono)}
+  .compose .rte .qta{display:block;border:0;box-shadow:none!important;border-radius:0 0 var(--radius-md) var(--radius-md);background:none;min-height:160px;max-height:60vh;overflow:auto;resize:vertical;white-space:pre-wrap;overflow-wrap:anywhere}
+  .compose .rte .qta p{margin:0 0 6px}.compose .rte .qta>:last-child{margin-bottom:0}
+  .compose .rte .qta ul,.compose .rte .qta ol{margin:0 0 6px;padding-left:22px}
+  .compose .rte .qta ul{list-style:disc}.compose .rte .qta ol{list-style:decimal}.compose .rte .qta li>p{margin:0}
+  .compose .rte .qta code{font-family:var(--font-mono);font-size:.9em;background:color-mix(in srgb,var(--a-ink) 8%,transparent);border-radius:4px;padding:0 4px}
+  .compose .rte .qta a{color:var(--a-ink);text-decoration:underline}
+  .compose .rte .qta p.is-editor-empty:first-child::before{content:attr(data-placeholder);float:left;height:0;color:var(--a-ink-400);pointer-events:none}
   .compose .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
   /* side panel: ticket fields */
   .flds{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius-md);display:flex;flex-direction:column;width:100%}

@@ -1,4 +1,4 @@
-import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MarkdownBody } from '../MarkdownBody';
 import { RefTemplate, RefText, SLOT, refsToPlain } from '../TicketRefs';
@@ -567,10 +567,14 @@ function CommentItem({ c, pm, pmFirst, people, now, isNew }: { c: Comment; pm: s
   );
 }
 
+/** The rich text comment box (Tiptap) loads with the drawer, not with the board. */
+const CommentEditor = lazy(() => import('./CommentEditor').then((m) => ({ default: m.CommentEditor })));
+
 function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFirst: string; onSent: () => void }) {
   const [body, setBody] = useState('');
   const [asInput, setAsInput] = useState(false);
   const [state, setState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
+  const [reset, setReset] = useState(0);
   useDirty('composer', body.trim() !== '');
   useEffect(() => { if (state !== 'ok') return; const id = window.setTimeout(() => setState('idle'), 6000); return () => window.clearTimeout(id); }, [state]);
   const submit = async () => {
@@ -578,7 +582,7 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
     setState('busy');
     try {
       await send('POST', `/projects/${slug}/tickets/${t.key}/comments`, { body, is_owner_input: asInput });
-      setBody(''); setAsInput(false); setState('ok');
+      setBody(''); setReset((n) => n + 1); setAsInput(false); setState('ok');
       onSent();
     } catch {
       setState('err'); // the text is never cleared on error
@@ -587,9 +591,10 @@ function Composer({ t, slug, pmFirst, onSent }: { t: Ticket; slug: string; pmFir
   return (
     <form className="compose" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div className="qwrap">
-        <label className="sr-only" htmlFor="cmp">{tr('ticket.composer.placeholder')}</label>
-        <textarea id="cmp" className="qta" placeholder={tr('ticket.composer.placeholder')} value={body} onChange={(e) => setBody(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submit(); } }} />
+        <span className="sr-only" id="cmp-l">{tr('ticket.composer.placeholder')}</span>
+        <Suspense fallback={<div className="rte"><div className="rte-bar" /><div className="qta" /></div>}>
+          <CommentEditor id="cmp" labelId="cmp-l" placeholder={tr('ticket.composer.placeholder')} resetKey={reset} onChange={setBody} onSubmit={submit} />
+        </Suspense>
       </div>
       <div className="row">
         <label className="chkl"><input type="checkbox" checked={asInput} onChange={(e) => setAsInput(e.target.checked)} />{tr('ticket.composer.markInput')}</label>

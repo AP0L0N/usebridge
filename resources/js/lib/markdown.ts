@@ -127,6 +127,24 @@ export function prepareMarkdown(text: string): string {
   return eachParagraph(eachParagraph(lf, splitLabels), escapeStrayStars);
 }
 
+const FLOW = ['root', 'listItem', 'blockquote'];
+
+/**
+ * Remark plugin: raw HTML is literal text (`use <div> here` keeps its `<div>`; `<script>` shows as typed and never
+ * runs). A block of HTML becomes a paragraph of text.
+ */
+export function remarkRawHtmlAsText() {
+  const walk = (node: MdNode) => {
+    if (!node.children) return;
+    node.children = node.children.map((child): MdNode => {
+      if (child.type !== 'html') { walk(child); return child; }
+      const text = { type: 'text', value: child.value ?? '' };
+      return FLOW.includes(node.type) ? { type: 'paragraph', children: [text] } : text;
+    });
+  };
+  return (tree: MdNode) => { walk(tree); };
+}
+
 /** Remark plugin: `[[ticket:…]]` tokens in text nodes become links to `#ticket-ref:…` (code is not text; links are skipped). */
 export function remarkTicketRefs() {
   const walk = (node: MdNode) => {
@@ -175,11 +193,11 @@ export function isSafeHref(url: string | null | undefined): url is string {
   });
 }
 
-/** react-markdown options shared by MarkdownBody and the tests (no raw HTML, no images, safe links only). */
+/** react-markdown options shared by MarkdownBody and the tests (raw HTML as text, no images, safe links only). */
 export const MARKDOWN_OPTIONS = {
   allowedElements: ['p', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'br', 'code', 'pre', 'del'],
   unwrapDisallowed: true,
   skipHtml: true,
-  remarkPlugins: [[remarkGfm, { singleTilde: false }], remarkTicketRefs, remarkLineBreaks],
+  remarkPlugins: [[remarkGfm, { singleTilde: false }], remarkRawHtmlAsText, remarkTicketRefs, remarkLineBreaks],
   urlTransform: (url: string) => (isSafeHref(url) ? url : ''),
 } satisfies Options;

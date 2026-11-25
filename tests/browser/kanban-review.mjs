@@ -246,7 +246,7 @@ try {
     ok(await confirmShown() && await isOpen(), `${tag} leaving with a dirty comment shows "Discard unsaved changes?" and keeps the ticket open`);
     ok((await keepFocused()) === 'Keep editing', `${tag} Keep editing is focused by default`);
     await pressButton('Keep editing'); await p.waitForTimeout(150);
-    ok(!(await confirmShown()) && await isOpen() && (await p.inputValue('#cmp')) === 'Draft reply', `${tag} Keep editing keeps the ticket open with the text intact`);
+    ok(!(await confirmShown()) && await isOpen() && (await p.innerText('#cmp')) === 'Draft reply', `${tag} Keep editing keeps the ticket open with the text intact`);
     await back(); await p.waitForTimeout(150);
     await pressButton('Discard');
     ok(await waitClosed(), `${tag} Discard closes the ticket`);
@@ -255,7 +255,7 @@ try {
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
     ok(await confirmShown() && await isOpen(), `${tag} Esc with a dirty comment asks first`);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
-    ok(!(await confirmShown()) && await isOpen() && (await p.inputValue('#cmp')) === 'Draft reply', `${tag} Esc on the confirm = Keep editing, text intact`);
+    ok(!(await confirmShown()) && await isOpen() && (await p.innerText('#cmp')) === 'Draft reply', `${tag} Esc on the confirm = Keep editing, text intact`);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
     await pressButton('Discard');
     ok(await waitClosed(), `${tag} Discard after Esc closes the ticket`);

@@ -9,6 +9,7 @@ use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
 use App\Support\BoardColumns;
+use App\Support\CommentMarkdown;
 use App\Support\TicketPrefix;
 use App\Support\TicketRefs;
 use Carbon\CarbonInterface;
@@ -457,6 +458,7 @@ final class TicketService
     /**
      * Post a comment. An owner input comment (is_tilen_input, human actors in the UI only) sets tickets.tilen_input_at,
      * so the ticket needs PM pickup until acked or moved; the status never changes. "Change answer" = another input comment.
+     * The body is stored as safe Markdown (CommentMarkdown::sanitize; plain text stays as typed apart from raw HTML).
      * With $supersede (the UI path, uiComment), a new input supersedes the ticket's pending ones: see supersedePending().
      */
     public function comment(Ticket $ticket, Actor $actor, string $body, bool $isInput = false, ?string $choice = null, ?CarbonInterface $at = null, bool $checkWritable = true, bool $supersede = false): TicketComment
@@ -476,7 +478,7 @@ final class TicketService
                 'ticket_id' => $ticket->id,
                 'author_type' => $actor->type === 'agent' ? 'agent' : 'human',
                 'author_id' => $actor->id,
-                'body' => $body,
+                'body' => CommentMarkdown::sanitize($body),
                 'is_tilen_input' => $isInput,
                 'input_choice' => $isInput ? $choice : null,
                 'created_at' => $at,

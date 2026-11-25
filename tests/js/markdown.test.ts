@@ -68,6 +68,14 @@ test('links open in a new tab, bare URLs too', () => {
   assert.equal(render('[mail](mailto:a@b.c) [rel](/tickets/1)'), '<p><a href="mailto:a@b.c" target="_blank" rel="noopener noreferrer">mail</a> <a href="/tickets/1" target="_blank" rel="noopener noreferrer">rel</a></p>');
 });
 
+test('stored plain text keeps its line breaks and shows HTML as text', () => {
+  assert.equal(render('Checked it.\nuse <div> in the template\n\n<b>not bold</b> & a < b'), '<p>Checked it.<br/>\nuse &lt;div&gt; in the template</p>\n<p>&lt;b&gt;not bold&lt;/b&gt; &amp; a &lt; b</p>');
+  assert.equal(render('<script>alert(1)</script>'), '<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>');
+  assert.equal(render('<div onclick="x()">\nhi\n</div>'), '<p>&lt;div onclick=&quot;x()&quot;&gt;<br/>\nhi<br/>\n&lt;/div&gt;</p>');
+  assert.equal(render('- item <i>x</i>'), '<ul>\n<li>item &lt;i&gt;x&lt;/i&gt;</li>\n</ul>');
+  assert.equal(render('use \\<div> (saved escaped)'), '<p>use &lt;div&gt; (saved escaped)</p>');
+});
+
 test('no raw HTML and no unsafe link targets', () => {
   const payloads = [
     '<script>alert(1)</script>',
@@ -85,7 +93,7 @@ test('no raw HTML and no unsafe link targets', () => {
   ];
   for (const p of payloads) {
     const html = render(p);
-    assert.doesNotMatch(html, /<(script|img|iframe)|\son\w+=|href="(?!https?:\/\/)/i, `${p} → ${html}`);
+    assert.doesNotMatch(html, /<(script|img|iframe)|<[^>]*\son\w+=|href="(?!https?:\/\/)/i, `${p} → ${html}`);
   }
   for (const url of ['javascript:alert(1)', 'JAVASCRIPT:x', 'data:text/html,x', 'vbscript:x', ' javascript:x', 'java\nscript:x', '']) assert.equal(isSafeHref(url), false, url);
   for (const url of ['https://a.b', 'http://a.b', 'mailto:a@b.c', 'tel:+386', '/x', 'x/y', '#top', '#ticket-ref:tk-1:BR-9']) assert.equal(isSafeHref(url), true, url);
