@@ -33,6 +33,7 @@ h1{font-size:40px;line-height:1.1;margin:0;letter-spacing:-.01em}
 mark{background:#FFF0A8;color:inherit;border-radius:3px;padding:0 2px}
 .reopen{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:var(--accent);background:#E7EDF5;border-radius:99px;padding:2px 10px}.reopen svg{width:13px;height:13px}
 .badge{display:inline-flex;align-items:center;gap:7px;font-size:15px;font-weight:700;border-radius:99px;padding:5px 12px 5px 9px;white-space:nowrap}
+.svg-ic{flex-shrink:0}
 .badge svg{width:16px;height:16px;flex:none}
 .b-ok{background:var(--ok-bg);color:var(--ok)}.b-arch{background:var(--arch-bg);color:var(--arch)}
 .b-w1{background:var(--w1);color:var(--w1-ink)}.b-w2{background:var(--w2);color:var(--w2-ink)}.b-w3{background:var(--w3);color:var(--w3-ink)}

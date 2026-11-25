@@ -47,7 +47,7 @@
   .flabel{font:500 14px/1.3 var(--font-ui);letter-spacing:-0.005em;color:var(--a-ink)}
   .hint{font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600);margin:0}
   .err-line{margin:8px 0 0;color:var(--a-risk);font-size:13px;font-weight:500}
-  .ok-line{margin:10px 0 0;color:var(--a-ok);font-weight:500;font-size:15px;display:inline-flex;gap:6px;align-items:center}
+  .ok-line{margin:10px 0 0;color:var(--a-ok);font-weight:500;font-size:15px;display:inline-flex;gap:6px;align-items:center}.ok-line svg{flex:none;width:16px;height:16px}
   .spin{width:16px;height:16px;border-radius:50%;border:2px solid #fff6;border-top-color:#fff;animation:kspin .8s linear infinite;flex:none}
   @media (prefers-reduced-motion:reduce){.spin{animation:none}}
   .qact{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -406,7 +406,7 @@
   .cm .md p{margin:0 0 6px}.cm .md p:last-child{margin-bottom:0}
   .cm .choice{margin:0;font:500 15px/1.5 var(--font-ui);color:var(--a-ink)}
   .cm .ack{display:flex;align-items:center;gap:6px;margin:0;font:400 13px/1.4 var(--font-ui);color:var(--a-ink-600)}
-  .cm .ack svg{flex:none}
+  .cm .ack svg{flex:none;width:14px;height:14px}
   .cm .ack.ok{color:var(--a-ok)}
   .cm.tl .bub .role{background:var(--a-signal);color:var(--on-fill)}
   /* r4 QA MED-1: an owner input replaced by a newer one, kept visible but muted and struck through */
