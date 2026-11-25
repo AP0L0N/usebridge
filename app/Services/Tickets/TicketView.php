@@ -37,7 +37,7 @@ final class TicketView
             'workstream',
             'labels',
             'viewerReadState',
-            'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'is_tilen_input', 'retracted_at', 'superseded_at', 'created_at']),
+            'comments' => fn ($q) => $q->select(['id', 'ticket_id', 'author_type', 'author_id', 'public_name', 'is_tilen_input', 'retracted_at', 'superseded_at', 'created_at']),
         ];
     }
 
@@ -119,7 +119,7 @@ final class TicketView
             // Card "via MCP · Builder · 12m": the newest live comment's author and time (null when no comments).
             'latest_comment' => ($latest = $live->sortBy('created_at')->last()) ? [
                 'author_id' => $latest->author_id,
-                'author_name' => $this->name($latest->author_id),
+                'author_name' => $this->authorName($latest),
                 'author_type' => $latest->author_type,
                 // api (REST token) | mcp | ui (web); go-live N2. Older MCP comments were recorded as api.
                 'source' => $this->commentSource($t->id, $latest->id),
@@ -186,7 +186,9 @@ final class TicketView
             'ticket_id' => $c->ticket_id,
             'author_type' => $c->author_type,
             'author_id' => $c->author_id,
-            'author_name' => $this->name($c->author_id),
+            'author_name' => $this->authorName($c),
+            // A visitor's comment on a public share link (author_type 'public', author_name = the name they typed): never owner input.
+            'is_public' => $c->isPublic(),
             'source' => $this->commentSource($c->ticket_id, $c->id),
             'body' => $retracted ? null : $c->body,
             'retracted' => $retracted,
@@ -203,6 +205,12 @@ final class TicketView
             'edited_at' => $c->edited_at?->toIso8601String(),
             'created_at' => $c->created_at?->toIso8601String(),
         ];
+    }
+
+    /** The author's label; a public share link visitor's is the name they typed. */
+    private function authorName(TicketComment $c): ?string
+    {
+        return $c->isPublic() ? $c->public_name : $this->name($c->author_id);
     }
 
     /** @var array<string, array<int, string>> ticket id => [comment id => source] */

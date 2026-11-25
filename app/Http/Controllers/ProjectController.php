@@ -9,6 +9,7 @@ use App\Models\Question;
 use App\Models\RequiredInput;
 use App\Models\StatusUpdate;
 use App\Models\Ticket;
+use App\Models\TicketShareLink;
 use App\Models\User;
 use App\Models\Workstream;
 use App\Services\InputResolution;
@@ -27,6 +28,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -71,11 +73,11 @@ class ProjectController extends Controller
 
         return [
             // `stamp` (taken before the build, so a write in between only causes one extra reload): the 60 s poll's ETag.
-            'board' => function () use ($project, $doneSince, $workstream, $view) {
+            'board' => function () use ($request, $project, $doneSince, $workstream, $view) {
                 $board = new BoardView($view);
                 $stamp = $board->stamp($project, $workstream->id);
 
-                return [...self::withTitleRefs($board->build($project, $doneSince, false, $workstream->id), $project), 'stamp' => $stamp];
+                return [...self::withShareFlags(self::withTitleRefs($board->build($project, $doneSince, false, $workstream->id), $project), $request), 'stamp' => $stamp];
             },
             // Workstream tabs (README §1.3): board order, the viewer's badges; `workstream` = the selected id (?ws=).
             'workstreams' => fn () => Workstreams::rowsFor([$project], $request->user())[$project->id] ?? [],
@@ -131,6 +133,32 @@ class ProjectController extends Controller
         return $board;
     }
 
+    /**
+     * Cards with an active public share link get `shared: true` (the card's "shared" icon): only for the workspace owner,
+     * who alone manages the links (Gate 'share-ticket'), in one query for the whole board. Web only: the REST / MCP board
+     * and every other viewer never see share link data.
+     *
+     * @param  array{columns: list<array{tickets: list<array<string, mixed>>}>}  $board
+     * @return array<string, mixed>
+     */
+    private static function withShareFlags(array $board, Request $request): array
+    {
+        $user = $request->user();
+        $workspace = HumanActors::workspace();
+        if (! $user instanceof User || $workspace === null || ! $workspace->isOwnedBy($user)) {
+            return $board;
+        }
+        $ids = collect($board['columns'])->flatMap(fn (array $col) => array_column($col['tickets'], 'id'))->all();
+        $shared = array_flip(TicketShareLink::query()->whereIn('ticket_id', $ids)->active()->distinct()->pluck('ticket_id')->all());
+        foreach ($board['columns'] as $c => $col) {
+            foreach ($col['tickets'] as $i => $t) {
+                $board['columns'][$c]['tickets'][$i]['shared'] = isset($shared[$t['id']]);
+            }
+        }
+
+        return $board;
+    }
+
     /** ?ws= (id, or a current / older name), else the deep-linked ticket's workstream, else the first tab. */
     public static function workstream(Project $project, mixed $ref, ?Ticket $ticket = null): Workstream
     {
@@ -170,6 +198,8 @@ class ProjectController extends Controller
         return [
             ...$view->detail($ticket),
             'last_seen_at' => $ticket->viewerReadState?->last_seen_at?->toIso8601String(),
+            // The sidebar's "Share publicly" list: the workspace owner only (Gate 'share-ticket').
+            'can_share' => Gate::allows('share-ticket', $ticket),
             ...($titleRefs !== null ? ['title_refs' => $titleRefs] : []),
         ];
     }

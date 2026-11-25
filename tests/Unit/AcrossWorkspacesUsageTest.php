@@ -45,6 +45,7 @@ class AcrossWorkspacesUsageTest extends TestCase
             'app/Models/Concerns/BelongsToWorkspace.php' => 2, // the definition + parentWorkspaceId() (console writes)
             'app/Models/Project.php' => 1,                     // ticket_prefix: globally unique for now
             'app/Services/Auth/TokenAgents.php' => 2,          // token agent filtered by the token's explicit workspace_id + global agent id
+            'app/Services/Tickets/ShareLinks.php' => 1,        // a public share link by its token hash; the request then acts in the link's workspace
             'app/Services/Tickets/TicketService.php' => 2,     // ticket_prefix + ticket key: globally unique for now
             'app/Services/Tickets/Workstreams.php' => 1,       // a ticket row's project by id (Ticket::creating, console writes)
             'app/Services/Usage/CliUsageImporter.php' => 3,    // markers/rows/upsert, each filtered by the explicit current workspace_id

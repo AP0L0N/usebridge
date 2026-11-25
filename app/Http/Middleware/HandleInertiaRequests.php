@@ -9,6 +9,7 @@ use App\Support\Legal\LegalPages;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -20,8 +21,22 @@ class HandleInertiaRequests extends Middleware
         return parent::version($request);
     }
 
+    /** Public share link pages (/s/{token}) render in their own root view: no app shell, noindex, no Referer. */
+    public function rootView(Request $request): string
+    {
+        return $request->routeIs('share.*') ? 'share' : $this->rootView;
+    }
+
     public function share(Request $request): array
     {
+        // A public share link page gets nothing about the visitor, the workspace or the app (validation errors only),
+        // not even props shared earlier in the same process.
+        if ($request->routeIs('share.*')) {
+            Inertia::flushShared();
+
+            return parent::share($request);
+        }
+
         return [
             ...parent::share($request),
             // The logged-in user's own account for the top bar (null for guests). Never a token.

@@ -21,6 +21,9 @@ class TicketComment extends Model
      */
     public const TICKET_REF_FIELDS = ['body' => null];
 
+    /** author_type of a comment a visitor posted on a public share link (author_id 'public:<ticket_share_links.id>'). */
+    public const PUBLIC_AUTHOR = 'public';
+
     protected $guarded = [];
 
     protected function casts(): array
@@ -38,6 +41,12 @@ class TicketComment extends Model
     public function isSuperseded(): bool
     {
         return $this->superseded_at !== null;
+    }
+
+    /** Posted by a visitor on a public share link (author_type 'public'): never owner input. */
+    public function isPublic(): bool
+    {
+        return $this->author_type === self::PUBLIC_AUTHOR;
     }
 
     public function ticket(): BelongsTo

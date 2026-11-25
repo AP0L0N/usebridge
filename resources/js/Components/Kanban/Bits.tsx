@@ -42,9 +42,10 @@ export function LabelChip({ label }: { label: Label }) {
 }
 
 /** 24px radius-12 avatar: agents violet with an initial, humans ink, unassigned a dashed circle. */
-export function Avatar({ id, name, type, lg = false }: { id: string | null; name: string | null; type: 'agent' | 'human' | null; lg?: boolean }) {
+/** 'public' (a visitor on a public share link) looks like a person. */
+export function Avatar({ id, name, type, lg = false }: { id: string | null; name: string | null; type: 'agent' | 'human' | 'public' | null; lg?: boolean }) {
   if (!id) return <i className={`av none${lg ? ' lg' : ''}`} title="Unassigned" aria-hidden="true">?</i>;
-  return <i className={`av${type === 'human' ? ' h' : ''}${lg ? ' lg' : ''}`} title={name ?? id} aria-hidden="true">{initial(name ?? id)}</i>;
+  return <i className={`av${type === 'human' || type === 'public' ? ' h' : ''}${lg ? ' lg' : ''}`} title={name ?? id} aria-hidden="true">{initial(name ?? id)}</i>;
 }
 
 export const personType = (id: string | null, people: Person[]): 'agent' | 'human' | null =>

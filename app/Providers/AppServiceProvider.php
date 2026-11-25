@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Ticket;
+use App\Models\User;
 use App\Services\Auth\McpOAuth;
+use App\Services\Tickets\ShareLinks;
 use App\Support\Workspaces\CurrentWorkspace;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -11,6 +14,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -64,6 +68,19 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('account-email', fn (Request $request) => Limit::perMinutes(10, 3)
             ->by('account-email:'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
             ->response(fn () => response()->json(['message' => __('account.email.throttled')], 429)));
+
+        // Public ticket share links: only the owner of the ticket's workspace creates, lists, edits or revokes them. The
+        // routes are web-session only, so no API or MCP token reaches them.
+        Gate::define('share-ticket', fn (User $user, Ticket $ticket) => $ticket->workspace !== null && $ticket->workspace->isOwnedBy($user));
+
+        // Public share link pages (/s/{token}): 60 views a minute per IP. Visitor comments: 5 a minute and 30 an hour per
+        // IP, and 60 an hour per link (whatever the IP).
+        RateLimiter::for('share-view', fn (Request $request) => Limit::perMinute(60)->by('share-view:'.$request->ip()));
+        RateLimiter::for('share-comment', fn (Request $request) => [
+            Limit::perMinute(5)->by('share-comment-ip-min:'.$request->ip()),
+            Limit::perHour(30)->by('share-comment-ip:'.$request->ip()),
+            Limit::perHour(60)->by('share-comment-link:'.ShareLinks::hash((string) $request->route('token'))),
+        ]);
 
         // Reset link for the (future) reset screen; built here so no route has to exist yet (docs/MULTI-USER-PLAN.md §2).
         ResetPassword::createUrlUsing(fn ($user, string $token) => rtrim((string) config('app.url'), '/')

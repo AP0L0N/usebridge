@@ -9,7 +9,8 @@ use App\Support\BoardColumns;
  * Captain's answers relay (GET /api/ticket-comments/feed): comments in id order after a cursor, with the ticket and
  * project attached so a relay message needs no further lookups. Retracted comments are left out, and so are superseded
  * owner inputs (QA MED-1: replaced by a newer input before pickup); an input that replaced earlier ones lists them in
- * supersedes_comment_ids, so a relay that already sent the old answer can say it changed.
+ * supersedes_comment_ids, so a relay that already sent the old answer can say it changed. Comments visitors posted on
+ * a public share link are never in it (any author filter).
  *
  * @param  array{after?:?int, since?:?string, author?:?string, inputs_only?:?bool, project_id?:?string, limit?:?int}  $f
  */
@@ -25,7 +26,9 @@ final class CommentFeed
     public function page(array $f): array
     {
         $limit = (int) ($f['limit'] ?? self::DEFAULT_LIMIT);
-        $q = TicketComment::query()->whereNull('retracted_at')->whereNull('superseded_at')->with('ticket.project')->orderBy('id');
+        // Never a public share link visitor's comment: the relay brings people's answers to the PM, and visitors are not input.
+        $q = TicketComment::query()->whereNull('retracted_at')->whereNull('superseded_at')
+            ->where('author_type', '!=', TicketComment::PUBLIC_AUTHOR)->with('ticket.project')->orderBy('id');
 
         if (isset($f['after']) && $f['after'] !== null) {
             $q->where('id', '>', (int) $f['after']);

@@ -21,11 +21,13 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\PowerSaverController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectSetupController;
+use App\Http\Controllers\PublicShareController;
 use App\Http\Controllers\QuestionPanelController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StatusUpdateController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketRefController;
+use App\Http\Controllers\TicketShareLinkController;
 use App\Http\Controllers\UsageController;
 use App\Http\Controllers\WorkstreamController;
 use App\Http\Middleware\EnsureUserWorkspace;
@@ -43,6 +45,14 @@ use Illuminate\Support\Facades\Route;
 foreach (LegalPages::PAGES as $id => $page) {
     Route::get($page['path'], LegalPageController::class)->defaults('legalPage', $id)->name('legal.'.$id);
 }
+
+// Public ticket share links (ShareLinks): no login, the only public routes into ticket data, all under /s/{token}. The
+// token is checked in the controller, so an unknown, expired or revoked one answers the same 404 page. Headers
+// (noindex, no Referer): the global PublicShareHeaders.
+Route::prefix('/s/{token}')->group(function () {
+    Route::get('/', [PublicShareController::class, 'show'])->middleware('throttle:share-view')->name('share.show');
+    Route::post('/comments', [PublicShareController::class, 'comment'])->middleware('throttle:share-comment')->name('share.comments.store');
+});
 
 // Accounts (docs/MULTI-USER-PLAN.md §2, §8): Inertia screens (GET) over the JSON writes. Guests land on /login; a
 // logged-in user acts in their own workspace (the shared AUTH-1 workspace password was removed before launch).
@@ -139,6 +149,13 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     Route::post('/projects/{slug}/tickets/{key}/unarchive', [TicketController::class, 'unarchive'])->name('projects.tickets.unarchive');
     Route::post('/projects/{slug}/tickets/{key}/seen', [TicketController::class, 'seen'])->name('projects.tickets.seen');
     Route::post('/projects/{slug}/seen', [TicketController::class, 'projectSeen'])->name('projects.seen');
+    // Public share links of a ticket (the drawer sidebar): workspace owner only (Gate 'share-ticket'), session only.
+    Route::middleware(['auth', 'throttle:60,1'])->prefix('/projects/{slug}/tickets/{key}/share-links')->group(function () {
+        Route::get('/', [TicketShareLinkController::class, 'index'])->name('projects.tickets.share-links.index');
+        Route::post('/', [TicketShareLinkController::class, 'store'])->name('projects.tickets.share-links.store');
+        Route::patch('/{id}', [TicketShareLinkController::class, 'update'])->whereNumber('id')->name('projects.tickets.share-links.update');
+        Route::delete('/{id}', [TicketShareLinkController::class, 'destroy'])->whereNumber('id')->name('projects.tickets.share-links.destroy');
+    });
     // Ticket references in text ([[ticket:id|key]], App\Support\TicketRefs): batch lookup for the chips, modal payload by id.
     Route::get('/ticket-refs', [TicketRefController::class, 'index'])->name('ticket-refs.index');
     // {id}: a ticket id from a token, or a key (?ticket=KEY deep links to a ticket of another project).

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogoutBlockedUser;
+use App\Http\Middleware\PublicShareHeaders;
 use App\Http\Middleware\WorkspaceBoundary;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -23,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
         $middleware->api(prepend: [WorkspaceBoundary::class]);
+        // Public share links (/s/…): noindex, no Referer, no cache on every response there, errors and 429s included.
+        $middleware->append(PublicShareHeaders::class);
         // The usage and Polymarket uploads are decoded only by their validators, after the size/type guard.
         $usageUpload = fn (Request $request) => $request->is('api/usage/days', 'api/polymarket/feed');
         // Agent descriptions are hashed byte for byte (docs/agent-instructions-sync.md): never trimmed or nulled.

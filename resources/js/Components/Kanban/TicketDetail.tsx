@@ -17,6 +17,7 @@ import {
 } from '../../lib/kanban';
 import { COMPOSER_INPUT_DEFAULT } from '../../lib/composer';
 import { ticketNavStep, type TicketNeighbours } from '../../lib/ticketNav';
+import { PublicCommentItem, ShareLinksField } from './ShareLinks';
 
 type Props = {
   detail: Detail | null;
@@ -231,6 +232,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
         <p className="sm2">{t.created_by_name ?? 'Unknown'} · {viaLabel(detail?.created_source, t.created_by_type === 'agent')} · {updateTime(t.created_at, now)}</p>
         <p className="sm">Updated {ago(t.updated_at, now)}</p>
       </div>
+      {detail?.can_share && <ShareLinksField slug={project.slug} ticketKey={t.key} idPrefix={`shl-${inSheet}`} now={now} onChanged={onChanged} />}
       <HistoryField events={events} columns={columns} people={people} now={now} />
     </>
   );
@@ -541,7 +543,9 @@ function Thread({ d, project, people, columns, now, seenAt, unread }: {
   const items = useMemo(() => {
     const out: Item[] = d.comments.map((c) => ({
       at: Date.parse(c.created_at ?? ''), key: `c${c.id}`, agent: c.author_type === 'agent',
-      node: (isNew: boolean) => <CommentItem c={c} pm={project.pm_agent_id} pmFirst={pmFirst} people={people} now={now} isNew={isNew} />,
+      node: (isNew: boolean) => c.is_public
+        ? <PublicCommentItem c={c} now={now} />
+        : <CommentItem c={c} pm={project.pm_agent_id} pmFirst={pmFirst} people={people} now={now} isNew={isNew} />,
     }));
     for (const e of d.events) {
       if (e.type !== 'moved' && e.type !== 'assigned') continue;

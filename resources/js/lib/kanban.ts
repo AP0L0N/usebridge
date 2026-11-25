@@ -50,7 +50,7 @@ export interface Ticket {
   comment_count: number;
   last_comment_at: string | null;
   /** Newest live comment (card "via API|MCP" line); null when no comments. */
-  latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human'; source?: WriteSource | null; created_at: string | null } | null;
+  latest_comment: { author_id: string; author_name: string | null; author_type: 'agent' | 'human' | 'public'; source?: WriteSource | null; created_at: string | null } | null;
   /** New agent replies for the signed-in user. */
   unread_for_me: boolean;
   latest_unread_author: { id: string; name: string | null } | null;
@@ -61,11 +61,15 @@ export interface Ticket {
   updated_at: string | null;
   done_at: string | null;
   archived: boolean;
+  /** Web board, workspace owner only: the ticket has an active public share link (the card's "shared" icon). */
+  shared?: boolean;
 }
 
 export interface Comment {
   id: number;
-  author_type: 'agent' | 'human';
+  /** 'public': a visitor on a public share link (author_name = the name they typed); never owner input. */
+  author_type: 'agent' | 'human' | 'public';
+  is_public?: boolean;
   author_id: string;
   author_name: string | null;
   /** api (REST token) | mcp | ui (web); null when unknown. */
@@ -99,6 +103,8 @@ export interface TicketDetail extends Ticket {
   events: TicketEvent[];
   /** When the signed-in user last opened the ticket. */
   last_seen_at: string | null;
+  /** The workspace owner may manage the ticket's public share links (sidebar "Public links"). */
+  can_share?: boolean;
 }
 
 export interface Column { key: ColumnKey; label: string; order: number; count: number; tickets: Ticket[] }

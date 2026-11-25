@@ -88,6 +88,12 @@ class Ticket extends Model
         return $this->hasMany(TicketEvent::class);
     }
 
+    /** Public share links (/s/{token}); only the workspace owner manages or sees them (ShareLinks). */
+    public function shareLinks(): HasMany
+    {
+        return $this->hasMany(TicketShareLink::class);
+    }
+
     /** The read state of the human viewing (HumanActors::viewerId: the web user, else the workspace owner). */
     public function viewerReadState(): HasOne
     {

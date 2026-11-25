@@ -3,8 +3,10 @@ import { Avatar, IcComment, IcMove, LabelChip, ViaLine, WaitAge, personType } fr
 import { IconCal12 } from '../AppIcons';
 import { dueLabel, dueSoon, firstName, ticketUrl, type Person, type Ticket } from '../../lib/kanban';
 import { t as str } from '../../lib/strings';
+import { t as ts } from '../../lib/strings-share';
 import { cardDot } from '../../lib/kanbanCards';
 import { RefTemplate, RefText, SLOT } from '../TicketRefs';
+import { IconShared14 } from './ShareLinks';
 
 type Props = {
   t: Ticket;
@@ -78,6 +80,7 @@ export function TicketCard({ t, slug, people, now, lift, picked, simple, flash, 
           <span className={`due${t.status !== 'done' && dueSoon(t.due_on, now) ? ' soon' : ''}`}><IconCal12 /><span className="sr-only">Due </span>{dueLabel(t.due_on)}</span>
         )}
         {t.comment_count > 0 && <span className="mic"><IcComment />{t.comment_count}<span className="sr-only"> comments</span></span>}
+        {t.shared && <span className="shr" title={ts('card.shared')}><IconShared14 /><span className="sr-only">{ts('card.shared')}</span></span>}
         <Avatar id={t.assignee_id} name={t.assignee_name} type={t.assignee_type ?? personType(t.assignee_id, people)} />
         {onMove && (
           <button className="tkmv" type="button" aria-label={str('board.move.aria', { key: t.key })} onClick={() => onMove(t)}><IcMove />{str('board.move')}</button>

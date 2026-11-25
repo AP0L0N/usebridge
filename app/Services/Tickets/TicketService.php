@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Ticket;
 use App\Models\TicketComment;
 use App\Models\TicketEvent;
+use App\Models\TicketShareLink;
 use App\Support\BoardColumns;
 use App\Support\CommentMarkdown;
 use App\Support\TicketPrefix;
@@ -569,6 +570,42 @@ final class TicketService
         }
 
         return $this->comment($ticket, $actor, $body, $isInput, $choice, supersede: true);
+    }
+
+    /**
+     * A visitor's comment on a public share link (POST /s/{token}/comments): author_type 'public', author_id
+     * 'public:<link id>', the typed name in public_name. Never owner input: no input flag or choice, tilen_input_at,
+     * supersede or pickup, so it neither clears the waiting-on-input highlight nor reaches the PM as an answer.
+     */
+    public function publicComment(Ticket $ticket, TicketShareLink $link, string $name, string $body): TicketComment
+    {
+        $this->ensureWritable($ticket);
+        $actor = new Actor(TicketComment::PUBLIC_AUTHOR.':'.$link->id, TicketComment::PUBLIC_AUTHOR, TicketComment::PUBLIC_AUTHOR);
+
+        return DB::transaction(function () use ($ticket, $actor, $name, $body) {
+            $at = Carbon::now();
+            $comment = new TicketComment;
+            $comment->forceFill([
+                'ticket_id' => $ticket->id,
+                'author_type' => TicketComment::PUBLIC_AUTHOR,
+                'author_id' => $actor->id,
+                'public_name' => $name,
+                'body' => CommentMarkdown::sanitize($body),
+                'is_tilen_input' => false,
+                'input_choice' => null,
+                'created_at' => $at,
+                'updated_at' => $at,
+            ]);
+            $comment->timestamps = false;
+            $comment->save();
+
+            $ticket->updated_at = $at;
+            $ticket->save();
+            $this->event($ticket, 'commented', null, ['comment_id' => $comment->id, 'is_tilen_input' => false, 'input_choice' => null], $actor, $at);
+            Project::touchActivity($ticket->project_id);
+
+            return $comment;
+        });
     }
 
     /** Soft retract (own comments only). The row stays; the body is hidden in every view. */
