@@ -34,7 +34,7 @@ class ProjectController extends Controller
 {
     /**
      * The Kanban board (SPEC §2). The old sections (status feed, Required inputs, Next steps, Questions) are no longer
-     * shown; their tables stay as read-only history. Props are closures so partial reloads (30 s poll: only=board,
+     * shown; their tables stay as read-only history. Props are closures so partial reloads (60 s poll: only=board,
      * ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket ("Show N older").
      */
     public function show(Request $request, string $slug, ?Ticket $ticket = null): Response
@@ -61,7 +61,7 @@ class ProjectController extends Controller
 
     /**
      * Props of one workstream's board (the Board page, and the Portfolio's board column): closures, so partial reloads
-     * (30 s poll: only=board, ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket.
+     * (60 s poll: only=board, ticket modal: only=ticket) compute just what they ask for. ?done=all lists every Done ticket.
      *
      * @return array<string, mixed>
      */
@@ -70,7 +70,13 @@ class ProjectController extends Controller
         $doneSince = $request->query('done') === 'all' ? Carbon::createFromTimestamp(0) : null;
 
         return [
-            'board' => fn () => self::withTitleRefs((new BoardView($view))->build($project, $doneSince, false, $workstream->id), $project),
+            // `stamp` (taken before the build, so a write in between only causes one extra reload): the 60 s poll's ETag.
+            'board' => function () use ($project, $doneSince, $workstream, $view) {
+                $board = new BoardView($view);
+                $stamp = $board->stamp($project, $workstream->id);
+
+                return [...self::withTitleRefs($board->build($project, $doneSince, false, $workstream->id), $project), 'stamp' => $stamp];
+            },
             // Workstream tabs (README §1.3): board order, the viewer's badges; `workstream` = the selected id (?ws=).
             'workstreams' => fn () => Workstreams::rowsFor([$project], $request->user())[$project->id] ?? [],
             'workstream' => $workstream->id,
@@ -85,6 +91,20 @@ class ProjectController extends Controller
             'defaultColumns' => BoardColumns::all(),
             'ticket' => fn () => $ticket ? self::ticketDetail($ticket, $view) : null,
         ];
+    }
+
+    /**
+     * The 60 s board poll's cheap check: the workstream's change stamp (BoardView::stamp) as an ETag. 304 with no body
+     * while If-None-Match still matches; otherwise 200 and the board reloads (only=board,…).
+     */
+    public function boardStamp(Request $request, string $slug): JsonResponse
+    {
+        $project = Project::query()->where('slug', $slug)->firstOrFail();
+        $stamp = (new BoardView)->stamp($project, self::workstream($project, $request->query('ws'))->id);
+        $response = response()->json(['data' => ['stamp' => $stamp]])->setEtag($stamp)->setPrivate();
+        $response->isNotModified($request);
+
+        return $response;
     }
 
     /**

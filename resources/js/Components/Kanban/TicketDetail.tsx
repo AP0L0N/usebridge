@@ -148,7 +148,7 @@ export function TicketDetail({ detail, fallback, project, people, labels, column
     return () => document.removeEventListener('keydown', key);
   }, [ask]);
 
-  // "New" divider: frozen at open, so the seen POST and the 30 s refresh don't move it under your eyes.
+  // "New" divider: frozen at open, so the seen POST and later reloads don't move it under your eyes.
   // (Opened from the board, the detail arrives after mount: take the value from the first payload.)
   const [seenAt, setSeenAt] = useState<string | null | undefined>(() => (detail ? detail.last_seen_at : undefined));
   useEffect(() => { if (seenAt === undefined && detail) setSeenAt(detail.last_seen_at); }, [detail, seenAt]);

@@ -20,6 +20,7 @@ import { updateTime } from '../../lib/dates';
 import { t as tr } from '../../lib/strings';
 import { readCardView, saveCardView, type CardView } from '../../lib/kanbanCards';
 import { ticketNeighbours } from '../../lib/ticketNav';
+import { boardChanged, browserPollEnv, startBoardPoll } from '../../lib/boardPoll';
 import {
   ApiError, PRIORITY_LABEL, QUICK_ADD, STATUS_LABEL, WAITING, firstName, prefersReducedMotion, send, useMe,
   type Board as BoardData, type Column, type ColumnKey, type Label, type Person, type Priority, type LatestUpdate as LatestUpdateData, type StatusEvent, type Ticket, type TicketDetail as Detail,
@@ -64,7 +65,6 @@ type Props = BoardProps & {
 /** Board filters (local state, like search). `replies` / `pickup` match the card chips "New reply from …" / "Your input · not picked up yet". */
 type Filters = { assignee: string; label: string; priority: string; blocked: boolean; replies: boolean; pickup: boolean };
 const NO_FILTERS: Filters = { assignee: '', label: '', priority: '', blocked: false, replies: false, pickup: false };
-const POLL_MS = 30_000;
 /** Card to refocus once the ticket dialog closes (module scope: survives Inertia's remount on history restore). */
 let returnTo: string | null = null;
 
@@ -97,11 +97,15 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
   // ------------------------------------------------------------ columns (optimistic copy of the props)
   const [cols, setCols] = useState<Column[]>(board.columns);
   const busy = useRef(0);
+  const dragging = useRef(false);
+  /** A board update that arrived (or was detected) mid-drag or mid-move: refreshed once the drop / move settles. */
+  const pendingRefresh = useRef(false);
   const own = useRef(new Set<string>());
   const prevStamp = useRef<Map<string, string>>(new Map());
   const [flash, setFlash] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (busy.current === 0) setCols(board.columns);
+    if (dragging.current) pendingRefresh.current = true;
+    else if (busy.current === 0) setCols(board.columns);
     // Live updates: cards whose updated_at/comment count changed since the last payload fade in (not our own writes).
     const next = new Map<string, string>();
     board.columns.forEach((c) => c.tickets.forEach((t) => next.set(t.key, `${t.updated_at}|${t.comment_count}|${t.status}`)));
@@ -137,19 +141,23 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
   const visible = useMemo(() => cols.map((c) => ({ ...c, tickets: c.tickets.filter(matches) })), [cols, matches]);
   const filtering = q.trim() !== '' || nFilters > 0;
 
-  // ------------------------------------------------------------ reloads + poll
-  const reload = useCallback((only: string[] = ['board', 'statusHistory', 'latestUpdate']) => {
-    router.reload({ only, async: true } as never);
-  }, []);
+  // ------------------------------------------------------------ reloads + 60 s change poll (lib/boardPoll)
+  const reload = useCallback((only: string[] = ['board', 'statusHistory', 'latestUpdate']) => new Promise<void>((done) => {
+    router.reload({ only, async: true, onFinish: () => done() } as never);
+  }), []);
   const ticketOpen = ticket !== null;
-  const dragging = useRef(false);
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== 'visible' || dragging.current || busy.current) return;
-      reload(ticketOpen ? ['board', 'statusHistory', 'latestUpdate', 'ticket'] : ['board', 'statusHistory', 'latestUpdate']);
-    }, POLL_MS);
-    return () => window.clearInterval(id);
-  }, [reload, ticketOpen]);
+  // Never the open ticket: a poll must not touch its drafts (the drawer reloads it itself after its own writes).
+  const refresh = useCallback(() => {
+    if (dragging.current || busy.current) { pendingRefresh.current = true; return Promise.resolve(); }
+    pendingRefresh.current = false;
+    return reload(['board', 'statusHistory', 'latestUpdate']);
+  }, [reload]);
+  const flushRefresh = () => { if (pendingRefresh.current) void refresh(); };
+  const stamp = useRef(board.stamp);
+  stamp.current = board.stamp;
+  useEffect(() => startBoardPoll(async (signal) => {
+    if (await boardChanged(`/projects/${p.slug}/board-stamp?ws=${encodeURIComponent(workstream)}`, stamp.current, signal)) await refresh();
+  }, browserPollEnv()), [p.slug, workstream, refresh]);
 
   // ------------------------------------------------------------ status-change toast, once per change (project_read_states)
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -235,10 +243,14 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
           ms: 5000,
         });
       }
-      reload(ticketOpen ? ['board', 'ticket'] : ['board']);
+      // A poll update deferred during the move rides along with this reload.
+      const deferred = pendingRefresh.current ? ['statusHistory', 'latestUpdate'] : [];
+      pendingRefresh.current = false;
+      reload([...(ticketOpen ? ['board', 'ticket'] : ['board']), ...deferred]);
     } catch (e) {
       busy.current--;
       setCols(snapshot);
+      flushRefresh();
       const why = e instanceof ApiError && e.status === 422 ? e.message : tr('toast.moveErrTry', { key: t.key });
       toasts.push({ tone: 'err', body: <p>{why}</p> });
       setLive(tr('toast.moveErrTry', { key: t.key }));
@@ -345,6 +357,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
         const sameSpot = d.over === t.status && (t.status === WAITING || placementSame(d.over, d.index, t.key));
         if (!sameSpot) requestMove({ t, to: d.over, index: d.index, via: 'drag' });
       }
+      flushRefresh(); // a move started above keeps it pending until the move settles
     };
     const key = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape' && dragging.current) {
@@ -354,6 +367,7 @@ export function BoardView({ board, statusHistory, latestUpdate = null, people, l
         document.body.classList.remove('kdragging');
         if (dk) setFocusKey(dk);
         setLive('Move cancelled.');
+        flushRefresh();
       }
     };
     window.addEventListener('pointermove', move);

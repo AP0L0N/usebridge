@@ -123,7 +123,8 @@ export interface BoardProject {
   status_unseen_by_me: boolean;
 }
 
-export interface Board { project: BoardProject; columns: Column[]; done_since: string; done_older_count: number }
+/** `stamp`: the web board's change stamp (ETag of GET /projects/{slug}/board-stamp, the 60 s poll); not in the REST board. */
+export interface Board { project: BoardProject; columns: Column[]; done_since: string; done_older_count: number; stamp?: string }
 
 export interface StatusEvent {
   id: string;

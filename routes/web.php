@@ -119,6 +119,8 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     // The Finder keeps its selection in the URL (/portfolio?project=…), so Back from a board returns to the same state.
     Route::get('/portfolio', PortfolioController::class)->name('portfolio.finder');
     Route::get('/projects/{slug}', [ProjectController::class, 'show'])->name('projects.show');
+    // The open board's 60 s change poll: ETag of BoardView::stamp, 304 while unchanged (?ws= = the board's workstream).
+    Route::get('/projects/{slug}/board-stamp', [ProjectController::class, 'boardStamp'])->name('projects.board-stamp');
     Route::post('/projects/{slug}/status-updates', [StatusUpdateController::class, 'store'])->name('projects.status-updates.store');
     Route::post('/projects/{slug}/inputs/{id}/resolve', [ProjectController::class, 'resolveInput'])
         ->middleware(LegacyReadOnly::class)->name('projects.inputs.resolve');

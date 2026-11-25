@@ -4,7 +4,10 @@ namespace App\Services\Tickets;
 
 use App\Models\Project;
 use App\Models\ProjectReadState;
+use App\Models\StatusUpdate;
 use App\Models\Ticket;
+use App\Models\TicketComment;
+use App\Models\TicketEvent;
 use App\Support\BoardColumns;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -53,6 +56,31 @@ final class BoardView
             // r4 Questions panel: questions in state open (Questions; dismissed not counted).
             'open_questions_count' => Questions::count($p),
         ];
+    }
+
+    /**
+     * A cheap fingerprint of what the web board shows, for its 60 s change poll (GET /projects/{slug}/board-stamp, an
+     * ETag): the newest write across the workstream's tickets, their comments and events, the project row (column
+     * labels, status) and its status updates, plus counts so a ticket leaving the board (another workstream, aged out of
+     * Done, a retracted comment) changes it too. Aggregates only, never the board itself.
+     */
+    public function stamp(Project $p, ?string $workstreamId = null): string
+    {
+        $tickets = Ticket::query()->where('project_id', $p->id)
+            ->when($workstreamId !== null, fn ($w) => $w->where('workstream_id', $workstreamId));
+        $ids = (clone $tickets)->select('id');
+        $t = (clone $tickets)->toBase()->selectRaw('count(*) as n, max(updated_at) as at')->first();
+        $c = TicketComment::query()->whereIn('ticket_id', $ids)->toBase()->selectRaw('count(*) as n, max(id) as id, max(updated_at) as at')->first();
+
+        return sha1(implode('|', [
+            $t?->n, $t?->at,
+            (clone $tickets)->where('status', BoardColumns::DONE)->where('done_at', '<', Carbon::now()->subDays(self::DONE_DAYS))->count(),
+            $c?->n, $c?->id, $c?->at,
+            TicketEvent::query()->where('project_id', $p->id)->whereIn('ticket_id', $ids)->max('id'),
+            $p->updated_at?->toIso8601String(),
+            StatusUpdate::query()->where('project_id', $p->id)->max('created_at'),
+            StatusUpdate::query()->where('project_id', $p->id)->count(),
+        ]));
     }
 
     /** $workstreamId: only that workstream's tickets (the board's workstream tabs); null = the whole project. */
