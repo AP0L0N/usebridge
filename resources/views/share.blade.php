@@ -9,6 +9,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         @include('partials.theme-script')
         <title inertia>{{ config('app.name', 'Bridge') }}</title>
+        @include('partials.link-preview', ['preview' => $preview ?? \App\Support\LinkPreview::generic(request())])
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
         @vite(['resources/css/bridge.css', 'resources/js/app.tsx'])
         @inertiaHead

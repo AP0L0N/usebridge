@@ -8,6 +8,7 @@
         <meta name="referrer" content="no-referrer">
         @include('partials.theme-script')
         <title>Link unavailable · {{ config('app.name', 'Bridge') }}</title>
+        @include('partials.link-preview', ['preview' => \App\Support\LinkPreview::meta(\App\Support\LinkPreview::SITE, 'This link has expired or is unavailable.')])
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
         @vite(['resources/css/bridge.css'])
     </head>

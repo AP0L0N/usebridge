@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\LinkPreview;
 use App\Support\Workspaces\CurrentWorkspace;
 use Closure;
 use Illuminate\Http\Request;
@@ -12,7 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Web pages: only a logged-in user gets in, and acts in their own workspace (owned, else their only membership; 403
- * without one). Guests go to the login screen. Being is_admin changes nothing here: an admin sees only their own
+ * without one). Guests go to the login screen; a link expander asking for a ticket or board URL gets the generic
+ * preview page instead (LinkPreview::forGuest). Being is_admin changes nothing here: an admin sees only their own
  * workspace (docs/MULTI-USER-PLAN.md §5). /api and /mcp resolve the workspace from the token instead.
  */
 class EnsureUserWorkspace
@@ -32,6 +34,12 @@ class EnsureUserWorkspace
 
         if ($request->header('X-Inertia')) {
             return Inertia::location(route('login'));
+        }
+
+        // A link expander (Slack, …) fetching a pasted ticket or board URL gets the generic preview, never the workspace.
+        $preview = LinkPreview::forGuest($request);
+        if ($preview !== null) {
+            return response()->view('preview', ['preview' => $preview])->header('Vary', 'User-Agent');
         }
 
         return redirect()->guest(route('login'));

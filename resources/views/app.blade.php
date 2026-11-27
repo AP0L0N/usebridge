@@ -6,6 +6,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         @include('partials.theme-script')
         <title inertia>{{ config('app.name', 'Bridge') }}</title>
+        @include('partials.link-preview', ['preview' => $preview ?? \App\Support\LinkPreview::generic(request())])
         {{-- The Span mark (public/brand, from the brand files) --}}
         <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
         <link rel="icon" href="/brand/favicon-32.png" sizes="32x32" type="image/png">

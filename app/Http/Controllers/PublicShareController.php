@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\Tickets\ShareLinks;
 use App\Services\Tickets\TicketService;
 use App\Support\Legal\LegalPages;
+use App\Support\LinkPreview;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,14 +29,17 @@ class PublicShareController extends Controller
             return self::unavailable();
         }
 
+        $share = ShareLinks::publicView($link);
+
         return Inertia::render('Share/Show', [
-            'share' => ShareLinks::publicView($link),
+            'share' => $share,
             // The comment form's "opened at" stamp (minimum time to submit); null while visitor comments are off.
             'stamp' => $link->allow_comments ? ShareLinks::formStamp($link) : null,
             'limits' => ['name' => ShareLinks::NAME_MAX, 'body' => ShareLinks::BODY_MAX],
             // The page's only footer content: the © line and the AGPL source link (no app navigation).
             'legal' => LegalPages::sourceFooter(),
-        ]);
+            // Link preview of a valid public link: the ticket title and a plain-text summary of its description.
+        ])->withViewData('preview', LinkPreview::meta($share['title'], LinkPreview::summary($share['description']) ?: 'A ticket shared from Bridge.', '/s/'.$token));
     }
 
     /**
