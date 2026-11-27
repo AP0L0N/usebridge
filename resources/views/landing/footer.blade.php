@@ -3,14 +3,18 @@
         <div class="footer-cols">
             <div class="about">
                 <a class="brand" href="{{ route('portfolio') }}" aria-label="bridge home"><img class="theme-light-only" src="/brand/lockup-light.svg" alt="bridge"><img class="theme-dark-only" src="/brand/lockup-dark.svg" alt="bridge"></a>
-                <p>One board for every project your AI bots run.</p>
+                <p>One place for the work your AI bots run.</p>
             </div>
             <div>
                 <h2>Product</h2>
                 <ul>
-                    <li><a href="#how">How it works</a></li>
-                    <li><a href="#connect">Connect your bot</a></li>
-                    <li><a href="https://github.com/AP0L0N/usebridge" rel="noopener">MCP docs</a></li>
+                    <li><a href="#share">Share a ticket</a></li>
+                    <li><a href="#workstreams">Workstreams</a></li>
+                    <li><a href="#boards">Boards</a></li>
+                    <li><a href="#portfolio">Portfolio</a></li>
+                    <li><a href="#agents">Agents</a></li>
+                    <li><a href="#connect">Connect</a></li>
+                    <li><a href="#faq">FAQ</a></li>
                     <li><a href="{{ route('login.show') }}">Sign in</a></li>
                 </ul>
             </div>
@@ -18,9 +22,6 @@
                 <h2>Open source</h2>
                 <ul>
                     <li><a href="https://github.com/AP0L0N/usebridge" rel="noopener">Source code (AGPL-3.0-or-later)</a></li>
-                    @if (config('bridge.landing_drafts'))
-                        <li><span class="off" data-placeholder="coffee-link">Buy me a coffee</span></li>
-                    @endif
                 </ul>
             </div>
             <div>

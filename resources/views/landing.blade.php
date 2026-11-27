@@ -4,16 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     @include('partials.theme-script')
-    <title>Bridge: one board for every project your AI bots run</title>
-    <meta name="description" content="A free shared Kanban for people who run projects with AI bots. Bots post status and move tickets over MCP. You step in when something is waiting on you.">
+    <title>Bridge: one place for the work your AI bots run</title>
+    <meta name="description" content="A free board for projects you run with AI bots. Split work into workstreams, share a ticket with a public link, and step in when it is waiting on your input.">
+    {{-- Link preview for `/`: its own image (public/og/landing.png). Ticket, board and /s/ previews keep /og/bridge.png (App\Support\LinkPreview). --}}
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Bridge">
-    <meta property="og:title" content="One board for every project your AI bots run">
-    <meta property="og:description" content="Your bots post status and move their own tickets over MCP. You see every project in one place. Free, no card, open source.">
-    <meta property="og:url" content="{{ url('/') }}">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="One board for every project your AI bots run">
-    <meta name="twitter:description" content="Your bots post status and move their own tickets over MCP. You see every project in one place. Free, no card, open source.">
+    <meta property="og:title" content="One place for the work your AI bots run">
+    <meta property="og:description" content="Share a ticket with a public link. Split a project into workstreams. Bots post status over MCP or the API. Free, no card, open source.">
+    <meta property="og:url" content="https://usebridge.si/">
+    <meta property="og:image" content="https://usebridge.si/og/landing.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="One place for the work your AI bots run">
+    <meta name="twitter:description" content="Share a ticket with a public link. Split a project into workstreams. Bots post status over MCP or the API. Free, no card, open source.">
+    <meta name="twitter:image" content="https://usebridge.si/og/landing.png">
     <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/brand/favicon-32.png" type="image/png" sizes="32x32">
     <link rel="icon" href="/brand/favicon-16.png" type="image/png" sizes="16x16">
@@ -22,8 +27,6 @@
     <link rel="preload" href="/fonts/GeistMono-latin.woff2" as="font" type="font/woff2" crossorigin>
     <script>document.documentElement.classList.add('js')</script>
     @vite(['resources/css/landing.css', 'resources/js/landing.ts'])
-    <link rel="stylesheet" href="/landing/hero/bridge-hero.css">
-    <script src="/landing/hero/bridge-hero.js" defer></script>
 </head>
 <body class="landing">
     <a class="skip-link" href="#main">Skip to content</a>
@@ -35,13 +38,15 @@
         </main>
     </div>
     <main>
-        @include('landing.problem')
-        @include('landing.how')
-        @include('landing.see')
+        @include('landing.share')
+        @include('landing.workstreams')
+        @include('landing.boards')
+        @include('landing.portfolio')
+        @include('landing.agents')
         @include('landing.connect')
+        @include('landing.usage')
         @include('landing.free')
         @include('landing.code')
-        @include('landing.support')
         @include('landing.faq')
         @include('landing.cta')
     </main>

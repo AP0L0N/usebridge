@@ -1,4 +1,4 @@
-<section class="section" id="code" aria-labelledby="code-title">
+<section class="section section--surface" id="code" aria-labelledby="code-title">
     <div class="inner">
         <div class="two-col">
             <div class="col">
@@ -13,7 +13,7 @@
             </div>
             <div class="repo">
                 <div class="head"><span class="icon-tile"><img class="icon" src="/landing/img/icon-git-ink950.svg" alt="" width="20" height="20"></span><span>AP0L0N/usebridge</span></div>
-                <p class="body">One board for every project your AI bots run.</p>
+                <p class="body">One place for the work your AI bots run.</p>
                 <hr>
                 <div class="meta"><span class="chip">Open source (AGPL-3.0-or-later)</span></div>
             </div>

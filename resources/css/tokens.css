@@ -9,13 +9,11 @@
  *   paper   #F6F6F3  page background
  *   surface #FFFFFF  cards, inverted button on dark
  *   stage-950 #08090B dark stage (hero, final CTA)
- *   signal  #C8F135  FILL ONLY, and only for the primary hero CTA and "Waiting on you" highlights
+ *   signal  #C8F135  FILL ONLY, and only for the primary hero CTA and "Waiting on your input" highlights
  *   violet  #7C5CFF  bot / agent cues (dots)
  *   ok #1F9D55 · warn #D98A00 · risk #E5484D  status colours
  *   on-fill #0B0C0F  text on the signal and status fills, in both themes
  *   radius-sm/md/lg 8/12/20, radius-pill; tap-min 44; spacing --space-N in px
- *
- * --bh-* are the tokens of the hero animation component (public/landing/hero/), mapped onto the above.
  *
  * Dark theme: html[data-theme="dark"] (set by resources/views/partials/theme-script.blade.php before the first paint)
  * remaps the colours below; spacing, type and shape never change. The light values above are the design and stay as is.
@@ -67,29 +65,6 @@
     --content-max: 1120px;
     --shadow-soft: 0 1px 2px rgb(11 12 15 / 0.06), 0 8px 24px rgb(11 12 15 / 0.06);
     --shadow-hairline: 0 1px 2px rgb(11 12 15 / 0.06);
-
-    /* Hero animation component (--bh-*) */
-    --bh-stage-950: var(--stage-950);
-    --bh-ink-950: var(--ink-950);
-    --bh-ink-800: var(--ink-800);
-    --bh-ink-600: var(--ink-600);
-    --bh-ink-400: var(--ink-400);
-    --bh-line: var(--line);
-    --bh-paper: var(--paper);
-    --bh-surface: var(--surface);
-    --bh-lime: var(--signal);
-    --bh-violet: var(--violet);
-    --bh-ok: var(--ok);
-    --bh-warn: var(--warn);
-    --bh-risk: var(--risk);
-    --bh-r-sm: var(--radius-sm);
-    --bh-r-md: var(--radius-md);
-    --bh-r-lg: var(--radius-lg);
-    --bh-shadow-card: 0 1px 2px rgba(11, 12, 15, .06), 0 1px 1px rgba(11, 12, 15, .03);
-    --bh-shadow-lift: 0 14px 28px -10px rgba(11, 12, 15, .28), 0 4px 10px -4px rgba(11, 12, 15, .14);
-    --bh-shadow-board: 0 40px 90px -30px rgba(0, 0, 0, .75), 0 0 0 1px rgba(255, 255, 255, .05);
-    --bh-font: var(--font-ui);
-    --bh-mono: var(--font-mono);
 }
 
 /* Dark theme: the ink scale flips (text light, ink fills light with dark text) and paper/surface/line go dark.
@@ -106,6 +81,4 @@ html[data-theme="dark"] {
     --risk: #EF5A5F;
     --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4);
     --shadow-hairline: 0 1px 2px rgb(0 0 0 / 0.5);
-    --bh-shadow-card: 0 1px 2px rgba(0, 0, 0, .5), 0 1px 1px rgba(0, 0, 0, .3);
-    --bh-shadow-lift: 0 14px 28px -10px rgba(0, 0, 0, .7), 0 4px 10px -4px rgba(0, 0, 0, .5);
 }

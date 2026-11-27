@@ -1,13 +1,12 @@
+@php $nav = [['#share', 'Share a ticket'], ['#workstreams', 'Workstreams'], ['#boards', 'Boards'], ['#portfolio', 'Portfolio'], ['#connect', 'Connect'], ['#faq', 'FAQ']]; @endphp
 <header class="site-header">
     <div class="bar">
         <div class="header-start">
             <a class="brand" href="{{ route('portfolio') }}" aria-label="bridge home"><img src="/brand/lockup-dark.svg" alt="bridge"></a>
             <nav class="site-nav" aria-label="Main">
-                <a href="#how">How it works</a>
-                <a href="#connect">Connect your bot</a>
-                <a href="#free">Free</a>
-                <a href="#code">Code</a>
-                <a href="#faq">FAQ</a>
+                @foreach ($nav as [$href, $label])
+                    <a href="{{ $href }}">{{ $label }}</a>
+                @endforeach
             </nav>
         </div>
         <div class="header-actions">
@@ -26,7 +25,7 @@
             <button class="menu-close" type="button" data-menu-close><img src="/landing/img/icon-x-surface.svg" alt=""><span class="sr-only">Close menu</span></button>
         </div>
         <nav class="menu-links" aria-label="Main (menu)">
-            @foreach ([['#how', 'How it works'], ['#connect', 'Connect your bot'], ['#free', 'Free'], ['#code', 'Code'], ['#faq', 'FAQ']] as [$href, $label])
+            @foreach ($nav as [$href, $label])
                 <a href="{{ $href }}">{{ $label }} <img src="/landing/img/icon-down-ink400.svg" alt=""></a>
             @endforeach
         </nav>
