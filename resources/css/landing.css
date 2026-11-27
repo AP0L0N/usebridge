@@ -154,8 +154,9 @@ body.menu-locked { overflow: hidden; }
 .mk-tabs .on { color: var(--ink-950); border-bottom-color: var(--ink-950); }
 .mk-tabs b, .mk-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-6); border-radius: var(--radius-pill); background: var(--ink-950); color: var(--surface); font-family: var(--font-mono); font-size: 11px; font-weight: 500; }
 
-/* Board mock (landing/mock-board.blade.php): five columns, scrolls sideways when narrow */
-.mk-board { display: grid; grid-template-columns: repeat(5, minmax(112px, 1fr)); gap: var(--space-8); padding: var(--space-12); overflow-x: auto; }
+/* Board mock (landing/mock-board.blade.php): five columns, scrolls sideways when narrow. Positioned so the cards'
+   absolute .sr-only text is clipped by the scroller instead of widening the page. */
+.mk-board { position: relative; display: grid; grid-template-columns: repeat(5, minmax(112px, 1fr)); gap: var(--space-8); padding: var(--space-12); overflow-x: auto; }
 .mk-col { display: flex; flex-direction: column; gap: var(--space-6); min-height: 168px; padding: var(--space-8); border-radius: var(--radius-md); background: color-mix(in srgb, var(--line) 45%, transparent); }
 .mk-col h4 { display: flex; align-items: center; gap: var(--space-6); padding: var(--space-4) var(--space-4) var(--space-6); font-size: 12px; font-weight: 500; color: var(--ink-600); white-space: nowrap; }
 .mk-col h4 b { margin-left: auto; font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--ink-400); }
@@ -280,7 +281,7 @@ body.menu-locked { overflow: hidden; }
 .csteps .n { display: flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border: 1px solid var(--ink-950); border-radius: var(--radius-pill); color: var(--ink-950); }
 .csteps li > span:last-child { padding-top: 2px; }
 .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8) var(--space-16); }
-.code { align-self: stretch; margin: 0; padding: var(--space-24); background: var(--ink-950); border-radius: var(--radius-lg); color: var(--surface); }
+.code { align-self: stretch; min-width: 0; margin: 0; padding: var(--space-24); background: var(--ink-950); border-radius: var(--radius-lg); color: var(--surface); }
 .code .head { display: flex; align-items: center; gap: var(--space-8); margin-bottom: var(--space-6); color: var(--ink-400); }
 .code .head .dot { background: var(--ink-600); }
 .code pre { margin: 0; overflow-x: auto; font-family: var(--font-mono); font-size: 14px; line-height: 1.45; white-space: pre; tab-size: 2; color: var(--surface); }

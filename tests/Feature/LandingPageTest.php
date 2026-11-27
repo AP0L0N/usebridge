@@ -318,6 +318,21 @@ class LandingPageTest extends TestCase
     }
 
     #[Test]
+    public function board_mocks_scroll_inside_themselves_without_widening_the_page(): void
+    {
+        $html = $this->html();
+        $xp = $this->dom($html);
+
+        // Cards carry absolute .sr-only text. Unless the scroller is positioned, that text escapes its overflow clip
+        // and widens the page on small screens (390px rendered 578px wide).
+        $this->assertGreaterThan(0, $xp->query('//div[contains(concat(" ", @class, " "), " mk-board ")]//*[@class="sr-only"]')->length);
+        preg_match('/^\.mk-board \{([^}]*)\}/m', file_get_contents(resource_path('css/landing.css')), $rule);
+        $this->assertNotEmpty($rule);
+        $this->assertStringContainsString('position: relative', $rule[1]);
+        $this->assertStringContainsString('overflow-x: auto', $rule[1]);
+    }
+
+    #[Test]
     public function every_mock_is_labelled_as_sample_data(): void
     {
         $xp = $this->dom($this->html());
