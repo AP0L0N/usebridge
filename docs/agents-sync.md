@@ -1,8 +1,8 @@
 # Agents roster sync (access contract)
 
 The agents sync file is the list of the workspace's **real agents**: their full name with title, the section they belong
-to, and their profile description. Bridge's `/agents` page shows **only** the agents of the last roster sync, grouped by
-section. Group chats and rooms that show up in usage files or older profile ingests are not agents and are not listed.
+to, and their profile description. Bridge's `/agents` page shows **only** the agents of the last roster sync, as one
+flat list. Group chats and rooms that show up in usage files or older profile ingests are not agents and are not listed.
 
 This complements the instructions sync ([agent-instructions-sync.md](agent-instructions-sync.md)): the roster sync uses
 the same ingest step for the description, so pending owner edits follow the same rules.
@@ -62,7 +62,7 @@ curl -sS -X POST "$BRIDGE/api/agents/sync" \
 | `agents` | array, 1–200 | **yes** | The full roster. |
 | `agents[].agent_id` | string | **yes** | Usage agent id, `[A-Za-z0-9_-]{1,64}`, unique in the body. |
 | `agents[].full_name` | string ≤255 | **yes** | Shown exactly as sent, e.g. `Shodan · Lead Developer`. |
-| `agents[].section` | string ≤64 | **yes** | Section heading on `/agents`. |
+| `agents[].section` | string ≤64 | **yes** | Stored; `/agents` no longer groups by it. |
 | `agents[].section_order` | integer 0–99 | **yes** | A JSON integer (`"1"` is refused). |
 | `agents[].description` | string ≤20000 chars | no (may be `""` or `null`) | The agent's real profile description. Missing/`null` is stored as `""`. |
 
@@ -137,16 +137,15 @@ edit to the real agent stays the job of the instructions sync (its [daily routin
 `POST /api/agent-profiles` and the edit endpoints keep working as before. They never change `listed`, `full_name`,
 `section` or `section_order`, so an agent only appears on `/agents` through this roster sync.
 
-## Listing and grouping (`/agents`)
+## Listing (`/agents`)
 
 - Only `agent_profiles` rows with `listed = true` in the current workspace. Agent ids seen only in usage files and
   profiles that only came through `POST /api/agent-profiles` are **not** listed. Bridge has no list of room names; the
   roster decides.
-- One section per `section`, headed by its name, ordered by `section_order` (lowest value in the section), then by name.
-- Inside a section: by `full_name`, case-insensitive, then `agent_id`. The roster file is in this order already; Bridge
-  sorts itself so the page does not depend on the body order.
-- Each row: `full_name` (linking to `/usage/agents/{agentId}`), a description excerpt (160 characters), last sync time
-  and a pending/conflict badge. An empty or missing description shows **No description**; Bridge never invents text.
+- One flat list, no sections: `section` and `section_order` are still required and stored, the page ignores them.
+- Sorted by `full_name`, case-insensitive, then `agent_id`, so the page does not depend on the body order.
+- Each row: the name (linking to `/usage/agents/{agentId}`), the title and the **whole description**. An empty or missing
+  description shows **No description**; Bridge never invents text.
 - The agent page heading shows `full_name`; its Instructions section shows the whole description (or **No description**).
 
 ## Schema

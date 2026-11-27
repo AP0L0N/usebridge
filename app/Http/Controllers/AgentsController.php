@@ -13,7 +13,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * GET /agents: the agents the roster sync listed (docs/agents-sync.md), grouped by section, each linking to
+ * GET /agents: the agents the roster sync listed (docs/agents-sync.md), one flat list, each linking to
  * /usage/agents/{agentId}. POST /usage/agents/{agentId}/instructions: the workspace owner saves a proposed description
  * (a new revision, pending until the daily sync applies it; docs/agent-instructions-sync.md).
  */
@@ -21,19 +21,15 @@ class AgentsController extends Controller
 {
     public function __construct(private readonly AgentInstructions $instructions) {}
 
-    /** Avatar grid (README §1.4): sections with a count; each tile has Geist Mono initials and opens /usage/agents/{id} (unchanged). */
+    /** One flat list: each row has Geist Mono initials, the name (opens /usage/agents/{id}, unchanged) and the full description. */
     public function index(): Response
     {
-        $sections = array_map(fn (array $section): array => [
-            ...$section,
-            'count' => count($section['agents']),
-            'agents' => array_map(fn (array $a): array => [
-                ...$a,
-                'initials' => self::initials((string) ($a['name'] ?: $a['fullName'])),
-            ], $section['agents']),
+        $agents = array_map(fn (array $a): array => [
+            ...$a,
+            'initials' => self::initials((string) ($a['name'] ?: $a['fullName'])),
         ], $this->instructions->list());
 
-        return Inertia::render('Agents/Index', ['sections' => $sections]);
+        return Inertia::render('Agents/Index', ['agents' => $agents]);
     }
 
     /** "Ava" → "AV", "Sam Rivera" → "SR" (two letters, upper case). */

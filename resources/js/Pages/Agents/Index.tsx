@@ -2,14 +2,14 @@ import { Head, Link } from '@inertiajs/react';
 import '../../../css/usage-redesign.css';
 import { AppTopBar } from '../../Components/Shell/AppTopBar';
 import { t } from '../../lib/strings-usage';
-import type { AgentSection } from '../../lib/usage';
+import type { AgentListRow } from '../../lib/usage';
 
 /**
- * GET /agents: avatar grid (README §1.4, frames 75:30 / 75:151 / 75:264). One section per roster section, in section
- * order, with its count; each tile (AG / Agent tile: 72px ink-800 circle, Geist Mono initials, name, title) opens the
- * unchanged detail page /usage/agents/{id}. 5 tiles per row at 1440, 2 on a phone.
+ * GET /agents: one flat list of the roster agents, sorted by full name (no sections). Each row has the avatar (ink-800
+ * circle, Geist Mono initials), the name (opens the unchanged detail page /usage/agents/{id}), the title and the full
+ * description.
  */
-export default function AgentsIndex({ sections }: { sections: AgentSection[] }) {
+export default function AgentsIndex({ agents }: { agents: AgentListRow[] }) {
   return (
     <>
       <Head title={t('agents.title')} />
@@ -22,29 +22,27 @@ export default function AgentsIndex({ sections }: { sections: AgentSection[] }) 
               <p className="summary">{t('agents.summary')}</p>
             </div>
           </div>
-          {sections.length === 0 ? (
+          {agents.length === 0 ? (
             <section className="ag-empty">
               <h2>{t('agents.empty.title')}</h2>
               <p>{t('agents.empty.body')}</p>
             </section>
           ) : (
-            sections.map((section, i) => (
-              <section key={section.name} className="ag-sec" aria-labelledby={`ag-sec-${i}`}>
-                <h2 id={`ag-sec-${i}`}>{section.name} <span className="ag-n" aria-label={t('agents.count', { n: section.count })}>{section.count}</span></h2>
-                <ul className="ag-grid">
-                  {section.agents.map((a) => (
-                    <li key={a.id}>
-                      <Link className="ag-tile" href={`/usage/agents/${encodeURIComponent(a.id)}`}
-                        aria-label={a.title ? t('agents.tile', { name: a.name, title: a.title }) : t('agents.tile.noTitle', { name: a.name })}>
-                        <span className="ag-avi" aria-hidden="true">{a.initials}</span>
-                        <span className="ag-name">{a.name}</span>
-                        {a.title && <span className="ag-title">{a.title}</span>}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+            <ul className="ag-list">
+              {agents.map((a) => (
+                <li key={a.id} className="ag-row">
+                  <span className="ag-avi" aria-hidden="true">{a.initials}</span>
+                  <div>
+                    <Link className="ag-name" href={`/usage/agents/${encodeURIComponent(a.id)}`}
+                      aria-label={a.title ? t('agents.tile', { name: a.name, title: a.title }) : t('agents.tile.noTitle', { name: a.name })}>
+                      {a.name}
+                    </Link>
+                    {a.title && <p className="ag-title">{a.title}</p>}
+                    <p className="ag-desc">{a.description ?? t('agents.noDescription')}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </main>
       </div>

@@ -17,7 +17,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * The roster sync POST /api/agents/sync and the grouped /agents list (docs/agents-sync.md). The fixture is synthetic:
+ * The roster sync POST /api/agents/sync and the flat /agents list (docs/agents-sync.md). The fixture is synthetic:
  * four sections, an empty and a null description, a name without a title, and agents out of order.
  */
 class AgentsSyncTest extends TestCase
@@ -203,34 +203,34 @@ class AgentsSyncTest extends TestCase
     }
 
     #[Test]
-    public function the_agents_grid_has_section_counts_and_initials(): void
+    public function the_agents_list_has_initials(): void
     {
         $this->loadUsage();
         $this->sync(null, $this->ownerToken())->assertOk();
 
         $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Agents/Index')
-            ->where('sections', function ($sections) {
-                $sections = collect($sections);
-                $this->assertSame([2, 2, 1, 1], $sections->pluck('count')->all());
-                $rows = $sections->flatMap(fn ($s) => $s['agents'])->keyBy('id');
+            ->missing('sections')
+            ->where('agents', function ($agents) {
+                $rows = collect($agents)->keyBy('id');
+                $this->assertCount(6, $rows);
                 $this->assertSame('ZE', $rows[self::ZED]['initials']);
                 $this->assertSame('OL', $rows[self::OTTO]['initials']);
 
                 return true;
             }));
-        // The tile's target is the unchanged detail page.
+        // The name's target is the unchanged detail page.
         $this->get('/usage/agents/'.self::OTTO)->assertOk()->assertInertia(fn (Assert $page) => $page->component('Usage/Agent'));
     }
 
     #[Test]
-    public function the_agents_grid_is_empty_before_the_first_sync(): void
+    public function the_agents_list_is_empty_before_the_first_sync(): void
     {
-        $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('sections', []));
+        $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('agents', []));
     }
 
     #[Test]
-    public function the_agents_page_lists_only_roster_agents_grouped_and_sorted_by_full_name(): void
+    public function the_agents_page_lists_only_roster_agents_flat_sorted_by_full_name_with_the_full_description(): void
     {
         $this->loadUsage();
         $token = $this->ownerToken();
@@ -241,19 +241,19 @@ class AgentsSyncTest extends TestCase
 
         $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Agents/Index')
-            ->missing('agents')
-            ->where('sections', function ($sections) {
-                $sections = collect($sections);
-                $this->assertSame(self::SECTIONS, $sections->pluck('name')->all());
-                $this->assertSame([[self::ADA, self::BEA], [self::MIRA, self::ZED], [self::OTTO], [self::PIM]],
-                    $sections->map(fn ($s) => collect($s['agents'])->pluck('id')->all())->all());
+            ->missing('sections')
+            ->where('agents', function ($agents) {
+                $rows = collect($agents);
+                // One list across all sections, by full name, case-insensitive.
+                $this->assertSame([self::ADA, self::BEA, self::MIRA, self::OTTO, self::PIM, self::ZED], $rows->pluck('id')->all());
+                $this->assertFalse($rows->contains(fn ($row) => array_key_exists('section', $row)));
 
-                $rows = $sections->flatMap(fn ($s) => $s['agents'])->keyBy('id');
+                $rows = $rows->keyBy('id');
                 $this->assertSame('Zed · Lead Developer', $rows[self::ZED]['fullName']);
                 $this->assertSame('Otto Lark', $rows[self::OTTO]['fullName']);
-                $this->assertSame('You are Zed, the lead developer. - Review every pull request', $rows[self::ZED]['excerpt']);
-                $this->assertNull($rows[self::MIRA]['excerpt']);
-                $this->assertNull($rows[self::PIM]['excerpt']);
+                $this->assertSame("You are Zed, the lead developer.\n- Review every pull request", $rows[self::ZED]['description']);
+                $this->assertNull($rows[self::MIRA]['description']);
+                $this->assertNull($rows[self::PIM]['description']);
                 $this->assertArrayNotHasKey(self::JUNIPER, $rows->all());
                 $this->assertArrayNotHasKey(self::ROOM, $rows->all());
 
@@ -328,7 +328,7 @@ class AgentsSyncTest extends TestCase
         $this->assertFalse(AgentProfile::query()->where('agent_id', self::PIM)->value('listed'));
         $this->assertSame('Unassigned', AgentProfile::query()->where('agent_id', self::PIM)->value('section'));
         $this->assertSame('pending', AgentInstructionEdit::query()->where('agent_id', self::PIM)->value('status'));
-        $this->asOwner()->get('/agents')->assertInertia(fn (Assert $page) => $page->where('sections', fn ($s) => collect($s)->pluck('name')->all() === ['Project managers', 'Development']));
+        $this->asOwner()->get('/agents')->assertInertia(fn (Assert $page) => $page->where('agents', fn ($a) => collect($a)->pluck('id')->all() === [self::ADA, self::BEA, self::MIRA, self::ZED]));
         $this->get('/usage/agents/'.self::PIM)->assertOk();
 
         $this->sync(null, $token)->assertOk()->assertJsonPath('data.updated', 2)->assertJsonPath('data.unchanged', 4);
@@ -367,7 +367,6 @@ class AgentsSyncTest extends TestCase
         $this->assertSame('Their Zed', AgentProfile::query()->withoutGlobalScopes()->where('workspace_id', $other->id)->value('full_name'));
 
         $this->actingAs($stranger, 'web')->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->where('sections', fn ($s) => collect($s)->pluck('name')->all() === ['Ops']
-                && collect($s[0]['agents'])->pluck('fullName')->all() === ['Their Zed']));
+            ->where('agents', fn ($a) => collect($a)->pluck('fullName')->all() === ['Their Zed']));
     }
 }

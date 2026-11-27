@@ -118,14 +118,13 @@ export type AgentInstructions = {
   latest: InstructionEdit | null;
   history: InstructionEdit[];
 };
-/** /agents (docs/agents-sync.md): agents the roster sync listed, one entry per section in section order. */
+/** /agents (docs/agents-sync.md): agents the roster sync listed, one flat list sorted by full name. */
 export type AgentListRow = {
-  id: string; fullName: string; name: string; title: string | null; excerpt: string | null; syncedAt: string | null;
+  id: string; fullName: string; name: string; title: string | null; description: string | null; syncedAt: string | null;
   editStatus: 'pending' | 'conflict' | null;
-  /** Avatar grid: two Geist Mono letters. */
+  /** Avatar: two Geist Mono letters. */
   initials: string;
 };
-export type AgentSection = { name: string; count: number; agents: AgentListRow[] };
 
 const UNITS = [
   { min: 1e9, div: 1e9, unit: 'B', word: 'billion' },

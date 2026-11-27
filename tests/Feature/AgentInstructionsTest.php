@@ -113,7 +113,7 @@ class AgentInstructionsTest extends TestCase
         $this->asOwner()->save('Proposed text')->assertCreated();
 
         // A legacy ingest alone does not list the agent, nor does a usage file (docs/agents-sync.md).
-        $this->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('sections', []));
+        $this->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page->where('agents', []));
 
         $this->api($this->ownerToken())->postJson('/api/agents/sync', ['agents' => [[
             'agent_id' => self::NOVA, 'full_name' => 'Nova · Support lead', 'section' => 'Support', 'section_order' => 0,
@@ -122,15 +122,12 @@ class AgentInstructionsTest extends TestCase
 
         $this->asOwner()->get('/agents')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Agents/Index')
-            ->where('sections', function ($sections) {
-                $this->assertCount(1, $sections);
-                $this->assertSame('Support', $sections[0]['name']);
-                $this->assertSame([self::NOVA], collect($sections[0]['agents'])->pluck('id')->all());
-                $nova = $sections[0]['agents'][0];
+            ->where('agents', function ($agents) {
+                $this->assertSame([self::NOVA], collect($agents)->pluck('id')->all());
+                $nova = $agents[0];
                 $this->assertSame('Nova · Support lead', $nova['fullName']);
                 $this->assertSame('Support lead', $nova['title']);
-                $this->assertSame(160, mb_strlen($nova['excerpt']));
-                $this->assertStringEndsWith('…', $nova['excerpt']);
+                $this->assertSame(trim(str_repeat('Long instructions. ', 20)), $nova['description']);
                 $this->assertNotNull($nova['syncedAt']);
                 $this->assertSame('pending', $nova['editStatus']);
 

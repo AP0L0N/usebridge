@@ -24,8 +24,6 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  */
 final class AgentInstructions
 {
-    public const EXCERPT = 160;
-
     public const HISTORY = 5;
 
     /** Between name and title in a roster full_name ("Shodan · Lead Developer"). */
@@ -244,41 +242,35 @@ final class AgentInstructions
     }
 
     /**
-     * The Agents page: only profiles the roster sync listed (never usage-only ids or legacy-ingest-only profiles), grouped
-     * by section in section order (orderSections()), each section sorted by full name, case-insensitive, then id.
+     * The Agents page: only profiles the roster sync listed (never usage-only ids or legacy-ingest-only profiles), one
+     * flat list sorted by full name, case-insensitive, then id. section and section_order stay stored, the page ignores them.
      *
-     * @return list<array{name: string, agents: list<array{id: string, fullName: string, name: string, title: ?string, excerpt: ?string, syncedAt: ?string, editStatus: ?string}>}>
+     * @return list<array{id: string, fullName: string, name: string, title: ?string, description: ?string, syncedAt: ?string, editStatus: ?string}>
      */
     public function list(): array
     {
         $profiles = AgentProfile::query()->where('listed', true)->get();
         $latest = AgentInstructionEdit::query()->whereIn('agent_id', $profiles->pluck('agent_id'))->orderBy('revision')->get()->keyBy('agent_id');
 
-        $sections = [];
+        $rows = [];
         foreach ($profiles as $profile) {
             /** @var AgentInstructionEdit|null $edit */
             $edit = $latest->get($profile->agent_id);
-            $excerpt = self::excerpt((string) $profile->description);
-            $sections[(string) $profile->section][] = [
+            $description = trim((string) $profile->description);
+            $rows[] = [
                 'id' => $profile->agent_id,
                 'fullName' => $profile->displayName(),
                 'name' => $profile->name,
                 'title' => $profile->title,
-                'excerpt' => $excerpt === '' ? null : $excerpt,
+                'description' => $description === '' ? null : $description,
                 'syncedAt' => $profile->synced_at?->toIso8601String(),
                 // Only what still needs the owner or the sync: a pending or conflicting latest revision.
                 'editStatus' => in_array($edit?->status, [AgentInstructionEdit::PENDING, AgentInstructionEdit::CONFLICT], true) ? $edit->status : null,
             ];
         }
+        usort($rows, fn (array $a, array $b): int => strcasecmp($a['fullName'], $b['fullName']) ?: strcmp($a['id'], $b['id']));
 
-        $order = self::orderSections($profiles->map(fn (AgentProfile $p): array => [(string) $p->section, (int) $p->section_order])->all());
-
-        return array_map(function (string $name) use ($sections): array {
-            $rows = $sections[$name];
-            usort($rows, fn (array $a, array $b): int => strcasecmp($a['fullName'], $b['fullName']) ?: strcmp($a['id'], $b['id']));
-
-            return ['name' => $name, 'agents' => $rows];
-        }, $order);
+        return $rows;
     }
 
     /** The agent has a profile or appears in a usage file of this workspace. */
@@ -334,13 +326,6 @@ final class AgentInstructions
             'appliedAt' => $e->applied_at?->toIso8601String(),
             'resolvedAt' => $e->resolved_at?->toIso8601String(),
         ];
-    }
-
-    public static function excerpt(string $description): string
-    {
-        $flat = trim((string) preg_replace('/\s+/u', ' ', $description));
-
-        return mb_strlen($flat) > self::EXCERPT ? rtrim(mb_substr($flat, 0, self::EXCERPT - 1)).'…' : $flat;
     }
 
     /**
