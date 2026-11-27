@@ -31,12 +31,35 @@ class TicketController extends Controller
 
     public function __construct(private readonly TicketService $tickets) {}
 
-    /** Deep link: the board with the ticket open (modal on desktop, full-screen sheet on mobile). */
+    /**
+     * Deep link, the one canonical ticket URL (TicketView::url): the board with the ticket open (modal on desktop,
+     * full-screen sheet on mobile). The same path with a lower-case key or a ticket id redirects to the canonical one.
+     */
     public function show(Request $request, ProjectController $projects, string $slug, string $key): Response|RedirectResponse
     {
         $ticket = $this->ticket($key, $this->projectBySlug($slug));
+        if ($key !== $ticket->key) {
+            return self::toCanonical($request, $ticket);
+        }
 
         return $projects->show($request, $slug, $ticket);
+    }
+
+    /**
+     * Alternate ticket links (/tickets/{ref}, /boards/{slug}/tickets/{ref}, …; {ref} = key in any case, or id): 302 to the
+     * canonical URL. Keys are unique, and the lookup stays inside the viewer's workspace, so anything else is a 404.
+     */
+    public function redirect(Request $request): RedirectResponse
+    {
+        $ticket = $this->ticket((string) $request->route('ref'));
+        abort_if($ticket->project === null || $ticket->project->trashed(), 404);
+
+        return self::toCanonical($request, $ticket);
+    }
+
+    private static function toCanonical(Request $request, Ticket $ticket): RedirectResponse
+    {
+        return redirect()->route('projects.tickets.show', ['slug' => $ticket->project->slug, 'key' => $ticket->key, ...$request->query()]);
     }
 
     /** Quick add: {title*, status backlog|todo (default backlog), workstream (the board's tab; default the project's default)}. */

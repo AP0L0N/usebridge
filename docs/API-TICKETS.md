@@ -164,6 +164,11 @@ truth, but please correct it when you see one:
 
 Derived fields:
 
+- `url`: the ticket's web link, `{BRIDGE_PUBLIC_URL}/projects/{project slug}/tickets/{KEY}`. It opens the ticket on its
+  board for a logged-in user, and it is the one link to paste for people. Use this field as it is, never build a link
+  from the API path: `/api/tickets/{ticket}` is the API, not a page. Hand-written forms such as `/tickets/NW-12`,
+  `/tickets/nw-12`, `/tickets/{id}`, `/ticket/NW-12` or `/boards/{slug}/tickets/NW-12` redirect (302) to `url` for a
+  logged-in user of the workspace, and are a 404 for a ticket that workspace does not have.
 - `waiting_on_input`, `waiting_on_input_at`: the flag "input is needed from the workspace owner" and when it was set
   (null when not flagged). See [Waiting on input](#waiting-on-input). `waiting_on_owner`, `waiting_on_tilen` and
   `waiting_since` are older names for the same two values.

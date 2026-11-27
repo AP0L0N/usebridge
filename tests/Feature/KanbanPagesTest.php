@@ -165,8 +165,8 @@ class KanbanPagesTest extends TestCase
             ->has('ticket.comments', 1)
             ->has('ticket.events')
             ->has('board.columns', 5));
-        // lower-case key works too; another project's ticket is a 404
-        $this->get('/projects/blue-harbor/tickets/'.strtolower($t['key']))->assertOk();
+        // a lower-case key redirects to the canonical URL; another project's ticket is a 404
+        $this->get('/projects/blue-harbor/tickets/'.strtolower($t['key']))->assertRedirect("/projects/blue-harbor/tickets/{$t['key']}");
         $this->get("/projects/northwind/tickets/{$t['key']}")->assertNotFound();
     }
 

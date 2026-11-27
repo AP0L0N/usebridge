@@ -142,6 +142,10 @@ Route::middleware(EnsureUserWorkspace::class)->group(function () {
     // Tickets: board writes from the web UI as the signed-in user (Actor::forUser, source ui). JSON with Accept: application/json, else redirect back.
     Route::get('/projects/{slug}/tickets/{key}', [TicketController::class, 'show'])->name('projects.tickets.show');
     Route::post('/projects/{slug}/tickets', [TicketController::class, 'store'])->name('projects.tickets.store');
+    // Other ways a ticket link gets written (agents copy the API's /tickets/{key}): 302 to the canonical URL above.
+    foreach (['/tickets/{ref}', '/ticket/{ref}', '/projects/{slug}/ticket/{ref}', '/boards/{slug}/tickets/{ref}', '/board/{slug}/tickets/{ref}'] as $i => $path) {
+        Route::get($path, [TicketController::class, 'redirect'])->where('ref', 'tk-[A-Za-z0-9_-]+|[A-Za-z][A-Za-z0-9]{0,7}-\d+')->name('tickets.redirect.'.$i);
+    }
     Route::patch('/projects/{slug}/tickets/{key}', [TicketController::class, 'update'])->name('projects.tickets.update');
     Route::post('/projects/{slug}/tickets/{key}/move', [TicketController::class, 'move'])->name('projects.tickets.move');
     Route::post('/projects/{slug}/tickets/{key}/comments', [TicketController::class, 'comment'])->name('projects.tickets.comments.store');
